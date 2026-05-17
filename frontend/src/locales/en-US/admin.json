@@ -1,0 +1,87 @@
+{
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "operations": "Operations",
+        "catalog": "Menu & AI",
+        "crm": "Customers",
+        "marketing": "Marketing",
+        "system": "System"
+    },
+    "dashboard": {
+        "title": "System Overview",
+        "overview": "Overview",
+        "analytics": "Analytics",
+        "totalRevenue": "Total Revenue",
+        "totalOrders": "Total Orders",
+        "totalCustomers": "Total Customers",
+        "completionRate": "Completion Rate",
+        "cancellationRate": "Cancellation Rate",
+        "revenueChart": "Revenue Chart",
+        "topItems": "Best Sellers",
+        "peakHours": "Peak Hours"
+    },
+    "operations": {
+        "title": "Operations & Logistics",
+        "orders": "Orders",
+        "dispatch": "Dispatch Center",
+        "shifts": "Work Shifts",
+        "assignDriver": "Assign Driver",
+        "cashReconciliation": "Cash Reconciliation"
+    },
+    "catalog": {
+        "title": "Menu & AI Knowledge",
+        "products": "Products",
+        "categories": "Categories",
+        "ingredients": "Ingredients & Allergens",
+        "addProduct": "Add Product",
+        "editProduct": "Edit Product",
+        "productName": "Product Name",
+        "productPrice": "Price",
+        "productCategory": "Category",
+        "productStatus": "Status",
+        "ingredientName": "Ingredient Name",
+        "allergenTags": "Allergen Tags",
+        "isAvailable": "Available"
+    },
+    "crm": {
+        "title": "Customers & Engagement",
+        "customers": "Customer List",
+        "reviews": "Review Management",
+        "customerDetail": "Customer Detail",
+        "healthProfile": "Health Profile",
+        "orderHistory": "Order History",
+        "replyReview": "Reply to Review"
+    },
+    "marketing": {
+        "title": "Marketing & Growth",
+        "vouchers": "Voucher Campaigns",
+        "posts": "Blog / Posts",
+        "createVoucher": "Create Voucher",
+        "voucherCode": "Voucher Code",
+        "discountType": "Discount Type",
+        "discountPercent": "Percentage (%)",
+        "discountFixed": "Fixed Amount (₫)",
+        "minOrder": "Minimum Order",
+        "maxDiscount": "Maximum Discount",
+        "usageLimit": "Usage Limit",
+        "validFrom": "Valid From",
+        "validTo": "Valid Until"
+    },
+    "systemSettings": {
+        "title": "System & Staff",
+        "staff": "Staff Management",
+        "settings": "System Settings",
+        "addStaff": "Add Staff",
+        "staffName": "Staff Name",
+        "staffRole": "Role",
+        "roles": {
+            "admin": "Administrator",
+            "kitchen": "Kitchen Staff",
+            "cashier": "Cashier",
+            "driver": "In-house Driver"
+        },
+        "openingHours": "Opening Hours",
+        "deliveryFee": "Delivery Fee per km",
+        "storeInfo": "Store Information"
+    }
+}

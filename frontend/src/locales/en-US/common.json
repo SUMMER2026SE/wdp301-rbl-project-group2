@@ -1,0 +1,82 @@
+{
+    "actions": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "add": "Add",
+        "search": "Search",
+        "filter": "Filter",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "submit": "Submit",
+        "close": "Close",
+        "retry": "Retry",
+        "loadMore": "Load more",
+        "viewAll": "View all",
+        "viewDetails": "View details",
+        "apply": "Apply",
+        "reset": "Reset",
+        "copy": "Copy",
+        "print": "Print",
+        "details": "Details"
+    },
+    "status": {
+        "loading": "Loading...",
+        "success": "Success",
+        "error": "Error",
+        "pending": "Pending",
+        "active": "Active",
+        "inactive": "Inactive",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "free": "Free"
+    },
+    "nav": {
+        "home": "Home",
+        "menu": "Menu",
+        "cart": "Cart",
+        "profile": "Account",
+        "orders": "Orders",
+        "vouchers": "Promotions",
+        "about": "About",
+        "settings": "Settings",
+        "notifications": "Notifications"
+    },
+    "validation": {
+        "required": "This field is required",
+        "invalidEmail": "Invalid email address",
+        "minLength": "Minimum {{min}} characters",
+        "maxLength": "Maximum {{max}} characters",
+        "passwordMismatch": "Passwords do not match",
+        "invalidPhone": "Invalid phone number"
+    },
+    "empty": {
+        "title": "No data",
+        "description": "There is nothing to display yet.",
+        "cartEmpty": "Your cart is empty",
+        "orderEmpty": "You have no orders yet",
+        "searchEmpty": "No matching results found"
+    },
+    "error": {
+        "title": "Something went wrong",
+        "description": "Unable to load data. Please try again.",
+        "network": "Network connection error",
+        "unauthorized": "Session expired",
+        "notFound": "Page not found",
+        "serverError": "Server error"
+    },
+    "language": {
+        "vi": "Tiếng Việt",
+        "en": "English"
+    },
+    "pagination": {
+        "page": "Page",
+        "of": "of",
+        "showing": "Showing",
+        "entries": "entries",
+        "previous": "Previous",
+        "next": "Next"
+    }
+}

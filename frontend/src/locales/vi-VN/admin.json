@@ -1,0 +1,88 @@
+{
+    "sidebar": {
+        "dashboard": "Tổng quan",
+        "operations": "Vận hành",
+        "catalog": "Menu & AI",
+        "crm": "Khách hàng",
+        "marketing": "Marketing",
+        "system": "Hệ thống"
+    },
+    "dashboard": {
+        "title": "Tổng quan hệ thống",
+        "overview": "Tổng quan",
+        "analytics": "Phân tích",
+        "totalRevenue": "Tổng doanh thu",
+        "totalOrders": "Tổng đơn hàng",
+        "totalCustomers": "Tổng khách hàng",
+        "newCustomers": "Khách hàng mới",
+        "completionRate": "Tỷ lệ hoàn thành",
+        "cancellationRate": "Tỷ lệ huỷ",
+        "revenueChart": "Biểu đồ doanh thu",
+        "topItems": "Món bán chạy nhất",
+        "peakHours": "Khung giờ đông khách"
+    },
+    "operations": {
+        "title": "Vận hành & Giao nhận",
+        "orders": "Đơn hàng",
+        "dispatch": "Điều phối giao hàng",
+        "shifts": "Ca làm việc",
+        "assignDriver": "Gán tài xế",
+        "cashReconciliation": "Đối soát tiền mặt"
+    },
+    "catalog": {
+        "title": "Menu & Tri thức AI",
+        "products": "Danh sách món ăn",
+        "categories": "Danh mục",
+        "ingredients": "Kho nguyên liệu & Dị ứng",
+        "addProduct": "Thêm món ăn",
+        "editProduct": "Sửa món ăn",
+        "productName": "Tên món",
+        "productPrice": "Giá",
+        "productCategory": "Danh mục",
+        "productStatus": "Trạng thái",
+        "ingredientName": "Tên nguyên liệu",
+        "allergenTags": "Nhãn dị ứng",
+        "isAvailable": "Còn hàng"
+    },
+    "crm": {
+        "title": "Khách hàng & Tương tác",
+        "customers": "Danh sách khách hàng",
+        "reviews": "Quản lý đánh giá",
+        "customerDetail": "Chi tiết khách hàng",
+        "healthProfile": "Hồ sơ sức khoẻ",
+        "orderHistory": "Lịch sử mua hàng",
+        "replyReview": "Phản hồi đánh giá"
+    },
+    "marketing": {
+        "title": "Marketing & Tăng trưởng",
+        "vouchers": "Chiến dịch voucher",
+        "posts": "Bài viết / Blog",
+        "createVoucher": "Tạo voucher mới",
+        "voucherCode": "Mã voucher",
+        "discountType": "Loại giảm giá",
+        "discountPercent": "Phần trăm (%)",
+        "discountFixed": "Số tiền cố định (₫)",
+        "minOrder": "Đơn tối thiểu",
+        "maxDiscount": "Giảm tối đa",
+        "usageLimit": "Giới hạn sử dụng",
+        "validFrom": "Có hiệu lực từ",
+        "validTo": "Hết hạn"
+    },
+    "systemSettings": {
+        "title": "Hệ thống & Nhân sự",
+        "staff": "Quản lý nhân viên",
+        "settings": "Cài đặt hệ thống",
+        "addStaff": "Thêm nhân viên",
+        "staffName": "Tên nhân viên",
+        "staffRole": "Vai trò",
+        "roles": {
+            "admin": "Quản trị viên",
+            "kitchen": "Nhân viên bếp",
+            "cashier": "Thu ngân",
+            "driver": "Tài xế nội bộ"
+        },
+        "openingHours": "Giờ mở/đóng cửa",
+        "deliveryFee": "Phí giao hàng mỗi km",
+        "storeInfo": "Thông tin cửa hàng"
+    }
+}

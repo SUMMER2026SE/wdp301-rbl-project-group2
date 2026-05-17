@@ -1,0 +1,46 @@
+{
+    "sidebar": {
+        "dashboard": "Tổng quan",
+        "orders": "Đơn hàng",
+        "menu": "Quản lý món",
+        "customers": "Khách hàng"
+    },
+    "dashboard": {
+        "title": "Tổng quan ca làm việc",
+        "newOrders": "Đơn mới",
+        "preparing": "Đang nấu",
+        "delivering": "Đang giao",
+        "completed": "Hoàn thành",
+        "todayRevenue": "Doanh thu hôm nay",
+        "todayOrders": "Đơn hôm nay"
+    },
+    "orders": {
+        "title": "Quản lý đơn hàng",
+        "kanban": {
+            "pending": "Chờ xác nhận",
+            "preparing": "Đang nấu",
+            "readyForDelivery": "Chờ giao",
+            "delivered": "Đã giao"
+        },
+        "detail": "Chi tiết đơn hàng",
+        "customer": "Khách hàng",
+        "items": "Món ăn",
+        "topping": "Topping",
+        "note": "Ghi chú",
+        "printBill": "In bill",
+        "confirmOrder": "Xác nhận đơn",
+        "startPreparing": "Bắt đầu nấu",
+        "readyToShip": "Sẵn sàng giao",
+        "markDelivered": "Đánh dấu đã giao"
+    },
+    "menuManagement": {
+        "title": "Quản lý thực đơn",
+        "itemName": "Tên món",
+        "category": "Danh mục",
+        "price": "Giá",
+        "status": "Trạng thái",
+        "available": "Còn hàng",
+        "outOfStock": "Hết hàng",
+        "toggleAvailable": "Bật/Tắt trạng thái"
+    }
+}

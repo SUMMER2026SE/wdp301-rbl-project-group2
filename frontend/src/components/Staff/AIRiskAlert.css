@@ -1,0 +1,298 @@
+/* AI Risk Alert Component Styles */
+
+.ai-risk-alert {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 16px;
+    border: 2px solid;
+    padding: 24px;
+    margin: 16px 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.ai-risk-alert:hover {
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Header */
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.alert-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.ai-icon {
+    width: 24px;
+    height: 24px;
+    color: #ee8c2b;
+    animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: rotate(0deg);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: rotate(180deg);
+    }
+}
+
+.risk-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 24px;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.risk-icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* AI Insights block: Tóm tắt, Suy luận, Đề xuất */
+.insights-block {
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+}
+
+.insight-section {
+    margin-bottom: 18px;
+}
+
+.insight-section:last-child {
+    margin-bottom: 0;
+}
+
+.insight-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #334155;
+    margin: 0 0 10px 0;
+}
+
+.insight-icon {
+    width: 18px;
+    height: 18px;
+    color: #ea580c;
+    flex-shrink: 0;
+}
+
+.insight-summary-text {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #475569;
+    font-weight: 500;
+}
+
+.insight-reasoning-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #64748b;
+}
+
+.suggestions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.suggestion-item {
+    position: relative;
+    padding: 10px 14px 10px 36px;
+    margin-bottom: 8px;
+    background: #fff;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 500;
+    border-left: 4px solid #10b981;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.suggestion-item::before {
+    content: "→";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #10b981;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Sections */
+.alert-section {
+    margin: 16px 0;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 12px 0;
+}
+
+/* Reasons List */
+.reasons-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.reason-item {
+    padding: 8px 12px;
+    background: white;
+    border-left: 4px solid #3b82f6;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #4b5563;
+}
+
+/* Tags Container */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.allergy-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid #f59e0b;
+}
+
+.health-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid #3b82f6;
+}
+
+/* Allergies Section */
+.allergies-section {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-left: 4px solid #f59e0b;
+}
+
+/* Health Section */
+.health-section {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-left: 4px solid #3b82f6;
+}
+
+/* Conflicts Section */
+.conflicts-section {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-left: 4px solid #ef4444;
+}
+
+.conflicts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.conflict-item {
+    padding: 10px 14px;
+    background: white;
+    border-left: 4px solid #ef4444;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #991b1b;
+}
+
+/* Action Section */
+.action-section {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-left: 4px solid #10b981;
+}
+
+.action-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.action-list li {
+    padding: 8px 12px;
+    background: white;
+    margin-bottom: 6px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #065f46;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ai-risk-alert {
+        padding: 16px;
+    }
+
+    .alert-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .risk-badge {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tags-container {
+        flex-direction: column;
+    }
+
+    .allergy-tag,
+    .health-tag {
+        width: 100%;
+        text-align: center;
+    }
+}

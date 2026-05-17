@@ -1,0 +1,46 @@
+{
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "orders": "Orders",
+        "menu": "Menu Management",
+        "customers": "Customers"
+    },
+    "dashboard": {
+        "title": "Shift Overview",
+        "newOrders": "New Orders",
+        "preparing": "Preparing",
+        "delivering": "Delivering",
+        "completed": "Completed",
+        "todayRevenue": "Today's Revenue",
+        "todayOrders": "Today's Orders"
+    },
+    "orders": {
+        "title": "Order Management",
+        "kanban": {
+            "pending": "Pending",
+            "preparing": "Preparing",
+            "readyForDelivery": "Ready for Delivery",
+            "delivered": "Delivered"
+        },
+        "detail": "Order Detail",
+        "customer": "Customer",
+        "items": "Items",
+        "topping": "Topping",
+        "note": "Note",
+        "printBill": "Print Bill",
+        "confirmOrder": "Confirm Order",
+        "startPreparing": "Start Preparing",
+        "readyToShip": "Ready to Ship",
+        "markDelivered": "Mark Delivered"
+    },
+    "menuManagement": {
+        "title": "Menu Management",
+        "itemName": "Item Name",
+        "category": "Category",
+        "price": "Price",
+        "status": "Status",
+        "available": "Available",
+        "outOfStock": "Out of Stock",
+        "toggleAvailable": "Toggle Availability"
+    }
+}

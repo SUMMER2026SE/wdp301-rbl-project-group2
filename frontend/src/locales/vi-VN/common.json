@@ -1,0 +1,82 @@
+{
+    "actions": {
+        "save": "Lưu",
+        "cancel": "Huỷ",
+        "delete": "Xoá",
+        "edit": "Chỉnh sửa",
+        "add": "Thêm",
+        "search": "Tìm kiếm",
+        "filter": "Lọc",
+        "confirm": "Xác nhận",
+        "back": "Quay lại",
+        "next": "Tiếp tục",
+        "submit": "Gửi",
+        "close": "Đóng",
+        "retry": "Thử lại",
+        "loadMore": "Tải thêm",
+        "viewAll": "Xem tất cả",
+        "viewDetails": "Xem chi tiết",
+        "apply": "Áp dụng",
+        "reset": "Đặt lại",
+        "copy": "Sao chép",
+        "print": "In",
+        "details": "Chi tiết"
+    },
+    "status": {
+        "loading": "Đang tải...",
+        "success": "Thành công",
+        "error": "Lỗi",
+        "pending": "Chờ xử lý",
+        "active": "Đang hoạt động",
+        "inactive": "Ngừng hoạt động",
+        "enabled": "Bật",
+        "disabled": "Tắt",
+        "free": "Miễn phí"
+    },
+    "nav": {
+        "home": "Trang chủ",
+        "menu": "Thực đơn",
+        "cart": "Giỏ hàng",
+        "profile": "Tài khoản",
+        "orders": "Đơn hàng",
+        "vouchers": "Khuyến mãi",
+        "about": "Giới thiệu",
+        "settings": "Cài đặt",
+        "notifications": "Thông báo"
+    },
+    "validation": {
+        "required": "Trường này là bắt buộc",
+        "invalidEmail": "Email không hợp lệ",
+        "minLength": "Tối thiểu {{min}} ký tự",
+        "maxLength": "Tối đa {{max}} ký tự",
+        "passwordMismatch": "Mật khẩu không khớp",
+        "invalidPhone": "Số điện thoại không hợp lệ"
+    },
+    "empty": {
+        "title": "Không có dữ liệu",
+        "description": "Chưa có dữ liệu nào để hiển thị.",
+        "cartEmpty": "Giỏ hàng của bạn đang trống",
+        "orderEmpty": "Bạn chưa có đơn hàng nào",
+        "searchEmpty": "Không tìm thấy kết quả phù hợp"
+    },
+    "error": {
+        "title": "Đã xảy ra lỗi",
+        "description": "Không thể tải dữ liệu. Vui lòng thử lại.",
+        "network": "Lỗi kết nối mạng",
+        "unauthorized": "Phiên đăng nhập hết hạn",
+        "notFound": "Trang không tìm thấy",
+        "serverError": "Lỗi máy chủ"
+    },
+    "language": {
+        "vi": "Tiếng Việt",
+        "en": "English"
+    },
+    "pagination": {
+        "page": "Trang",
+        "of": "trên",
+        "showing": "Hiển thị",
+        "entries": "mục",
+        "previous": "Trước",
+        "next": "Sau"
+    }
+}
