@@ -24,10 +24,11 @@ jobs:
             frontend/pnpm-lock.yaml
             backend/pnpm-lock.yaml
 
-      # - name: Install & Check Lint
-      #   run: |
-      #     cd frontend && pnpm install && pnpm run lint
-      #     cd ../backend && pnpm install && pnpm run lint
+      #  set up run lint sau
+      - name: Install dependencies 
+        run: |
+          cd frontend && pnpm install
+          cd ../backend && pnpm install
 
       # --- BƯỚC 2: BUILD & PUSH LÊN DOCKER HUB ---
       - name: Login to Docker Hub
