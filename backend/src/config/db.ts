@@ -3,7 +3,9 @@ import { MONGODB_URI } from '../constants/env';
 
 const connectToDatabase = async () => {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, {
+      autoIndex: true
+    });
     console.log('Connected to database');
   } catch (error) {
     console.log('Could not connect to database');

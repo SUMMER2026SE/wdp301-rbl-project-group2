@@ -1,0 +1,46 @@
+# Dependency directories
+**/node_modules
+**/bower_components
+
+# Build outputs
+**/dist
+**/build
+**/.next
+**/*.tsbuildinfo
+
+# Debug logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/*.log
+
+# Environment variables and secrets
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/*.pem
+**/*.key
+**/.npmrc
+
+# Version control and IDE files
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS-specific files
+**/.DS_Store
+**/Thumbs.db
+
+# Docker configuration files
+docker-compose*.yml
+**/Dockerfile*
