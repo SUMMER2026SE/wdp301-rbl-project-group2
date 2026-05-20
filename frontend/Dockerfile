@@ -1,7 +1,7 @@
 # --- Stage 1: Build (Biên dịch mã nguồn) ---
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@8 --activate
 COPY package*.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
@@ -10,7 +10,7 @@ RUN pnpm run build
 # --- Stage 2: Run (Chạy bản build tĩnh) ---
 FROM node:20-alpine
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@8 --activate
 
 # Cài đặt server 'serve' bằng pnpm để đồng nhất
 RUN pnpm add -g serve
