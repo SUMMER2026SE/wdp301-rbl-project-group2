@@ -10,10 +10,9 @@ RUN pnpm run build
 # --- Stage 2: Run (Chạy bản build tĩnh) ---
 FROM node:20-alpine
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@8 --activate
 
-# Cài đặt server 'serve' bằng pnpm để đồng nhất
-RUN pnpm add -g serve
+# Cài đặt server 'serve' bằng npm để có sẵn PATH global
+RUN npm install -g serve
 
 COPY --from=builder /app/dist ./dist
 
