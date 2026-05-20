@@ -1,6 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.4",
   "description": "BE_LMS - MERN + TS Backend",
   "main": "src/index.ts",
   "scripts": {
