@@ -4,6 +4,7 @@ import fileRoutes from './file.route';
 import userRoutes from './user.route';
 import { uploadImage } from '@/config/multer';
 import { uploadBuffer } from '@/utils/uploadFile';
+import reviewRoutes from './review.route';
 
 const appRoutes = Router();
 
@@ -14,6 +15,9 @@ appRoutes.get('/health', (req, res) => {
 appRoutes.use('/auth', authRoutes);
 appRoutes.use('/files', fileRoutes);
 appRoutes.use('/users', userRoutes);
+
+appRoutes.use('/reviews', reviewRoutes);
+
 
 appRoutes.post('/upload', uploadImage.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Thiếu ảnh' });
