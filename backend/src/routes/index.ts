@@ -6,6 +6,7 @@ import { uploadImage } from '@/config/multer';
 import { uploadBuffer } from '@/utils/uploadFile';
 import reviewRoutes from './review.route';
 import settingsRoute from './settings.route';
+import supportChatRoutes from './support-chat.route';
 
 const appRoutes = Router();
 
@@ -19,6 +20,8 @@ appRoutes.use('/users', userRoutes);
 
 appRoutes.use('/reviews', reviewRoutes);
 appRoutes.use('/settings', settingsRoute);
+appRoutes.use('/support', supportChatRoutes);
+
 
 
 
