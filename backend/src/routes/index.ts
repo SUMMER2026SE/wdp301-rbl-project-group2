@@ -5,6 +5,7 @@ import userRoutes from './user.route';
 import { uploadImage } from '@/config/multer';
 import { uploadBuffer } from '@/utils/uploadFile';
 import reviewRoutes from './review.route';
+import settingsRoute from './settings.route';
 
 const appRoutes = Router();
 
@@ -17,6 +18,8 @@ appRoutes.use('/files', fileRoutes);
 appRoutes.use('/users', userRoutes);
 
 appRoutes.use('/reviews', reviewRoutes);
+appRoutes.use('/settings', settingsRoute);
+
 
 
 appRoutes.post('/upload', uploadImage.single('file'), async (req, res) => {
