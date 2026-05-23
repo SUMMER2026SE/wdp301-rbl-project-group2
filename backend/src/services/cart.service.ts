@@ -2,6 +2,7 @@ import CartModel from '@/models/cart.model';
 import ProductModel from '@/models/product.model';
 import mongoose from 'mongoose';
 import { AddToCartInput } from '@/validators/cart.validator';
+import { ICartItem } from '@/types/cart.type';
 
 type InputVariation = { name: string; choice: string };
 type CartVariation = { name: string; choice: string; extra_price: number };
@@ -80,7 +81,7 @@ export const getCart = async (userId: mongoose.Types.ObjectId) => {
       select: 'name image price isAvailable variants',
     });
     
-  return cart || { user_id: userId, items: [] };
+  return cart || { user_id: userId, items: [] as ICartItem[] };
 };
 
 export const clearCart = async (userId: mongoose.Types.ObjectId) => {

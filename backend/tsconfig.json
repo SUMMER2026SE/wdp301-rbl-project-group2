@@ -13,8 +13,12 @@
     "skipLibCheck": true,
     "noEmitOnError": false,
     "resolveJsonModule": true,
-    "strict": false
+    "strict": false,
+    "noImplicitAny": true
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "global.d.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "ts-node": {
+    "files": true
+  }
 }
