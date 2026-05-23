@@ -18,4 +18,4 @@ COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 USER node
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["sh", "./entrypoint.sh"]

@@ -5,6 +5,8 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 COPY package*.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
+ARG VITE_BASE_API=/api
+ENV VITE_BASE_API=$VITE_BASE_API
 RUN pnpm run build
 
 # --- Stage 2: Run (Chạy bản build tĩnh) ---
