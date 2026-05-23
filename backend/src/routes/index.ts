@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authRoutes from './auth.route';
+import adminRoutes from './admin.route';
 import fileRoutes from './file.route';
 import userRoutes from './user.route';
 import { uploadImage } from '@/config/multer';
@@ -15,15 +16,13 @@ appRoutes.get('/health', (req, res) => {
 });
 
 appRoutes.use('/auth', authRoutes);
+appRoutes.use('/admin', adminRoutes);
 appRoutes.use('/files', fileRoutes);
 appRoutes.use('/users', userRoutes);
 
 appRoutes.use('/reviews', reviewRoutes);
 appRoutes.use('/settings', settingsRoute);
 appRoutes.use('/support', supportChatRoutes);
-
-
-
 
 appRoutes.post('/upload', uploadImage.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Thiếu ảnh' });
