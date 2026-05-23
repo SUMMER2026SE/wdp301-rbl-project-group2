@@ -3,8 +3,6 @@ import authRoutes from './auth.route';
 import adminRoutes from './admin.route';
 import fileRoutes from './file.route';
 import userRoutes from './user.route';
-import cartRouter from './cart.route';
-import chatRoutes from './chat.route';
 import { uploadImage } from '@/config/multer';
 import { uploadBuffer } from '@/utils/uploadFile';
 import reviewRoutes from './review.route';
@@ -22,8 +20,6 @@ appRoutes.use('/admin', adminRoutes);
 appRoutes.use('/files', fileRoutes);
 appRoutes.use('/users', userRoutes);
 
-appRoutes.use('/cart', cartRouter);
-appRoutes.use('/chat', chatRoutes);
 appRoutes.use('/reviews', reviewRoutes);
 appRoutes.use('/settings', settingsRoute);
 appRoutes.use('/support', supportChatRoutes);
