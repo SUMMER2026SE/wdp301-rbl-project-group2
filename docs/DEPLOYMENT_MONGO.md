@@ -545,7 +545,7 @@ Các biến môi trường chỉ được Docker nạp **duy nhất một lần 
 - **Cho cụm Dev:**
   ```bash
   # Sử dụng cờ -f để chỉ định file cấu hình Dev và --force-recreate để ép nạp biến mới
-  docker compose -f docker-compose.dev.yml up -d --force-recreate be-dev
+  docker-compose -f docker-compose.dev.yml up -d --force-recreate be-dev
   ```
 - **Cho cụm Production:**
   ```bash

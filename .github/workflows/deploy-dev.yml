@@ -54,7 +54,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "docker-compose.dev.yml"
-          target: "/home/anngon/anngon-website"
+          target: "/home/anngon/anngon-dev"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
@@ -63,7 +63,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /home/anngon/anngon-website
+            cd /home/anngon/anngon-dev
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             docker-compose -f docker-compose.dev.yml pull
             docker-compose -f docker-compose.dev.yml down
