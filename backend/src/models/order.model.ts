@@ -1,39 +1,39 @@
-import { ICancellation, IDeliveryAddress, IOrderItem, IOrderItemVariation, OrderStatus, PaymentMethod } from '@/types/order.type';
-import { IOrder } from '@/types';
+import { IOrder, IOrderItemDoc, IOrderItemVariationDoc, OrderStatus, PaymentMethod, DiscountType } from '@/types';
 import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
 
-const OrderItemVariationSchema = new mongoose.Schema<IOrderItemVariation>(
+const OrderItemVariationSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    choice: { type: String, required: true },
-    extra_price: { type: Number, required: true, default: 0, min: 0 },
+    name: { type: String, required: true, trim: true },
+    choice: { type: String, required: true, trim: true },
+    extraPrice: { type: Number, default: 0 },
   },
   {
     _id: false,
   }
 );
 
-const OrderItemSchema = new mongoose.Schema<IOrderItem>(
+const OrderItemSchema = new mongoose.Schema(
   {
-    product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-    quantity: { type: Number, required: true },
-    variations: [{ type: OrderItemVariationSchema, required: true }],
-    sub_total: { type: Number, validators: { min: [0, 'Sub total must be a positive number'] } },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, required: true, trim: true },
+    subTotal: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
+    variations: { type: [OrderItemVariationSchema], default: [] },
   },
   {
     _id: false,
   }
 );
 
-const DeliveryAddressSchema = new mongoose.Schema<IDeliveryAddress>(
+const DeliveryAddressSchema = new mongoose.Schema(
   {
-    label: { type: String },
-    receiver_name: { type: String },
-    phone: { type: String },
-    detail: { type: String },
-    district: { type: String },
-    city: { type: String },
+    receiverName: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    detail: { type: String, required: true, trim: true },
+    ward: { type: String, required: true, trim: true },
+    district: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
   },
   {
     _id: false,
@@ -42,57 +42,67 @@ const DeliveryAddressSchema = new mongoose.Schema<IDeliveryAddress>(
 
 const DeliveryInfoSchema = new mongoose.Schema(
   {
-    provider_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    driver_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    shipped_at: { type: Date },
-    delivered_at: { type: Date },
+    provider: { type: String, default: null, trim: true },
+    driverName: { type: String, default: null, trim: true },
+    driverPhone: { type: String, default: null, trim: true },
+    providerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
+    driverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    shippedAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
   },
   {
     _id: false,
   }
 );
 
-const CancellationSchema = new mongoose.Schema<ICancellation>(
+const CancellationSchema = new mongoose.Schema(
   {
     reason: { type: String, required: true },
-    cancelled_by: { type: String, enum: ['staff', 'customer'], required: true },
-    refund_required: { type: Boolean, default: false },
-    refunded_at: { type: Date, default: null },
+    cancelledBy: { type: String, enum: ['staff', 'customer'], required: true },
+    refundRequired: { type: Boolean, default: false },
+    refundedAt: { type: Date, default: null },
   },
   { _id: false }
 );
 
 const OrderSchema = new mongoose.Schema<IOrder>(
   {
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
     code: { type: String, required: true, unique: true },
+    staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    cusId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: {
       type: String,
       enum: OrderStatus,
       default: OrderStatus.PENDING,
     },
-    items: [{ type: OrderItemSchema, required: true }],
-    voucher: { type: mongoose.Schema.Types.ObjectId, ref: 'Voucher' },
-    sub_total: { type: Number, validators: { min: [0, 'Sub total must be a positive number'] } },
-    shipping_fee: { type: Number, default: 0, min: 0 },
-    total_price: { type: Number, validators: { min: [0, 'Total price must be a positive number'] } },
-    note: {
-      type: String,
-      maxlength: 500,
-    },
-    staff_note_items: {
-      type: [String],
-      default: [],
-    },
+    items: { type: [OrderItemSchema], required: true },
+    
+    voucherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Voucher', default: null },
+    voucherCode: { type: String, default: null },
+    discountType: { type: String, enum: DiscountType, default: null },
+    discountValue: { type: Number, default: null },
+    discountAmount: { type: Number, default: 0 },
+
+    shippingFee: { type: Number, default: 0 },
+    subTotal: { type: Number, required: true },
+    totalPrice: { type: Number, required: true },
+
+    paymentMethod: { type: String, required: true, enum: PaymentMethod },
+    paid: { type: Boolean, default: false },
+
+    deliveryAddress: { type: DeliveryAddressSchema, required: true },
+    deliveryInfo: { type: DeliveryInfoSchema, default: () => ({}) },
+    
+    note: { type: String },
+    staffNoteItems: { type: [String], default: [] },
     payment: {
-      method: { type: String, required: true, enum: PaymentMethod, default: PaymentMethod.CASH_ON_DELIVERY },
-      paid_at: { type: Date },
-      payos_order_code: { type: Number, unique: true, sparse: true },
-      cash_collected_at: { type: Date, default: null },
-      cash_collected_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      method: { type: String, enum: PaymentMethod, required: true },
+      paidAt: { type: Date, default: null },
+      payosOrderCode: { type: Number, unique: true, sparse: true },
+      cashCollectedAt: { type: Date, default: null },
+      cashCollectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     },
-    delivery_address: { type: DeliveryAddressSchema, required: true },
-    delivery_info: { type: DeliveryInfoSchema, required: true },
     cancellation: { type: CancellationSchema, default: null },
   },
   {
@@ -100,16 +110,18 @@ const OrderSchema = new mongoose.Schema<IOrder>(
   }
 );
 
-//indexes
-OrderSchema.index({ user_id: 1 });
+// Indexes
+OrderSchema.index({ code: 1 }, { unique: true });
+OrderSchema.index({ storeId: 1 });
+OrderSchema.index({ cusId: 1 });
 OrderSchema.index({ status: 1 });
-OrderSchema.index({ 'payment.method': 1 });
-OrderSchema.index({ 'delivery_info.shipped_at': 1 });
-OrderSchema.index({ 'delivery_info.delivered_at': 1 });
+OrderSchema.index({ createdAt: -1 });
 
-//hooks
+// Compound Indexes
+OrderSchema.index({ storeId: 1, status: 1 });
+
+// Hooks
 OrderSchema.pre('validate', function (next) {
-  // Only generate code once — on creation
   if (this.isNew && !this.code) {
     this.code = `ORD-${randomUUID().split('-')[0].toUpperCase()}`;
   }
@@ -117,5 +129,39 @@ OrderSchema.pre('validate', function (next) {
 });
 
 const OrderModel = mongoose.model<IOrder>('Order', OrderSchema, 'orders');
+
+// --- ORDER ITEMS (Separate collection mapping) ---
+const OrderItemDocSchema = new mongoose.Schema<IOrderItemDoc>(
+  {
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, required: true, trim: true },
+    subTotal: { type: Number, required: true },
+    quantity: { type: Number, required: true },
+  },
+  {
+    timestamps: { createdAt: true, updatedAt: false },
+  }
+);
+
+OrderItemDocSchema.index({ orderId: 1 });
+
+export const OrderItemModel = mongoose.model<IOrderItemDoc>('OrderItem', OrderItemDocSchema, 'order_items');
+
+// --- ORDER ITEM VARIATIONS (Separate collection mapping) ---
+const OrderItemVariationDocSchema = new mongoose.Schema<IOrderItemVariationDoc>(
+  {
+    orderItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrderItem', required: true },
+    name: { type: String, required: true, trim: true },
+    choice: { type: String, required: true, trim: true },
+  },
+  {
+    _id: true,
+  }
+);
+
+OrderItemVariationDocSchema.index({ orderItemId: 1 });
+
+export const OrderItemVariationModel = mongoose.model<IOrderItemVariationDoc>('OrderItemVariation', OrderItemVariationDocSchema, 'order_item_variations');
 
 export default OrderModel;

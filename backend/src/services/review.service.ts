@@ -1,29 +1,27 @@
 import ReviewModel from '@/models/review.model';
 import ProductModel from '@/models/product.model';
 import OrderModel from '@/models/order.model';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import { IReview } from '@/types';
 import mongoose from 'mongoose';
 
 export const createOrderReviews = async (userId: string, orderId: string, reviews: any[]) => {
-  // 1. Verify order exists, belongs to user, and is completed
-  const order = await OrderModel.findOne({ _id: orderId, user_id: userId });
+  const order = await OrderModel.findOne({ _id: orderId, cusId: userId });
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
-  // appAssert(order.status === 'completed', BAD_REQUEST, 'Đơn hàng chưa hoàn thành để đánh giá');
 
   const reviewDocs = [];
 
   for (const reviewData of reviews) {
-    const { product_id, rating, comment, images, isAnonymous } = reviewData;
+    const { productId, rating, comment, images, isAnonymous } = reviewData;
 
     // Verify product is in the order
-    const itemInOrder = order.items.find(item => item.product_id.toString() === product_id);
-    appAssert(itemInOrder, BAD_REQUEST, `Sản phẩm ${product_id} không có trong đơn hàng này`);
+    const itemInOrder = order.items.find((item: any) => item.productId.toString() === productId);
+    appAssert(itemInOrder, BAD_REQUEST, `Sản phẩm ${productId} không có trong đơn hàng này`);
 
     // Create or update review (Upsert)
     const review = await ReviewModel.findOneAndUpdate(
-      { user_id: userId, order_id: orderId, product_id },
+      { userId, orderId, productId },
       { 
         rating, 
         comment, 
@@ -35,14 +33,14 @@ export const createOrderReviews = async (userId: string, orderId: string, review
     reviewDocs.push(review);
 
     // Update product rating and review count
-    await updateProductOverallRating(product_id);
+    await updateProductOverallRating(productId);
   }
 
   return reviewDocs;
 };
 
 export const getOrderReviews = async (orderId: string, userId: string) => {
-  return ReviewModel.find({ order_id: orderId, user_id: userId })
+  return ReviewModel.find({ orderId, userId })
     .populate('images')
     .lean();
 };
@@ -50,14 +48,14 @@ export const getOrderReviews = async (orderId: string, userId: string) => {
 export const getProductReviews = async (productId: string, page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
   const [reviews, total] = await Promise.all([
-    ReviewModel.find({ product_id: productId })
+    ReviewModel.find({ productId })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('user_id', 'username email avatar')
+      .populate('userId', 'username avatar')
       .populate('images')
       .lean(),
-    ReviewModel.countDocuments({ product_id: productId }),
+    ReviewModel.countDocuments({ productId }),
   ]);
 
   return {
@@ -73,10 +71,10 @@ export const getProductReviews = async (productId: string, page = 1, limit = 10)
 
 const updateProductOverallRating = async (productId: string) => {
   const result = await ReviewModel.aggregate([
-    { $match: { product_id: new mongoose.Types.ObjectId(productId) } },
+    { $match: { productId: new mongoose.Types.ObjectId(productId) } },
     {
       $group: {
-        _id: '$product_id',
+        _id: '$productId',
         averageRating: { $avg: '$rating' },
         reviewCount: { $sum: 1 }
       }

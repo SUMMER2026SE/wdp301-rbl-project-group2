@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import { IApiResponse } from '../types/dto/apiResponse.type';
-import AppErrorCode from '@/constants/appErrorCode';
+import { IApiResponse } from '../types/dto/api-response.type';
+import AppErrorCode from '@/constants/app-error-code';
 
 const customResponse = (req: Request, res: Response, next: NextFunction) => {
   res.success = function <T>(

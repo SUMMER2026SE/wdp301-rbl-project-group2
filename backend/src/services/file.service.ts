@@ -1,8 +1,8 @@
 import { FileModel } from '@/models';
 import { FileOwnerType, ResourceType } from '@/types/file.type';
-import { uploadBuffer, deleteFile } from '@/utils/uploadFile';
+import { uploadBuffer, deleteFile } from '@/utils/upload-file';
 import { NOT_FOUND, BAD_REQUEST } from '@/constants/http';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import mongoose from 'mongoose';
 interface UploadFileParams {
   file: Express.Multer.File;

@@ -1,4 +1,4 @@
-import { filterSafeProducts } from '@/utils/healthFilter';
+import { filterSafeProducts } from '@/utils/health-filter';
 
 export type AiRecommendationRow = { productId: string; reason: string; healthScore: number };
 
@@ -36,7 +36,7 @@ export function sanitizeAiRecommendations(
   recommendations: unknown,
   ctx: {
     allowedIds: Set<string>;
-    preferences: { dietary: string[]; allergies: string[]; health_goals: string[] };
+    preferences: { dietary: string[]; allergies: string[]; healthGoals: string[] };
     fetchedProducts: any[];
     maxCount?: number;
   }

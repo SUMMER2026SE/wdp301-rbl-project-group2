@@ -72,13 +72,13 @@ io.on('connection', (socket) => {
     const accessToken = authToken || bearerToken || parsed.accessToken || '';
     const { payload } = verifyToken(accessToken);
     if (payload) {
-      socket.data.userId = payload.user_id;
+      socket.data.userId = payload.userId;
       socket.data.role = payload.role;
-      console.debug(`[Socket] Connected: userId=${payload.user_id} role=${payload.role} socketId=${socket.id}`);
+      console.debug(`[Socket] Connected: userId=${payload.userId} role=${payload.role} socketId=${socket.id}`);
 
       // Join user specific room for targeted notifications
-      socket.join(`user:${payload.user_id}`);
-      console.debug(`[Socket] Joined room: user:${payload.user_id}`);
+      socket.join(`user:${payload.userId}`);
+      console.debug(`[Socket] Joined room: user:${payload.userId}`);
     } else {
       console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
     }
@@ -105,7 +105,7 @@ io.on('connection', (socket) => {
       }
 
       const isOwner = conv.user_id.toString() === userId;
-      const isStaff = role === 'STAFF' || role === 'ADMIN';
+      const isStaff = role === 'staff' || role === 'admin';
       if (!isOwner && !isStaff) {
         console.debug(`[Socket] join rejected: not authorized userId=${userId} isOwner=${isOwner} isStaff=${isStaff}`);
         cb?.(false);

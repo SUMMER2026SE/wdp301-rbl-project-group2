@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import { SupportConversationModel, SupportMessageModel } from '@/models';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { getOrderById } from './order.service';
 
 export const createOrGetConversation = async (userId: mongoose.Types.ObjectId, orderIdOrCode?: string) => {

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import NotificationModel from '@/models/notification.model';
-import { NotificationType } from '@/types/notification.type';
+import { NotificationType } from '@/types';
 
 const getOrderNotificationContent = (status: string, orderCode: string) => {
     switch (status) {
@@ -9,10 +9,11 @@ const getOrderNotificationContent = (status: string, orderCode: string) => {
                 title: 'Đơn hàng đã được xác nhận',
                 body: `Đơn hàng #${orderCode} của bạn đang được bếp chuẩn bị.`,
             };
+        case 'delivering':
         case 'shipping':
             return {
                 title: 'Đơn hàng đang được giao',
-                body: `Đơn hàng #${orderCode} đang được giao đến bạn. Vui lòng để chú ý điện thoại`,
+                body: `Đơn hàng #${orderCode} đang được giao đến bạn. Vui lòng chú ý điện thoại.`,
             };
         case 'completed':
             return {
@@ -33,21 +34,21 @@ const getOrderNotificationContent = (status: string, orderCode: string) => {
 };
 
 export const createOrderStatusNotification = async ({
-    user_id,
+    userId,
     orderCode,
     status,
 }: {
-    user_id: mongoose.Types.ObjectId;
+    userId: mongoose.Types.ObjectId;
     orderCode: string;
     status: string;
 }) => {
     const content = getOrderNotificationContent(status, orderCode);
 
     return NotificationModel.create({
-        user_id,
+        userId,
         title: content.title,
         body: content.body,
-        type: NotificationType.ORDER_STATUS_UPDATED,
+        type: NotificationType.ORDER,
         isRead: false,
     });
 };

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { CREATED, OK } from '@/constants/http';
 import {
     createProduct,

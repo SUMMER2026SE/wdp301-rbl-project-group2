@@ -10,9 +10,9 @@ import {
     useVoucher,
 } from '@/services/voucher.service';
 import { VoucherCategory } from '@/types/voucher.type';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { CREATED, OK } from '@/constants/http';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST } from '@/constants/http';
 
 // GET /api/vouchers

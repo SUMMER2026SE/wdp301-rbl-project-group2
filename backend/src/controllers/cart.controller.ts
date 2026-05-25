@@ -1,5 +1,5 @@
 import { OK } from '@/constants/http';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { addToCart, getCart, mergeCart, clearCart, updateItemQuantity, removeItem } from '@/services/cart.service';
 import { addToCartValidator } from '@/validators/cart.validator';
 

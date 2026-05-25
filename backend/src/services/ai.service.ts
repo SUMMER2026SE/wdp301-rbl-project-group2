@@ -36,7 +36,7 @@ interface ProductForAI {
 interface Preferences {
   dietary: string[];
   allergies: string[];
-  health_goals: string[];
+  healthGoals: string[];
 }
 
 export interface AIRecommendation {
@@ -104,7 +104,7 @@ QUAN TRỌNG: Đa dạng giữa các lần gọi; không luôn chọn cùng mộ
 HỒ SƠ SỨC KHỎE NGƯỜI DÙNG:
 - Dị ứng: ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'Không có'}
 - Chế độ ăn kiêng (Dietary): ${preferences.dietary.length > 0 ? preferences.dietary.join(', ') : 'Không có'}
-- Mục tiêu sức khỏe: ${preferences.health_goals.length > 0 ? preferences.health_goals.join(', ') : 'Không có'}
+- Mục tiêu sức khỏe: ${preferences.healthGoals.length > 0 ? preferences.healthGoals.join(', ') : 'Không có'}
 ${collaborativeSection}
 DANH SÁCH MÓN ĂN:
 ${JSON.stringify(productList, null, 2)}
@@ -267,7 +267,7 @@ export const getAISafeFoodInsights = async (
 HỒ SƠ SỨC KHỎE:
 - Dị ứng: ${preferences.allergies.join(', ')}
 - Ăn kiêng: ${preferences.dietary.join(', ')}
-- Mục tiêu: ${preferences.health_goals.join(', ')}
+- Mục tiêu: ${preferences.healthGoals.join(', ')}
 
 DANH SÁCH:
 ${JSON.stringify(productList, null, 2)}
@@ -342,7 +342,7 @@ export const getAIResponseForChat = async (
             - Tên: ${fullName}
             - Dị ứng: ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'Không có'}
             - Chế độ ăn kiêng: ${preferences.dietary.length > 0 ? preferences.dietary.join(', ') : 'Không có'}
-            - Mục tiêu sức khỏe: ${preferences.health_goals.length > 0 ? preferences.health_goals.join(', ') : 'Không có'}
+            - Mục tiêu sức khỏe: ${preferences.healthGoals.length > 0 ? preferences.healthGoals.join(', ') : 'Không có'}
             
             DANH SÁCH MÓN ĂN AN TOÀN GỢI Ý (Bạn hãy ưu tiên nhắc đến những món này):
             ${safeProducts.map(p => `- ${p.name}: ${p.description}`).join('\n')}

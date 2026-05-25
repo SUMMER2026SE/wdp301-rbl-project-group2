@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import { OK } from '@/constants/http';
 import { PointTransactionModel, UserModel } from '@/models';
 import * as membershipService from '@/services/membership.service';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { NOT_FOUND, BAD_REQUEST } from '@/constants/http';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 
 /**
  * Get current user's point transactions

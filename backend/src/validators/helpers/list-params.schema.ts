@@ -1,5 +1,5 @@
 import z from 'zod';
-import ListParams from '@/types/dto/listParams.dto';
+import ListParams from '@/types/dto/list-params.dto';
 
 export const listParamsSchema = z.object({
   page: z

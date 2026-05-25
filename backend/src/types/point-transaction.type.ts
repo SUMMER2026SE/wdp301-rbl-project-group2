@@ -7,12 +7,12 @@ export enum PointTransactionType {
     BONUS = 'bonus',
 }
 
-export interface IPointTransaction extends mongoose.Document {
-    user_id: mongoose.Types.ObjectId;
+export interface IPointTransaction extends mongoose.Document<mongoose.Types.ObjectId> {
+    userId: mongoose.Types.ObjectId;
     amount: number;
     type: PointTransactionType;
     description: string;
-    order_id?: mongoose.Types.ObjectId;
+    orderId?: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }

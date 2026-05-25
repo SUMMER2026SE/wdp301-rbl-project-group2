@@ -1,6 +1,6 @@
 import ProductModel from '@/models/product.model';
 import { IProduct } from '@/types';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
 
 interface ProductFilters {

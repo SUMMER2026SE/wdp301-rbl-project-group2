@@ -1,5 +1,5 @@
 import { SettingsModel } from '@/models';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { updateSettingsValidator } from '@/validators/settings.validator';
 import { OK } from '@/constants/http';
 

@@ -1,6 +1,6 @@
 import { FORBIDDEN } from "@/constants/http";
 import { Role } from "@/types/user.type";
-import appAssert from "@/utils/appAssert";
+import appAssert from "@/utils/app-assert";
 import { Request, RequestHandler, NextFunction, Response } from "express";
 
 const authorize =

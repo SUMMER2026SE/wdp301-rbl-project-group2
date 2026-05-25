@@ -5,12 +5,12 @@ import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 type TObjectIdLike = string | mongoose.Types.ObjectId;
 
 type TAuditLogPayload = {
-  actor_user_id: TObjectIdLike;
-  entity_type: AuditEntityType;
+  userId: TObjectIdLike;
+  entityType: AuditEntityType;
   action: AuditLogAction;
-  old_data?: Record<string, any> | null;
-  new_data?: Record<string, any> | null;
-  created_at?: Date; 
+  oldData?: Record<string, any> | null;
+  newData?: Record<string, any> | null;
+  createdAt?: Date; 
 };
 
 const toObjectId = (id: TObjectIdLike) =>
@@ -21,12 +21,12 @@ export const createAuditLog = async (
   opts?: { session?: ClientSession }
 ) => {
   const doc = {
-    user_id: toObjectId(payload.actor_user_id),
-    entity_type: payload.entity_type,
+    userId: toObjectId(payload.userId),
+    entityType: payload.entityType,
     action: payload.action,
-    old_data: payload.old_data ?? null,
-    new_data: payload.new_data ?? null,
-    created_at: payload.created_at ?? new Date(), 
+    oldData: payload.oldData ?? null,
+    newData: payload.newData ?? null,
+    createdAt: payload.createdAt ?? new Date(), 
   };
 
   const [created] = await AuditLogModel.create([doc], {
@@ -37,71 +37,71 @@ export const createAuditLog = async (
 };
 
 export const auditUserCreated = async (
-  actor_user_id: TObjectIdLike,
+  userId: TObjectIdLike,
   newUserData: Record<string, any>,
   opts?: { session?: ClientSession }
 ) => {
   return createAuditLog(
     {
-      actor_user_id,
-      entity_type: AuditEntityType.USER,
+      userId,
+      entityType: AuditEntityType.USER,
       action: AuditLogAction.CREATE,
-      old_data: null,
-      new_data: newUserData,
+      oldData: null,
+      newData: newUserData,
     },
     opts
   );
 };
 
 export const auditUserUpdated = async (
-  actor_user_id: TObjectIdLike,
+  userId: TObjectIdLike,
   oldUserData: Record<string, any> | null,
   newUserData: Record<string, any> | null,
   opts?: { session?: ClientSession }
 ) => {
   return createAuditLog(
     {
-      actor_user_id,
-      entity_type: AuditEntityType.USER,
+      userId,
+      entityType: AuditEntityType.USER,
       action: AuditLogAction.UPDATE,
-      old_data: oldUserData ?? null,
-      new_data: newUserData ?? null,
+      oldData: oldUserData ?? null,
+      newData: newUserData ?? null,
     },
     opts
   );
 };
 
 export const auditUserDisabled = async (
-  actor_user_id: TObjectIdLike,
+  userId: TObjectIdLike,
   oldUserData: Record<string, any> | null,
   newUserData: Record<string, any> | null,
   opts?: { session?: ClientSession }
 ) => {
   return createAuditLog(
     {
-      actor_user_id,
-      entity_type: AuditEntityType.USER,
+      userId,
+      entityType: AuditEntityType.USER,
       action: AuditLogAction.DISABLE,
-      old_data: oldUserData ?? null,
-      new_data: newUserData ?? null,
+      oldData: oldUserData ?? null,
+      newData: newUserData ?? null,
     },
     opts
   );
 };
 
 export const auditUserEnabled = async (
-  actor_user_id: TObjectIdLike,
+  userId: TObjectIdLike,
   oldUserData: Record<string, any> | null,
   newUserData: Record<string, any> | null,
   opts?: { session?: ClientSession }
 ) => {
   return createAuditLog(
     {
-      actor_user_id,
-      entity_type: AuditEntityType.USER,
+      userId,
+      entityType: AuditEntityType.USER,
       action: AuditLogAction.ENABLE,
-      old_data: oldUserData ?? null,
-      new_data: newUserData ?? null,
+      oldData: oldUserData ?? null,
+      newData: newUserData ?? null,
     },
     opts
   );
