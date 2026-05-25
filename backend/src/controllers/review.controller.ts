@@ -1,6 +1,6 @@
 import { CREATED, OK } from '@/constants/http';
 import { createOrderReviews, getProductReviews, getOrderReviews } from '@/services/review.service';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 
 export const getOrderReviewsHandler = catchErrors(async (req, res) => {
   const { orderId } = req.params;

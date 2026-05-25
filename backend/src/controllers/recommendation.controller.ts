@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
-import { filterSafeProducts } from '@/utils/healthFilter';
-import { catchErrors } from '@/utils/asyncHandler';
+import { filterSafeProducts } from '@/utils/health-filter';
+import { catchErrors } from '@/utils/async-handler';
 import { OK } from '@/constants/http';
-import UserModel from '@/models/users.model';
+import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
 import FileModel from '@/models/file.model';
 import OrderModel from '@/models/order.model';
-import { sanitizeAiRecommendations } from '@/utils/recommendationAi.util';
-import appAssert from '@/utils/appAssert';
+import { sanitizeAiRecommendations } from '@/utils/recommendation-ai.util';
+import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
 import { OrderStatus } from '@/types/order.type';
 import { getAIRecommendations } from '@/services/ai.service';
@@ -18,7 +18,7 @@ import { getAIRecommendations } from '@/services/ai.service';
  */
 async function getSimilarUsersTopProducts(
     currentUserId: string,
-    preferences: { dietary: string[]; allergies: string[]; health_goals: string[] }
+    preferences: { dietary: string[]; allergies: string[]; healthGoals: string[] }
 ): Promise<string[]> {
 
     // 1. Tìm users có ít nhất 1 điểm chung trong preferences
@@ -31,8 +31,8 @@ async function getSimilarUsersTopProducts(
     if (preferences.dietary.length > 0) {
         orConditions.push({ 'preferences.dietary': { $in: preferences.dietary } });
     }
-    if (preferences.health_goals.length > 0) {
-        orConditions.push({ 'preferences.health_goals': { $in: preferences.health_goals } });
+    if (preferences.healthGoals.length > 0) {
+        orConditions.push({ 'preferences.healthGoals': { $in: preferences.healthGoals } });
     }
 
     if (orConditions.length === 0) return []; // Không có preferences → skip
@@ -50,7 +50,7 @@ async function getSimilarUsersTopProducts(
     // 2. Lấy các đơn hàng đã hoàn thành của nhóm users tương tự
     const similarUserIds = similarUsers.map(u => u._id);
     const orders = await OrderModel.find({
-        user_id: { $in: similarUserIds },
+        cusId: { $in: similarUserIds },
         status: OrderStatus.COMPLETED,
     }).lean();
 
@@ -59,11 +59,11 @@ async function getSimilarUsersTopProducts(
         return [];
     }
 
-    // 3. Đếm tần suất mỗi product_id trong các đơn hàng
+    // 3. Đếm tần suất mỗi productId trong các đơn hàng
     const productCount = new Map<string, number>();
     for (const order of orders) {
         for (const item of order.items) {
-            const pid = item.product_id.toString();
+            const pid = item.productId.toString();
             productCount.set(pid, (productCount.get(pid) ?? 0) + item.quantity);
         }
     }
@@ -91,7 +91,7 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
     const user = await UserModel.findById(userId);
     appAssert(user, NOT_FOUND, 'User not found');
 
-    const preferences = user.preferences || { dietary: [], allergies: [], health_goals: [] };
+    const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
 
     // 2. Cache Check Strategy
     const latestProduct = await ProductModel.findOne({ isAvailable: true })
@@ -119,7 +119,7 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
 
     // 3. Get Products for AI
     const dbProducts = await ProductModel.find({ isAvailable: true })
-        .sort({ rating: -1, review_count: -1 })
+        .sort({ rating: -1, reviewCount: -1 })
         .limit(100);
 
     // Strictly filter out any items conflicting with allergies or dietary preferences
@@ -131,7 +131,7 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
         description: p.description,
         category: p.category,
         tags: p.tags,
-        health_tags: p.health_tags ?? [],
+        healthGoals: p.allergenTags ?? [],
         recipe: p.recipe,
         price: p.price,
         rating: p.rating,
@@ -175,20 +175,13 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
     const aiProductIds = recommendations.map(r => r.productId);
     const fullProducts = await ProductModel.find({ _id: { $in: aiProductIds } }).lean();
 
-    // 7. Resolve image URLs directly from FileModel (avoids Mixed cache serialization issues)
-    const imageIds = fullProducts.map(p => p.image).filter(Boolean);
-    const imageFiles = await FileModel.find({ _id: { $in: imageIds } }).lean();
-    const imageMap = new Map(imageFiles.map(f => [f._id.toString(), f.secure_url]));
-
     // 8. Merge AI reasons with full product data
     const finalResult = recommendations.map(rec => {
         const fullProduct = fullProducts.find(p => p._id.toString() === rec.productId);
         if (!fullProduct) return null;
 
-        const imageUrl = imageMap.get((fullProduct.image as any)?.toString() ?? '') ?? null;
-
         return {
-            product: { ...fullProduct, image: imageUrl },
+            product: fullProduct,
             aiReason: rec.reason,
             healthScore: rec.healthScore
         };
@@ -226,7 +219,7 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
     const user = await UserModel.findById(userId);
     appAssert(user, NOT_FOUND, 'User not found');
 
-    const preferences = user.preferences || { dietary: [], allergies: [], health_goals: [] };
+    const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
     const userAllergies = preferences.allergies.map((a: string) => a.toLowerCase().trim());
 
     // 2. Cache Check Strategy
@@ -258,7 +251,7 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
 
     // 3. Get all available products
     const allProducts = await ProductModel.find({ isAvailable: true })
-        .sort({ rating: -1, review_count: -1 })
+        .sort({ rating: -1, reviewCount: -1 })
         .lean();
 
     // 4. Rule-Based Filter: strictly exclude products conflicting with dietary or allergies
@@ -275,7 +268,7 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
         description: p.description,
         category: p.category,
         tags: p.tags,
-        health_tags: p.health_tags ?? [],
+        healthGoals: p.allergenTags ?? [],
         recipe: p.recipe,
         price: p.price,
         rating: p.rating,
@@ -295,14 +288,8 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
     // Create a map for quick lookup of AI reasons
     const insightMap = new Map(aiInsights.map((i: any) => [i.productId, i.aiReason]));
 
-    // 6. Resolve image URLs
-    const imageIds = safeProducts.map(p => p.image).filter(Boolean);
-    const imageFiles = await FileModel.find({ _id: { $in: imageIds } }).lean();
-    const imageMap = new Map(imageFiles.map(f => [f._id.toString(), f.secure_url]));
-
     const result = safeProducts.map(product => ({
         ...product,
-        image: imageMap.get((product.image as any)?.toString() ?? '') ?? null,
         aiReason: insightMap.get(product._id.toString()) || 'Món ăn an toàn, đã được sàng lọc không chứa thành phần gây dị ứng của bạn.'
     }));
 
@@ -311,7 +298,7 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
         filters: {
             allergies: preferences.allergies,
             dietary: preferences.dietary,
-            health_goals: preferences.health_goals,
+            healthGoals: preferences.healthGoals,
         },
         stats: {
             total: allProducts.length,

@@ -1,21 +1,24 @@
-import IRefreshToken from '@/types/refresh_token.type';
+import { IRefreshToken } from '@/types';
 import mongoose from 'mongoose';
 
 const RefreshTokenSchema = new mongoose.Schema<IRefreshToken>({
-  user_id: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
     ref: 'User',
   },
-  token_hash: { type: String, required: true },
-  device_id: { type: String, required: true },
-  user_agent: { type: String },
-  expires_at: { type: Date, required: true },
+  tokenHash: { type: String, required: true },
+  deviceId: { type: String },
+  userAgent: { type: String },
+  expiresAt: { type: Date, required: true },
   revoked: { type: Boolean, default: false },
-  created_at: { type: Date, default: Date.now },
+}, {
+  timestamps: { createdAt: 'createdAt', updatedAt: false }
 });
 
-//indexes
+// Indexes
+RefreshTokenSchema.index({ userId: 1 });
+RefreshTokenSchema.index({ tokenHash: 1 });
 
 const RefreshTokenModel = mongoose.model<IRefreshToken>('RefreshToken', RefreshTokenSchema, 'refresh_tokens');
 

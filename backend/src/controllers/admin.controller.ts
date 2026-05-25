@@ -1,5 +1,5 @@
 import { CREATED, OK } from '@/constants/http';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import {
   collectCashFromDriver,
   createStaffByAdmin,

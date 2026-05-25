@@ -73,7 +73,7 @@ export function buildForbiddenKeywordSet(preferences: any): Set<string> {
   const userDietary: string[] = (preferences?.dietary ?? []).map((d: string) =>
     normalizeText(d).trim()
   );
-  const userHealthGoals: string[] = (preferences?.health_goals ?? []).map((g: string) =>
+  const userHealthGoals: string[] = (preferences?.healthGoals ?? []).map((g: string) =>
     normalizeText(g).trim()
   );
 

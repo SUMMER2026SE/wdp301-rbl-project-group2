@@ -1,5 +1,5 @@
-import AppErrorCode from '@/constants/appErrorCode';
-import AppError from '@/utils/AppError';
+import AppErrorCode from '@/constants/app-error-code';
+import AppError from '@/utils/app-error';
 import multer from 'multer';
 
 export const uploadImage = multer({

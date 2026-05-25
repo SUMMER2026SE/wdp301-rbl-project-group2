@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import { UserModel } from '@/models';
 import { IUser } from '@/types';
 import { Role } from '@/types/user.type';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, CONFLICT, NOT_FOUND } from '@/constants/http';
-import withTransaction from '@/utils/withTransaction';
+import withTransaction from '@/utils/with-transaction';
 import { auditUserUpdated } from '@/services/audit-log.service';
 import { TUpdateMeParams } from '@/validators/auth.validator';
 import { compareValue } from '@/utils/bcrypt';
@@ -13,7 +13,7 @@ export const getUsersByRole = async (role: Role, page: number = 1, limit: number
   const skip = (page - 1) * limit;
 
   const [users, total] = await Promise.all([
-    UserModel.find({ role }).select('-password_hash').skip(skip).limit(limit).lean(),
+    UserModel.find({ role }).select('-passwordHash').skip(skip).limit(limit).lean(),
     UserModel.countDocuments({ role }),
   ]);
 
@@ -58,7 +58,7 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
       update.preferences = {
         dietary: payload.preferences.dietary ?? (user.preferences?.dietary ?? []),
         allergies: payload.preferences.allergies ?? (user.preferences?.allergies ?? []),
-        health_goals: payload.preferences.health_goals ?? (user.preferences?.health_goals ?? []),
+        healthGoals: (payload.preferences as any).healthGoals ?? (user.preferences?.healthGoals ?? []),
       };
       // Invalidate AI cache whenever health profile/preferences changes!
       update.aiRecommendationsCache = null;
@@ -75,7 +75,7 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
 
     await auditUserUpdated(userId, oldData as any, newData as any, { session });
 
-    return newData as Omit<IUser, 'password_hash'>;
+    return newData as Omit<IUser, 'passwordHash'>;
   });
 
 export const changePassword = async (
@@ -86,10 +86,10 @@ export const changePassword = async (
   const user = await UserModel.findById(userId);
   appAssert(user, NOT_FOUND, 'Không tìm thấy tài khoản');
 
-  const isMatch = await compareValue(currentPassword, user.password_hash);
+  const isMatch = await compareValue(currentPassword, user.passwordHash);
   appAssert(isMatch, BAD_REQUEST, 'Mật khẩu hiện tại không đúng');
 
   // Gán plain text — pre-save hook sẽ tự động hash trước khi lưu
-  user.password_hash = newPassword;
+  user.passwordHash = newPassword;
   await user.save();
 };

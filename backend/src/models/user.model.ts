@@ -1,6 +1,6 @@
 import { EMAIL_REGEX, INTERNATIONAL_PHONE_REGEX, VIETNAM_PHONE_REGEX } from '@/constants/regex';
 import { IUser } from '@/types';
-import { IAddresses, IHealthProfile, Role, UserTier } from '@/types/user.type';
+import { IAddresses, IHealthProfile, Role, UserStatus } from '@/types/user.type';
 import { compareValue, hashValue } from '@/utils/bcrypt';
 import mongoose from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -10,7 +10,7 @@ const isValidPhone = (v: string) => VIETNAM_PHONE_REGEX.test(v) || INTERNATIONAL
 const AddressSchema = new mongoose.Schema<IAddresses>(
   {
     label: { type: String, required: true, trim: true },
-    receiver_name: { type: String, required: true, trim: true },
+    receiverName: { type: String, required: true, trim: true },
     phone: {
       type: String,
       trim: true,
@@ -23,6 +23,7 @@ const AddressSchema = new mongoose.Schema<IAddresses>(
       },
     },
     detail: { type: String, required: true, trim: true },
+    ward: { type: String, required: true, trim: true },
     district: { type: String, required: true, trim: true },
     city: { type: String, required: true, trim: true },
     isDefault: { type: Boolean, default: false },
@@ -32,11 +33,10 @@ const AddressSchema = new mongoose.Schema<IAddresses>(
   }
 );
 
-const PreferencesSchema = new mongoose.Schema(
+const HealthSchema = new mongoose.Schema<IHealthProfile>(
   {
-    dietary: { type: [String], default: [] },
     allergies: { type: [String], default: [] },
-    health_goals: { type: [String], default: [] },
+    calories: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -58,42 +58,44 @@ const UserSchema = new mongoose.Schema<IUser>(
       },
     },
     avatar: { type: String, default: null },
-    avatar_public_id: { type: String, default: null },
-    password_hash: { type: String, required: true, minLength: 6 },
+    avatarPublicId: { type: String, default: null },
+    passwordHash: { type: String, required: true, minLength: 6 },
     role: { type: String, required: true, enum: Role, default: Role.CUSTOMER },
-    verified_at: { type: Date, default: null },
-    isActive: { type: Boolean, default: true },
+    isHealthSetup: { type: Boolean, default: false },
+    loginFailedCount: { type: Number, default: 0 },
+    lockedUntil: { type: Date, default: null },
+    verifiedAt: { type: Date, default: null },
+    status: { type: String, required: true, enum: UserStatus, default: UserStatus.ACTIVE },
+    collectedPoints: {
+      type: Number,
+      default: 0,
+      min: [0, 'Collected points cannot be negative'],
+    },
     addresses: [
       {
         type: AddressSchema,
         default: [],
       },
     ],
-    collected_points: {
-      type: Number,
-      default: 0,
-      min: [0, 'Collected points cannot be negative'],
+    health: {
+      type: HealthSchema,
+      default: () => ({ allergies: [] as string[], calories: 0 }),
     },
-    tier: {
-      type: String,
-      enum: UserTier,
-      default: UserTier.BRONZE,
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Store',
+      default: null,
     },
-    referral_code: {
+    referralCode: {
       type: String,
       unique: true,
       uppercase: true,
     },
-    referred_by: {
+    referredBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
     },
-    preferences: {
-      type: PreferencesSchema,
-      default: () => ({ dietary: [], allergies: [], health_goals: [] }),
-    },
-
     aiRecommendationsCache: {
       type: {
         data: { type: mongoose.Schema.Types.Mixed }, // Main AI Recommendations
@@ -108,37 +110,34 @@ const UserSchema = new mongoose.Schema<IUser>(
   }
 );
 
-//indexes
+// Indexes
 UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ phone: 1 }, { unique: true });
 UserSchema.index({ username: 1 }, { unique: true });
+UserSchema.index({ role: 1 });
+UserSchema.index({ status: 1 });
+UserSchema.index({ storeId: 1 });
 
-// Middleware "pre-save" trong Mongoose:
-// Hàm này sẽ tự động chạy TRƯỚC KHI document được lưu (save) vào MongoDB
+// Middleware "pre-save"
 UserSchema.pre('save', async function (next) {
-  // Generate referral_code for new users
-  if (this.isNew && !this.referral_code) {
-    this.referral_code = `FOODIE-${randomBytes(4).toString('hex').toUpperCase()}`;
+  if (this.isNew && !this.referralCode) {
+    this.referralCode = `FOODIE-${randomBytes(4).toString('hex').toUpperCase()}`;
   }
 
-  // ✅ Kiểm tra xem field "password" có bị thay đổi không
-  if (!this.isModified('password_hash')) return next();
+  if (!this.isModified('passwordHash')) return next();
 
-  // ✅ Nếu password đã thay đổi hoặc là lần đầu tạo user,
-  // thì hash lại password trước khi lưu vào database
-  this.password_hash = await hashValue(this.password_hash);
-
-  // ✅ Gọi next() để cho phép Mongoose tiếp tục quá trình lưu document
+  this.passwordHash = await hashValue(this.passwordHash as string);
   next();
 });
 
-//methods
+// Methods
 UserSchema.methods.comparePassword = async function (value: string) {
-  return await compareValue(value, this.password_hash);
+  return await compareValue(value, this.passwordHash);
 };
 
 UserSchema.methods.omitPassword = function () {
   const user = this.toObject();
-  delete user.password_hash;
+  delete user.passwordHash;
   return user;
 };
 

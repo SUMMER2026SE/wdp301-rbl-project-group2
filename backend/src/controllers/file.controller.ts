@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { CREATED, OK } from '@/constants/http';
 import { uploadAndSaveFile, removeFile } from '@/services/file.service';
 import { FileOwnerType } from '@/types/file.type';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST } from '@/constants/http';
 
 /**

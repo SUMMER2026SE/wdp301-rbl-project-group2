@@ -1,7 +1,7 @@
 import { RequestHandler } from 'express';
-import appAssert from '../utils/appAssert';
-import { catchErrors } from '../utils/asyncHandler';
-import AppErrorCode from '@/constants/appErrorCode';
+import appAssert from '../utils/app-assert';
+import { catchErrors } from '../utils/async-handler';
+import AppErrorCode from '@/constants/app-error-code';
 import { UNAUTHORIZED } from '@/constants/http';
 import { verifyToken } from '@/utils/jwt';
 import { UserModel } from '@/models';
@@ -31,10 +31,10 @@ const authenticate: RequestHandler = catchErrors(async (req, res, next) => {
   );
 
   // Check if user is valid
-  const user = await UserModel.findById(payload.user_id);
+  const user = await UserModel.findById(payload.userId);
   appAssert(user, UNAUTHORIZED, 'User not found', AppErrorCode.InvalidAccessToken);
 
-  req.userId = payload.user_id;
+  req.userId = payload.userId;
   req.role = payload.role;
   next();
 });

@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 import { UserModel, PointTransactionModel } from '@/models';
 import { PointTransactionType } from '@/types/point-transaction.type';
 import { UserTier } from '@/types/user.type';
-import withTransaction from '@/utils/withTransaction';
-import appAssert from '@/utils/appAssert';
+import withTransaction from '@/utils/with-transaction';
+import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
 
 const TIER_THRESHOLDS = {
@@ -29,10 +29,10 @@ export const addPoints = async (
         appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
         // Update user points
-        user.collected_points += amount;
+        user.collectedPoints += amount;
 
         // Update tier if necessary
-        const newTier = calculateTier(user.collected_points);
+        const newTier = calculateTier(user.collectedPoints);
         if (newTier !== user.tier) {
             user.tier = newTier;
         }
@@ -43,11 +43,11 @@ export const addPoints = async (
         await PointTransactionModel.create(
             [
                 {
-                    user_id: userId,
+                    userId,
                     amount,
                     type,
                     description,
-                    order_id: orderId ?? null,
+                    orderId: orderId ?? null,
                 },
             ],
             { session }
@@ -73,34 +73,34 @@ const calculateTier = (points: number): UserTier => {
  */
 export const rewardReferral = async (userId: string | mongoose.Types.ObjectId, referralCode: string) => {
     return withTransaction(async (session) => {
-        const referrer = await UserModel.findOne({ referral_code: referralCode.toUpperCase() }).session(session);
+        const referrer = await UserModel.findOne({ referralCode: referralCode.toUpperCase() }).session(session);
         appAssert(referrer, NOT_FOUND, 'Mã giới thiệu không hợp lệ');
 
         const newUser = await UserModel.findById(userId).session(session);
         appAssert(newUser, NOT_FOUND, 'Người dùng không tồn tại');
-        appAssert(!newUser.referred_by, 400, 'Bạn đã nhập mã giới thiệu trước đó');
+        appAssert(!newUser.referredBy, 400, 'Bạn đã nhập mã giới thiệu trước đó');
         appAssert(referrer._id.toString() !== newUser._id.toString(), 400, 'Không thể tự giới thiệu chính mình');
 
         // Update new user
-        newUser.referred_by = referrer._id as mongoose.Types.ObjectId;
-        newUser.collected_points += 50; // Bonus for joining
+        newUser.referredBy = referrer._id as mongoose.Types.ObjectId;
+        newUser.collectedPoints += 50; // Bonus for joining
         await newUser.save({ session });
 
         // Reward referrer
-        referrer.collected_points += 100; // Bonus for inviting
+        referrer.collectedPoints += 100; // Bonus for inviting
         await referrer.save({ session });
 
         // Log transactions
         await PointTransactionModel.insertMany(
             [
                 {
-                    user_id: referrer._id,
+                    userId: referrer._id,
                     amount: 100,
                     type: PointTransactionType.REFERRAL,
                     description: `Thưởng giới thiệu người dùng mới: ${newUser.username}`,
                 },
                 {
-                    user_id: newUser._id,
+                    userId: newUser._id,
                     amount: 50,
                     type: PointTransactionType.REFERRAL,
                     description: `Thưởng nhập mã giới thiệu từ: ${referrer.username}`,

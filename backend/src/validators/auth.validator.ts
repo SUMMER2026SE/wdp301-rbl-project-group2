@@ -19,8 +19,8 @@ const usernameValidator = z
 export const loginValidator = z.object({
   email: emailValidator,
   password: passwordValidator,
-  user_agent: z.string().optional(),
-  device_id: z.string().optional(),
+  userAgent: z.string().optional(),
+  deviceId: z.string().optional(),
 });
 
 export type TLoginParams = z.infer<typeof loginValidator>;
@@ -28,9 +28,9 @@ export type TLoginParams = z.infer<typeof loginValidator>;
 export const registerValidator = loginValidator
   .extend({
     username: usernameValidator,
-    confirm_password: passwordValidator,
+    confirmPassword: passwordValidator,
   })
-  .refine((data) => data.password === data.confirm_password, {
+  .refine((data) => data.password === data.confirmPassword, {
     message: 'Mật khẩu không khớp nhau',
     path: ['confirmPassword'],
   });
@@ -50,10 +50,10 @@ export const resetPasswordValidator = z.object({
   email: emailValidator,
   code: z.string().length(6, 'Mã xác thực phải có 6 chữ số'),
   password: passwordValidator,
-  confirm_password: passwordValidator,
-}).refine((data) => data.password === data.confirm_password, {
+  confirmPassword: passwordValidator,
+}).refine((data) => data.password === data.confirmPassword, {
   message: 'Mật khẩu không khớp nhau',
-  path: ['confirm_password'],
+  path: ['confirmPassword'],
 });
 
 export type TResetPasswordParams = z.infer<typeof resetPasswordValidator>;
@@ -68,9 +68,10 @@ export const updateMeValidator = z.object({
   phone: phone.optional(),
   addresses: z.array(z.object({
     label: z.string().trim().min(1),
-    receiver_name: z.string().trim().min(1),
+    receiverName: z.string().trim().min(1),
     phone: phone.optional(),
     detail: z.string().trim().min(1),
+    ward: z.string().trim().min(1),
     district: z.string().trim().min(1),
     city: z.string().trim().min(1),
     isDefault: z.boolean().optional(),
@@ -79,7 +80,7 @@ export const updateMeValidator = z.object({
   preferences: z.object({
     dietary: z.array(z.string().trim()).optional(),
     allergies: z.array(z.string().trim()).optional(),
-    health_goals: z.array(z.string().trim()).optional(),
+    healthGoals: z.array(z.string().trim()).optional(),
   }).optional(),
 }).strict();
 

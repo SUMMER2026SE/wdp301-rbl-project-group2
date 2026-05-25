@@ -5,9 +5,9 @@ import { IUser as UserDocument } from '@/types';
 import { Role } from '@/types/user.type';
 
 export type AccessTokenPayload = {
-  user_id: UserDocument['_id'];
+  userId: UserDocument['_id'];
   role: Role;
-  device_id: string;
+  deviceId: string;
 };
 
 type SignOptionsAndSecret = SignOptions & { secret: string };

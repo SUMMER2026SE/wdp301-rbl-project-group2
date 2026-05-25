@@ -14,8 +14,8 @@ import paymentRoutes from './payment.route';
 import notificationRoutes from './notification.route';
 import reviewRoutes from './review.route';
 import { uploadImage } from '@/config/multer';
-import { uploadBuffer } from '@/utils/uploadFile';
-import { parseFormData } from '@/utils/parseFormData';
+import { uploadBuffer } from '@/utils/upload-file';
+import { parseFormData } from '@/utils/parse-form-data';
 import settingsRoute from './settings.route';
 
 const appRoutes = Router();

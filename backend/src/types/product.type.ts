@@ -1,40 +1,55 @@
 import mongoose from 'mongoose';
-import IFile from './file.type';
 
-export interface IProductIngredient {
-  name: string;
-  quantity: string;
+export enum ProductStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  OUT_OF_STOCK = 'out_of_stock',
+  DELETED = 'deleted',
+}
+
+export enum ProductCategory {
+  FOOD = 'food',
+  DRINK = 'drink',
+  COMBO = 'combo',
+  OTHER = 'other',
+}
+
+export interface IProductRecipeItem {
+  ingredientId: mongoose.Types.ObjectId;
+  quantity: number;
+  unit: string;
 }
 
 export interface IProductVariantOption {
   choice: string;
-  extra_price: number;
+  extraPrice: number;
 }
 
 export interface IProductVariantGroup {
-  name: string;          // Size | Toppings | Sugar
-  required?: boolean;    // bắt buộc chọn
-  multiple?: boolean;    // cho phép chọn nhiều
-  max_choices?: number;  // giới hạn toppings
+  name: string;
+  required?: boolean;
+  multiple?: boolean;
+  maxChoices?: number;
   options: IProductVariantOption[];
 }
 
-export default interface IProduct extends mongoose.Document {
+export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
+  storeId: mongoose.Types.ObjectId;
+  status: ProductStatus;
+  nameEmbedding?: string | null;
+  imgEmbedding: string;
   name: string;
-  description: string;
-  image: IFile['_id'];
+  description?: string;
+  imageUrl?: string;
   price: number;
-  category: string;
-  restaurant: string;
-  time: string;
-  rating: number;
-  review_count: number;
-  recipe: IProductIngredient[];
-  tags: string[];
-  health_warning?: string;
-  health_tags: string[];
-  isAvailable: boolean;
-  isFavorite?: boolean;
-
+  category: ProductCategory;
+  recipe: IProductRecipeItem[];
+  allergenTags: string[];
+  
+  // camelCase fields
+  isAvailable?: boolean;
   variants?: IProductVariantGroup[];
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }

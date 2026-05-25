@@ -16,9 +16,9 @@ import {
 } from '@/services/order.service';
 import { createOrderStatusNotification } from '@/services/notification.service';
 import { OrderStatus } from '@/types/order.type';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { placeOrderValidator } from '@/validators/order.validator';
-import { formatOrderNote } from '@/utils/formatOrderNote';
+import { formatOrderNote } from '@/utils/format-order-note';
 import z from 'zod';
 
 /**
@@ -43,7 +43,7 @@ export const placeOrderHandler = catchErrors(async (req, res) => {
         io.emit('order:new', {
             _id: order._id,
             code: order.code,
-            total_price: order.total_price,
+            totalPrice: order.totalPrice,
             itemsCount: order.items.length,
             createdAt: (order as any).createdAt || new Date(),
         });
@@ -55,16 +55,15 @@ export const placeOrderHandler = catchErrors(async (req, res) => {
             code: order.code,
             status: order.status,
             items: order.items,
-            sub_total: order.sub_total,
-            total_price: order.total_price,
+            subTotal: order.subTotal,
+            totalPrice: order.totalPrice,
             note: order.note,
-            staff_note_items: order.staff_note_items,
+            staffNoteItems: order.staffNoteItems,
             payment: order.payment,
-            delivery_address: order.delivery_address,
-            voucher: order.voucher,
+            deliveryAddress: order.deliveryAddress,
+            voucherId: order.voucherId,
             checkoutUrl: (order as any).checkoutUrl,
             createdAt: (order as any).createdAt,
-            // FSS-40: Server-side allergy warnings (may be empty array)
             allergyWarnings: (order as any).allergyWarnings ?? [],
         },
         message: 'Đặt hàng thành công',
@@ -107,9 +106,9 @@ export const updateOrderStatusHandler = catchErrors(async (req, res) => {
     const order = await updateOrderStatus(req.params.id, status);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -117,8 +116,8 @@ export const updateOrderStatusHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -136,9 +135,9 @@ export const cancelOrderHandler = catchErrors(async (req, res) => {
     const order = await updateOrderStatus(req.params.id, OrderStatus.CANCELLED);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -147,8 +146,8 @@ export const cancelOrderHandler = catchErrors(async (req, res) => {
     // Notify user via socket
     const { reason } = req.body;
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -181,9 +180,9 @@ export const confirmOrderHandler = catchErrors(async (req, res) => {
     const order = await confirmOrder(req.params.id, req.userId);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -191,8 +190,8 @@ export const confirmOrderHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -211,9 +210,9 @@ export const rejectOrderHandler = catchErrors(async (req, res) => {
     const order = await rejectOrder(req.params.id, req.userId, reason);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -221,8 +220,8 @@ export const rejectOrderHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -240,9 +239,9 @@ export const markReadyHandler = catchErrors(async (req, res) => {
     const order = await markOrderReady(req.params.id, req.userId);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -250,8 +249,8 @@ export const markReadyHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -269,9 +268,9 @@ export const assignDeliveryHandler = catchErrors(async (req, res) => {
     const order = await assignDelivery(req.params.id, req.userId);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -279,8 +278,8 @@ export const assignDeliveryHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,
@@ -298,9 +297,9 @@ export const completeDeliveryHandler = catchErrors(async (req, res) => {
     const order = await completeDelivery(req.params.id, req.userId);
 
     // Create notification record
-    if (order.user_id) {
+    if (order.cusId) {
         await createOrderStatusNotification({
-            user_id: order.user_id as any,
+            userId: order.cusId as any,
             orderCode: order.code,
             status: order.status,
         });
@@ -308,8 +307,8 @@ export const completeDeliveryHandler = catchErrors(async (req, res) => {
 
     // Notify user via socket
     const io = req.app.get('io');
-    if (io && order.user_id) {
-        io.to(`user:${order.user_id}`).emit('order:status_updated', {
+    if (io && order.cusId) {
+        io.to(`user:${order.cusId}`).emit('order:status_updated', {
             orderId: order._id,
             code: order.code,
             status: order.status,

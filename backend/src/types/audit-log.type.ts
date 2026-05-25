@@ -1,24 +1,30 @@
-  import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 
-  export enum AuditEntityType {
-    USER = 'USER',
-    PRODUCT = 'PRODUCT',
-    ORDER = 'ORDER', //...
-  }
+export enum AuditAction {
+  C = 'C',
+  U = 'U',
+  D = 'D',
+}
 
-  export enum AuditLogAction {
-    CREATE = 'CREATE',
-    UPDATE = 'UPDATE',
-    DELETE = 'DELETE',
-    DISABLE = 'DISABLE',
-    ENABLE = 'ENABLE',
-  }
+export enum AuditEntityType {
+  USER = 'USER',
+  PRODUCT = 'PRODUCT',
+  ORDER = 'ORDER',
+}
 
-  export default interface IAuditLog extends mongoose.Document<mongoose.Types.ObjectId> {
-    user_id: mongoose.Types.ObjectId;
-    entity_type: AuditEntityType;
-    action: AuditLogAction;
-    old_data: Record<string, any> | null;
-    new_data: Record<string, any> | null;
-    created_at: Date;
-  }
+export enum AuditLogAction {
+  CREATE = 'C',
+  UPDATE = 'U',
+  DELETE = 'D',
+  DISABLE = 'U',
+  ENABLE = 'U',
+}
+
+export interface IAuditLog extends mongoose.Document<mongoose.Types.ObjectId> {
+  userId?: mongoose.Types.ObjectId | null;
+  entityType: string;
+  action: AuditAction;
+  oldData?: any;
+  newData?: any;
+  createdAt: Date;
+}

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import * as supportChatService from '@/services/support-chat.service';
 import * as supportSettingsService from '@/services/support-settings.service';
 
@@ -80,9 +80,11 @@ export const sendMessage = catchErrors(async (req: Request, res: Response) => {
   return res.status(201).json({ message: payload });
 });
 
+import { Role } from '@/types';
+
 export const listStaffConversations = catchErrors(async (req: Request, res: Response) => {
   const role = req.role!;
-  if (role !== 'STAFF' && role !== 'ADMIN') {
+  if (role !== Role.STAFF && role !== Role.ADMIN) {
     return res.status(403).json({ message: 'Chỉ nhân viên mới được xem danh sách hội thoại' });
   }
 

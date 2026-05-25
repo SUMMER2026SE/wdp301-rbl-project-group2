@@ -2,24 +2,24 @@ import { IVoucher } from '@/types';
 import VoucherModel from '@/models/voucher.model';
 import { VoucherCategory } from '@/types/voucher.type';
 import { NOT_FOUND, BAD_REQUEST, CONFLICT } from '@/constants/http';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 
 // Get all vouchers with filters
 export const getAllVouchers = async (filters: {
     category?: VoucherCategory;
-    is_active?: boolean;
+    isActive?: boolean;
     page?: number;
     limit?: number;
 }) => {
-    const { category, is_active, page = 1, limit = 10 } = filters;
+    const { category, isActive, page = 1, limit = 10 } = filters;
 
     const query: any = {};
 
     if (category) query.category = category;
-    if (is_active !== undefined) query.is_active = is_active;
+    if (isActive !== undefined) query.isActive = isActive;
 
     // Only get vouchers that haven't expired
-    query.end_date = { $gte: new Date() };
+    query.endAt = { $gte: new Date() };
 
     const skip = (page - 1) * limit;
 
@@ -87,11 +87,11 @@ export const updateVoucher = async (id: string, updateData: Partial<IVoucher>) =
     return voucher;
 };
 
-// Delete voucher (soft delete by setting is_active to false)
+// Delete voucher (soft delete by setting isActive to false)
 export const deleteVoucher = async (id: string) => {
     const voucher = await VoucherModel.findByIdAndUpdate(
         id,
-        { $set: { is_active: false } },
+        { $set: { isActive: false } },
         { new: true }
     );
 
@@ -108,34 +108,34 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
     appAssert(voucher, NOT_FOUND, 'Voucher không tồn tại');
 
     // Check if active
-    appAssert(voucher.is_active, BAD_REQUEST, 'Voucher không còn hoạt động');
+    appAssert(voucher.isActive, BAD_REQUEST, 'Voucher không còn hoạt động');
 
     // Check date validity
     const now = new Date();
-    appAssert(voucher.start_date <= now, BAD_REQUEST, 'Voucher chưa có hiệu lực');
-    appAssert(voucher.end_date >= now, BAD_REQUEST, 'Voucher đã hết hạn');
+    appAssert(voucher.startAt <= now, BAD_REQUEST, 'Voucher chưa có hiệu lực');
+    appAssert(voucher.endAt >= now, BAD_REQUEST, 'Voucher đã hết hạn');
 
     // Check total usage limit
-    if (voucher.total_usage_limit !== null &&
-        voucher.current_usage_count >= voucher.total_usage_limit) {
+    if (voucher.usageLimit !== null &&
+        voucher.usedCount >= voucher.usageLimit) {
         appAssert(false, BAD_REQUEST, 'Voucher đã hết lượt sử dụng');
     }
 
     // Check minimum order amount
     appAssert(
-        orderAmount >= voucher.min_order_amount,
+        orderAmount >= voucher.minOrderValue,
         BAD_REQUEST,
-        `Đơn hàng tối thiểu ${voucher.min_order_amount.toLocaleString()}đ`
+        `Đơn hàng tối thiểu ${voucher.minOrderValue.toLocaleString()}đ`
     );
 
     // Calculate discount
     let discountAmount = 0;
-    if (voucher.discount_type === 'fixed_amount') {
-        discountAmount = voucher.discount_value;
-    } else if (voucher.discount_type === 'percentage') {
-        discountAmount = (orderAmount * voucher.discount_value) / 100;
-        if (voucher.max_discount_amount) {
-            discountAmount = Math.min(discountAmount, voucher.max_discount_amount);
+    if (voucher.discountType === 'fixed_amount') {
+        discountAmount = voucher.discountValue;
+    } else if (voucher.discountType === 'percentage') {
+        discountAmount = (orderAmount * voucher.discountValue) / 100;
+        if (voucher.maxDiscount) {
+            discountAmount = Math.min(discountAmount, voucher.maxDiscount);
         }
     }
 
@@ -150,7 +150,7 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
 export const useVoucher = async (voucherId: string) => {
     const voucher = await VoucherModel.findByIdAndUpdate(
         voucherId,
-        { $inc: { current_usage_count: 1 } },
+        { $inc: { usedCount: 1 } },
         { new: true }
     );
 

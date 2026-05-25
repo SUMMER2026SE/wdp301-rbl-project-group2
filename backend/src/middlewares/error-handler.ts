@@ -1,9 +1,9 @@
 import { ErrorRequestHandler, Response } from 'express';
 import { BAD_REQUEST, INTERNAL_SERVER_ERROR } from '../constants/http';
 import z, { ZodError } from 'zod';
-import AppError from '../utils/AppError';
+import AppError from '../utils/app-error';
 import mongoose from 'mongoose';
-import AppErrorCode from '../constants/appErrorCode';
+import AppErrorCode from '../constants/app-error-code';
 import { MulterError } from 'multer';
 import { clearAuthCookies, REFRESH_PATH } from '@/utils/cookies';
 
