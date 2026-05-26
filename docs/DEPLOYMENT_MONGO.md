@@ -532,6 +532,47 @@ nano .env.prod  # Điền MONGODB_URI trỏ tới DB 'my_app_prod' trên Atlas
    - Sau đó gõ `nano ~/.ssh/authorized_keys` và dán khóa công khai (Public Key) vào.
 3. **GitHub:** Copy khóa bí mật (Private Key) và tạo Secret `VPS_SSH_KEY` trong repo GitHub Settings.
 
+### Bước 3.5: Cấu hình SSH Key & Phím tắt (SSH Config) cho các thành viên trong nhóm
+
+Để cho phép các thành viên khác trong nhóm truy cập vào VPS một cách dễ dàng và an toàn (không cần nhập mật khẩu hoặc nhớ địa chỉ IP/cổng dài dòng):
+
+#### 1. Đối với Thành viên (Thao tác trên Máy cá nhân):
+* **Tạo cặp khóa mới** (tự động đặt tên để tránh ghi đè khóa mặc định khác):
+  ```bash
+  ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_anngon -C "member_email@example.com"
+  ```
+* **Copy khóa công khai (Public Key)** để gửi cho Admin:
+  ```bash
+  cat ~/.ssh/id_rsa_anngon.pub
+  ```
+* **Cấu hình phím tắt đăng nhập** bằng cách mở file `~/.ssh/config` trên máy cá nhân:
+  ```bash
+  nano ~/.ssh/config
+  ```
+  Thêm đoạn cấu hình sau:
+  ```config
+  Host anngon
+      HostName 161.248.147.99
+      User anngon
+      LocalForward 5001 127.0.0.1:5001
+      IdentityFile ~/.ssh/id_rsa_anngon
+  ```
+  Cấp quyền bảo mật cho file config:
+  ```bash
+  chmod 600 ~/.ssh/config
+  ```
+
+#### 2. Đối với Admin (Thao tác trên VPS):
+* Đăng nhập vào VPS, mở file cấu hình xác thực:
+  ```bash
+  nano ~/.ssh/authorized_keys
+  ```
+* Di chuyển xuống cuối file, tạo một dòng trống mới và **dán (paste) Public Key của thành viên** vào đây, sau đó lưu lại.
+* Từ bây giờ, thành viên đó chỉ cần mở Terminal gõ lệnh sau để truy cập VPS và tự động chuyển tiếp cổng kết nối Dockge:
+  ```bash
+  ssh anngon
+  ```
+
 ### Bước 4: Khởi chạy Nginx lấy chứng chỉ SSL lần đầu
 
 Để lấy chứng chỉ SSL lần đầu tiên, bạn có **2 cách tiếp cận** tùy thuộc vào việc Nginx đã chạy hay chưa:
