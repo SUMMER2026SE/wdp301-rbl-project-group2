@@ -78,7 +78,7 @@ export const getAllProducts = async (filters: ProductFilters) => {
   const skip = (page - 1) * limit;
 
   const [products, total] = await Promise.all([
-    ProductModel.find(query).sort(sortOptions).skip(skip).limit(limit).populate('image').lean(),
+    ProductModel.find(query).sort(sortOptions).skip(skip).limit(limit).lean(),
     ProductModel.countDocuments(query),
   ]);
 
@@ -100,7 +100,7 @@ export const getDistinctCategories = async () => {
 };
 
 export const getProductById = async (id: string) => {
-  const product = await ProductModel.findById(id).populate('image').lean();
+  const product = await ProductModel.findById(id).lean();
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;
 };
