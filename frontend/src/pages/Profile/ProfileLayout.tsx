@@ -2,10 +2,9 @@ import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { userService,type UserMeResponse } from "@/services/profile.service";
-import { useToast } from "@/hooks/useToast";
+import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 const ProfileLayout = () => {
-  const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [me, setMe] = useState<UserMeResponse | null>(null);
@@ -22,7 +21,7 @@ const ProfileLayout = () => {
         if (!mounted) return;
         setMe(res.data.data);
       } catch (e: any) {
-        toast(e?.message || "Không thể tải thông tin", "error");
+        toast.error(e?.message || "Không thể tải thông tin");
       } finally {
         if (mounted) setLoadingMe(false);
       }
@@ -46,10 +45,10 @@ const ProfileLayout = () => {
       if (user) {
         setUser({ ...user, avatar: res.data.data.avatar });
       }
-      toast("Cập nhật avatar thành công", "success");
+      toast.success("Cập nhật avatar thành công");
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Upload avatar thất bại";
-      toast(msg, "error");
+      toast.error(msg);
     } finally {
       setUploading(false);
       e.target.value = "";

@@ -1,9 +1,10 @@
-import { APP_ORIGIN, AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
+import { APP_ORIGIN, AUTH_REFRESH_TOKEN_TTL_DAYS, GOOGLE_CLIENT_ID } from '@/constants/env';
 import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
 import { RefreshTokenModel, UserModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
 import { IUser } from '@/types';
 import { VerificationCodeType } from '@/types/verification-code.type';
+import { Role, UserStatus } from '@/types/user.type';
 import appAssert from '@/utils/app-assert';
 import { hashValue } from '@/utils/bcrypt';
 import { daysFromNow, fifteenMinutesFromNow, fiveMinutesAgo, ONE_DAY_MS, oneHourFromNow } from '@/utils/date';
@@ -12,8 +13,10 @@ import { generateRefreshToken, hashToken, signToKen } from '@/utils/jwt';
 import { sendMail } from '@/utils/send-mail';
 import withTransaction from '@/utils/with-transaction';
 import { TLoginParams, TRegisterParams, TResetPasswordParams } from '@/validators/auth.validator';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import mongoose from 'mongoose';
+import axios from 'axios';
+
 
 export const createUser = async ({ username, email, password }: TRegisterParams) => {
   return withTransaction(async (session) => {
@@ -310,3 +313,112 @@ export const logoutUser = async (userId: mongoose.Types.ObjectId, deviceId: stri
 
   return true;
 };
+
+export const loginWithGoogle = async ({
+  credential,
+  userAgent,
+  deviceId,
+}: {
+  credential: string;
+  userAgent?: string;
+  deviceId?: string;
+}) => {
+  return withTransaction(async (session) => {
+    let email: string;
+    let name: string;
+    let avatar: string | undefined;
+
+    try {
+      // Gọi tới Google UserInfo API với access token
+      const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          Authorization: `Bearer ${credential}`,
+        },
+      });
+
+      email = response.data.email;
+      name = response.data.name || response.data.given_name || 'Google User';
+      avatar = response.data.picture;
+
+      appAssert(email, UNAUTHORIZED, 'Không lấy được email từ tài khoản Google');
+    } catch (err: any) {
+      console.error('Google verification error:', err?.response?.data || err.message);
+      appAssert(false, UNAUTHORIZED, 'Xác thực tài khoản Google thất bại');
+    }
+
+    // Tìm kiếm user theo email
+    let user = await UserModel.findOne({ email }).session(session);
+
+    if (!user) {
+      // Nếu chưa có user, tiến hành đăng ký mới
+      const baseUsername = email.split('@')[0];
+      let username = baseUsername;
+      let suffix = 1;
+
+      // Đảm bảo username là duy nhất
+      while (await UserModel.exists({ username }).session(session)) {
+        username = `${baseUsername}${suffix}`;
+        suffix++;
+      }
+
+      user = new UserModel({
+        username,
+        email,
+        fullName: name,
+        avatar: avatar || null,
+        passwordHash: randomBytes(16).toString('hex'), // Mật khẩu ngẫu nhiên cho user đăng nhập Google
+        role: Role.CUSTOMER,
+        verifiedAt: new Date(),
+        status: UserStatus.ACTIVE,
+      });
+
+      await user.save({ session });
+    } else {
+      // Nếu đã có user, có thể cập nhật avatar nếu rỗng
+      if (!user.avatar && avatar) {
+        user.avatar = avatar;
+        await user.save({ session });
+      }
+    }
+
+    // Tạo deviceId và refresh token giống login bình thường
+    const activeDeviceId = deviceId || randomUUID();
+
+    const oldRefreshToken = await RefreshTokenModel.findOne({
+      userId: user._id,
+      deviceId: activeDeviceId,
+    }).session(session);
+
+    if (oldRefreshToken) {
+      oldRefreshToken.revoked = true;
+      await oldRefreshToken.save({ session });
+    }
+
+    const payload = {
+      userId: user._id,
+      role: user.role,
+      deviceId: activeDeviceId,
+    };
+
+    const accessToken = signToKen(payload);
+    const refreshTokenVal = generateRefreshToken();
+
+    const refresh = new RefreshTokenModel({
+      userId: user._id,
+      tokenHash: hashToken(refreshTokenVal),
+      deviceId: payload.deviceId,
+      userAgent: userAgent,
+      expiresAt: daysFromNow(AUTH_REFRESH_TOKEN_TTL_DAYS),
+    });
+
+    await refresh.save({ session });
+
+    return {
+      user: user.omitPassword(),
+      accessToken,
+      refreshToken: refreshTokenVal,
+      deviceId: activeDeviceId,
+    };
+  });
+};
+

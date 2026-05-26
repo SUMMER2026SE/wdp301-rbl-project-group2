@@ -49,6 +49,8 @@ export const MONGODB_URI = getEnv('MONGODB_URI');
 // node_mailer
 export const GOOGLE_APP_USER = getEnv('GOOGLE_APP_USER');
 export const GOOGLE_APP_PASSWORD = getEnv('GOOGLE_APP_PASSWORD');
+export const GOOGLE_CLIENT_ID = getEnv('GOOGLE_CLIENT_ID').trim();
+
 
 // cloudinary
 export const CLOUDINARY_CLOUD_NAME = getEnv('CLOUDINARY_CLOUD_NAME');

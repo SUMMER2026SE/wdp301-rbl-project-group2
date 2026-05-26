@@ -11,7 +11,7 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  confirm_password?: string;
+  confirmPassword?: string;
 }
 
 /**
@@ -60,7 +60,7 @@ export interface ResetPasswordRequest {
   email: string;
   code: string;
   password: string;
-  confirm_password: string;
+  confirmPassword: string;
 }
 
 export interface VerifyEmailRequest {

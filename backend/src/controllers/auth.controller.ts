@@ -3,6 +3,7 @@ import {
   createUser,
   getMe,
   login,
+  loginWithGoogle,
   logoutUser,
   refreshUserAccessToken,
   resendVerifyEmail,
@@ -138,3 +139,30 @@ export const logout = catchErrors(async (req, res) => {
   await logoutUser(userId, deviceId);
   return clearAuthCookies(res).success(OK, { message: 'Đăng xuất thành công' });
 });
+
+export const loginWithGoogleHandler = catchErrors(async (req, res) => {
+  const { credential, deviceId } = req.body;
+  appAssert(credential, UNAUTHORIZED, 'Thiếu token xác thực Google');
+
+  const { user, refreshToken, accessToken, deviceId: activeDeviceId } = await loginWithGoogle({
+    credential,
+    userAgent: req.headers['user-agent'],
+    deviceId,
+  });
+
+  return setAuthCookies({
+    res,
+    accessToken,
+    refreshToken,
+    deviceId: activeDeviceId,
+  }).success<any>(OK, {
+    data: user,
+    message: 'Đăng nhập Google thành công',
+    tokens: {
+      accessToken,
+      refreshToken,
+      deviceId: activeDeviceId,
+    },
+  });
+});
+

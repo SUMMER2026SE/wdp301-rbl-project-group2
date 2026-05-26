@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 // Removed useAuthStore
-import { useToast } from "@/hooks/useToast";
+import toast from "react-hot-toast";
 import { userService } from "@/services/profile.service";
 
 import {
@@ -24,7 +24,6 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 const ProfileSettingsPage = () => {
   const { t } = useTranslation(["customer", "common"]);
-  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [loading, setLoading] = useState(true);
@@ -41,6 +40,12 @@ const ProfileSettingsPage = () => {
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPwError(null);
+    setPwSuccess(null);
+  }, [activeTab]);
 
   // Personal info
   const [username, setUsername] = useState("");
@@ -149,11 +154,11 @@ const ProfileSettingsPage = () => {
         phone: phone.trim() || undefined,
       });
       setInitial({ username: username.trim(), phone: phone.trim() });
-      toast(t("customer:profileSettings.updateSuccess"), "success");
+      toast.success(t("customer:profileSettings.updateSuccess"));
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "Cập nhật thông tin không thành công";
       setError(msg);
-      toast(msg, "error");
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -170,10 +175,10 @@ const ProfileSettingsPage = () => {
       });
       setInitialPrefs({ dietary: diet, allergies, health_goals: healthGoals });
       setIsHealthEditMode(false);
-      toast("Cài đặt sức khỏe đã được cập nhật", "success");
+      toast.success("Cài đặt sức khỏe đã được cập nhật");
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "Không thể lưu cài đặt";
-      toast(msg, "error");
+      toast.error(msg);
     } finally {
       setSavingPrefs(false);
     }
@@ -193,10 +198,10 @@ const ProfileSettingsPage = () => {
       setHealthGoals([]);
       setInitialPrefs({ dietary: [], allergies: [], health_goals: [] });
       setIsHealthEditMode(false);
-      toast("Hồ sơ Sức khỏe AI đã được xóa", "success");
+      toast.success("Hồ sơ Sức khỏe AI đã được xóa");
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "Không thể xóa hồ sơ";
-      toast(msg, "error");
+      toast.error(msg);
     } finally {
       setSavingPrefs(false);
     }
@@ -216,10 +221,12 @@ const ProfileSettingsPage = () => {
     try {
       setSavingPw(true);
       await userService.changePassword({ currentPassword, newPassword });
-      toast("Đổi mật khẩu thành công", "success");
+      toast.success("Đổi mật khẩu thành công");
+      setPwSuccess("Đổi mật khẩu thành công! Mật khẩu của bạn đã được cập nhật.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setTimeout(() => setPwSuccess(null), 5000);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "Đổi mật khẩu không thành công";
       setPwError(msg);
@@ -542,6 +549,13 @@ const ProfileSettingsPage = () => {
             </div>
           </div>
 
+          {pwSuccess && (
+            <div className="flex items-center gap-2 px-5 py-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 rounded-2xl mb-6 text-sm font-semibold">
+              <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
+              <p>{pwSuccess}</p>
+            </div>
+          )}
+
           {pwError && (
             <div className="border border-destructive/30 bg-destructive/10 text-destructive rounded-2xl px-5 py-4 mb-6 text-sm">
               {pwError}
@@ -584,6 +598,7 @@ const ProfileSettingsPage = () => {
                   disabled={savingPw}
                   className="w-full pl-12 pr-12 py-3.5 bg-background border border-input rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow text-foreground placeholder:text-muted-foreground disabled:opacity-70"
                   placeholder="Nhập mật khẩu mới (tối thiểu 8 ký tự)"
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -593,26 +608,28 @@ const ProfileSettingsPage = () => {
                   <span className="material-symbols-outlined text-[20px]">{showNewPw ? "visibility_off" : "visibility"}</span>
                 </button>
               </div>
-              {/* Strength indicator */}
-              {newPassword.length > 0 && (
-                <div className="flex gap-1 mt-2">
-                  {[...Array(4)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-1 flex-1 rounded-full transition-colors ${newPassword.length >= 12 && i < 4 ? "bg-green-500" :
-                        newPassword.length >= 10 && i < 3 ? "bg-yellow-400" :
-                          newPassword.length >= 8 && i < 2 ? "bg-orange-400" :
-                            newPassword.length >= 4 && i < 1 ? "bg-red-400" : "bg-muted"
-                        }`}
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">
-                    {newPassword.length >= 12 ? "Rất mạnh" :
-                      newPassword.length >= 10 ? "Mạnh" :
-                        newPassword.length >= 8 ? "Trung bình" : "Yếu"}
-                  </span>
+              {/* Password Strength Criteria */}
+              <div className="flex flex-col gap-1.5 mt-1.5 px-1">
+                <p className="text-xs font-semibold text-muted-foreground">Yêu cầu mật khẩu:</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className={`flex items-center gap-1.5 transition-colors ${newPassword.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                    <span className="material-symbols-outlined text-[16px]">{newPassword.length >= 8 ? "check_circle" : "circle"}</span>
+                    <span>Tối thiểu 8 ký tự</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 transition-colors ${/[A-Z]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                    <span className="material-symbols-outlined text-[16px]">{/[A-Z]/.test(newPassword) ? "check_circle" : "circle"}</span>
+                    <span>Ít nhất 1 chữ viết hoa</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 transition-colors ${/[0-9]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                    <span className="material-symbols-outlined text-[16px]">{/[0-9]/.test(newPassword) ? "check_circle" : "circle"}</span>
+                    <span>Ít nhất 1 chữ số</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 transition-colors ${/[^a-zA-Z0-9]/.test(newPassword) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                    <span className="material-symbols-outlined text-[16px]">{/[^a-zA-Z0-9]/.test(newPassword) ? "check_circle" : "circle"}</span>
+                    <span>Ít nhất 1 ký tự đặc biệt</span>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Confirm password */}
