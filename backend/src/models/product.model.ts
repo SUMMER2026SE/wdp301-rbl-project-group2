@@ -38,7 +38,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
     imgEmbedding: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     description: { type: String },
-    imageUrl: { type: String },
+    image: { type: String },
     price: {
       type: Number,
       required: true,

@@ -319,7 +319,7 @@ export const getUserOrders = async (userId: mongoose.Types.ObjectId) => {
     .sort({ createdAt: -1 })
     .populate({
       path: 'items.productId',
-      select: 'name imageUrl price',
+      select: 'name image price',
     });
 };
 
@@ -347,7 +347,7 @@ export const getOrders = async (query: any = {}) => {
     .populate('cusId', 'username email phone')
     .populate({
       path: 'items.productId',
-      select: 'name imageUrl price',
+      select: 'name image price',
     });
 };
 
@@ -365,7 +365,7 @@ export const getOrderById = async (idOrCode: string) => {
     .populate('cusId', 'username email phone')
     .populate({
       path: 'items.productId',
-      select: 'name imageUrl price',
+      select: 'name image price',
     });
 
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');

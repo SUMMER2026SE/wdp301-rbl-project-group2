@@ -40,7 +40,7 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   imgEmbedding: string;
   name: string;
   description?: string;
-  imageUrl?: string;
+  image?: string;
   price: number;
   category: ProductCategory;
   recipe: IProductRecipeItem[];
