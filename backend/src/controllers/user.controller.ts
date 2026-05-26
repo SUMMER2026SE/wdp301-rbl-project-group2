@@ -2,12 +2,15 @@ import { OK } from '@/constants/http';
 import { IUser } from '@/types';
 import { catchErrors } from '@/utils/async-handler';
 import { updateMe, changePassword } from '@/services/user.service';
-import { updateMeValidator } from '@/validators/auth.validator';
+import { updateMeValidator, strongPasswordValidator } from '@/validators/auth.validator';
 import { z } from 'zod';
 
 const changePasswordValidator = z.object({
   currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
-  newPassword: z.string().min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự'),
+  newPassword: strongPasswordValidator,
+}).refine((data) => data.newPassword !== data.currentPassword, {
+  message: 'Mật khẩu mới không được trùng với mật khẩu cũ',
+  path: ['newPassword'],
 });
 import { uploadBuffer, deleteFile } from "@/utils/upload-file";
 import User from '@/models/user.model';

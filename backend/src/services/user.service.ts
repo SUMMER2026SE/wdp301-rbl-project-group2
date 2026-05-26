@@ -89,6 +89,9 @@ export const changePassword = async (
   const isMatch = await compareValue(currentPassword, user.passwordHash);
   appAssert(isMatch, BAD_REQUEST, 'Mật khẩu hiện tại không đúng');
 
+  const isSameAsOld = await compareValue(newPassword, user.passwordHash);
+  appAssert(!isSameAsOld, BAD_REQUEST, 'Mật khẩu mới không được trùng với mật khẩu cũ');
+
   // Gán plain text — pre-save hook sẽ tự động hash trước khi lưu
   user.passwordHash = newPassword;
   await user.save();

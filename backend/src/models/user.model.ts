@@ -60,23 +60,31 @@ const UserSchema = new mongoose.Schema<IUser>(
     avatar: { type: String, default: null },
     avatarPublicId: { type: String, default: null },
     passwordHash: { type: String, required: true, minLength: 6 },
-    role: { type: String, required: true, enum: Role, default: Role.CUSTOMER },
+    role: { 
+      type: String, 
+      required: true, 
+      enum: [...Object.values(Role), 'ADMIN', 'MANAGER', 'STAFF', 'CUSTOMER', 'SHIPPER', 'admin', 'manager', 'staff', 'customer', 'shipper'], 
+      default: Role.CUSTOMER 
+    },
     isHealthSetup: { type: Boolean, default: false },
     loginFailedCount: { type: Number, default: 0 },
     lockedUntil: { type: Date, default: null },
     verifiedAt: { type: Date, default: null },
-    status: { type: String, required: true, enum: UserStatus, default: UserStatus.ACTIVE },
+    status: { 
+      type: String, 
+      required: true, 
+      enum: [...Object.values(UserStatus), 'ACTIVE', 'INACTIVE', 'BLOCKED', 'DELETED', 'active', 'inactive', 'blocked', 'deleted'], 
+      default: UserStatus.ACTIVE 
+    },
     collectedPoints: {
       type: Number,
       default: 0,
       min: [0, 'Collected points cannot be negative'],
     },
-    addresses: [
-      {
-        type: AddressSchema,
-        default: [],
-      },
-    ],
+    addresses: {
+      type: [AddressSchema],
+      default: [],
+    },
     health: {
       type: HealthSchema,
       default: () => ({ allergies: [] as string[], calories: 0 }),
@@ -117,6 +125,14 @@ UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
 UserSchema.index({ storeId: 1 });
+
+// Middleware "pre-validate"
+UserSchema.pre('validate', function (next) {
+  if (this.addresses && this.addresses.length > 0) {
+    this.addresses = this.addresses.filter(a => a.ward && a.receiverName) as any;
+  }
+  next();
+});
 
 // Middleware "pre-save"
 UserSchema.pre('save', async function (next) {

@@ -31,7 +31,7 @@ const ResetPasswordPage = () => {
                 email,
                 code: otp,
                 password,
-                confirm_password: confirmPassword
+                confirmPassword
             });
             setSuccess(true);
             setTimeout(() => navigate("/login"), 2000);
@@ -135,7 +135,7 @@ const ResetPasswordPage = () => {
                                         className="w-full rounded-lg border border-input bg-background h-12 px-4 pr-12 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-orange-600/20 focus:border-orange-600 transition-all outline-none"
                                         placeholder={t('auth:resetPassword.newPasswordPlaceholder')}
                                         required
-                                        minLength={6}
+                                        minLength={8}
                                     />
                                     <button
                                         type="button"
@@ -146,6 +146,29 @@ const ResetPasswordPage = () => {
                                             {showPassword ? "visibility_off" : "visibility"}
                                         </span>
                                     </button>
+                                </div>
+
+                                {/* Password Strength Criteria */}
+                                <div className="flex flex-col gap-1.5 mt-1 px-1">
+                                    <p className="text-xs font-semibold text-muted-foreground">Yêu cầu mật khẩu:</p>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className={`flex items-center gap-1.5 transition-colors ${password.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{password.length >= 8 ? "check_circle" : "circle"}</span>
+                                            <span>Tối thiểu 8 ký tự</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[A-Z]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[A-Z]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 chữ viết hoa</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 chữ số</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[^a-zA-Z0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[^a-zA-Z0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 ký tự đặc biệt</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex flex-col gap-2">

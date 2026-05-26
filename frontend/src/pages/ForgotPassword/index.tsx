@@ -10,7 +10,7 @@ const ForgotPasswordPage = () => {
     const [email, setEmail] = useState("");
     const [otp, setOtp] = useState("");
     const [password, setPassword] = useState("");
-    const [confirm_password, setConfirmPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
@@ -46,7 +46,7 @@ const ForgotPasswordPage = () => {
 
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (password !== confirm_password) {
+        if (password !== confirmPassword) {
             setError(t('auth:resetPassword.passwordMismatch', 'Mật khẩu không khớp nhau'));
             return;
         }
@@ -57,7 +57,7 @@ const ForgotPasswordPage = () => {
                 email,
                 code: otp,
                 password,
-                confirm_password
+                confirmPassword
             });
             setSuccess(true);
         } catch (err: any) {
@@ -147,7 +147,7 @@ const ForgotPasswordPage = () => {
                                         className="w-full rounded-lg border border-input bg-background h-12 px-4 pr-12 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none"
                                         placeholder="Nhập mật khẩu mới"
                                         required
-                                        minLength={6}
+                                        minLength={8}
                                     />
                                     <button
                                         type="button"
@@ -159,13 +159,36 @@ const ForgotPasswordPage = () => {
                                         </span>
                                     </button>
                                 </div>
+
+                                {/* Password Strength Criteria */}
+                                <div className="flex flex-col gap-1.5 mt-1 px-1">
+                                    <p className="text-xs font-semibold text-muted-foreground">Yêu cầu mật khẩu:</p>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className={`flex items-center gap-1.5 transition-colors ${password.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{password.length >= 8 ? "check_circle" : "circle"}</span>
+                                            <span>Tối thiểu 8 ký tự</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[A-Z]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[A-Z]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 chữ viết hoa</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 chữ số</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${/[^a-zA-Z0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                                            <span className="material-symbols-outlined text-[16px]">{/[^a-zA-Z0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                                            <span>Ít nhất 1 ký tự đặc biệt</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex flex-col gap-2">
                                 <label className="text-foreground text-sm font-semibold px-1">Xác nhận mật khẩu</label>
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    value={confirm_password}
+                                    value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     className="w-full rounded-lg border border-input bg-background h-12 px-4 text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none"
                                     placeholder="Nhập lại mật khẩu mới"

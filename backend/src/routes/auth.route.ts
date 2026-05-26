@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getMeHandler,
   loginHandler,
+  loginWithGoogleHandler,
   logout,
   refreshHandler,
   registerHandler,
@@ -18,6 +19,7 @@ const authRoutes = Router();
 //prefix: /auth
 authRoutes.post('/register', registerHandler);
 authRoutes.post('/login', loginHandler);
+authRoutes.post('/google', loginWithGoogleHandler);
 authRoutes.post('/refresh', refreshHandler);
 authRoutes.post('/verify-email', verifyEmailHandler);
 authRoutes.post('/resend-verify-email', resendVerifyEmailHandler);
