@@ -1,0 +1,9 @@
+# Local docker override configuration
+docker-compose.override.yml
+
+# Helper scripts
+kill-ports.js
+
+# OS files
+.DS_Store
+Thumbs.db
