@@ -212,8 +212,26 @@ server {
         internal;
     }
 
-    location /api { proxy_pass http://be-prod:5000; }
-    location / { proxy_pass http://fe-prod:3000; }
+    # Giải quyết IP động khi recreate container
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    set $backend_prod http://be-prod:5000;
+    set $frontend_prod http://fe-prod:3000;
+
+    location /api {
+        proxy_pass $backend_prod;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass $frontend_prod;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 
 # --- 3. CẤU HÌNH HTTPS CHO DEVELOPMENT (dev.anngon.site) ---
@@ -232,8 +250,26 @@ server {
         internal;
     }
 
-    location /api { proxy_pass http://be-dev:5000; }
-    location / { proxy_pass http://fe-dev:3000; }
+    # Giải quyết IP động khi recreate container
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    set $backend_dev http://be-dev:5000;
+    set $frontend_dev http://fe-dev:3000;
+
+    location /api {
+        proxy_pass $backend_dev;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass $frontend_dev;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
 
@@ -350,6 +386,7 @@ services:
       - "443:443"
     restart: always
     volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     networks: [web-network]
@@ -808,6 +845,12 @@ Dưới đây là tổng hợp các lệnh hữu ích để bạn giám sát, v�
   ```bash
   # Truy cập vào terminal của backend để gõ lệnh hoặc kiểm tra file
   docker exec -it anngon-website_be-dev_1 sh
+  ```
+
+- **Nạp lại cấu hình Nginx không gây gián đoạn (Reload Nginx):**
+  ```bash
+  # Chạy lệnh reload bên trong container Nginx để nạp cấu hình default.conf mới (Zero downtime)
+  docker compose -f /home/anngon/nginx-proxy/docker-compose.yml exec nginx nginx -s reload
   ```
 
 ### 2. Quản lý Tài nguyên VPS (Giám sát Phần cứng)
