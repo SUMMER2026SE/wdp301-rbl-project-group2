@@ -3,37 +3,39 @@ import { apiClient } from "@/lib/api-client";
 export interface PlaceOrderItemVariation {
   name: string;
   choice: string;
-  extra_price?: number;
+  extraPrice?: number;
 }
 
 export interface PlaceOrderItem {
-  product_id: string;
+  productId: string;
   quantity: number;
   variations?: PlaceOrderItemVariation[];
 }
 
 export interface PlaceOrderAddress {
   label?: string;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
 }
 
 export type PaymentMethod =
+  | "cash"
   | "cash_on_delivery"
-  | "credit_card"
-  | "paypal"
-  | "bank_transfer";
+  | "bank_transfer"
+  | "momo"
+  | "vnpay"
+  | "stripe";
 
 export interface PlaceOrderRequest {
   items: PlaceOrderItem[];
-  payment_method?: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   voucher?: string;
-  shipping_fee?: number;
-  delivery_address?: PlaceOrderAddress;
+  shippingFee?: number;
+  deliveryAddress?: PlaceOrderAddress;
   note?: string;
 }
 
@@ -42,22 +44,22 @@ export interface PlacedOrder {
   code: string;
   status: string;
   items: Array<{
-    product_id: string;
+    productId: string;
     quantity: number;
-    variations: Array<{ name: string; choice: string; extra_price: number }>;
-    sub_total: number;
+    variations: Array<{ name: string; choice: string; extraPrice: number }>;
+    subTotal: number;
   }>;
-  sub_total: number;
+  subTotal: number;
   note?: string;
-  staff_note_items?: string[];
-  shipping_fee: number;
-  total_price: number;
+  staffNoteItems?: string[];
+  shippingFee: number;
+  totalPrice: number;
   payment: {
     method: PaymentMethod;
-    paid_at: string | null;
+    paidAt: string | null;
   };
-  delivery_address: PlaceOrderAddress;
-  voucher: string | null;
+  deliveryAddress: PlaceOrderAddress;
+  voucherId: string | null;
   checkoutUrl?: string;
   createdAt: string;
 }
@@ -65,7 +67,7 @@ export interface PlacedOrder {
 export interface Order {
   _id: string;
   code: string;
-  user_id?:
+  cusId?:
   | string
   | {
     _id: string;
@@ -74,20 +76,20 @@ export interface Order {
     phone: string;
   };
   items: Array<{
-    product_id:
+    productId:
     | string
     | {
       _id: string;
       name: string;
-      image: string | { secure_url: string };
+      image: string | { secureUrl?: string };
       price: number;
     };
     quantity: number;
-    variations: Array<{ name: string; choice: string; extra_price?: number }>;
-    sub_total: number;
+    variations: Array<{ name: string; choice: string; extraPrice?: number }>;
+    subTotal: number;
   }>;
   note?: string;
-  staff_note_items?: string[];
+  staffNoteItems?: string[];
   status:
   | "pending"
   | "confirmed"
@@ -96,22 +98,23 @@ export interface Order {
   | "shipping"
   | "completed"
   | "cancelled";
-  sub_total: number;
-  shipping_fee: number;
-  total_price: number;
+  subTotal: number;
+  shippingFee: number;
+  totalPrice: number;
   payment: {
     method: PaymentMethod;
-    paid_at: string | null;
+    paidAt: string | null;
   };
-  delivery_address: PlaceOrderAddress;
-  delivery_info?: {
-    shipped_at?: string;
-    delivered_at?: string;
-    driver_id?: string | null;
+  deliveryAddress: PlaceOrderAddress;
+  deliveryInfo?: {
+    shippedAt?: string;
+    deliveredAt?: string;
+    driverId?: string | null;
   };
   voucher?: string | null;
   createdAt: string;
   updatedAt: string;
+  isReviewed?: boolean;
 }
 
 export interface OrderListResponse {
@@ -155,7 +158,7 @@ class OrderService {
 
   async getAllOrders(params?: {
     status?: string;
-    driver_id?: string;
+    driverId?: string;
     page?: number;
     limit?: number;
     sort?: string;

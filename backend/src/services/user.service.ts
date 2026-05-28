@@ -50,8 +50,9 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
 
     const oldData = user.omitPassword();
 
-    const update: Partial<Record<keyof TUpdateMeParams | 'aiRecommendationsCache', any>> = {};
+    const update: Partial<Record<keyof TUpdateMeParams | 'aiRecommendationsCache' | 'isHealthSetup', any>> = {};
     if (payload.username !== undefined) update.username = payload.username;
+    if (payload.fullName !== undefined) update.fullName = payload.fullName;
     if (payload.phone !== undefined) update.phone = payload.phone;
     if (payload.addresses !== undefined) update.addresses = normalizeDefaultAddress(payload.addresses);
     if (payload.preferences !== undefined) {
@@ -60,6 +61,7 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
         allergies: payload.preferences.allergies ?? (user.preferences?.allergies ?? []),
         healthGoals: (payload.preferences as any).healthGoals ?? (user.preferences?.healthGoals ?? []),
       };
+      update.isHealthSetup = true;
       // Invalidate AI cache whenever health profile/preferences changes!
       update.aiRecommendationsCache = null;
     }

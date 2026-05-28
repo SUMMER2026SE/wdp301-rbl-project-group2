@@ -5,7 +5,7 @@ import { AddToCartInput } from '@/validators/cart.validator';
 import { ICartItem } from '@/types/cart.type';
 
 type InputVariation = { name: string; choice: string };
-type CartVariation = { name: string; choice: string; extra_price: number };
+type CartVariation = { name: string; choice: string; extraPrice: number };
 
 const normalizeVariations = (vars: { name: string; choice: string }[]) =>
   (vars || [])
@@ -22,16 +22,16 @@ const findVariantExtraPrice = (product: any, name: string, choice: string) => {
   const option = group.options?.find((o: any) => o.choice === choice);
   if (!option) return null;
 
-  return Number(option.extra_price ?? 0);
+  return Number(option.extraPrice ?? 0);
 };
 
 export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCartInput) => {
-  const { product_id, quantity, variations = [] } = input;
+  const { productId, quantity, variations = [] } = input;
 
   if (!userId) throw new Error('Unauthorized');
-  if (!mongoose.Types.ObjectId.isValid(product_id)) throw new Error('Invalid product_id');
+  if (!mongoose.Types.ObjectId.isValid(productId)) throw new Error('Invalid productId');
 
-  const product: any = await ProductModel.findById(product_id).lean();
+  const product: any = await ProductModel.findById(productId).lean();
   if (!product) throw new Error('Product not found');
   if (product.isAvailable === false) throw new Error('Product is not available');
 
@@ -39,19 +39,19 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
     const extra = findVariantExtraPrice(product, v.name, v.choice);
     if (extra === null) throw new Error(`Invalid variation ${v.name}:${v.choice}`);
 
-    return { name: v.name, choice: v.choice, extra_price: extra };
+    return { name: v.name, choice: v.choice, extraPrice: extra };
   });
 
   const basePrice = Number(product.price ?? 0);
-  const extraPrice = mappedVariations.reduce((sum, v) => sum + Number(v.extra_price ?? 0), 0);
+  const extraPrice = mappedVariations.reduce((sum, v) => sum + Number(v.extraPrice ?? 0), 0);
   const unitPrice = basePrice + extraPrice;
 
   const cart =
-    (await CartModel.findOne({ user_id: userId })) ??
-    (await CartModel.create({ user_id: userId, items: [] }));
+    (await CartModel.findOne({ cusId: userId })) ??
+    (await CartModel.create({ cusId: userId, items: [] }));
 
   const existed = cart.items.find((it: any) => {
-    const sameProduct = String(it.product_id) === String(product_id);
+    const sameProduct = String(it.productId) === String(productId);
     return sameProduct && sameVariations(it.variations || [], mappedVariations);
   });
 
@@ -61,7 +61,7 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
     existed.variations = mappedVariations as any;
   } else {
     cart.items.push({
-      product_id,
+      productId,
       quantity,
       price: unitPrice,
       variations: mappedVariations,
@@ -75,18 +75,18 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
 export const getCart = async (userId: mongoose.Types.ObjectId) => {
   if (!userId) throw new Error('Unauthorized');
   
-  const cart = await CartModel.findOne({ user_id: userId })
+  const cart = await CartModel.findOne({ cusId: userId })
     .populate({
-      path: 'items.product_id',
+      path: 'items.productId',
       select: 'name image price isAvailable variants',
     });
     
-  return cart || { user_id: userId, items: [] as ICartItem[] };
+  return cart || { cusId: userId, items: [] as ICartItem[] };
 };
 
 export const clearCart = async (userId: mongoose.Types.ObjectId) => {
   if (!userId) throw new Error('Unauthorized');
-  const cart = await CartModel.findOne({ user_id: userId });
+  const cart = await CartModel.findOne({ cusId: userId });
   if (cart) {
     cart.items = [];
     await cart.save();
@@ -97,28 +97,28 @@ export const clearCart = async (userId: mongoose.Types.ObjectId) => {
 export const mergeCart = async (userId: mongoose.Types.ObjectId, guestItems: any[]) => {
   if (!userId) throw new Error('Unauthorized');
 
-  let cart = await CartModel.findOne({ user_id: userId });
+  let cart = await CartModel.findOne({ cusId: userId });
   if (!cart) {
-    cart = await CartModel.create({ user_id: userId, items: [] });
+    cart = await CartModel.create({ cusId: userId, items: [] });
   }
 
   for (const guestItem of guestItems) {
-    const { product_id, quantity, variations = [] } = guestItem;
+    const { productId, quantity, variations = [] } = guestItem;
 
-    const product: any = await ProductModel.findById(product_id).lean();
+    const product: any = await ProductModel.findById(productId).lean();
     if (!product || product.isAvailable === false) continue;
 
     const mappedVariations: CartVariation[] = variations.map((v: any) => {
       const extra = findVariantExtraPrice(product, v.name, v.choice);
-      return { name: v.name, choice: v.choice, extra_price: extra ?? 0 };
+      return { name: v.name, choice: v.choice, extraPrice: extra ?? 0 };
     });
 
     const basePrice = Number(product.price ?? 0);
-    const extraPrice = mappedVariations.reduce((sum, v) => sum + Number(v.extra_price ?? 0), 0);
+    const extraPrice = mappedVariations.reduce((sum, v) => sum + Number(v.extraPrice ?? 0), 0);
     const unitPrice = basePrice + extraPrice;
 
     const existed = cart.items.find((it: any) => {
-      const sameProduct = String(it.product_id) === String(product_id);
+      const sameProduct = String(it.productId) === String(productId);
       return sameProduct && sameVariations(it.variations || [], mappedVariations);
     });
 
@@ -128,7 +128,7 @@ export const mergeCart = async (userId: mongoose.Types.ObjectId, guestItems: any
       existed.variations = mappedVariations as any;
     } else {
       cart.items.push({
-        product_id: new mongoose.Types.ObjectId(product_id),
+        productId: new mongoose.Types.ObjectId(productId),
         quantity,
         price: unitPrice,
         variations: mappedVariations,
@@ -142,16 +142,16 @@ export const mergeCart = async (userId: mongoose.Types.ObjectId, guestItems: any
 
 export const updateItemQuantity = async (
   userId: mongoose.Types.ObjectId,
-  product_id: string,
+  productId: string,
   variations: any[],
   quantity: number
 ) => {
   if (!userId) throw new Error('Unauthorized');
-  const cart = await CartModel.findOne({ user_id: userId });
+  const cart = await CartModel.findOne({ cusId: userId });
   if (!cart) throw new Error('Cart not found');
 
   const item = cart.items.find((it: any) => {
-    const sameProduct = String(it.product_id) === String(product_id);
+    const sameProduct = String(it.productId) === String(productId);
     return sameProduct && sameVariations(it.variations || [], variations);
   });
 
@@ -168,15 +168,15 @@ export const updateItemQuantity = async (
 
 export const removeItem = async (
   userId: mongoose.Types.ObjectId,
-  product_id: string,
+  productId: string,
   variations: any[]
 ) => {
   if (!userId) throw new Error('Unauthorized');
-  const cart = await CartModel.findOne({ user_id: userId });
+  const cart = await CartModel.findOne({ cusId: userId });
   if (!cart) throw new Error('Cart not found');
 
   cart.items = cart.items.filter((it: any) => {
-    const sameProduct = String(it.product_id) === String(product_id);
+    const sameProduct = String(it.productId) === String(productId);
     const sameVars = sameVariations(it.variations || [], variations);
     return !(sameProduct && sameVars);
   }) as any;

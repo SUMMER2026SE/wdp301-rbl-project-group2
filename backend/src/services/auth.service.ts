@@ -1,6 +1,6 @@
 import { APP_ORIGIN, AUTH_REFRESH_TOKEN_TTL_DAYS, GOOGLE_CLIENT_ID } from '@/constants/env';
 import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
-import { RefreshTokenModel, UserModel } from '@/models';
+import { RefreshTokenModel, UserModel, OrderModel, ReviewModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
 import { IUser } from '@/types';
 import { VerificationCodeType } from '@/types/verification-code.type';
@@ -305,7 +305,19 @@ export const resetPassword = async ({ email, code, password }: TResetPasswordPar
 export const getMe = async (userId: mongoose.Types.ObjectId): Promise<any> => {
   const user = await UserModel.findById(userId);
   appAssert(user, NOT_FOUND, 'Không tìm thấy tài khoản người dùng');
-  return user.omitPassword();
+
+  const [ordersCount, reviewsCount] = await Promise.all([
+    OrderModel.countDocuments({ cusId: userId }),
+    ReviewModel.countDocuments({ userId: userId }),
+  ]);
+
+  const userObj = user.omitPassword();
+  return {
+    ...userObj,
+    ordersCount,
+    reviewsCount,
+    savedCount: 0,
+  };
 };
 
 export const logoutUser = async (userId: mongoose.Types.ObjectId, deviceId: string | undefined) => {

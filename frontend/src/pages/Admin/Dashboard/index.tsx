@@ -109,7 +109,7 @@ const AdminDashboard = () => {
   const totalRevenue = useMemo(() => {
     return orders
       .filter((o) => isCompletedOrder(o.status))
-      .reduce((sum, o) => sum + Number(o.total_price || 0), 0);
+      .reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
   }, [orders]);
 
   const totalOrdersCount = useMemo(() => orders.length, [orders]);

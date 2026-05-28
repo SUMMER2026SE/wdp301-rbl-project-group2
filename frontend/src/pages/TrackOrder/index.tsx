@@ -170,7 +170,7 @@ const TrackOrderPage = () => {
                                 <div>
                                     <p className="text-white/70 text-sm font-medium">Thanh toán</p>
                                     <h4 className="text-xl font-extrabold">
-                                        {order.payment.method === 'cash_on_delivery' ? 'COD' : 'Chuyển khoản'}
+                                        {order.payment.method === 'cash' ? 'COD' : 'Chuyển khoản'}
                                     </h4>
                                 </div>
                             </div>
@@ -196,8 +196,8 @@ const TrackOrderPage = () => {
                                     <span className="material-symbols-outlined text-orange-600 mt-0.5">location_on</span>
                                     <div>
                                         <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Địa chỉ giao hàng</p>
-                                        <p className="text-sm font-bold">{order.delivery_address.receiver_name} • {order.delivery_address.phone}</p>
-                                        <p className="text-sm text-slate-500 leading-snug">{order.delivery_address.detail}, {order.delivery_address.ward}, {order.delivery_address.district}, {order.delivery_address.city}</p>
+                                        <p className="text-sm font-bold">{order.deliveryAddress.receiverName} • {order.deliveryAddress.phone}</p>
+                                        <p className="text-sm text-slate-500 leading-snug">{order.deliveryAddress.detail}, {order.deliveryAddress.ward}, {order.deliveryAddress.city}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
@@ -216,7 +216,7 @@ const TrackOrderPage = () => {
                             <h3 className="text-lg font-bold mb-6">{t('customer:cart.grandTotal', 'Tóm tắt đơn hàng')}</h3>
                             <div className="space-y-4 mb-6">
                                 {order.items.map((item, idx) => {
-                                    const product = typeof item.product_id === 'object' ? item.product_id : null;
+                                    const product = typeof item.productId === 'object' ? item.productId : null;
                                     return (
                                         <div key={idx} className="flex justify-between items-start gap-4">
                                             <div className="flex flex-col">
@@ -227,22 +227,22 @@ const TrackOrderPage = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-sm font-bold">{item.sub_total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-sm font-bold">{item.subTotal.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     );
                                 })}
                                 <div className="pt-4 border-t border-[#f4ece6] dark:border-white/10 space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-[#9e6b47]">{t('customer:cart.subtotal')}</span>
-                                        <span className="font-medium">{order.sub_total.toLocaleString('vi-VN')}đ</span>
+                                        <span className="font-medium">{order.subTotal.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-[#9e6b47]">{t('customer:cart.deliveryFee')}</span>
-                                        <span className="font-medium">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
+                                        <span className="font-medium">{order.shippingFee.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between text-lg font-extrabold pt-2">
                                         <span>{t('customer:cart.grandTotal')}</span>
-                                        <span className="text-orange-600">{order.total_price.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-orange-600">{order.totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
                             </div>

@@ -33,15 +33,15 @@ export const mergeCartHandler = catchErrors(async (req, res) => {
 
 export const updateItemHandler = catchErrors(async (req, res) => {
   const user = req.userId;
-  const { product_id, variations, quantity } = req.body;
-  const cart = await updateItemQuantity(user, product_id, variations || [], quantity);
+  const { productId, variations, quantity } = req.body;
+  const cart = await updateItemQuantity(user, productId, variations || [], quantity);
   return res.success(OK, { data: cart, message: 'Cập nhật số lượng thành công' });
 });
 
 export const removeItemHandler = catchErrors(async (req, res) => {
   const user = req.userId;
-  const { product_id, variations } = req.body;
-  const cart = await removeItem(user, product_id, variations || []);
+  const { productId, variations } = req.body;
+  const cart = await removeItem(user, productId, variations || []);
   return res.success(OK, { data: cart, message: 'Đã xóa món ăn khỏi giỏ hàng' });
 });
 

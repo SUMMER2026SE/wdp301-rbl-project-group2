@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 
 // Định nghĩa Type chuẩn để bỏ @ts-ignore
-type ThemeType = 'orange' | 'blue' | 'green';
+type ThemeType = 'orange' | 'amber' | 'emerald';
 
 interface Voucher {
     code: string;
@@ -36,14 +36,14 @@ const VoucherSection = () => {
             title: "Freeship 0đ",
             desc: "Bán kính 5km. Tối đa 15k phí giao hàng.",
             expiry: "Hết hạn: Hôm nay",
-            theme: "blue"
+            theme: "amber"
         },
         {
             code: "BANMOI",
             title: "Giảm 50%",
             desc: "Tối đa 30k cho khách hàng mới.",
             expiry: "Hết hạn: 30/05",
-            theme: "green"
+            theme: "emerald"
         },
     ];
 
@@ -51,26 +51,26 @@ const VoucherSection = () => {
     const themeStyles = {
         orange: {
             headerBg: "bg-gradient-to-br from-orange-500 to-orange-400",
-            iconBg: "bg-orange-600/30",
+            iconBg: "bg-orange-600/20",
             badgeText: "text-orange-700",
             badgeBg: "bg-orange-100",
-            btnDefault: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+            btnDefault: "bg-orange-50 text-orange-700 hover:bg-orange-100/80",
             btnSaved: "bg-orange-500 text-white hover:bg-orange-600",
         },
-        blue: {
-            headerBg: "bg-gradient-to-br from-blue-500 to-blue-400",
-            iconBg: "bg-blue-600/30",
-            badgeText: "text-blue-700",
-            badgeBg: "bg-blue-100",
-            btnDefault: "bg-blue-100 text-blue-700 hover:bg-blue-200",
-            btnSaved: "bg-blue-500 text-white hover:bg-blue-600",
+        amber: {
+            headerBg: "bg-gradient-to-br from-amber-500 to-amber-400",
+            iconBg: "bg-amber-600/20",
+            badgeText: "text-amber-700",
+            badgeBg: "bg-amber-100",
+            btnDefault: "bg-amber-50 text-amber-700 hover:bg-amber-100/80",
+            btnSaved: "bg-amber-500 text-white hover:bg-amber-600",
         },
-        green: {
+        emerald: {
             headerBg: "bg-gradient-to-br from-emerald-500 to-emerald-400",
-            iconBg: "bg-emerald-600/30",
+            iconBg: "bg-emerald-600/20",
             badgeText: "text-emerald-700",
             badgeBg: "bg-emerald-100",
-            btnDefault: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+            btnDefault: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80",
             btnSaved: "bg-emerald-500 text-white hover:bg-emerald-600",
         },
     };

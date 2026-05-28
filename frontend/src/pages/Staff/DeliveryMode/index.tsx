@@ -5,10 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 
 const PAYMENT_LABEL: Record<string, string> = {
+    cash: "Tiền mặt (COD)",
     cash_on_delivery: "Tiền mặt (COD)",
+    bank_transfer: "Đã thanh toán (Chuyển khoản)",
     vnpay: "Đã thanh toán (VNPay)",
     momo: "Đã thanh toán (Momo)",
-    credit_card: "Đã thanh toán (Thẻ)",
+    stripe: "Đã thanh toán (Thẻ)",
     paypal: "Đã thanh toán (PayPal)",
 };
 
@@ -25,7 +27,7 @@ export default function StaffDeliveryMode() {
         try {
             const res = await orderService.getAllOrders({
                 status: "shipping",
-                driver_id: user._id,
+                driverId: user._id,
             });
             setOrders(res.data);
         } catch (error) {
@@ -78,7 +80,7 @@ export default function StaffDeliveryMode() {
     return (
         <div className="max-w-[800px] mx-auto pb-10 px-4 sm:px-0">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#f8f7f6] pt-4 pb-4 z-10 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-6 sticky top-[-16px] sm:top-[-32px] bg-[#f8f7f6] pt-4 pb-4 z-10 border-b border-gray-200 -mt-4 sm:-mt-8">
                 <div>
                     <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
                         Đơn đang giao
@@ -111,9 +113,12 @@ export default function StaffDeliveryMode() {
                 <div className="flex flex-col gap-6">
                     {orders.map((order) => {
                         const isActioning = actioningIds.has(order._id);
-                        const address = order.delivery_address;
-                        const fullAddress = `${address?.detail || ""}, ${address?.ward || ""}, ${address?.district || ""}`;
-                        const isCOD = order.payment.method === "cash_on_delivery";
+                        const address = order.deliveryAddress;
+                        const fullAddress = [address?.detail, address?.ward, address?.district, address?.city]
+                            .filter(Boolean)
+                            .join(", ");
+                        const paymentMethod = order.payment?.method;
+                        const isCOD = paymentMethod === "cash" || paymentMethod === "cash_on_delivery";
 
                         return (
                             <div
@@ -146,20 +151,20 @@ export default function StaffDeliveryMode() {
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0">
-                                                {(address?.receiver_name || "K").charAt(0).toUpperCase()}
+                                                {(address?.receiverName || "K").charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="font-bold text-gray-900 text-lg">
-                                                    {address?.receiver_name || (order.user_id as any)?.username || "Khách hàng"}
+                                                    {address?.receiverName || (order.cusId as any)?.username || "Khách hàng"}
                                                 </div>
                                                 <div className="text-sm font-bold text-orange-600">
-                                                    {address?.phone || (order.user_id as any)?.phone || "Không có SĐT"}
+                                                    {address?.phone || (order.cusId as any)?.phone || "Không có SĐT"}
                                                 </div>
                                             </div>
                                         </div>
                                         {/* Nút Call cực to */}
                                         <a
-                                            href={`tel:${address?.phone || (order.user_id as any)?.phone}`}
+                                            href={`tel:${address?.phone || (order.cusId as any)?.phone}`}
                                             className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 hover:bg-emerald-200 active:scale-95 transition-all shadow-sm"
                                         >
                                             <Phone className="w-5 h-5 fill-current" />
@@ -191,7 +196,7 @@ export default function StaffDeliveryMode() {
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Đơn hàng gồm:</div>
                                     <div className="text-sm font-medium text-slate-700 leading-relaxed">
                                         {order.items.map((item, idx) => {
-                                            const prod = item.product_id as any;
+                                            const prod = item.productId as any;
                                             return <span key={idx} className="mr-2 inline-block">• {item.quantity}x {prod?.name || 'Sản phẩm'}</span>;
                                         })}
                                     </div>
@@ -203,10 +208,10 @@ export default function StaffDeliveryMode() {
                                         <Wallet className={`w-6 h-6 ${isCOD ? 'text-orange-500' : 'text-emerald-500'}`} />
                                         <div>
                                             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
-                                                {PAYMENT_LABEL[order.payment.method] || order.payment.method}
+                                                {PAYMENT_LABEL[paymentMethod] || paymentMethod || "Không rõ"}
                                             </div>
                                             <div className={`font-black text-2xl tracking-tight ${isCOD ? 'text-orange-600' : 'text-emerald-600'}`}>
-                                                {order.total_price.toLocaleString("vi-VN")}đ
+                                                {order.totalPrice.toLocaleString("vi-VN")}đ
                                             </div>
                                         </div>
                                     </div>

@@ -33,12 +33,14 @@ const ShoppingCartPage = () => {
     setOrderNote,
     toggleSelectItem,
     toggleSelectAll,
+    clearCart,
   } = useCart();
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loadingVouchers, setLoadingVouchers] = useState(true);
   const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   const [couponCode, setCouponCode] = useState("");
+  const [showClearCartModal, setShowClearCartModal] = useState(false);
   const [couponError, setCouponError] = useState("");
   const [isApplying, setIsApplying] = useState(false);
   const [upsellProducts, setUpsellProducts] = useState<Product[]>([]);
@@ -47,7 +49,7 @@ const ShoppingCartPage = () => {
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        const res = await voucherAPI.getVouchers({ is_active: true });
+        const res = await voucherAPI.getVouchers({ isActive: true });
         setVouchers(res.data);
       } catch (err) {
         console.error("Error fetching vouchers:", err);
@@ -83,12 +85,12 @@ const ShoppingCartPage = () => {
     try {
       const res = await voucherAPI.getVoucherByCode(couponCode.trim());
       if (res.data) {
-        if (!res.data.is_active) {
+        if (!res.data.isActive) {
             setCouponError("Mã giảm giá này đã hết hiệu lực");
             return;
         }
-        if (totalPrice < res.data.min_order_amount) {
-            setCouponError(`Đơn hàng chưa đạt mức tối thiểu ${res.data.min_order_amount.toLocaleString()}đ`);
+        if (totalPrice < res.data.minOrderValue) {
+            setCouponError(`Đơn hàng chưa đạt mức tối thiểu ${res.data.minOrderValue.toLocaleString()}đ`);
             return;
         }
         setAppliedVoucher(res.data);
@@ -108,13 +110,13 @@ const ShoppingCartPage = () => {
   const discountAmount = useMemo(() => {
     if (!appliedVoucher) return 0;
     
-    if (appliedVoucher.discount_type === 'fixed_amount') {
-        return appliedVoucher.discount_value;
+    if (appliedVoucher.discountType === 'fixed_amount') {
+        return appliedVoucher.discountValue;
     }
-    if (appliedVoucher.discount_type === 'percentage') {
-        const amount = (subtotal * appliedVoucher.discount_value) / 100;
-        return appliedVoucher.max_discount_amount 
-            ? Math.min(amount, appliedVoucher.max_discount_amount)
+    if (appliedVoucher.discountType === 'percentage') {
+        const amount = (subtotal * appliedVoucher.discountValue) / 100;
+        return appliedVoucher.maxDiscount 
+            ? Math.min(amount, appliedVoucher.maxDiscount)
             : amount;
     }
     return 0;
@@ -164,20 +166,29 @@ const ShoppingCartPage = () => {
                       type="checkbox"
                       checked={cartItems.every((i) => i.selected !== false)}
                       onChange={(e) => toggleSelectAll(e.target.checked)}
-                      className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
                     />
                     <span className="text-sm font-bold text-text-main dark:text-white">
                       Chọn tất cả ({cartItems.length} món)
                     </span>
                   </div>
-                  {cartItems.some((i) => i.selected === false) && (
-                     <button 
+                  <div className="flex items-center gap-4">
+                    {cartItems.some((i) => i.selected === false) && (
+                      <button 
                         onClick={() => toggleSelectAll(true)}
                         className="text-xs text-orange-600 font-bold hover:underline"
-                     >
+                      >
                         Chọn lại tất cả
-                     </button>
-                  )}
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setShowClearCartModal(true)}
+                      className="text-xs text-red-500 font-bold hover:underline flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete_sweep</span>
+                      Xóa tất cả
+                    </button>
+                  </div>
                 </div>
               )}
               {cartItems.length === 0 ? (
@@ -199,14 +210,15 @@ const ShoppingCartPage = () => {
                 cartItems.map((item) => (
                   <div
                     key={itemKey(item)}
-                    className="flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group"
+                    onClick={() => toggleSelectItem(itemKey(item))}
+                    className="flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer"
                   >
-                    <div className="flex items-center self-start sm:self-center">
+                    <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={item.selected !== false}
                         onChange={() => toggleSelectItem(itemKey(item))}
-                        className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
                       />
                     </div>
                     <div
@@ -260,7 +272,10 @@ const ShoppingCartPage = () => {
                       </div>
                       <div className="flex items-center justify-between mt-4 sm:mt-0">
                         <button
-                          onClick={() => removeItem(itemKey(item))}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeItem(itemKey(item));
+                          }}
                           className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline"
                         >
                           <span className="material-symbols-outlined text-lg">
@@ -268,7 +283,7 @@ const ShoppingCartPage = () => {
                           </span>
                           {t("common:actions.delete")}
                         </button>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
                             className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors"
@@ -323,7 +338,7 @@ const ShoppingCartPage = () => {
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-emerald-900">{appliedVoucher.code}</p>
-                                    <p className="text-[10px] text-emerald-700">Đã áp dụng giảm {appliedVoucher.discount_value.toLocaleString()}đ</p>
+                                    <p className="text-[10px] text-emerald-700">Đã áp dụng giảm {appliedVoucher.discountValue.toLocaleString()}đ</p>
                                 </div>
                             </div>
                             <button 
@@ -346,12 +361,12 @@ const ShoppingCartPage = () => {
                                             key={v._id}
                                             code={v.code}
                                             title={v.title}
-                                            discountValue={v.discount_type === 'fixed_amount' ? `${v.discount_value / 1000}k` : `${v.discount_value}%`}
-                                            minOrder={`từ ${v.min_order_amount?.toLocaleString() || '0'}đ`}
-                                            expiryDate={v.end_date ? new Date(v.end_date).toLocaleDateString() : 'Không thời hạn'}
+                                            discountValue={v.discountType === 'fixed_amount' ? `${v.discountValue / 1000}k` : `${v.discountValue}%`}
+                                            minOrder={`từ ${v.minOrderValue?.toLocaleString() || '0'}đ`}
+                                            expiryDate={v.endAt ? new Date(v.endAt).toLocaleDateString() : 'Không thời hạn'}
                                             onUse={() => {
-                                                if (totalPrice < v.min_order_amount) {
-                                                    setCouponError(`Mã này yêu cầu đơn hàng từ ${v.min_order_amount.toLocaleString()}đ. Bạn cần mua thêm ${(v.min_order_amount - totalPrice).toLocaleString()}đ nữa.`);
+                                                if (totalPrice < v.minOrderValue) {
+                                                    setCouponError(`Mã này yêu cầu đơn hàng từ ${v.minOrderValue.toLocaleString()}đ. Bạn cần mua thêm ${(v.minOrderValue - totalPrice).toLocaleString()}đ nữa.`);
                                                     return;
                                                 }
                                                 setAppliedVoucher(v);
@@ -396,7 +411,7 @@ const ShoppingCartPage = () => {
           {/* Right Column: Order Summary */}
           {cartItems.length > 0 && (
             <div className="flex flex-col gap-6">
-              <div className="sticky top-24 flex flex-col gap-6">
+              <div className="sticky top-32 flex flex-col gap-6">
                 {/* Manual Coupon Input Box */}
                 <div className="bg-white dark:bg-white/5 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/10">
                     <div className="flex items-center gap-2 mb-4">
@@ -503,7 +518,7 @@ const ShoppingCartPage = () => {
               ))
             ) : upsellProducts.length > 0 ? (
               upsellProducts.map((item) => {
-                const imageUrl = typeof item.image === 'object' && item.image?.secure_url ? item.image.secure_url : (typeof item.image === 'string' ? item.image : '');
+                const imageUrl = typeof item.image === 'object' && item.image?.secureUrl ? item.image.secureUrl : (typeof item.image === 'string' ? item.image : '');
                 return (
                   <div
                     key={item._id}
@@ -547,6 +562,55 @@ const ShoppingCartPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Custom Clear Cart Confirmation Modal */}
+      {showClearCartModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 cursor-pointer" 
+            onClick={() => setShowClearCartModal(false)}
+          />
+          
+          <div className="bg-white dark:bg-slate-900 rounded-[28px] p-6 max-w-sm w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative z-10 text-center animate-in zoom-in-95 duration-200">
+            {/* Warning Icon Container */}
+            <div className="mx-auto size-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4 text-red-500 border border-red-100 dark:border-red-900/30">
+              <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                warning
+              </span>
+            </div>
+            
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2">
+              Xóa toàn bộ giỏ hàng?
+            </h3>
+            
+            <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-6">
+              Hành động này sẽ loại bỏ tất cả các món ăn bạn đã chọn ra khỏi giỏ hàng. Bạn không thể hoàn tác thao tác này.
+            </p>
+            
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearCartModal(false)}
+                className="flex-1 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  clearCart();
+                  setShowClearCartModal(false);
+                  toast("Đã xóa sạch giỏ hàng!", "success");
+                }}
+                className="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-all"
+              >
+                Xóa tất cả
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

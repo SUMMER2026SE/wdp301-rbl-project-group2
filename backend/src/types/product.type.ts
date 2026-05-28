@@ -43,8 +43,14 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   image?: string;
   price: number;
   category: ProductCategory;
+  restaurant?: string;
+  time?: string;
+  rating?: number;
+  reviewCount?: number;
   recipe: IProductRecipeItem[];
   allergenTags: string[];
+  healthWarning?: string;
+  healthTags?: string[];
   
   // camelCase fields
   isAvailable?: boolean;

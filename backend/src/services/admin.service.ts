@@ -465,10 +465,10 @@ export const listAdminShippers = async () => {
     const avgTime = times.length ? times.reduce((a, b) => a + (b as number), 0) / times.length : null;
     avgTimeByDriver.set(id, avgTime ?? 0);
 
-    // most common district
+    // most common delivery ward
     const districtCount: Record<string, number> = {};
     for (const o of assigned) {
-      const district = String(o.deliveryAddress?.district || '').trim();
+      const district = String(o.deliveryAddress?.ward || '').trim();
       if (!district) continue;
       districtCount[district] = (districtCount[district] || 0) + 1;
     }
@@ -529,7 +529,7 @@ export const listAdminActiveDeliveries = async () => {
       id: String(o._id),
       shipper: driver?.username || 'Chưa nhận',
       customer: o.cusId?.username || 'Unknown',
-      address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.district ? `, ${o.deliveryAddress.district}` : ''}`,
+      address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
       status,
       estimatedTime:
         o.deliveryInfo?.deliveredAt && o.deliveryInfo?.shippedAt
@@ -566,7 +566,7 @@ export const listAdminDispatchPendingOrders = async () => {
     id: String(o._id),
     orderNumber: o.code,
     customer: o.cusId?.username || 'Unknown',
-    address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.district ? `, ${o.deliveryAddress.district}` : ''}`,
+    address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
     items: Array.isArray(o.items) ? o.items.length : 0,
     total: o.totalPrice || 0,
     time: formatRelative(o.createdAt),

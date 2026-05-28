@@ -20,7 +20,7 @@ const formatRelativeTime = (isoDate: string) => {
 const getImageUrl = (image: any): string => {
   if (!image) return "";
   if (typeof image === "string") return image;
-  return image.secure_url || image.url || "";
+  return image.secureUrl || image.url || "";
 };
 
 const HistorySection: React.FC = () => {
@@ -66,7 +66,7 @@ const HistorySection: React.FC = () => {
 
     completedOrders.forEach((order) => {
       order.items.forEach((item) => {
-        const product: any = item.product_id;
+        const product: any = item.productId;
         const productId =
           typeof product === "string" ? product : product?._id;
         if (!productId) return;
@@ -75,8 +75,8 @@ const HistorySection: React.FC = () => {
           typeof product?.price === "number"
             ? product.price
             : item.quantity > 0
-              ? item.sub_total / item.quantity
-              : item.sub_total;
+              ? item.subTotal / item.quantity
+              : item.subTotal;
 
         const existing = productMap.get(productId);
         if (!existing) {

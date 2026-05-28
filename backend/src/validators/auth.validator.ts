@@ -95,6 +95,7 @@ const phone = z.string().trim().refine(
 
 export const updateMeValidator = z.object({
   username: usernameValidator.optional(),
+  fullName: z.string().trim().min(1, 'Họ và tên không được để trống').optional(),
   phone: phone.optional(),
   addresses: z.array(z.object({
     label: z.string().trim().min(1),
@@ -102,7 +103,7 @@ export const updateMeValidator = z.object({
     phone: phone.optional(),
     detail: z.string().trim().min(1),
     ward: z.string().trim().min(1),
-    district: z.string().trim().min(1),
+    district: z.string().trim().min(1).optional(),
     city: z.string().trim().min(1),
     isDefault: z.boolean().optional(),
   })).max(10).optional(),

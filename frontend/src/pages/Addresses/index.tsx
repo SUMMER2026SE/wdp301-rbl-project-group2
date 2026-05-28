@@ -174,10 +174,10 @@ const AddressesPage = () => {
                   )}
                 </div>
                 <p className="font-semibold text-sm mb-1">
-                  {addr.receiver_name} · {addr.phone}
+                  {addr.receiverName} · {addr.phone}
                 </p>
                 <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-                  {addr.detail}, {addr.ward}, {addr.district}, {addr.city}
+                  {addr.detail}, {addr.ward}, {addr.city}
                 </p>
               </div>
               <div className="flex items-center gap-2 pt-4 border-t border-border flex-wrap">

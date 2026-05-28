@@ -34,9 +34,9 @@ function getOptionChoice(v: AnyVariation) {
 
 function getExtraPrice(v: AnyVariation) {
   const p = Number(
-    v?.extra_price ??
-      v?.option?.extra_price ??
-      v?.selected?.extra_price ??
+    v?.extraPrice ??
+      v?.option?.extraPrice ??
+      v?.selected?.extraPrice ??
       v?.price ??
       v?.extraPrice ??
       0,

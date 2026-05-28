@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { AuthAddress } from "@/store/authStore";
 import {
-  ALL_DELIVERABLE_DISTRICTS,
+  DELIVERABLE_WARDS,
   DELIVERABLE_CITY,
 } from "@/utils/shipping";
 
@@ -25,22 +25,20 @@ export const LABEL_ICON_BG: Record<AddressLabel, string> = {
 
 interface AddressForm {
   label: AddressLabel;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
   ward: string;
-  district: string;
   city: string;
   isDefault: boolean;
 }
 
 const EMPTY_FORM: AddressForm = {
   label: "home",
-  receiver_name: "",
+  receiverName: "",
   phone: "",
   detail: "",
   ward: "",
-  district: "",
   city: "",
   isDefault: false,
 };
@@ -70,11 +68,10 @@ export const AddressModal = ({
       if (initialData) {
         setForm({
           label: (initialData.label as AddressLabel) ?? "home",
-          receiver_name: initialData.receiver_name ?? "",
+          receiverName: initialData.receiverName ?? "",
           phone: initialData.phone ?? "",
           detail: initialData.detail ?? "",
           ward: initialData.ward ?? "",
-          district: initialData.district ?? "",
           city: initialData.city ?? "",
           isDefault: initialData.isDefault ?? false,
         });
@@ -93,7 +90,7 @@ export const AddressModal = ({
 
   const handleSave = async () => {
     // Basic validation
-    if (!form.receiver_name.trim()) {
+    if (!form.receiverName.trim()) {
       setError("Vui lòng nhập tên người nhận");
       return;
     }
@@ -105,8 +102,8 @@ export const AddressModal = ({
       setError("Vui lòng nhập địa chỉ chi tiết");
       return;
     }
-    if (!form.district.trim()) {
-      setError("Vui lòng nhập quận/huyện");
+    if (!form.ward.trim()) {
+      setError("Vui lòng chọn phường/xã");
       return;
     }
     if (!form.city.trim()) {
@@ -116,11 +113,10 @@ export const AddressModal = ({
 
     const newAddr: AuthAddress = {
       label: form.label,
-      receiver_name: form.receiver_name.trim(),
+      receiverName: form.receiverName.trim(),
       phone: form.phone.trim(),
       detail: form.detail.trim(),
       ward: form.ward.trim(),
-      district: form.district.trim(),
       city: form.city.trim(),
       isDefault: form.isDefault,
     };
@@ -197,8 +193,8 @@ export const AddressModal = ({
                 </label>
                 <input
                   type="text"
-                  value={form.receiver_name}
-                  onChange={(e) => setField("receiver_name", e.target.value)}
+                  value={form.receiverName}
+                  onChange={(e) => setField("receiverName", e.target.value)}
                   placeholder="Nguyễn Văn A"
                   className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -226,7 +222,6 @@ export const AddressModal = ({
                 value={form.city}
                 onChange={(e) => {
                   setField("city", e.target.value);
-                  setField("district", "");
                   setField("ward", "");
                 }}
                 className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -250,20 +245,17 @@ export const AddressModal = ({
               <>
                 <div>
                   <label className="block text-xs font-medium text-foreground mb-1">
-                    Khu vực (Phường/Xã cấp cao) *
+                    Phường/Xã *
                   </label>
                   <select
-                    value={form.district}
-                    onChange={(e) => {
-                      setField("district", e.target.value);
-                      setField("ward", "");
-                    }}
+                    value={form.ward}
+                    onChange={(e) => setField("ward", e.target.value)}
                     className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="">-- Chọn khu vực --</option>
-                    {ALL_DELIVERABLE_DISTRICTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
+                    <option value="">-- Chọn phường/xã --</option>
+                    {DELIVERABLE_WARDS.map((ward) => (
+                      <option key={ward} value={ward}>
+                        {ward}
                       </option>
                     ))}
                   </select>

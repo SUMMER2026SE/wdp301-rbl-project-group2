@@ -1,5 +1,5 @@
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel } from '@/models';
+import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel } from '@/models';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
 import withTransaction from '@/utils/with-transaction';
@@ -17,8 +17,8 @@ import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
 
-const INNER_DISTRICTS = ['Hải Châu', 'Thanh Khê', 'Sơn Trà', 'Ngũ Hành Sơn'];
-const OUTER_DISTRICTS = ['Liên Chiểu', 'Cẩm Lệ', 'Hòa Vang'];
+const INNER_WARDS = ['Hải Châu', 'Hòa Cường', 'Thanh Khê', 'An Khê', 'An Hải', 'Sơn Trà', 'Ngũ Hành Sơn'];
+const OUTER_WARDS = ['Hòa Khánh', 'Hải Vân', 'Liên Chiểu', 'Cẩm Lệ', 'Hòa Xuân'];
 const DELIVERABLE_CITY = 'Đà Nẵng';
 
 const DEFAULT_BASE_FEE = 15_000;
@@ -26,22 +26,22 @@ const DEFAULT_FEE_PER_KM = 5_000;
 const DEFAULT_FREE_THRESHOLD = 300_000;
 
 export async function calculateShippingFee(
-  district: string,
+  ward: string,
   city: string,
   subtotal: number
 ): Promise<{ fee: number; blocked: boolean; reason?: string }> {
   const normalCity = city.trim();
-  const normalDistrict = district.trim();
+  const normalWard = ward.trim();
 
   if (normalCity.toLowerCase() !== DELIVERABLE_CITY.toLowerCase()) {
     return { fee: 0, blocked: true, reason: 'Hiện tại chỉ giao hàng trong khu vực Đà Nẵng' };
   }
 
-  const isInner = INNER_DISTRICTS.some((d) => d.toLowerCase() === normalDistrict.toLowerCase());
-  const isOuter = OUTER_DISTRICTS.some((d) => d.toLowerCase() === normalDistrict.toLowerCase());
+  const isInner = INNER_WARDS.some((w) => w.toLowerCase() === normalWard.toLowerCase());
+  const isOuter = OUTER_WARDS.some((w) => w.toLowerCase() === normalWard.toLowerCase());
 
   if (!isInner && !isOuter) {
-    return { fee: 0, blocked: true, reason: `Khu vực "${normalDistrict}" nằm ngoài vùng giao hàng` };
+    return { fee: 0, blocked: true, reason: `Phường/Xã "${normalWard}" nằm ngoài vùng giao hàng` };
   }
 
   let baseDeliveryFee = DEFAULT_BASE_FEE;
@@ -66,6 +66,7 @@ export async function calculateShippingFee(
 
 interface ResolvedItem {
   productId: mongoose.Types.ObjectId;
+  name: string;
   quantity: number;
   variations: { name: string; choice: string; extraPrice: number }[];
   subTotal: number;
@@ -108,10 +109,7 @@ const resolveOrderItems = async (
       };
     });
 
-    const variationExtraPerUnit = normalizedVariations.reduce(
-      (sum, variation) => sum + (variation.extraPrice ?? 0),
-      0
-    );
+    const variationExtraPerUnit = normalizedVariations.reduce((sum, variation) => sum + (variation.extraPrice ?? 0), 0);
 
     const unitPrice = product.price + variationExtraPerUnit;
     const itemSubTotal = unitPrice * item.quantity;
@@ -120,6 +118,7 @@ const resolveOrderItems = async (
 
     resolvedItems.push({
       productId: new mongoose.Types.ObjectId(item.productId),
+      name: product.name,
       quantity: item.quantity,
       variations: normalizedVariations,
       subTotal: itemSubTotal,
@@ -154,10 +153,7 @@ async function checkOrderHealthConflicts(
 
     const conflictIngredients: string[] = [];
     const recipe: { name: string }[] = (product as any).recipe ?? [];
-    const tagList: string[] = [
-      ...((product as any).tags ?? []),
-      ...((product as any).health_tags ?? []),
-    ];
+    const tagList: string[] = [...((product as any).tags ?? []), ...((product as any).healthTags ?? [])];
 
     const keywordsToScan = [
       (product as any).name,
@@ -209,9 +205,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       actualDiscount = discountAmount;
       voucherObjectId = voucher._id as mongoose.Types.ObjectId;
 
-      await mongoose
-        .model('Voucher')
-        .findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
+      await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
     }
 
     const totalPrice = Math.max(0, subTotal - actualDiscount + shippingFee);
@@ -315,12 +309,28 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
 };
 
 export const getUserOrders = async (userId: mongoose.Types.ObjectId) => {
-  return OrderModel.find({ cusId: userId })
+  const orders = await OrderModel.find({ cusId: userId })
     .sort({ createdAt: -1 })
     .populate({
       path: 'items.productId',
       select: 'name image price',
-    });
+    })
+    .lean();
+
+  if (!orders || orders.length === 0) return [];
+
+  const orderIds = orders.map((o) => o._id);
+  const reviews = await ReviewModel.find({
+    orderId: { $in: orderIds },
+    userId,
+  }).select('orderId').lean();
+
+  const reviewedOrderIds = new Set(reviews.map((r) => r.orderId.toString()));
+
+  return orders.map((order) => ({
+    ...order,
+    isReviewed: reviewedOrderIds.has(order._id.toString()),
+  }));
 };
 
 export const getOrders = async (query: any = {}) => {
@@ -328,7 +338,10 @@ export const getOrders = async (query: any = {}) => {
   const filter: Record<string, any> = { ...rest };
 
   if (status && typeof status === 'string') {
-    const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
+    const statuses = status
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     filter.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
   }
 
@@ -361,12 +374,10 @@ export const getOrderById = async (idOrCode: string) => {
       ? { $or: [{ code: idOrCode }, { 'payment.payosOrderCode': Number(idOrCode) }] }
       : { code: idOrCode };
 
-  const order = await OrderModel.findOne(query)
-    .populate('cusId', 'username email phone')
-    .populate({
-      path: 'items.productId',
-      select: 'name image price',
-    });
+  const order = await OrderModel.findOne(query).populate('cusId', 'username email phone').populate({
+    path: 'items.productId',
+    select: 'name image price',
+  });
 
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
   return order;
@@ -374,8 +385,21 @@ export const getOrderById = async (idOrCode: string) => {
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-  [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
-  [OrderStatus.PREPARING]: [OrderStatus.DELIVERING, OrderStatus.CANCELLED],
+  [OrderStatus.CONFIRMED]: [
+    OrderStatus.PROCESSING,
+    OrderStatus.READY_FOR_DELIVERY,
+    OrderStatus.PREPARING,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.PROCESSING]: [OrderStatus.READY_FOR_DELIVERY, OrderStatus.CANCELLED],
+  [OrderStatus.PREPARING]: [
+    OrderStatus.DELIVERING,
+    OrderStatus.READY_FOR_DELIVERY,
+    OrderStatus.SHIPPING,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.READY_FOR_DELIVERY]: [OrderStatus.SHIPPING, OrderStatus.DELIVERING, OrderStatus.CANCELLED],
+  [OrderStatus.SHIPPING]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
   [OrderStatus.DELIVERING]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
   [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
@@ -390,7 +414,11 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
   }
 
   const validNext = VALID_TRANSITIONS[order.status] ?? [];
-  appAssert(validNext.includes(status), BAD_REQUEST, `Không thể chuyển trạng thái từ "${order.status}" sang "${status}"`);
+  appAssert(
+    validNext.includes(status),
+    BAD_REQUEST,
+    `Không thể chuyển trạng thái từ "${order.status}" sang "${status}"`
+  );
 
   order.status = status as any;
   await order.save();
@@ -398,13 +426,15 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
   if (status === OrderStatus.COMPLETED) {
     const pointsAwarded = Math.floor(order.totalPrice / 1000);
     if (pointsAwarded > 0) {
-      membershipService.addPoints(
-        order.cusId as any,
-        pointsAwarded,
-        PointTransactionType.EARN,
-        `Điểm tích lũy từ đơn hàng #${order.code}`,
-        order._id as any
-      ).catch((err) => console.error('Failed to award points:', err));
+      membershipService
+        .addPoints(
+          order.cusId as any,
+          pointsAwarded,
+          PointTransactionType.EARN,
+          `Điểm tích lũy từ đơn hàng #${order.code}`,
+          order._id as any
+        )
+        .catch((err) => console.error('Failed to award points:', err));
     }
     scheduleAiModelRetrain(`order #${order.code} completed (status update)`);
   }
@@ -453,15 +483,29 @@ export const cancelPayosPayment = async (orderCode: number) => {
 
 export const confirmOrder = async (orderId: string, staffId: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
-  appAssert(order.status === OrderStatus.PENDING, BAD_REQUEST, 'Chỉ có thể xác nhận đơn hàng đang ở trạng thái chờ xử lý');
+  appAssert(
+    order.status === OrderStatus.PENDING,
+    BAD_REQUEST,
+    'Chỉ có thể xác nhận đơn hàng đang ở trạng thái chờ xử lý'
+  );
 
-  order.status = OrderStatus.CONFIRMED;
-  await order.save();
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    { $set: { status: OrderStatus.CONFIRMED } },
+    { new: true }
+  )
+    .populate('cusId', 'username email phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
+
+  appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
 
   NotificationModel.create({
-    userId: order.cusId.toString(),
+    userId: ((updatedOrder.cusId as any)._id ?? updatedOrder.cusId).toString(),
     title: 'Đơn hàng đã được xác nhận',
-    body: `Đơn hàng #${order.code} đã được nhà hàng nhận và đang chuẩn bị.`,
+    body: `Đơn hàng #${updatedOrder.code} đã được nhà hàng nhận và đang chuẩn bị.`,
     type: NotificationType.ORDER,
   }).catch(() => {});
 
@@ -473,20 +517,18 @@ export const confirmOrder = async (orderId: string, staffId: mongoose.Types.Obje
     newData: { status: OrderStatus.CONFIRMED },
   }).catch(() => {});
 
-  return order;
+  return updatedOrder;
 };
 
-export const rejectOrder = async (
-  orderId: string,
-  staffId: mongoose.Types.ObjectId,
-  reason: string
-) => {
+export const rejectOrder = async (orderId: string, staffId: mongoose.Types.ObjectId, reason: string) => {
   const order = await getOrderById(orderId);
-  appAssert(order.status === OrderStatus.PENDING, BAD_REQUEST, 'Chỉ có thể từ chối đơn hàng đang ở trạng thái chờ xử lý');
+  appAssert(
+    order.status === OrderStatus.PENDING,
+    BAD_REQUEST,
+    'Chỉ có thể từ chối đơn hàng đang ở trạng thái chờ xử lý'
+  );
 
-  const refundRequired =
-    order.paymentMethod !== PaymentMethod.CASH &&
-    order.payment.paidAt !== null;
+  const refundRequired = order.paymentMethod !== PaymentMethod.CASH && order.payment.paidAt !== null;
 
   order.status = OrderStatus.CANCELLED;
   order.cancellation = {
@@ -518,55 +560,84 @@ export const rejectOrder = async (
 export const markOrderReady = async (orderId: string, staffId: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   appAssert(
-    order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.PREPARING,
+    order.status === OrderStatus.CONFIRMED ||
+      order.status === OrderStatus.PREPARING ||
+      order.status === OrderStatus.PROCESSING,
     BAD_REQUEST,
     'Chỉ có thể đánh dấu hoàn thành cho đơn hàng đang được chế biến'
   );
 
   const prevStatus = order.status;
-  order.status = OrderStatus.PREPARING; // mapping both to preparing
-  await order.save();
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    { $set: { status: OrderStatus.READY_FOR_DELIVERY } },
+    { new: true }
+  )
+    .populate('cusId', 'username email phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
+
+  appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
 
   createAuditLog({
     userId: staffId,
     entityType: AuditEntityType.ORDER,
     action: AuditLogAction.UPDATE,
     oldData: { status: prevStatus },
-    newData: { status: OrderStatus.PREPARING },
+    newData: { status: OrderStatus.READY_FOR_DELIVERY },
   }).catch(() => {});
 
-  return order;
+  return updatedOrder;
 };
 
 export const assignDelivery = async (orderId: string, staffId: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   appAssert(
-    order.status === OrderStatus.PREPARING || order.status === OrderStatus.CONFIRMED,
+    order.status === OrderStatus.READY_FOR_DELIVERY ||
+      order.status === OrderStatus.PREPARING ||
+      order.status === OrderStatus.CONFIRMED,
     BAD_REQUEST,
     'Chỉ có thể giao đơn hàng đang ở trạng thái chờ đi giao'
   );
 
   const prevStatus = order.status;
-  order.status = OrderStatus.DELIVERING;
-  order.deliveryInfo.driverId = staffId;
-  order.deliveryInfo.shippedAt = new Date();
-  await order.save();
+  const shippedAt = new Date();
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    {
+      $set: {
+        status: OrderStatus.SHIPPING,
+        'deliveryInfo.driverId': staffId,
+        'deliveryInfo.shippedAt': shippedAt,
+      },
+    },
+    { new: true }
+  )
+    .populate('cusId', 'username email phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
+
+  appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
 
   createAuditLog({
     userId: staffId,
     entityType: AuditEntityType.ORDER,
     action: AuditLogAction.UPDATE,
     oldData: { status: prevStatus },
-    newData: { status: OrderStatus.DELIVERING, driverId: staffId },
+    newData: { status: OrderStatus.SHIPPING, driverId: staffId },
   }).catch(() => {});
 
-  return order;
+  return updatedOrder;
 };
 
 export const completeDelivery = async (orderId: string, staffId: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   appAssert(
-    order.status === OrderStatus.DELIVERING,
+    order.status === OrderStatus.SHIPPING || order.status === OrderStatus.DELIVERING,
     BAD_REQUEST,
     'Chỉ có thể hoàn thành đơn hàng đang được giao'
   );
@@ -577,38 +648,50 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
   );
 
   const prevStatus = order.status;
-  order.status = OrderStatus.COMPLETED;
-  order.deliveryInfo.deliveredAt = new Date();
+  const deliveredAt = new Date();
+  const update: Record<string, any> = {
+    status: OrderStatus.COMPLETED,
+    'deliveryInfo.deliveredAt': deliveredAt,
+  };
 
   if (order.paymentMethod === PaymentMethod.CASH && !order.payment.paidAt) {
-    order.payment.paidAt = new Date();
-    order.paid = true;
+    update['payment.paidAt'] = deliveredAt;
+    update.paid = true;
   }
 
-  await order.save();
+  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+    .populate('cusId', 'username email phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
 
-  const pointsAwarded = Math.floor(order.totalPrice / 1000);
+  appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
+
+  const pointsAwarded = Math.floor(updatedOrder.totalPrice / 1000);
   if (pointsAwarded > 0) {
-    membershipService.addPoints(
-      order.cusId as any,
-      pointsAwarded,
-      PointTransactionType.EARN,
-      `Điểm tích lũy từ đơn hàng #${order.code}`,
-      order._id as any
-    ).catch((err) => console.error('Failed to award points:', err));
+    membershipService
+      .addPoints(
+        updatedOrder.cusId as any,
+        pointsAwarded,
+        PointTransactionType.EARN,
+        `Điểm tích lũy từ đơn hàng #${updatedOrder.code}`,
+        updatedOrder._id as any
+      )
+      .catch((err) => console.error('Failed to award points:', err));
   }
 
-  scheduleAiModelRetrain(`order #${order.code} completed (delivery)`);
+  scheduleAiModelRetrain(`order #${updatedOrder.code} completed (delivery)`);
 
   createAuditLog({
     userId: staffId,
     entityType: AuditEntityType.ORDER,
     action: AuditLogAction.UPDATE,
     oldData: { status: prevStatus },
-    newData: { status: OrderStatus.COMPLETED, deliveredAt: order.deliveryInfo.deliveredAt },
+    newData: { status: OrderStatus.COMPLETED, deliveredAt },
   }).catch(() => {});
 
-  return order;
+  return updatedOrder;
 };
 
 export const getWeeklyRevenue = async () => {
@@ -644,10 +727,10 @@ export const getWeeklyRevenue = async () => {
     const found = revenue.find((item) => item._id === dayItem._id);
     return found
       ? {
-        ...dayItem,
-        revenue: found.revenue,
-        orders: found.orders,
-      }
+          ...dayItem,
+          revenue: found.revenue,
+          orders: found.orders,
+        }
       : dayItem;
   });
 

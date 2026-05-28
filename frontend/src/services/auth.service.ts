@@ -21,22 +21,30 @@ export interface RegisterRequest {
 export interface BEUser {
   _id: string;
   username: string;
+  fullName?: string;
   email: string;
   phone?: string;
+  preferences?: {
+    dietary: string[];
+    allergies: string[];
+    healthGoals: string[];
+    isHealthSetup?: boolean;
+  };
+  isHealthSetup?: boolean;
   role: "ADMIN" | "STAFF" | "CUSTOMER";
   isActive: boolean;
-  verified_at: string | null;
+  verifiedAt: string | null;
   addresses: Array<{
     label: string;
-    receiver_name: string;
+    receiverName: string;
     phone: string;
     detail: string;
     ward: string;
-    district: string;
+    district?: string;
     city: string;
     isDefault: boolean;
   }>;
-  collected_points: number;
+  collectedPoints: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -61,7 +61,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     setShowMobileSearch(false);
   };
 
-  const displayName = user?.username || user?.email?.split("@")[0] || "User";
+  const displayName = user?.fullName || user?.username || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
   const initial = displayName.charAt(0).toUpperCase();
   const avatarUrl = user?.avatar || "";

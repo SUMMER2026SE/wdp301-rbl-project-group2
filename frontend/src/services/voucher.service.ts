@@ -14,7 +14,7 @@ class VoucherAPI {
     // Get all vouchers with filters
     async getVouchers(params?: {
         category?: VoucherCategory;
-        is_active?: boolean;
+        isActive?: boolean;
         page?: number;
         limit?: number;
     }): Promise<VoucherListResponse> {

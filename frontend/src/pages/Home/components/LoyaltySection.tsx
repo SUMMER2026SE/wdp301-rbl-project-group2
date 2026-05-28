@@ -6,7 +6,7 @@ const LoyaltySection = () => {
     const { user, isAuthenticated } = useAuthStore();
 
     // Logic tính toán hạng và điểm thực tế
-    const currentPoints = user?.collected_points || 0;
+    const currentPoints = user?.collectedPoints || 0;
 
     const getTierInfo = (points: number) => {
         if (points >= 5000) return { name: "Thành viên Bạch Kim", target: 10000, nextReward: "Voucher 500k" };

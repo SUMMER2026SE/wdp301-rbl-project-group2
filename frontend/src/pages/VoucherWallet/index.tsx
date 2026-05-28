@@ -11,13 +11,13 @@ import { DiscountType } from "@/types/voucher";
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function formatDiscount(voucher: Voucher): string {
-    if (voucher.discount_type === DiscountType.PERCENTAGE) {
-        return `${voucher.discount_value}%`;
+    if (voucher.discountType === DiscountType.PERCENTAGE) {
+        return `${voucher.discountValue}%`;
     }
-    if (voucher.discount_type === DiscountType.FIXED_AMOUNT) {
-        return `${(voucher.discount_value / 1000).toFixed(0)}k`;
+    if (voucher.discountType === DiscountType.FIXED_AMOUNT) {
+        return `${(voucher.discountValue / 1000).toFixed(0)}k`;
     }
-    return `${voucher.discount_value}`;
+    return `${voucher.discountValue}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -38,15 +38,15 @@ function getExpiryLabel(endDate: string): string {
 }
 
 function isExpired(v: Voucher): boolean {
-    return new Date(v.end_date) < new Date();
+    return new Date(v.endAt) < new Date();
 }
 
 // A voucher is "exhausted" only when the global pool is fully used up
 function isExhausted(v: Voucher): boolean {
     return (
-        v.total_usage_limit !== null &&
-        v.total_usage_limit !== undefined &&
-        v.current_usage_count >= v.total_usage_limit
+        v.usageLimit !== null &&
+        v.usageLimit !== undefined &&
+        v.usedCount >= v.usageLimit
     );
 }
 
@@ -87,9 +87,9 @@ const VoucherCard = ({
             </div>
             <div className="flex-1 p-5 space-y-3">
                 <div className="flex flex-wrap gap-2">
-                    {voucher.min_order_amount > 0 && (
+                    {voucher.minOrderValue > 0 && (
                         <span className="px-2 py-1 bg-muted text-[9px] font-bold rounded">
-                            Tối thiểu {(voucher.min_order_amount / 1000).toFixed(0)}k
+                            Tối thiểu {(voucher.minOrderValue / 1000).toFixed(0)}k
                         </span>
                     )}
                     {voucher.conditions?.slice(0, 1).map((c, i) => (
@@ -99,7 +99,7 @@ const VoucherCard = ({
                 <h5 className="text-sm font-bold line-clamp-1">{voucher.title}</h5>
                 <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground font-medium italic">
-                        {getExpiryLabel(voucher.end_date)}
+                        {getExpiryLabel(voucher.endAt)}
                     </span>
                     <button
                         onClick={() => onCopy(voucher.code)}
@@ -464,7 +464,7 @@ export const VoucherWalletContent = () => {
                             <div>
                                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Số dư điểm</p>
                                 <h2 className="text-5xl font-black text-foreground tabular-nums">
-                                    {membership?.collected_points?.toLocaleString() ?? 0} <span className="text-xl font-medium text-muted-foreground">pts</span>
+                                    {membership?.collectedPoints?.toLocaleString() ?? 0} <span className="text-xl font-medium text-muted-foreground">pts</span>
                                 </h2>
                             </div>
                             <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-full flex items-center gap-2">
@@ -492,9 +492,9 @@ export const VoucherWalletContent = () => {
 
                                 if (nextTier) {
                                     const range = nextTier.pts - currentTier.pts;
-                                    const earnedInRange = (membership?.collected_points || 0) - currentTier.pts;
+                                    const earnedInRange = (membership?.collectedPoints || 0) - currentTier.pts;
                                     progress = Math.min(Math.max((earnedInRange / range) * 100, 5), 100);
-                                    needed = nextTier.pts - (membership?.collected_points || 0);
+                                    needed = nextTier.pts - (membership?.collectedPoints || 0);
                                 }
 
                                 return (
@@ -551,7 +551,7 @@ export const VoucherWalletContent = () => {
             <InviteModal
                 isOpen={showInviteModal}
                 onClose={() => setShowInviteModal(false)}
-                code={membership?.referral_code || "FOODIE"}
+                code={membership?.referralCode || "FOODIE"}
             />
 
             {/* Rewards Shop */}
@@ -579,7 +579,7 @@ export const VoucherWalletContent = () => {
                     ) : rewardProducts.length > 0 ? (
                         rewardProducts.map((product) => {
                             const pts = Math.ceil(product.price / 100);
-                            const imgUrl = typeof product.image === "string" ? product.image : product.image.secure_url;
+                            const imgUrl = typeof product.image === "string" ? product.image : product.image.secureUrl;
                             return (
                                 <div key={product._id} className="w-60 bg-card p-3 rounded-[24px] border border-border hover:shadow-lg transition-all group shrink-0 flex-none">
                                     <div className="relative aspect-[4/3] bg-muted rounded-2xl mb-3 overflow-hidden">
@@ -615,7 +615,7 @@ export const VoucherWalletContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-12">
                     <TierRoadmap
-                        points={membership?.collected_points || 0}
+                        points={membership?.collectedPoints || 0}
                         tier={membership?.tier || "Bronze"}
                     />
                     <MembershipPerks tier={membership?.tier || "Bronze"} />

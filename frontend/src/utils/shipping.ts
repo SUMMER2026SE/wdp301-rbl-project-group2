@@ -1,78 +1,30 @@
 /**
  * FSS-34: Shipping fee utility
- * Delivery is ONLY available within 7 zones of Đà Nẵng.
+ * Delivery is available within supported wards of Đà Nẵng.
  * Matching is case-insensitive and trim-safe.
  */
 
 export const DELIVERABLE_CITY = "Đà Nẵng";
 
-export const INNER_DISTRICTS = [
+export const INNER_WARDS = [
   "Hải Châu",
+  "Hòa Cường",
   "Thanh Khê",
+  "An Khê",
+  "An Hải",
   "Sơn Trà",
   "Ngũ Hành Sơn",
 ];
 
-export const OUTER_DISTRICTS = ["Liên Chiểu", "Cẩm Lệ", "Hòa Vang"];
-
-export const ALL_DELIVERABLE_DISTRICTS = [
-  ...INNER_DISTRICTS,
-  ...OUTER_DISTRICTS,
+export const OUTER_WARDS = [
+  "Hòa Khánh",
+  "Hải Vân",
+  "Liên Chiểu",
+  "Cẩm Lệ",
+  "Hòa Xuân",
 ];
 
-/** Sub-wards grouped by parent district (for the cascaded dropdown) */
-export const DA_NANG_ZONES: Record<string, string[]> = {
-  "Hải Châu": [
-    "Thanh Bình",
-    "Thuận Phước",
-    "Thạch Thang",
-    "Phước Ninh",
-    "Hải Châu",
-    "Hòa Cường",
-    "Bình Thuận",
-    "Hòa Thuận Tây",
-    "Hòa Cường Bắc",
-    "Hòa Cường Nam",
-  ],
-  "Thanh Khê": [
-    "Xuân Hà",
-    "Chính Gián",
-    "Thạc Gián",
-    "Thanh Khê Tây",
-    "Thanh Khê Đông",
-    "Hòa An",
-    "Hòa Phát",
-    "An Khê",
-  ],
-  "Sơn Trà": [
-    "Phước Mỹ",
-    "An Hải Bắc",
-    "An Hải Nam",
-    "Thọ Quang",
-    "Nại Hiên Đông",
-    "Mân Thái",
-  ],
-  "Ngũ Hành Sơn": ["Mỹ An", "Khuê Mỹ", "Hòa Hải", "Hòa Quý"],
-  "Liên Chiểu": [
-    "Hòa Khánh Nam",
-    "Hòa Minh",
-    "Hòa Sơn",
-    "Hòa Hiệp Bắc",
-    "Hòa Hiệp Nam",
-    "Hòa Bắc",
-    "Hòa Liên",
-    "Hòa Khánh Bắc",
-  ],
-  "Cẩm Lệ": ["Hòa Thọ Tây", "Hòa Thọ Đông", "Khuê Trung"],
-  "Hòa Vang": [
-    "Hòa Phong",
-    "Hòa Phú",
-    "Hòa Khương",
-    "Hòa Tiến",
-    "Hòa Ninh",
-    "Hòa Nhơn",
-  ],
-};
+export const DELIVERABLE_WARDS = [...INNER_WARDS, ...OUTER_WARDS];
 
 export interface ShippingResult {
   fee: number;
@@ -102,19 +54,19 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
 
 /**
  * Calculate shipping fee based on address and dynamic config from Store Settings.
- * @param district - value from `address.district`
+ * @param ward     - value from `address.ward`
  * @param city     - value from `address.city`
  * @param subtotal - cart subtotal in VND
  * @param config   - fee configuration from Store Settings API (optional, falls back to defaults)
  */
 export function calculateShippingFee(
-  district: string,
+  ward: string,
   city: string,
   subtotal: number,
   config: ShippingConfig = DEFAULT_SHIPPING_CONFIG
 ): ShippingResult {
   const normalCity = city.trim();
-  const normalDistrict = district.trim();
+  const normalWard = ward.trim();
 
   const {
     baseDeliveryFee,
@@ -132,19 +84,19 @@ export function calculateShippingFee(
     };
   }
 
-  // 2. Check district whitelist (case-insensitive)
-  const isInner = INNER_DISTRICTS.some(
-    (d) => d.toLowerCase() === normalDistrict.toLowerCase()
+  // 2. Check ward whitelist (case-insensitive)
+  const isInner = INNER_WARDS.some(
+    (w) => w.toLowerCase() === normalWard.toLowerCase()
   );
-  const isOuter = OUTER_DISTRICTS.some(
-    (d) => d.toLowerCase() === normalDistrict.toLowerCase()
+  const isOuter = OUTER_WARDS.some(
+    (w) => w.toLowerCase() === normalWard.toLowerCase()
   );
 
   if (!isInner && !isOuter) {
     return {
       fee: 0,
       blocked: true,
-      reason: `Khu vực "${normalDistrict}" nằm ngoài vùng giao hàng của chúng tôi`,
+      reason: `Phường/Xã "${normalWard}" nằm ngoài vùng giao hàng của chúng tôi`,
     };
   }
 

@@ -27,7 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface OrderNotification {
     id: string;
     code: string;
-    total_price: number;
+    totalPrice: number;
     itemsCount: number;
     createdAt: string;
     isRead: boolean;
@@ -54,13 +54,13 @@ export default function StaffLayout() {
     useEffect(() => {
         const socket = getSupportSocket();
 
-        socket.on('order:new', (data: { _id: string; code: string; total_price: number; itemsCount: number; createdAt: string }) => {
+        socket.on('order:new', (data: { _id: string; code: string; totalPrice: number; itemsCount: number; createdAt: string }) => {
             console.log('New order received:', data);
 
             const newNotif: OrderNotification = {
                 id: data._id,
                 code: data.code,
-                total_price: data.total_price,
+                totalPrice: data.totalPrice,
                 itemsCount: data.itemsCount,
                 createdAt: data.createdAt,
                 isRead: false
@@ -86,7 +86,7 @@ export default function StaffLayout() {
                                     Đơn hàng mới #{data.code}
                                 </p>
                                 <p className="mt-1 text-sm text-slate-500 font-medium h-5 overflow-hidden">
-                                    {data.itemsCount} món • {data.total_price.toLocaleString('vi-VN')}₫
+                                    {data.itemsCount} món • {data.totalPrice.toLocaleString('vi-VN')}₫
                                 </p>
                             </div>
                         </div>
@@ -356,7 +356,7 @@ export default function StaffLayout() {
                                                                         </span>
                                                                     </div>
                                                                     <p className="text-xs font-semibold text-slate-500 mb-2">
-                                                                        {notif.itemsCount} món • {notif.total_price.toLocaleString('vi-VN')}₫
+                                                                        {notif.itemsCount} món • {notif.totalPrice.toLocaleString('vi-VN')}₫
                                                                     </p>
                                                                     <div className="inline-flex items-center text-[11px] font-black text-orange-500 group-hover:translate-x-1 transition-transform">
                                                                         Chi tiết <span className="material-symbols-outlined text-[14px] ml-1">arrow_forward</span>

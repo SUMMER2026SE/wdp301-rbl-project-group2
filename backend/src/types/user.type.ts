@@ -30,7 +30,7 @@ export interface IAddresses {
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
   isDefault: boolean;
 }

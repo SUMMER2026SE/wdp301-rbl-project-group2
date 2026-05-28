@@ -105,7 +105,8 @@ io.on('connection', (socket) => {
       }
 
       const isOwner = conv.user_id.toString() === userId;
-      const isStaff = role === 'staff' || role === 'admin';
+      const normalizedRole = role.toLowerCase();
+      const isStaff = normalizedRole === 'staff' || normalizedRole === 'admin';
       if (!isOwner && !isStaff) {
         console.debug(`[Socket] join rejected: not authorized userId=${userId} isOwner=${isOwner} isStaff=${isStaff}`);
         cb?.(false);

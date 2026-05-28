@@ -49,8 +49,8 @@ const RegisterPage = () => {
               phone: user.phone,
               role: user.role,
               isActive: user.isActive,
-              verified_at: user.verified_at,
-              collected_points: user.collected_points,
+              verifiedAt: user.verifiedAt,
+              collectedPoints: user.collectedPoints,
               addresses: user.addresses ?? [],
             });
 

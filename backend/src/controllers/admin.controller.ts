@@ -55,9 +55,9 @@ export const getCashControlHandler = catchErrors(async (req, res) => {
 
 export const collectCashHandler = catchErrors(async (req, res) => {
   const adminId = req.userId!;
-  const { driver_id } = req.body;
+  const { driverId } = req.body;
 
-  const result = await collectCashFromDriver(adminId.toString(), driver_id);
+  const result = await collectCashFromDriver(adminId.toString(), driverId);
 
   return res.success(OK, {
     message: `Đã thu tiền thành công (${result.modifiedCount} đơn hàng)`,

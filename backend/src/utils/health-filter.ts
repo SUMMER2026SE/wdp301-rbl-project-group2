@@ -131,7 +131,7 @@ export function filterSafeProducts(products: any[], preferences: any): any[] {
     const recipe: { name: string }[] = product.recipe ?? [];
     const tagList: string[] = [
       ...(Array.isArray(product.tags) ? product.tags : []),
-      ...(Array.isArray(product.health_tags) ? product.health_tags : []),
+      ...(Array.isArray(product.healthTags) ? product.healthTags : []),
     ];
 
     // Tên, mô tả, công thức, tag — mô tả thường ghi "cùng tôm..." như tên món ngắn

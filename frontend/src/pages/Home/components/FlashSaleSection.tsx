@@ -138,7 +138,7 @@ const FlashSaleSection: React.FC = () => {
             key={p._id}
             id={p._id}
             name={p.name}
-            image={typeof p.image === 'string' ? p.image : p.image?.secure_url || ''}
+            image={typeof p.image === 'string' ? p.image : p.image?.secureUrl || ''}
             price={p.salePrice}
             originalPrice={p.originalPrice}
             rating={p.rating}
@@ -152,7 +152,7 @@ const FlashSaleSection: React.FC = () => {
               addItem({
                 productId: p._id,
                 name: p.name,
-                image: typeof p.image === 'string' ? p.image : p.image?.secure_url || '',
+                image: typeof p.image === 'string' ? p.image : p.image?.secureUrl || '',
                 price: p.salePrice,
                 quantity: 1
               });

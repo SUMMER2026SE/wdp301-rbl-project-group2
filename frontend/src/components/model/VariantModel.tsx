@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
 
-type VariantOption = { choice: string; extra_price: number };
+type VariantOption = { choice: string; extraPrice: number };
 type VariantGroup = {
   name: string;
   required?: boolean;
   multiple?: boolean;
-  max_choices?: number;
+  maxChoices?: number;
   options: VariantOption[];
 };
 
@@ -17,7 +17,7 @@ function calcExtra(variants: VariantGroup[], selected: SelectedMap) {
     const picked = selected[g.name] ?? [];
     for (const c of picked) {
       const opt = g.options?.find((o) => o.choice === c);
-      extra += Number(opt?.extra_price ?? 0);
+      extra += Number(opt?.extraPrice ?? 0);
     }
   }
   return extra;
@@ -32,8 +32,8 @@ function validateSelected(variants: VariantGroup[], selected: SelectedMap) {
     if (!g.multiple && picked.length > 1) {
       return `${g.name} chỉ được chọn 1`;
     }
-    if (g.multiple && g.max_choices && picked.length > g.max_choices) {
-      return `${g.name} chỉ được chọn tối đa ${g.max_choices}`;
+    if (g.multiple && g.maxChoices && picked.length > g.maxChoices) {
+      return `${g.name} chỉ được chọn tối đa ${g.maxChoices}`;
     }
   }
   return null;
@@ -93,7 +93,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       const exists = current.includes(choice);
       let next = exists ? current.filter((c) => c !== choice) : [...current, choice];
 
-      if (group.max_choices && next.length > group.max_choices) {
+      if (group.maxChoices && next.length > group.maxChoices) {
         // vượt quá giới hạn → không cho thêm
         return prev;
       }
@@ -163,7 +163,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                       )}
                       {g.multiple && (
                         <span className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-blue-50 text-blue-600">
-                          Chọn nhiều{g.max_choices ? ` (tối đa ${g.max_choices})` : ""}
+                          Chọn nhiều{g.maxChoices ? ` (tối đa ${g.maxChoices})` : ""}
                         </span>
                       )}
                     </div>
@@ -189,9 +189,9 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                           `}
                         >
                           {opt.choice}
-                          {Number(opt.extra_price ?? 0) > 0 && (
+                          {Number(opt.extraPrice ?? 0) > 0 && (
                             <span className="ml-2 text-[11px] font-extrabold text-slate-500">
-                              +{Number(opt.extra_price).toLocaleString("vi-VN")}đ
+                              +{Number(opt.extraPrice).toLocaleString("vi-VN")}đ
                             </span>
                           )}
                           {active && <span className="ml-2">✓</span>}

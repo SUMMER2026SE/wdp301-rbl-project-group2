@@ -8,7 +8,7 @@ import type { Product } from "@/types/product";
 // ── Helpers ──────────────────────────────────────────────
 const getImageUrl = (image: Product["image"]): string => {
   if (!image) return "";
-  if (typeof image === "object" && image.secure_url) return image.secure_url;
+  if (typeof image === "object" && image.secureUrl) return image.secureUrl;
   if (typeof image === "string") return image;
   return "";
 };
@@ -19,7 +19,7 @@ interface SafeFoodsData {
   filters: {
     allergies: string[];
     dietary: string[];
-    health_goals: string[];
+    healthGoals: string[];
   };
   stats: {
     total: number;
@@ -81,7 +81,7 @@ const SafeAlternativesPage = () => {
   const allFilters = [
     ...(data?.filters.allergies || []).map((a) => ({ label: `Không ${a}`, type: "allergy" as const })),
     ...(data?.filters.dietary || []).map((d) => ({ label: d, type: "dietary" as const })),
-    ...(data?.filters.health_goals || []).map((g) => ({ label: g, type: "goal" as const })),
+    ...(data?.filters.healthGoals || []).map((g) => ({ label: g, type: "goal" as const })),
   ];
 
   return (

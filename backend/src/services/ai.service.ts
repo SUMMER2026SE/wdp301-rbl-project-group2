@@ -27,7 +27,7 @@ interface ProductForAI {
   description: string;
   category: string;
   tags: string[];
-  health_tags?: string[];
+  healthTags?: string[];
   recipe: { name: string; quantity?: string }[];
   price: number;
   rating: number;
@@ -58,7 +58,7 @@ export const getAIRecommendations = async (
     description: p.description,
     category: p.category,
     tags: p.tags,
-    health_tags: p.health_tags ?? [],
+    health_tags: p.healthTags ?? [],
     recipe: p.recipe,
     ingredients: p.recipe.map((r) => r.name),
     price: p.price,
@@ -239,7 +239,7 @@ export const getAISafeFoodInsights = async (
           description: p.description,
           recipe: p.recipe,
           tags: p.tags,
-          health_tags: p.health_tags ?? [],
+          health_tags: p.healthTags ?? [],
         })),
         preferences,
       }, { timeout: 10000 });
@@ -260,7 +260,7 @@ export const getAISafeFoodInsights = async (
     name: p.name,
     description: p.description,
     ingredients: p.recipe.map((r) => r.name),
-    health_tags: p.health_tags ?? [],
+    health_tags: p.healthTags ?? [],
   }));
 
   const prompt = `Bạn là chuyên gia dinh dưỡng. Trách nhiệm của bạn là giải thích TẠI SAO các món ăn dưới đây an toàn. Tất cả món đều 100% không chứa chất gây dị ứng của họ.

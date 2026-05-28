@@ -12,7 +12,7 @@ interface ProductImage {
 }
 
 interface ProductRating {
-  product_id: string;
+  productId: string;
   name: string;
   image: string;
   stars: number;
@@ -32,6 +32,7 @@ const OrderRatingPage = () => {
   const [loading, setLoading] = useState(true);
   const [productRatings, setProductRatings] = useState<ProductRating[]>([]);
   const [applyToAll, setApplyToAll] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // For "Rate all" state
   const [globalStars, setGlobalStars] = useState(5);
@@ -54,17 +55,18 @@ const OrderRatingPage = () => {
         
         // Initialize product ratings
         const initialRatings: ProductRating[] = orderData.items.map(item => {
-          const existing = existingReviews.find((r: any) => r.product_id === (item.product_id as any)?._id);
+          const product = item.productId as any;
+          const existing = existingReviews.find((r: any) => r.productId === product?._id);
           
           return {
-            product_id: (item.product_id as any)?._id,
-            name: (item.product_id as any)?.name,
-            image: typeof (item.product_id as any)?.image === 'string' 
-              ? (item.product_id as any)?.image 
-              : ((item.product_id as any)?.image as any)?.secure_url || "",
+            productId: product?._id,
+            name: product?.name,
+            image: typeof product?.image === 'string'
+              ? product.image
+              : product?.image?.secureUrl || "",
             stars: existing ? existing.rating : 5,
             comment: existing ? existing.comment : "",
-            images: existing ? existing.images.map((img: any) => ({ id: img._id, url: img.secure_url })) : [],
+            images: existing ? existing.images.map((img: any) => ({ id: img._id, url: img.secureUrl })) : [],
             isUploading: false,
             isSubmitted: !!existing,
             isSubmitting: false
@@ -99,12 +101,12 @@ const OrderRatingPage = () => {
       });
       
       const fileData = res.data?.data;
-      if (fileData?._id && fileData?.secure_url) {
+      if (fileData?._id && fileData?.secureUrl) {
         setProductRatings(prev => {
           const next = [...prev];
           next[index] = {
             ...next[index],
-            images: [...next[index].images, { id: fileData._id, url: fileData.secure_url }]
+            images: [...next[index].images, { id: fileData._id, url: fileData.secureUrl }]
           };
           return next;
         });
@@ -131,16 +133,25 @@ const OrderRatingPage = () => {
     
     try {
       await reviewService.createOrderReviews({
-        order_id: orderId,
+        orderId,
         reviews: [{
-          product_id: rating.product_id,
+          productId: rating.productId,
           rating: rating.stars,
           comment: rating.comment,
           images: rating.images.map(img => img.id),
           isAnonymous: false
         }]
       });
-      updateRating(index, { isSubmitted: true });
+      
+      // Update state and check if all submitted in this session
+      setProductRatings(prev => {
+        const next = [...prev];
+        next[index] = { ...next[index], isSubmitted: true };
+        if (next.every(p => p.isSubmitted)) {
+          setShowSuccessModal(true);
+        }
+        return next;
+      });
     } catch (err) {
       console.error("Failed to submit review", err);
     } finally {
@@ -156,7 +167,7 @@ const OrderRatingPage = () => {
       if (pendingReviews.length === 0) return;
 
       const reviews = pendingReviews.map(p => ({
-        product_id: p.product_id,
+        productId: p.productId,
         rating: globalStars,
         comment: globalComment,
         images: p.images.map(img => img.id),
@@ -164,11 +175,12 @@ const OrderRatingPage = () => {
       }));
 
       await reviewService.createOrderReviews({
-        order_id: orderId,
+        orderId,
         reviews
       });
       
       setProductRatings(prev => prev.map(p => ({ ...p, isSubmitted: true })));
+      setShowSuccessModal(true);
     } catch (err) {
       console.error("Failed to submit reviews", err);
     } finally {
@@ -198,14 +210,14 @@ const OrderRatingPage = () => {
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-[#191710] dark:text-gray-100 transition-colors duration-300 min-h-screen pb-20">
-      <div className="max-w-[800px] mx-auto px-4 py-10">
-        <div className="flex flex-wrap gap-2 py-2 mb-6">
+      <div className="max-w-[800px] mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-wrap gap-2 py-0.5 mb-2">
           <button onClick={() => navigate("/profile/history")} className="text-[#8c7f5a] text-sm font-medium hover:underline">Đơn hàng</button>
           <span className="text-[#8c7f5a] text-sm font-medium">/</span>
           <span className="text-[#1b140d] dark:text-gray-400 text-sm font-medium">Đánh giá & Nhận xét</span>
         </div>
 
-        <div className="flex flex-col gap-2 mb-8 text-center sm:text-left">
+        <div className="flex flex-col gap-1 mb-6 text-center sm:text-left">
           <h1 className="text-[#1b140d] dark:text-white text-4xl font-black leading-tight tracking-tight">Đánh giá món ăn</h1>
           <p className="text-[#8c7f5a] text-lg">Đơn hàng #{order.code} • {new Date(order.createdAt).toLocaleDateString("vi-VN")}</p>
         </div>
@@ -364,19 +376,33 @@ const OrderRatingPage = () => {
           ))}
         </div>
 
-        {allSubmitted && (
-          <div className="mt-12 text-center animate-in zoom-in duration-500">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 text-green-500 mb-6">
-              <CheckCircle2 className="w-10 h-10" />
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-[#1f2122] rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-300">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-500 mb-5">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-black text-[#1b140d] dark:text-white mb-2 animate-bounce">
+                Đánh giá thành công!
+              </h2>
+              <p className="text-[#8c7f5a] text-sm mb-6 leading-relaxed">
+                Cảm ơn bạn đã đóng góp ý kiến chân thành để chúng tôi cải thiện dịch vụ mỗi ngày tốt hơn.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate("/profile/history")}
+                  className="w-full py-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-base shadow-lg shadow-orange-600/25 transition-all active:scale-[0.98]"
+                >
+                  Quay lại đơn hàng
+                </button>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full py-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5 text-[#1b140d] dark:text-white font-semibold text-sm transition-all active:scale-[0.98]"
+                >
+                  Xem / Chỉnh sửa lại đánh giá
+                </button>
+              </div>
             </div>
-            <h2 className="text-3xl font-black text-[#1b140d] dark:text-white mb-2">Đã gửi đánh giá thành công!</h2>
-            <p className="text-[#8c7f5a] mb-8">Cảm ơn bạn đã đóng góp ý kiến để chúng tôi cải thiện dịch vụ.</p>
-            <button
-              onClick={() => navigate("/profile/history")}
-              className="px-10 py-4 rounded-2xl bg-orange-600 text-white font-black text-xl shadow-xl shadow-orange-600/30 hover:-translate-y-1 transition-all"
-            >
-              Quay lại đơn hàng
-            </button>
           </div>
         )}
       </div>

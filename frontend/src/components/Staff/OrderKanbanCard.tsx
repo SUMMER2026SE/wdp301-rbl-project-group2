@@ -1,4 +1,4 @@
-import { Loader2, Phone, Wallet, Eye } from "lucide-react";
+import { Loader2, Phone, Wallet, Eye, MapPin } from "lucide-react";
 import type { Order } from "@/services/order.service";
 import { useNavigate } from "react-router-dom";
 
@@ -12,11 +12,10 @@ interface OrderKanbanCardProps {
 }
 
 const PAYMENT_LABEL: Record<string, string> = {
-  cash_on_delivery: "COD",
+  cash: "COD",
   vnpay: "VNPay",
   momo: "Momo",
-  credit_card: "Thẻ",
-  paypal: "PayPal",
+  stripe: "Thẻ",
 };
 
 export default function OrderKanbanCard({
@@ -32,6 +31,10 @@ export default function OrderKanbanCard({
   const isPrepaing =
     order.status === "confirmed" || order.status === "processing";
   const isReady = order.status === "ready_for_delivery";
+  const address = order.deliveryAddress;
+  const fullAddress = [address?.detail, address?.ward, address?.district, address?.city]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div
@@ -60,13 +63,13 @@ export default function OrderKanbanCard({
       {/* Customer info */}
       <div className="flex items-center gap-2 mb-3 p-2.5 bg-gray-50 dark:bg-white/5 rounded-xl">
         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-          {typeof order.user_id === "object" ? order.user_id?.username?.charAt(0)?.toUpperCase() : "K"}
+          {typeof order.cusId === "object" ? order.cusId?.username?.charAt(0)?.toUpperCase() : "K"}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-gray-900 dark:text-white truncate flex items-center gap-1.5">
-            {typeof order.user_id === "object" ? order.user_id?.username : "Khách hàng"}
+            {typeof order.cusId === "object" ? order.cusId?.username : "Khách hàng"}
             {/* AI Flagging - Tối giản cho Bếp */}
-            {order.staff_note_items && order.staff_note_items.some(n => n.toLowerCase().includes('dị ứng') || n.toLowerCase().includes('cảnh báo')) && (
+            {order.staffNoteItems && order.staffNoteItems.some(n => n.toLowerCase().includes('dị ứng') || n.toLowerCase().includes('cảnh báo')) && (
               <div
                 className="relative group cursor-help inline-flex items-center justify-center"
               >
@@ -78,10 +81,10 @@ export default function OrderKanbanCard({
               </div>
             )}
           </div>
-          {typeof order.user_id === "object" && order.user_id?.phone && (
+          {typeof order.cusId === "object" && order.cusId?.phone && (
             <div className="flex items-center gap-1 text-[11px] text-gray-500">
               <Phone className="w-3 h-3" />
-              {order.user_id.phone}
+              {order.cusId.phone}
             </div>
           )}
         </div>
@@ -90,6 +93,18 @@ export default function OrderKanbanCard({
           {PAYMENT_LABEL[order.payment.method] ?? order.payment.method}
         </div>
       </div>
+
+      {fullAddress && (
+        <div className="mb-3 p-2.5 bg-blue-50/60 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-blue-500 uppercase tracking-wider">Địa chỉ nhận</p>
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug line-clamp-2">
+              {fullAddress}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Note from customer (Priority #1) */}
       {order.note && (
@@ -106,7 +121,7 @@ export default function OrderKanbanCard({
           <div key={i} className="flex items-start justify-between gap-2 text-sm">
             <div className="flex-1 min-w-0">
               <span className="font-semibold text-gray-800 dark:text-gray-200 truncate block">
-                {(item.product_id as { name?: string })?.name ?? "Món ăn"}
+                {(item.productId as { name?: string })?.name ?? "Món ăn"}
               </span>
               {item.variations.length > 0 && (
                 <span className="text-[11px] text-gray-400">
@@ -125,7 +140,7 @@ export default function OrderKanbanCard({
       <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-white/10 mb-3">
         <span className="text-xs text-gray-500">Tổng cộng</span>
         <span className="text-base font-black text-gray-900 dark:text-white">
-          {(order.total_price ?? 0).toLocaleString("vi-VN")}đ
+          {(order.totalPrice ?? 0).toLocaleString("vi-VN")}đ
         </span>
       </div>
 
