@@ -21,8 +21,9 @@ interface RequireRoleProps {
  */
 const RequireRole = ({ allowedRoles }: RequireRoleProps) => {
     const { role } = useAuth();
+    const normalizedRole = role?.toUpperCase() as UserRole | undefined;
 
-    if (!role || !allowedRoles.includes(role)) {
+    if (!normalizedRole || !allowedRoles.includes(normalizedRole)) {
         // Redirect to 403 Forbidden page if role doesn't match
         return <Navigate to="/403" replace />;
     }

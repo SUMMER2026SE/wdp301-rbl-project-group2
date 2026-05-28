@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 
 export interface CreateReviewRequest {
-  product_id: string;
+  productId: string;
   rating: number;
   comment: string;
   images?: string[];
@@ -9,7 +9,7 @@ export interface CreateReviewRequest {
 }
 
 export interface OrderRatingRequest {
-  order_id: string;
+  orderId: string;
   reviews: CreateReviewRequest[];
 }
 

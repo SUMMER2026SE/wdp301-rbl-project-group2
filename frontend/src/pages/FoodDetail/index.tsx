@@ -20,7 +20,7 @@ import { useAllergyCheck } from "@/hooks/useAllergyCheck";
 
 const getImageUrl = (image: any): string => {
   if (!image) return "";
-  if (typeof image === "object" && image.secure_url) return image.secure_url;
+  if (typeof image === "object" && image.secureUrl) return image.secureUrl;
   if (typeof image === "string") return image;
   return "";
 };
@@ -56,7 +56,7 @@ const FoodDetailPage = () => {
       const selected = selectedVariants[group.name] || [];
       selected.forEach((choice) => {
         const option = group.options.find((opt) => opt.choice === choice);
-        if (option) extra += option.extra_price;
+        if (option) extra += option.extraPrice;
       });
     });
     return extra;
@@ -123,7 +123,7 @@ const FoodDetailPage = () => {
 
       const exists = current.includes(choice);
       let next = exists ? current.filter((c) => c !== choice) : [...current, choice];
-      if (group.max_choices && next.length > group.max_choices) return prev;
+      if (group.maxChoices && next.length > group.maxChoices) return prev;
       return { ...prev, [group.name]: next };
     });
   };
@@ -313,14 +313,14 @@ const FoodDetailPage = () => {
                         {Number(product?.rating ?? 0).toFixed(1)}
                       </span>
                       <span className="text-xs text-slate-500 font-medium ml-1">
-                        ({product?.review_count || 0}+ đánh giá)
+                        ({product?.reviewCount || 0}+ đánh giá)
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* AI Healthy Badge */}
-                {product.health_tags && product.health_tags.length > 0 && (
+                {product.healthTags && product.healthTags.length > 0 && (
                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[1.5rem] p-5 mb-8 flex items-start gap-4">
                     <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
                       <ShieldCheck className="w-6 h-6" />
@@ -333,7 +333,7 @@ const FoodDetailPage = () => {
                         Món ăn được trí tuệ nhân tạo phân tích thành phần, đảm bảo an toàn cho hồ sơ sức khỏe của bạn.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {product.health_tags.map((tag) => (
+                        {product.healthTags.map((tag) => (
                           <span key={tag} className="px-2.5 py-1 bg-white border border-emerald-200 text-emerald-700 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-sm">
                             {tag}
                           </span>
@@ -372,7 +372,7 @@ const FoodDetailPage = () => {
                             )}
                             {group.multiple && (
                               <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600">
-                                Chọn nhiều {group.max_choices ? `(Max: ${group.max_choices})` : ""}
+                                Chọn nhiều {group.maxChoices ? `(Max: ${group.maxChoices})` : ""}
                               </span>
                             )}
                           </div>
@@ -400,9 +400,9 @@ const FoodDetailPage = () => {
                                     {option.choice}
                                   </span>
                                 </div>
-                                {option.extra_price > 0 && (
+                                {option.extraPrice > 0 && (
                                   <span className={`text-[13px] font-black ${isSelected ? "text-orange-600" : "text-slate-500"}`}>
-                                    +{option.extra_price.toLocaleString("vi-VN")}đ
+                                    +{option.extraPrice.toLocaleString("vi-VN")}đ
                                   </span>
                                 )}
                               </button>
@@ -486,7 +486,7 @@ const FoodDetailPage = () => {
                       ))}
                     </div>
                     <p className="text-sm font-bold text-slate-500 bg-slate-50 py-2 rounded-xl inline-block px-4">
-                      Dựa trên {product?.review_count || reviews.length} lượt đánh giá
+                      Dựa trên {product?.reviewCount || reviews.length} lượt đánh giá
                     </p>
                   </div>
                 </div>
@@ -519,9 +519,9 @@ const FoodDetailPage = () => {
                         <div className="flex items-start justify-between mb-4 relative z-10">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 overflow-hidden border border-slate-200">
-                              {review.user?.avatar || review.user_id?.avatar ? (
+                              {review.user?.avatar || review.userId?.avatar ? (
                                 <img
-                                  src={review.user?.avatar || review.user_id?.avatar}
+                                  src={review.user?.avatar || review.userId?.avatar}
                                   alt="Avatar"
                                   className="w-full h-full object-cover"
                                 />
@@ -531,7 +531,7 @@ const FoodDetailPage = () => {
                             </div>
                             <div>
                               <h4 className="font-bold text-slate-900 text-base leading-tight mb-1">
-                                {review.isAnonymous ? "Khách hàng ẩn danh" : (review.user?.name || review.user_id?.username || "Khách hàng")}
+                                {review.isAnonymous ? "Khách hàng ẩn danh" : (review.user?.name || review.userId?.username || "Khách hàng")}
                               </h4>
                               <div className="flex items-center gap-2">
                                 <div className="flex gap-0.5">
@@ -560,7 +560,7 @@ const FoodDetailPage = () => {
                         {review.images && review.images.length > 0 && (
                           <div className="flex gap-3 mt-5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                             {review.images.map((img: string | any, i: number) => {
-                              const imgSrc = typeof img === 'string' ? img : img?.url || img?.secure_url;
+                              const imgSrc = typeof img === 'string' ? img : img?.url || img?.secureUrl;
                               return (
                                 <div key={i} className="w-20 h-20 shrink-0 rounded-[1rem] overflow-hidden border border-slate-200 cursor-zoom-in relative group/img">
                                   <img
@@ -644,7 +644,7 @@ const FoodDetailPage = () => {
             {
               productId: product._id,
               name: product.name,
-              image: typeof product.image === "object" ? product.image.secure_url : product.image,
+              image: typeof product.image === "object" ? product.image.secureUrl : product.image,
               price: unitPrice,
               quantity,
               variations,

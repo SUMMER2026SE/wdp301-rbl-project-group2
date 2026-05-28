@@ -32,7 +32,7 @@ const DeliveryAddressSchema = new mongoose.Schema(
     phone: { type: String, required: true, trim: true },
     detail: { type: String, required: true, trim: true },
     ward: { type: String, required: true, trim: true },
-    district: { type: String, required: true, trim: true },
+    district: { type: String, trim: true },
     city: { type: String, required: true, trim: true },
   },
   {

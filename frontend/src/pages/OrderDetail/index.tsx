@@ -51,7 +51,7 @@ const OrderDetailPage = () => {
   const getImageUrl = (image: any) => {
     if (!image) return "";
     if (typeof image === "string") return image;
-    return image.secure_url || image.url || "";
+    return image.secureUrl || image.url || "";
   };
 
   const getStatusInfo = (status: string) => {
@@ -145,9 +145,9 @@ const OrderDetailPage = () => {
   };
   const statusIdx = getStatusIdx(order.status);
   const orderOwnerId =
-    typeof (order as any).user_id === "string"
-      ? (order as any).user_id
-      : (order as any).user_id?._id;
+    typeof order.cusId === "string"
+      ? order.cusId
+      : order.cusId?._id;
   const canChat = !isStaffView && !!user?._id && !!orderOwnerId && user._id === orderOwnerId;
 
   return (
@@ -212,12 +212,12 @@ const OrderDetailPage = () => {
                       <div
                         className="w-20 h-20 rounded-2xl bg-gray-100 bg-cover bg-center shrink-0 border border-gray-100 dark:border-white/10"
                         style={{
-                          backgroundImage: `url("${getImageUrl((item.product_id as any)?.image)}")`,
+                          backgroundImage: `url("${getImageUrl((item.productId as any)?.image)}")`,
                         }}
                       />
                       <div>
                         <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
-                          {(item.product_id as any)?.name ||
+                          {(item.productId as any)?.name ||
                             "Sản phẩm không còn tồn tại"}
                         </h4>
                         <div className="mt-1 flex flex-wrap gap-2">
@@ -258,7 +258,7 @@ const OrderDetailPage = () => {
                       </div>
                     </div>
                     <p className="font-black text-lg text-gray-900 dark:text-white">
-                      {item.sub_total.toLocaleString("vi-VN")}đ
+                      {item.subTotal.toLocaleString("vi-VN")}đ
                     </p>
                   </div>
                 ))}
@@ -282,12 +282,11 @@ const OrderDetailPage = () => {
                         Địa chỉ giao hàng
                       </p>
                       <p className="text-gray-900 dark:text-white font-bold leading-tight">
-                        {order.delivery_address.detail}
+                        {order.deliveryAddress.detail}
                       </p>
                       <p className="text-gray-500 text-sm mt-1">
-                        {order.delivery_address.ward},{" "}
-                        {order.delivery_address.district},{" "}
-                        {order.delivery_address.city}
+                        {order.deliveryAddress.ward},{" "}
+                        {order.deliveryAddress.city}
                       </p>
                     </div>
                   </div>
@@ -302,18 +301,18 @@ const OrderDetailPage = () => {
                         Người nhận
                       </p>
                       <p className="text-gray-900 dark:text-white font-bold">
-                        {order.delivery_address.receiver_name}
+                        {order.deliveryAddress.receiverName}
                       </p>
                       <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
                         <Phone className="w-3 h-3" />
-                        {order.delivery_address.phone}
+                        {order.deliveryAddress.phone}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            {(order.note || order.staff_note_items?.length) && (
+            {!!(order.note || order.staffNoteItems?.length) && (
               <div className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <ReceiptText className="w-5 h-5 text-orange-600" />
@@ -323,9 +322,9 @@ const OrderDetailPage = () => {
                 </div>
 
                 {isStaffView ? (
-                  order.staff_note_items?.length ? (
+                  order.staffNoteItems?.length ? (
                     <ul className="space-y-2">
-                      {order.staff_note_items.map((note, index) => (
+                      {order.staffNoteItems.map((note, index) => (
                         <li
                           key={index}
                           className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200"
@@ -360,7 +359,7 @@ const OrderDetailPage = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 font-medium">Tạm tính</span>
                   <span className="font-bold">
-                    {order.sub_total.toLocaleString("vi-VN")}đ
+                    {order.subTotal.toLocaleString("vi-VN")}đ
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -368,8 +367,8 @@ const OrderDetailPage = () => {
                     Phí giao hàng
                   </span>
                   <span className="font-bold">
-                    {order.shipping_fee > 0
-                      ? `${order.shipping_fee.toLocaleString("vi-VN")}đ`
+                    {order.shippingFee > 0
+                      ? `${order.shippingFee.toLocaleString("vi-VN")}đ`
                       : "Miễn phí"}
                   </span>
                 </div>
@@ -378,9 +377,9 @@ const OrderDetailPage = () => {
                   <span className="font-bold text-green-500">
                     -
                     {(
-                      order.sub_total +
-                      order.shipping_fee -
-                      order.total_price
+                      order.subTotal +
+                      order.shippingFee -
+                      order.totalPrice
                     ).toLocaleString("vi-VN")}
                     đ
                   </span>
@@ -392,11 +391,11 @@ const OrderDetailPage = () => {
                   </span>
                   <div className="text-right">
                     <p className="text-3xl font-black text-orange-600">
-                      {order.total_price.toLocaleString("vi-VN")}đ
+                      {order.totalPrice.toLocaleString("vi-VN")}đ
                     </p>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mt-1">
                       Thanh toán:{" "}
-                      {order.payment.method === "cash_on_delivery"
+                      {order.payment.method === "cash"
                         ? "Tiền mặt"
                         : "Chuyển khoản"}
                     </p>

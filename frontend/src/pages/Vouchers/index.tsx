@@ -49,7 +49,7 @@ const VouchersPage = () => {
             setError(null);
 
             const params: any = {
-                is_active: true,
+                isActive: true,
                 limit: 20,
             };
 
@@ -84,10 +84,10 @@ const VouchersPage = () => {
     };
 
     const formatDiscount = (voucher: Voucher) => {
-        if (voucher.discount_type === "percentage") {
-            return `${voucher.discount_value}%`;
+        if (voucher.discountType === "percentage") {
+            return `${voucher.discountValue}%`;
         }
-        return `${(voucher.discount_value / 1000).toFixed(0)}K`;
+        return `${(voucher.discountValue / 1000).toFixed(0)}K`;
     };
 
     const formatDate = (dateString: string) => {
@@ -263,7 +263,7 @@ const VouchersPage = () => {
 
                                             <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
                                                 <span className="flex items-center gap-1.5 bg-slate-100/80 px-2 py-1 rounded-md">
-                                                    <Clock className="w-3 h-3" /> HSD: {formatDate(voucher.end_date)}
+                                                    <Clock className="w-3 h-3" /> HSD: {formatDate(voucher.endAt)}
                                                 </span>
                                                 <span className="font-black text-orange-600 text-sm">
                                                     {formatDiscount(voucher)}

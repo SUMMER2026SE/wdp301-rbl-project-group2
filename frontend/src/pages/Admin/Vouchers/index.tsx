@@ -36,10 +36,10 @@ const AdminVouchers = () => {
         const nextWeek = new Date();
         nextWeek.setDate(now.getDate() + 7);
 
-        const active = res.data.filter(v => v.is_active && new Date(v.end_date) > now).length;
-        const used = res.data.reduce((acc, v) => acc + v.current_usage_count, 0);
+        const active = res.data.filter(v => v.isActive && new Date(v.endAt) > now).length;
+        const used = res.data.reduce((acc, v) => acc + v.usedCount, 0);
         const expiring = res.data.filter(v => {
-          const end = new Date(v.end_date);
+          const end = new Date(v.endAt);
           return end > now && end < nextWeek;
         }).length;
 
@@ -62,12 +62,12 @@ const AdminVouchers = () => {
 
   const getStatusInfo = (v: Voucher) => {
     const now = new Date();
-    const end = new Date(v.end_date);
+    const end = new Date(v.endAt);
 
     if (end < now) {
       return { label: "Hết hạn", color: "bg-[#e71008]", textColor: "text-[#e71008]", status: "expired" };
     }
-    if (!v.is_active) {
+    if (!v.isActive) {
       return { label: "Tắt", color: "bg-[#9a734c]", textColor: "text-[#9a734c]", status: "disabled" };
     }
     return { label: "Đang dùng", color: "bg-[#07880e]", textColor: "text-[#07880e]", status: "active" };
@@ -75,7 +75,7 @@ const AdminVouchers = () => {
 
   const handleToggleActive = async (id: string, current: boolean) => {
     try {
-      await VoucherAPI.updateVoucher(id, { is_active: !current });
+      await VoucherAPI.updateVoucher(id, { isActive: !current });
       fetchVouchers();
     } catch (err) {
       console.error("Error toggling voucher status:", err);
@@ -194,9 +194,9 @@ const AdminVouchers = () => {
                 </tr>
               ) : filteredVouchers.map((v) => {
                 const statusInfo = getStatusInfo(v);
-                const limit = v.total_usage_limit || 0;
-                const pct = limit ? Math.round((v.current_usage_count / limit) * 100) : 0;
-                const discountLabel = v.discount_type === 'percentage' ? `${v.discount_value}%` : `${v.discount_value.toLocaleString("vi-VN")}₫`;
+                const limit = v.usageLimit || 0;
+                const pct = limit ? Math.round((v.usedCount / limit) * 100) : 0;
+                const discountLabel = v.discountType === 'percentage' ? `${v.discountValue}%` : `${v.discountValue.toLocaleString("vi-VN")}₫`;
 
                 return (
                   <tr key={v._id} className="hover:bg-[#ee8c2b]/5 transition-colors">
@@ -216,7 +216,7 @@ const AdminVouchers = () => {
                     <td className="px-6 py-5">
                       <div className="flex flex-col gap-1 min-w-[120px]">
                         <div className="flex justify-between text-xs font-medium text-[#1b140d]">
-                          <span>{v.current_usage_count} / {limit || "∞"}</span>
+                          <span>{v.usedCount} / {limit || "∞"}</span>
                           {limit > 0 && <span>{pct}%</span>}
                         </div>
                         {limit > 0 && (
@@ -231,7 +231,7 @@ const AdminVouchers = () => {
                     </td>
                     <td className="px-6 py-5 font-semibold text-sm text-[#1b140d]">{discountLabel}</td>
                     <td className="px-6 py-5 text-sm text-[#9a734c]">
-                      {new Date(v.end_date).toLocaleDateString("vi-VN")}
+                      {new Date(v.endAt).toLocaleDateString("vi-VN")}
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center justify-end gap-3">
@@ -239,9 +239,9 @@ const AdminVouchers = () => {
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={v.is_active}
+                              checked={v.isActive}
                               disabled={statusInfo.status === "expired"}
-                              onChange={() => handleToggleActive(v._id, v.is_active)}
+                              onChange={() => handleToggleActive(v._id, v.isActive)}
                               className="sr-only peer"
                             />
                             <div className="w-9 h-5 bg-[#e7dbcf] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#ee8c2b] peer-disabled:opacity-50" />

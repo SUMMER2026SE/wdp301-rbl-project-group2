@@ -87,7 +87,7 @@ export const useCheckout = () => {
 
   // ── Payment Method ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("cash_on_delivery");
+    useState<PaymentMethod>("cash");
 
   // ── Voucher ───────────────────────────────────────────────────────────────
   const [voucherState, setVoucherState] = useState<VoucherState>({
@@ -104,7 +104,7 @@ export const useCheckout = () => {
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        const res = await voucherService.getVouchers({ is_active: true });
+        const res = await voucherService.getVouchers({ isActive: true });
         if (res.success && res.data) {
           setVouchers(res.data);
         }
@@ -194,7 +194,7 @@ export const useCheckout = () => {
     } : undefined;
 
     return calculateShippingFee(
-      effectiveAddress.district ?? "",
+      effectiveAddress.ward ?? "",
       effectiveAddress.city ?? "",
       subtotal,
       config
@@ -229,18 +229,18 @@ export const useCheckout = () => {
     try {
       const payload = {
         items: cartItems.map((item) => ({
-          product_id: item.productId,
+          productId: item.productId,
           quantity: item.quantity,
           variations: item.variations ?? [],
         })),
-        payment_method: paymentMethod,
+        paymentMethod,
         // Only send voucher._id if one is applied (must be 24-char ObjectId)
         ...(voucherState.appliedVoucher
           ? { voucher: voucherState.appliedVoucher._id }
           : {}),
         // Send the selected/default address so BE doesn't need to look it up
-        delivery_address: effectiveAddress,
-        shipping_fee: deliveryFee,
+        deliveryAddress: effectiveAddress,
+        shippingFee: deliveryFee,
         note: orderNote?.trim() || undefined,
       };
 
@@ -267,7 +267,7 @@ export const useCheckout = () => {
         state: {
           orderCode: order.code,
           orderId: order._id,
-          totalPrice: order.total_price,
+          totalPrice: order.totalPrice,
         },
         replace: true, // Prevent back-navigation to checkout
       });

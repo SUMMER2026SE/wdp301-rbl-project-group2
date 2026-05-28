@@ -9,28 +9,32 @@ export type ApiResponse<T> = {
 export interface UserPreferences {
   dietary: string[];
   allergies: string[];
-  health_goals: string[];
+  healthGoals: string[];
 }
 
 export type UserMeResponse = {
   _id: string;
   username: string;
+  fullName?: string;
   email: string;
   phone?: string;
   avatar?: string;
-  collected_points: number;
+  collectedPoints: number;
   tier: string;
-  referral_code: string;
-  referred_by?: string | null;
+  referralCode: string;
+  referredBy?: string | null;
   role: string;
   preferences?: UserPreferences;
+  ordersCount?: number;
+  reviewsCount?: number;
+  savedCount?: number;
 };
 
 export interface MembershipInfo {
-  collected_points: number;
+  collectedPoints: number;
   tier: string;
-  referral_code: string;
-  referred_by?: string | null;
+  referralCode: string;
+  referredBy?: string | null;
 }
 
 export interface PointTransaction {
@@ -38,23 +42,24 @@ export interface PointTransaction {
   amount: number;
   type: "earn" | "redeem" | "referral" | "bonus";
   description: string;
-  order_id?: string;
+  orderId?: string;
   createdAt: string;
 }
 
 export interface AddressPayload {
   label?: string;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
   isDefault: boolean;
 }
 
 export type UpdateMePayload = {
   username?: string;
+  fullName?: string;
   phone?: string;
   avatar?: string;
   preferences?: Partial<UserPreferences>;

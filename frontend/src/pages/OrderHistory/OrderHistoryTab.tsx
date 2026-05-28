@@ -145,7 +145,7 @@ const OrderHistoryTabContent = () => {
   const getImageUrl = (image: any) => {
     if (!image) return undefined;
     if (typeof image === "string") return image;
-    return image.secure_url || image.url || undefined;
+    return image.secureUrl || image.url || undefined;
   };
 
   if (loading) {
@@ -257,7 +257,7 @@ const OrderHistoryTabContent = () => {
                   className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden"
                 >
                   <img
-                    src={getImageUrl((firstItem.product_id as any)?.image)}
+                    src={getImageUrl((firstItem.productId as any)?.image)}
                     alt="Food"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
@@ -271,7 +271,7 @@ const OrderHistoryTabContent = () => {
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="min-w-0">
                       <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1.5 leading-tight group-hover:text-orange-600 transition-colors">
-                        {(firstItem as any).product_id?.name || "Sản phẩm"}
+                        {(firstItem as any).productId?.name || "Sản phẩm"}
                       </h3>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
@@ -319,7 +319,7 @@ const OrderHistoryTabContent = () => {
                         Tổng thanh toán
                       </p>
                       <p className="text-xl font-black text-slate-900 tracking-tight">
-                        {order.total_price.toLocaleString("vi-VN")}đ
+                        {order.totalPrice.toLocaleString("vi-VN")}đ
                       </p>
                     </div>
 
@@ -350,7 +350,7 @@ const OrderHistoryTabContent = () => {
                           className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-colors active:scale-95"
                         >
                           <Star className="w-4 h-4 fill-current" />
-                          Đánh giá
+                          {order.isReviewed ? "Đánh giá lại" : "Đánh giá"}
                         </button>
                       )}
                     </div>

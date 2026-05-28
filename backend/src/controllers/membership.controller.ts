@@ -14,7 +14,7 @@ export const getMyPointsHistoryHandler = catchErrors(async (req: Request, res: R
     const skip = Number(req.query.skip) || 0;
     const limit = Number(req.query.limit) || 20;
 
-    const transactions = await PointTransactionModel.find({ user_id: userId })
+    const transactions = await PointTransactionModel.find({ userId })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -27,7 +27,7 @@ export const getMyPointsHistoryHandler = catchErrors(async (req: Request, res: R
  */
 export const getMyMembershipHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
-    const user = await UserModel.findById(userId).select('collected_points tier referral_code referred_by');
+    const user = await UserModel.findById(userId).select('collectedPoints tier referralCode referredBy');
     appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
     return res.status(OK).json({ success: true, data: user });

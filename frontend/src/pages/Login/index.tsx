@@ -48,13 +48,16 @@ const LoginPage = () => {
             login({
               _id: user._id,
               username: user.username,
+              fullName: user.fullName,
               email: user.email,
               phone: user.phone,
               role: user.role,
               isActive: user.isActive,
-              verified_at: user.verified_at,
-              collected_points: user.collected_points,
+              verifiedAt: user.verifiedAt,
+              collectedPoints: user.collectedPoints,
               addresses: user.addresses ?? [],
+              preferences: user.preferences as any,
+              isHealthSetup: user.isHealthSetup,
             });
 
             // Merge guest cart
@@ -75,15 +78,20 @@ const LoginPage = () => {
 
             // Redirect
             setTimeout(() => {
+              const normalizedRole = user.role.toUpperCase();
               const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
               if (from && from !== "/profile") {
                 navigate(from, { replace: true });
-              } else if (user.role === "ADMIN") {
+              } else if (normalizedRole === "ADMIN") {
                 navigate("/admin");
-              } else if (user.role === "STAFF") {
+              } else if (normalizedRole === "STAFF") {
                 navigate("/staff");
               } else {
-                navigate("/");
+                if (!user.isHealthSetup) {
+                  navigate("/onboarding");
+                } else {
+                  navigate("/");
+                }
               }
             }, 0);
           } catch (err: any) {
@@ -120,13 +128,16 @@ const LoginPage = () => {
       login({
         _id: user._id,
         username: user.username,
+        fullName: user.fullName,
         email: user.email,
         phone: user.phone,
         role: user.role,
         isActive: user.isActive,
-        verified_at: user.verified_at,
-        collected_points: user.collected_points,
+        verifiedAt: user.verifiedAt,
+        collectedPoints: user.collectedPoints,
         addresses: user.addresses ?? [], // ← include delivery addresses
+        preferences: user.preferences as any,
+        isHealthSetup: user.isHealthSetup,
       });
 
       // Sau khi login, merge giỏ guest (nếu có) vào giỏ của user hiện tại
@@ -147,16 +158,21 @@ const LoginPage = () => {
 
       // Delay navigation to let Zustand state propagate before route guards evaluate
       setTimeout(() => {
+        const normalizedRole = user.role.toUpperCase();
         const from = (location.state as { from?: { pathname: string } })?.from
           ?.pathname;
         if (from && from !== "/profile") {
           navigate(from, { replace: true });
-        } else if (user.role === "ADMIN") {
+        } else if (normalizedRole === "ADMIN") {
           navigate("/admin");
-        } else if (user.role === "STAFF") {
+        } else if (normalizedRole === "STAFF") {
           navigate("/staff");
         } else {
-          navigate("/");
+          if (!user.isHealthSetup) {
+            navigate("/onboarding");
+          } else {
+            navigate("/");
+          }
         }
       }, 0);
     } catch (err: any) {

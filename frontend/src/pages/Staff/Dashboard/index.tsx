@@ -181,10 +181,10 @@ export default function StaffDashboard() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[#ee8c2b]/10 flex items-center justify-center text-[#ee8c2b] font-bold text-xs">
-                          {order.user_id?.username?.charAt(0) || "U"}
+                          {order.cusId?.username?.charAt(0) || "U"}
                         </div>
                         <span className="text-sm text-[#1b140d] font-medium truncate max-w-[150px]">
-                          {order.user_id?.username || "Khách vãng lai"}
+                          {order.cusId?.username || "Khách vãng lai"}
                         </span>
                       </div>
                     </td>

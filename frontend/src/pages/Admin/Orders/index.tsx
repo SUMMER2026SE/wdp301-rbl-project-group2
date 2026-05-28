@@ -200,10 +200,10 @@ const AdminOrders = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#ee8c2b]/20 flex items-center justify-center text-[#ee8c2b] font-bold text-xs">
-                            {order.user_id?.username?.charAt(0) || "U"}
+                            {typeof order.cusId === "object" ? order.cusId?.username?.charAt(0) || "U" : "U"}
                           </div>
                           <span className="text-sm font-semibold text-[#1b140d]">
-                            {order.user_id?.username || "Ẩn danh"}
+                            {typeof order.cusId === "object" ? order.cusId?.username || "Ẩn danh" : "Ẩn danh"}
                           </span>
                         </div>
                       </td>
@@ -225,11 +225,11 @@ const AdminOrders = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-[#1b140d]">
-                            {order.total_price.toLocaleString("vi-VN")}₫
+                            {order.totalPrice.toLocaleString("vi-VN")}₫
                           </span>
                           <span className="text-[10px] text-gray-400">
-                            {(order.shipping_fee ?? 0) > 0
-                              ? `+${order.shipping_fee.toLocaleString("vi-VN")}đ ship`
+                            {(order.shippingFee ?? 0) > 0
+                              ? `+${order.shippingFee.toLocaleString("vi-VN")}đ ship`
                               : "Free ship"}
                           </span>
                         </div>
@@ -322,7 +322,7 @@ const AdminOrders = () => {
                           </span>
                         </div>
                         <p className="text-sm font-semibold mb-3">
-                          {card.user_id?.username}
+                          {typeof card.cusId === "object" ? card.cusId?.username : "Khách hàng"}
                         </p>
                         <div className="flex justify-between items-center text-sm mb-2">
                           <span className="text-gray-500">Số món:</span>
@@ -333,15 +333,15 @@ const AdminOrders = () => {
                         <div className="flex justify-between items-center text-sm mb-2">
                           <span className="text-gray-500">Tổng tiền:</span>
                           <span className="font-bold text-[#ee8c2b]">
-                            {card.total_price.toLocaleString("vi-VN")}₫
+                            {card.totalPrice.toLocaleString("vi-VN")}₫
                           </span>
                         </div>
                         <div className="flex justify-between items-center text-sm mb-3">
                           <span className="text-gray-500">Phí giao hàng:</span>
                           <span className="font-semibold text-[#1b140d]">
-                            {(card.shipping_fee ?? 0) === 0
+                            {(card.shippingFee ?? 0) === 0
                               ? "Miễn phí"
-                              : `${card.shipping_fee.toLocaleString("vi-VN")}đ`}
+                              : `${card.shippingFee.toLocaleString("vi-VN")}đ`}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-3">
@@ -426,7 +426,7 @@ const AdminOrders = () => {
                   <ReceiptText size={12} /> Thanh toán
                 </p>
                 <p className="text-sm font-bold text-[#1b140d]">
-                  {orderDetails.payment?.method === "cash_on_delivery" ? "Tiền mặt (COD)" : "Chuyển khoản"}
+                  {orderDetails.payment?.method === "cash" ? "Tiền mặt (COD)" : "Chuyển khoản"}
                 </p>
               </div>
             </div>
@@ -441,14 +441,14 @@ const AdminOrders = () => {
                   <div key={idx} className="flex gap-4 p-3 bg-white rounded-xl border border-[#e7dbcf] hover:border-[#ee8c2b]/30 transition-all">
                     <div
                       className="w-16 h-16 rounded-lg bg-gray-100 bg-cover bg-center shrink-0"
-                      style={{ backgroundImage: `url(${item.product_id?.image?.secure_url || item.product_id?.image || ''})` }}
+                      style={{ backgroundImage: `url(${typeof item.productId === "object" ? (typeof item.productId.image === "string" ? item.productId.image : item.productId.image?.secureUrl || "") : ""})` }}
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-black text-[#1b140d] line-clamp-1">{item.product_id?.name}</p>
+                      <p className="text-sm font-black text-[#1b140d] line-clamp-1">{typeof item.productId === "object" ? item.productId?.name : "Sản phẩm"}</p>
                       <p className="text-[11px] text-[#9a734c] font-bold mt-0.5">SL: {item.quantity} x {(item.price ?? 0).toLocaleString("vi-VN")}₫</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-[#ee8c2b]">{(item.sub_total ?? 0).toLocaleString("vi-VN")}₫</p>
+                      <p className="text-sm font-black text-[#ee8c2b]">{(item.subTotal ?? 0).toLocaleString("vi-VN")}₫</p>
                     </div>
                   </div>
                 ))}
@@ -461,16 +461,16 @@ const AdminOrders = () => {
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><User size={20} /></div>
                 <div>
                   <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">Khách hàng</p>
-                  <p className="text-sm font-bold text-[#1b140d]">{orderDetails.user_id?.username || "Khách vãng lai"}</p>
-                  <p className="text-xs text-[#9a734c]">{orderDetails.delivery_address?.receiver_name} • {orderDetails.delivery_address?.phone}</p>
+                  <p className="text-sm font-bold text-[#1b140d]">{typeof orderDetails.cusId === "object" ? orderDetails.cusId?.username || "Khách vãng lai" : "Khách vãng lai"}</p>
+                  <p className="text-xs text-[#9a734c]">{orderDetails.deliveryAddress?.receiverName} • {orderDetails.deliveryAddress?.phone}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
                 <div className="p-2 bg-green-50 text-green-600 rounded-lg"><MapPin size={20} /></div>
                 <div>
                   <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">Địa chỉ giao</p>
-                  <p className="text-sm font-bold text-[#1b140d] line-clamp-2">{orderDetails.delivery_address?.detail}</p>
-                  <p className="text-xs text-[#9a734c]">{orderDetails.delivery_address?.ward}, {orderDetails.delivery_address?.district}</p>
+                  <p className="text-sm font-bold text-[#1b140d] line-clamp-2">{orderDetails.deliveryAddress?.detail}</p>
+                  <p className="text-xs text-[#9a734c]">{orderDetails.deliveryAddress?.ward}, {orderDetails.deliveryAddress?.city}</p>
                 </div>
               </div>
             </div>
@@ -479,16 +479,16 @@ const AdminOrders = () => {
             <div className="p-6 bg-[#1b140d] rounded-2xl text-white space-y-3">
               <div className="flex justify-between text-xs opacity-70">
                 <span>Tạm tính</span>
-                <span>{(orderDetails.sub_total ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span>{(orderDetails.subTotal ?? 0).toLocaleString("vi-VN")}₫</span>
               </div>
               <div className="flex justify-between text-xs opacity-70">
                 <span>Phí giao hàng</span>
-                <span>{(orderDetails.shipping_fee ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span>{(orderDetails.shippingFee ?? 0).toLocaleString("vi-VN")}₫</span>
               </div>
               <div className="h-px bg-white/10 my-1" />
               <div className="flex justify-between items-center">
                 <span className="text-sm font-black uppercase tracking-widest">Tổng cộng</span>
-                <span className="text-2xl font-black text-[#ee8c2b]">{(orderDetails.total_price ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span className="text-2xl font-black text-[#ee8c2b]">{(orderDetails.totalPrice ?? 0).toLocaleString("vi-VN")}₫</span>
               </div>
             </div>
 

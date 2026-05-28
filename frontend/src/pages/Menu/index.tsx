@@ -338,7 +338,7 @@ const MenuPage = () => {
                     key={item._id}
                     id={item._id}
                     name={item.name}
-                    image={typeof item.image === 'object' && item.image?.secure_url ? item.image.secure_url : (typeof item.image === 'string' ? item.image : '')}
+                    image={typeof item.image === 'object' && item.image?.secureUrl ? item.image.secureUrl : (typeof item.image === 'string' ? item.image : '')}
                     price={item.price}
                     rating={item.rating}
                     restaurant={item.restaurant}
@@ -347,7 +347,7 @@ const MenuPage = () => {
                       addItem({
                         productId: item._id,
                         name: item.name,
-                        image: typeof item.image === 'object' && item.image?.secure_url ? item.image.secure_url : (typeof item.image === 'string' ? item.image : ''),
+                        image: typeof item.image === 'object' && item.image?.secureUrl ? item.image.secureUrl : (typeof item.image === 'string' ? item.image : ''),
                         price: item.price,
                         quantity: 1
                       });

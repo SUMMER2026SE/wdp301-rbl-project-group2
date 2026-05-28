@@ -160,7 +160,7 @@ const AdminMenuManagement = () => {
 
   const renderImage = (item: Product) => {
     const imgSrc =
-      typeof item.image === "object" ? item.image?.secure_url : null;
+      typeof item.image === "object" ? item.image?.secureUrl : null;
     if (imgSrc) {
       return (
         <img
@@ -361,7 +361,7 @@ const AdminMenuManagement = () => {
                           {item.name}
                         </span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {item.health_tags?.map((tag) => (
+                          {item.healthTags?.map((tag) => (
                             <span
                               key={tag}
                               className="px-1.5 py-0.5 bg-green-50 text-[10px] text-green-700 font-black border border-green-100 rounded uppercase"
@@ -369,12 +369,12 @@ const AdminMenuManagement = () => {
                               {tag}
                             </span>
                           ))}
-                          {item.health_warning && (
+                          {item.healthWarning && (
                             <span className="px-1.5 py-0.5 bg-red-50 text-[10px] text-red-700 font-black border border-red-100 rounded uppercase flex items-center gap-0.5">
                               <span className="material-symbols-outlined text-[12px]">
                                 warning
                               </span>
-                              {item.health_warning}
+                              {item.healthWarning}
                             </span>
                           )}
                         </div>
@@ -446,9 +446,9 @@ const AdminMenuManagement = () => {
               )}
             >
               <div className="relative w-full aspect-4/3 overflow-hidden bg-[#f3ede7]">
-                {typeof item.image === "object" && item.image?.secure_url ? (
+                {typeof item.image === "object" && item.image?.secureUrl ? (
                   <img
-                    src={item.image.secure_url}
+                    src={item.image.secureUrl}
                     alt={item.name}
                     className="w-full h-full object-cover"
                   />
@@ -480,9 +480,9 @@ const AdminMenuManagement = () => {
                     edit
                   </span>
                 </button>
-                {(item.health_tags?.length > 0 || item.health_warning) && (
+                {(item.healthTags?.length > 0 || item.healthWarning) && (
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-1">
-                    {item.health_tags?.slice(0, 2).map((tag) => (
+                    {item.healthTags?.slice(0, 2).map((tag) => (
                       <span
                         key={tag}
                         className="px-2 py-0.5 bg-white/90 backdrop-blur-sm text-[9px] text-green-700 font-black rounded-md border border-green-100 uppercase shadow-sm"
@@ -490,7 +490,7 @@ const AdminMenuManagement = () => {
                         {tag}
                       </span>
                     ))}
-                    {item.health_warning && (
+                    {item.healthWarning && (
                       <span className="px-2 py-0.5 bg-red-600 text-[9px] text-white font-black rounded-md uppercase shadow-sm flex items-center gap-0.5">
                         <span className="material-symbols-outlined text-[10px]">
                           warning

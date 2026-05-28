@@ -15,9 +15,9 @@ export const getOrderReviewsHandler = catchErrors(async (req, res) => {
 
 export const createOrderReviewsHandler = catchErrors(async (req, res) => {
   const userId = req.userId as unknown as string;
-  const { order_id, reviews } = req.body;
+  const { orderId, reviews } = req.body;
 
-  const result = await createOrderReviews(userId, order_id, reviews);
+  const result = await createOrderReviews(userId, orderId, reviews);
 
   return res.success(CREATED, {
     data: result,

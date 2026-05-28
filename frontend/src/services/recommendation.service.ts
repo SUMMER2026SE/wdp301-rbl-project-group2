@@ -12,7 +12,7 @@ export interface SafeFoodsResponse {
     filters: {
         allergies: string[];
         dietary: string[];
-        health_goals: string[];
+        healthGoals: string[];
     };
     stats: {
         total: number;

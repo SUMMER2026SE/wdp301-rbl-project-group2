@@ -49,10 +49,10 @@ class ProductAPI {
 
   /**
    * Upload ảnh lên server → Cloudinary → lưu metadata vào MongoDB.
-   * Trả về { _id: string (MongoDB ObjectId), secure_url: string }
+   * Trả về { _id: string (MongoDB ObjectId), secureUrl: string }
    * để có thể gán image field cho Product.
    */
-  async uploadImage(file: File): Promise<{ _id: string; secure_url: string }> {
+  async uploadImage(file: File): Promise<{ _id: string; secureUrl: string }> {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/files/upload", formData, {
@@ -60,7 +60,7 @@ class ProductAPI {
         "Content-Type": "multipart/form-data",
       },
     });
-    // BE trả về { success, data: { _id, secure_url, ... } }
+    // BE trả về { success, data: { _id, secureUrl, ... } }
     return response.data.data;
   }
 

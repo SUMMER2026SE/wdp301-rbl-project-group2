@@ -220,7 +220,7 @@ const RecommendedSection = () => {
                 key={isAI ? product._id + idx : product._id}
                 id={product._id}
                 name={product.name}
-                image={typeof product.image === 'object' && product.image?.secure_url ? product.image.secure_url : (typeof product.image === 'string' ? product.image : '')}
+                image={typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '')}
                 price={product.price}
                 rating={product.rating}
                 restaurant={product.restaurant}
@@ -232,7 +232,7 @@ const RecommendedSection = () => {
                   addItem({
                     productId: product._id,
                     name: product.name,
-                    image: typeof product.image === 'object' && product.image?.secure_url ? product.image.secure_url : (typeof product.image === 'string' ? product.image : ''),
+                    image: typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : ''),
                     price: product.price,
                     quantity: 1
                   });

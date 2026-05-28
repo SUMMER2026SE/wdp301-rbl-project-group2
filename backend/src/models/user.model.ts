@@ -1,6 +1,6 @@
 import { EMAIL_REGEX, INTERNATIONAL_PHONE_REGEX, VIETNAM_PHONE_REGEX } from '@/constants/regex';
 import { IUser } from '@/types';
-import { IAddresses, IHealthProfile, Role, UserStatus } from '@/types/user.type';
+import { IAddresses, IHealthProfile, IPreferences, Role, UserStatus } from '@/types/user.type';
 import { compareValue, hashValue } from '@/utils/bcrypt';
 import mongoose from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -24,7 +24,7 @@ const AddressSchema = new mongoose.Schema<IAddresses>(
     },
     detail: { type: String, required: true, trim: true },
     ward: { type: String, required: true, trim: true },
-    district: { type: String, required: true, trim: true },
+    district: { type: String, trim: true },
     city: { type: String, required: true, trim: true },
     isDefault: { type: Boolean, default: false },
   },
@@ -37,6 +37,15 @@ const HealthSchema = new mongoose.Schema<IHealthProfile>(
   {
     allergies: { type: [String], default: [] },
     calories: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+const PreferencesSchema = new mongoose.Schema<IPreferences>(
+  {
+    dietary: { type: [String], default: [] },
+    allergies: { type: [String], default: [] },
+    healthGoals: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -88,6 +97,10 @@ const UserSchema = new mongoose.Schema<IUser>(
     health: {
       type: HealthSchema,
       default: () => ({ allergies: [] as string[], calories: 0 }),
+    },
+    preferences: {
+      type: PreferencesSchema,
+      default: () => ({ dietary: [] as string[], allergies: [] as string[], healthGoals: [] as string[] }),
     },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,

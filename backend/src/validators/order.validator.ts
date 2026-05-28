@@ -9,7 +9,7 @@ export const deliveryAddressValidator = z.object({
   phone: z.string().min(1, 'Số điện thoại không được để trống'),
   detail: z.string().min(1, 'Địa chỉ chi tiết không được để trống'),
   ward: z.string().min(1, 'Phường/Xã không được để trống'),
-  district: z.string().min(1, 'Quận/Huyện không được để trống'),
+  district: z.string().min(1, 'Quận/Huyện không được để trống').optional(),
   city: z.string().min(1, 'Thành phố không được để trống'),
 });
 

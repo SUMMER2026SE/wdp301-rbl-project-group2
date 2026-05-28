@@ -9,11 +9,11 @@ export enum OrderStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
   REFUNDED = 'refunded',
-  
+
   // Compatibility values (also camelCase)
-  PROCESSING = 'preparing',
-  READY_FOR_DELIVERY = 'preparing',
-  SHIPPING = 'delivering',
+  PROCESSING = 'processing',
+  READY_FOR_DELIVERY = 'ready_for_delivery',
+  SHIPPING = 'shipping',
 }
 
 export enum PaymentMethod {
@@ -22,7 +22,7 @@ export enum PaymentMethod {
   MOMO = 'momo',
   VNPAY = 'vnpay',
   STRIPE = 'stripe',
-  
+
   // Compatibility values (camelCase)
   CASH_ON_DELIVERY = 'cash',
   CREDIT_CARD = 'stripe',
@@ -48,7 +48,7 @@ export interface IDeliveryAddress {
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
 }
 
@@ -69,7 +69,7 @@ export interface IOrder extends mongoose.Document<mongoose.Types.ObjectId> {
   cusId: mongoose.Types.ObjectId;
   status: OrderStatus;
   items: IOrderItem[];
-  
+
   voucherId?: mongoose.Types.ObjectId | null;
   voucherCode?: string | null;
   discountType?: DiscountType | null;
@@ -85,7 +85,7 @@ export interface IOrder extends mongoose.Document<mongoose.Types.ObjectId> {
 
   deliveryAddress: IDeliveryAddress;
   deliveryInfo: IDeliveryInfo;
-  
+
   // camelCase fields
   note?: string;
   staffNoteItems?: string[];

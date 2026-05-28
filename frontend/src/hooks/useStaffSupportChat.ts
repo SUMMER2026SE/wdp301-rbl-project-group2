@@ -61,14 +61,14 @@ export function useStaffSupportChat() {
         });
     });
 
-    const sendMessage = async (content: string, image_url?: string) => {
-        if (!selectedConversationId || (!content.trim() && !image_url)) return;
+    const sendMessage = async (content: string, imageUrl?: string) => {
+        if (!selectedConversationId || (!content.trim() && !imageUrl)) return;
         try {
             setSending(true);
             setError(null);
             const res = await staffSupportChatService.sendMessage(selectedConversationId, {
                 content: content.trim(),
-                image_url
+                imageUrl
             });
             // Optimistically add the sent message for the sender.
             // The socket handler deduplicates by `id`, so no double if socket also delivers it.

@@ -4,6 +4,19 @@ import { catchErrors } from '@/utils/async-handler';
 import * as supportChatService from '@/services/support-chat.service';
 import * as supportSettingsService from '@/services/support-settings.service';
 
+const serializeSupportSettings = (settings: any) => {
+  const obj = settings?.toObject ? settings.toObject() : settings;
+  return {
+    id: obj?._id?.toString(),
+    userId: obj?.user_id?.toString(),
+    welcomeMessage: obj?.welcomeMessage,
+    outOfOffice: obj?.outOfOffice,
+    quickReplies: obj?.quickReplies ?? [],
+    createdAt: obj?.createdAt,
+    updatedAt: obj?.updatedAt,
+  };
+};
+
 export const createOrGetConversation = catchErrors(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId);
   const { orderId } = req.body as { orderId?: string };
@@ -35,7 +48,7 @@ export const getMessages = catchErrors(async (req: Request, res: Response) => {
       senderType: (obj as any).sender_type,
       senderId: (obj as any).sender_id?.toString(),
       content: (obj as any).content,
-      image_url: (obj as any).image_url,
+      imageUrl: (obj as any).image_url,
       createdAt: (obj as any).createdAt,
       isRead: (obj as any).is_read ?? false,
     };
@@ -47,9 +60,9 @@ export const sendMessage = catchErrors(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId);
   const role = req.role!;
   const { id } = req.params;
-  const { content, image_url } = req.body as { content?: string, image_url?: string };
+  const { content, imageUrl } = req.body as { content?: string, imageUrl?: string };
 
-  const message = await supportChatService.sendMessage(id, userId, role, content ?? '', image_url);
+  const message = await supportChatService.sendMessage(id, userId, role, content ?? '', imageUrl);
   const { conversation } = await supportChatService.getMessages(id, userId, role);
   const obj = message.toObject ? message.toObject() : message;
   const payload = {
@@ -58,7 +71,7 @@ export const sendMessage = catchErrors(async (req: Request, res: Response) => {
     senderType: (obj as any).sender_type,
     senderId: (obj as any).sender_id?.toString(),
     content: (obj as any).content,
-    image_url: (obj as any).image_url,
+    imageUrl: (obj as any).image_url,
     createdAt: (obj as any).createdAt,
     isRead: (obj as any).is_read ?? false,
   };
@@ -83,7 +96,7 @@ export const sendMessage = catchErrors(async (req: Request, res: Response) => {
 import { Role } from '@/types';
 
 export const listStaffConversations = catchErrors(async (req: Request, res: Response) => {
-  const role = req.role!;
+  const role = req.role!.toLowerCase();
   if (role !== Role.STAFF && role !== Role.ADMIN) {
     return res.status(403).json({ message: 'Chỉ nhân viên mới được xem danh sách hội thoại' });
   }
@@ -111,13 +124,13 @@ export const closeConversation = catchErrors(async (req: Request, res: Response)
 export const getSupportSettings = catchErrors(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId);
   const settings = await supportSettingsService.getSettings(userId);
-  return res.json({ settings });
+  return res.json({ settings: serializeSupportSettings(settings) });
 });
 
 export const updateSupportSettings = catchErrors(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId);
   const settings = await supportSettingsService.updateSettings(userId, req.body);
-  return res.json({ settings });
+  return res.json({ settings: serializeSupportSettings(settings) });
 });
 
 export const listUserConversations = catchErrors(async (req: Request, res: Response) => {

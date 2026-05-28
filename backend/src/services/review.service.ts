@@ -6,6 +6,18 @@ import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import { IReview } from '@/types';
 import mongoose from 'mongoose';
 
+const serializeReview = (review: any) => ({
+  ...review,
+  images: (review.images ?? []).map((image: any) =>
+    typeof image === 'string'
+      ? image
+      : {
+          _id: image._id,
+          secureUrl: image.secure_url,
+        }
+  ),
+});
+
 export const createOrderReviews = async (userId: string, orderId: string, reviews: any[]) => {
   const order = await OrderModel.findOne({ _id: orderId, cusId: userId });
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
@@ -40,9 +52,10 @@ export const createOrderReviews = async (userId: string, orderId: string, review
 };
 
 export const getOrderReviews = async (orderId: string, userId: string) => {
-  return ReviewModel.find({ orderId, userId })
+  const reviews = await ReviewModel.find({ orderId, userId })
     .populate('images')
     .lean();
+  return reviews.map(serializeReview);
 };
 
 export const getProductReviews = async (productId: string, page = 1, limit = 10) => {
@@ -59,7 +72,7 @@ export const getProductReviews = async (productId: string, page = 1, limit = 10)
   ]);
 
   return {
-    reviews,
+    reviews: reviews.map(serializeReview),
     pagination: {
       page,
       limit,
@@ -85,7 +98,7 @@ const updateProductOverallRating = async (productId: string) => {
     const { averageRating, reviewCount } = result[0];
     await ProductModel.findByIdAndUpdate(productId, {
       rating: Math.round(averageRating * 10) / 10,
-      review_count: reviewCount
+      reviewCount
     });
   }
 };

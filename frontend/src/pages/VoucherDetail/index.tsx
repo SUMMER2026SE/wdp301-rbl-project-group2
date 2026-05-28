@@ -63,10 +63,10 @@ const VoucherDetailPage = () => {
 
     const formatDiscount = () => {
         if (!voucher) return "";
-        if (voucher.discount_type === "percentage") {
-            return `${voucher.discount_value}%`;
+        if (voucher.discountType === "percentage") {
+            return `${voucher.discountValue}%`;
         }
-        return `${voucher.discount_value.toLocaleString()}đ`;
+        return `${voucher.discountValue.toLocaleString()}đ`;
     };
 
     const formatDate = (dateString: string) => {
@@ -93,8 +93,8 @@ const VoucherDetailPage = () => {
         ? [
             `Tiết kiệm ngay ${formatDiscount()} cho mỗi đơn hàng`,
             "Áp dụng linh hoạt cho nhiều loại món ăn",
-            `Sử dụng tối đa ${voucher.usage_limit_per_user} lần`,
-            voucher.is_stackable ? "Có thể kết hợp với voucher khác" : "Không kết hợp với voucher khác",
+            `Sử dụng tối đa ${voucher.usageLimit} lần`,
+            voucher.isStackable ? "Có thể kết hợp với voucher khác" : "Không kết hợp với voucher khác",
         ]
         : [];
 
@@ -203,21 +203,21 @@ const VoucherDetailPage = () => {
                                 <div>
                                     <p className="text-xs text-slate-500 mb-1">{t('customer:voucherDetail.minOrder')}</p>
                                     <p className="text-lg font-black text-slate-900">
-                                        {voucher.min_order_amount.toLocaleString()}đ
+                                        {voucher.minOrderValue.toLocaleString()}đ
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-slate-500 mb-1">{t('customer:voucherDetail.expires')}</p>
                                     <p className="text-sm font-bold text-red-600 flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
-                                        {formatDate(voucher.end_date)}
+                                        {formatDate(voucher.endAt)}
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-slate-500 mb-1">{t('customer:voucherDetail.used')}</p>
                                     <p className="text-sm font-bold text-slate-700">
-                                        {voucher.current_usage_count}
-                                        {voucher.total_usage_limit && `/${voucher.total_usage_limit}`} lần
+                                        {voucher.usedCount}
+                                        {voucher.usageLimit && `/${voucher.usageLimit}`} lần
                                     </p>
                                 </div>
                             </div>

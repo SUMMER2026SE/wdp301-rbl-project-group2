@@ -20,8 +20,8 @@ export interface ProductFormData {
   category: string;
   restaurant: string;
   time: string;
-  health_warning: string;
-  health_tags: string[];
+  healthWarning: string;
+  healthTags: string[];
   tags: string[];
   recipe: RecipeItem[];
 }
@@ -33,8 +33,8 @@ const DEFAULT_FORM: ProductFormData = {
   category: CATEGORIES[0],
   restaurant: "FoodieDash Central",
   time: "20-30 min",
-  health_warning: "",
-  health_tags: [],
+  healthWarning: "",
+  healthTags: [],
   tags: [],
   recipe: [],
 };
@@ -50,8 +50,8 @@ const productToFormData = (product: Product): ProductFormData => ({
   category: product.category,
   restaurant: product.restaurant,
   time: product.time,
-  health_warning: product.health_warning ?? "",
-  health_tags: product.health_tags ?? [],
+  healthWarning: product.healthWarning ?? "",
+  healthTags: product.healthTags ?? [],
   tags: product.tags ?? [],
   recipe: product.recipe ?? [],
 });
@@ -80,7 +80,7 @@ export const useProductForm = ({
   const [imagePreview, setImagePreview] = useState<string>(
     mode === "edit" && product
       ? product.image && typeof product.image === "object"
-        ? product.image.secure_url
+        ? product.image.secureUrl
         : ""
       : "",
   );
@@ -95,7 +95,7 @@ export const useProductForm = ({
       setFormData(productToFormData(product));
       setImagePreview(
         product.image && typeof product.image === "object"
-          ? product.image.secure_url
+          ? product.image.secureUrl
           : "",
       );
       setImageFile(null);
@@ -132,9 +132,9 @@ export const useProductForm = ({
   const toggleHealthTag = useCallback((label: string) => {
     setFormData((prev) => ({
       ...prev,
-      health_tags: prev.health_tags.includes(label)
-        ? prev.health_tags.filter((t) => t !== label)
-        : [...prev.health_tags, label],
+      healthTags: prev.healthTags.includes(label)
+        ? prev.healthTags.filter((t) => t !== label)
+        : [...prev.healthTags, label],
     }));
   }, []);
 

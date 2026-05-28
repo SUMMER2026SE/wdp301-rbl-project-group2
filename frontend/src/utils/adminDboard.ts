@@ -60,7 +60,7 @@ export const getRevenueDataByFilter = (
       const target = map.get(key);
 
       if (target) {
-        target.revenue += Number(order.total_price || 0);
+        target.revenue += Number(order.totalPrice || 0);
         target.orders += 1;
       }
     });
@@ -97,7 +97,7 @@ export const getRevenueDataByFilter = (
 
       const dayIndex = createdAt.getDate() - 1;
       if (result[dayIndex]) {
-        result[dayIndex].revenue += Number(order.total_price || 0);
+        result[dayIndex].revenue += Number(order.totalPrice || 0);
         result[dayIndex].orders += 1;
       }
     });
@@ -137,7 +137,7 @@ export const getRevenueDataByFilter = (
     if (createdAt.getFullYear() !== currentYear) return;
 
     const monthIndex = createdAt.getMonth();
-    result[monthIndex].revenue += Number(order.total_price || 0);
+    result[monthIndex].revenue += Number(order.totalPrice || 0);
     result[monthIndex].orders += 1;
   });
 
@@ -209,12 +209,12 @@ export const getRecentOrdersForList = (orders: Order[]): RecentOrderItem[] => {
     .map((o) => ({
       code: o.code || "N/A",
       customer:
-        typeof o.user_id === "object" && o.user_id?.username
-          ? o.user_id.username
+        typeof o.cusId === "object" && o.cusId?.username
+          ? o.cusId.username
           : "Ẩn danh",
       time: formatShortDate(o.createdAt),
       items: Array.isArray(o.items) ? o.items.length : 0,
-      total: formatCurrency(Number(o.total_price || 0)),
+      total: formatCurrency(Number(o.totalPrice || 0)),
       status: getStatusLabel(o.status),
       statusClass: getStatusClass(o.status),
     }));

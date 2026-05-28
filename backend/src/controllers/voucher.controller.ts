@@ -17,11 +17,11 @@ import { BAD_REQUEST } from '@/constants/http';
 
 // GET /api/vouchers
 export const getAllVouchersHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, is_active, page, limit } = req.query;
+    const { category, isActive, page, limit } = req.query;
 
     const filters = {
         category: category as VoucherCategory,
-        is_active: is_active === 'true' ? true : is_active === 'false' ? false : undefined,
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
     };

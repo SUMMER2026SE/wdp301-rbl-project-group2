@@ -4,15 +4,20 @@ import { SupportConversationModel, SupportMessageModel } from '@/models';
 import appAssert from '@/utils/app-assert';
 import { getOrderById } from './order.service';
 
+const isStaffRole = (role: string) => {
+  const normalizedRole = role.toLowerCase();
+  return normalizedRole === 'staff' || normalizedRole === 'admin';
+};
+
 export const createOrGetConversation = async (userId: mongoose.Types.ObjectId, orderIdOrCode?: string) => {
   let orderIdToUse = null;
 
   if (orderIdOrCode) {
     const order = await getOrderById(orderIdOrCode);
-    // `getOrderById` populates `user_id`, so it can be either ObjectId or a populated document.
+    // `getOrderById` may populate the customer, or return its ObjectId.
     const orderOwnerId =
-      (order as any).user_id?._id?.toString?.() ??
-      (order as any).user_id?.toString?.();
+      (order as any).cusId?._id?.toString?.() ??
+      (order as any).cusId?.toString?.();
     appAssert(
       orderOwnerId && orderOwnerId === userId.toString(),
       BAD_REQUEST,
@@ -45,7 +50,7 @@ export const getMessages = async (conversationId: string, requesterId: mongoose.
 
   // Only owner user or staff/admin can view
   const isOwner = conversation.user_id.toString() === requesterId.toString();
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isStaff = isStaffRole(role);
   appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền xem cuộc trò chuyện này');
 
   const messages = await SupportMessageModel.find({ conversation_id: conversation._id }).sort({ createdAt: 1 });
@@ -57,15 +62,15 @@ export const sendMessage = async (
   senderId: mongoose.Types.ObjectId,
   role: string,
   content: string,
-  image_url?: string
+  imageUrl?: string
 ) => {
-  appAssert(content.trim() || image_url, BAD_REQUEST, 'Nội dung tin nhắn hoặc ảnh không được để trống');
+  appAssert(content.trim() || imageUrl, BAD_REQUEST, 'Nội dung tin nhắn hoặc ảnh không được để trống');
 
   const conversation = await SupportConversationModel.findById(conversationId);
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
 
   const isOwner = conversation.user_id.toString() === senderId.toString();
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isStaff = isStaffRole(role);
   appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền gửi tin nhắn trong cuộc trò chuyện này');
 
   const message = await SupportMessageModel.create({
@@ -73,7 +78,7 @@ export const sendMessage = async (
     sender_type: isOwner ? 'USER' : 'STAFF',
     sender_id: senderId,
     content: content.trim(),
-    image_url: image_url || null,
+    image_url: imageUrl || null,
   });
 
   return message;
@@ -109,7 +114,7 @@ export const listStaffConversations = async () => {
         lastMessage: lastMessage
           ? {
             content: lastMessage.content,
-            image_url: lastMessage.image_url,
+            imageUrl: lastMessage.image_url,
             createdAt: lastMessage.createdAt.toISOString(),
             senderType: lastMessage.sender_type,
           }
@@ -129,7 +134,9 @@ export const markAsRead = async (conversationId: string, requesterId: mongoose.T
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
 
   // If staff, mark USER messages as read. If user, mark STAFF messages as read.
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isOwner = conversation.user_id.toString() === requesterId.toString();
+  const isStaff = isStaffRole(role);
+  appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền cập nhật cuộc trò chuyện này');
   const targetSenderType = isStaff ? 'USER' : 'STAFF';
 
   await SupportMessageModel.updateMany(
@@ -180,7 +187,7 @@ export const listUserConversations = async (userId: mongoose.Types.ObjectId) => 
         lastMessage: lastMessage
           ? {
             content: lastMessage.content,
-            image_url: lastMessage.image_url,
+            imageUrl: lastMessage.image_url,
             createdAt: lastMessage.createdAt.toISOString(),
             senderType: lastMessage.sender_type,
           }

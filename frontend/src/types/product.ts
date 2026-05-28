@@ -2,20 +2,20 @@ export interface Product {
   _id: string;
   name: string;
   description: string;
-  image: string | { secure_url: string };
+  image: string | { secureUrl: string };
   price: number;
   category: string;
   restaurant: string;
   time: string;
   rating: number;
-  review_count: number;
+  reviewCount: number;
   recipe: {
     name: string;
     quantity: string;
   }[];
   tags: string[];
-  health_warning?: string;
-  health_tags: string[];
+  healthWarning?: string;
+  healthTags: string[];
   isAvailable: boolean;
   aiReason?: string;
   createdAt: string;
@@ -25,14 +25,14 @@ export interface Product {
 
 export interface VariantOption {
   choice: string;
-  extra_price: number;
+  extraPrice: number;
 }
 
 export interface VariantGroup {
   name: string;
   required?: boolean;
   multiple?: boolean;
-  max_choices?: number;
+  maxChoices?: number;
   options: VariantOption[];
 }
 
@@ -57,5 +57,5 @@ export interface ProductFilters {
   page?: number;
   limit?: number;
   isAvailable?: boolean;
-  health_tags?: string[];
+  healthTags?: string[];
 }

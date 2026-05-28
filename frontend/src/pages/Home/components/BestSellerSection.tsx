@@ -83,7 +83,7 @@ const BestSellerSection = () => {
                   key={dish._id}
                   id={dish._id}
                   name={dish.name}
-                  image={typeof dish.image === 'object' && dish.image?.secure_url ? dish.image.secure_url : (typeof dish.image === 'string' ? dish.image : '')}
+                  image={typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : '')}
                   price={dish.price}
                   rating={dish.rating}
                   restaurant={dish.restaurant}
@@ -97,7 +97,7 @@ const BestSellerSection = () => {
                       addItem({
                           productId: dish._id,
                           name: dish.name,
-                          image: typeof dish.image === 'object' && dish.image?.secure_url ? dish.image.secure_url : (typeof dish.image === 'string' ? dish.image : ''),
+                          image: typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : ''),
                           price: dish.price,
                           quantity: 1
                       });

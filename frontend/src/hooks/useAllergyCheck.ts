@@ -113,9 +113,9 @@ export function checkProductAllergies(
       };
     }
 
-    // health_tags match (WARNING)
+    // healthTags match (WARNING)
     const tagConflicts: string[] = [];
-    for (const tag of product.health_tags ?? []) {
+    for (const tag of product.healthTags ?? []) {
       for (const allergen of userAllergies) {
         if (fuzzyMatch(allergen, tag) && !tagConflicts.includes(tag)) {
           tagConflicts.push(tag);
@@ -148,8 +148,8 @@ export function checkProductAllergies(
         };
       }
 
-      // Check health_tags for meat/seafood hints
-      const meatTags = (product.health_tags ?? []).filter(t =>
+      // Check healthTags for meat/seafood hints
+      const meatTags = (product.healthTags ?? []).filter(t =>
         MEAT_INGREDIENTS.some(m => fuzzyMatch(m, t)) ||
         SEAFOOD_INGREDIENTS.some(s => fuzzyMatch(s, t))
       );
@@ -189,12 +189,12 @@ export function checkProductAllergies(
     }
   }
 
-  // ── Step 3: Generic product health_warning ───────────────────────────────
-  if (product.health_warning?.trim()) {
+  // ── Step 3: Generic product healthWarning ────────────────────────────────
+  if (product.healthWarning?.trim()) {
     return {
       level: 'warning',
       conflictIngredients: [],
-      warningMessage: product.health_warning,
+      warningMessage: product.healthWarning,
     };
   }
 

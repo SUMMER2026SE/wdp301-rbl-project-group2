@@ -301,13 +301,13 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   onClick={() => toggleHealthTag(tag.label)}
                   className={clsx(
                     "px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95",
-                    formData.health_tags.includes(tag.label)
+                    formData.healthTags.includes(tag.label)
                       ? tag.color
                       : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300",
                   )}
                 >
                   {tag.label}
-                  {formData.health_tags.includes(tag.label) && (
+                  {formData.healthTags.includes(tag.label) && (
                     <span className="ml-1">✓</span>
                   )}
                 </button>
@@ -322,8 +322,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </label>
             <input
               type="text"
-              value={formData.health_warning}
-              onChange={(e) => updateField("health_warning", e.target.value)}
+              value={formData.healthWarning}
+              onChange={(e) => updateField("healthWarning", e.target.value)}
               className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all"
               placeholder="Ví dụ: Không phù hợp cho người dị ứng lạc"
             />

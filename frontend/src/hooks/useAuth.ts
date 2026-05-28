@@ -20,9 +20,9 @@ export const useAuth = () => {
   const getUser = useAuthStore((s) => s.getUser);
   const hydrate = useAuthStore((s) => s.hydrate);
 
-  const isAdmin = role === "ADMIN";
-  const isStaff = role === "STAFF";
-  const isCustomer = role === "CUSTOMER";
+  const isAdmin = role?.toUpperCase() === "ADMIN";
+  const isStaff = role?.toUpperCase() === "STAFF";
+  const isCustomer = role?.toUpperCase() === "CUSTOMER";
 
   return {
     user,

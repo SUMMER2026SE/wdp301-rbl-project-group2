@@ -62,7 +62,7 @@ const CheckoutPage = () => {
     }
 
     try {
-      // CartItems only have basic info. We need full Product data (recipe, health_tags)
+      // Cart items only have basic info. Fetch full product data for health tags.
       const fullProductsPromises = cartItems.map(item => productAPI.getProductById(item.productId));
       const responses = await Promise.all(fullProductsPromises);
 
@@ -232,7 +232,7 @@ const CheckoutPage = () => {
                       {addresses.map((addr: any, idx: number) => {
                         const isSelected =
                           effectiveAddress?.detail === addr.detail &&
-                          effectiveAddress?.receiver_name === addr.receiver_name;
+                          effectiveAddress?.receiverName === addr.receiverName;
                         // Compute fee badge for this address
                         const config = settings ? {
                           baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
@@ -240,7 +240,7 @@ const CheckoutPage = () => {
                           freeDeliveryEnabled: settings.freeDeliveryEnabled,
                           freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
                         } : undefined;
-                        const addrFee = calculateShippingFee(addr.district ?? "", addr.city ?? "", subtotal, config);
+                        const addrFee = calculateShippingFee(addr.ward ?? "", addr.city ?? "", subtotal, config);
                         const isAddrBlocked = addrFee.blocked;
                         return (
                           <label
@@ -290,11 +290,10 @@ const CheckoutPage = () => {
                                 )}
                               </div>
                               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                                {addr.receiver_name} • {addr.phone}
+                                {addr.receiverName} • {addr.phone}
                               </p>
                               <p className="text-gray-500 dark:text-gray-500 text-xs mt-0.5">
-                                {addr.detail}, {addr.ward}, {addr.district},{" "}
-                                {addr.city}
+                                {addr.detail}, {addr.ward}, {addr.city}
                               </p>
                               {isAddrBlocked && (
                                 <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -341,8 +340,8 @@ const CheckoutPage = () => {
                     {/* COD */}
                     <button
                       id="payment-cod"
-                      onClick={() => setPaymentMethod("cash_on_delivery")}
-                      className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl gap-2 transition-all ${paymentMethod === "cash_on_delivery"
+                      onClick={() => setPaymentMethod("cash")}
+                      className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl gap-2 transition-all ${paymentMethod === "cash"
                         ? "border-2 border-orange-600 bg-orange-600/5"
                         : "border border-gray-200 dark:border-gray-800 hover:border-orange-600/50"
                         }`}
@@ -393,7 +392,7 @@ const CheckoutPage = () => {
                   </div>
 
                   {/* COD Info */}
-                  {paymentMethod === "cash_on_delivery" && (
+                  {paymentMethod === "cash" && (
                     <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4">
                       <div className="flex items-start gap-3">
                         <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-2xl">
@@ -436,7 +435,7 @@ const CheckoutPage = () => {
                   )}
 
                   {/* Card (placeholder — no real payment gateway) */}
-                  {paymentMethod === "credit_card" && (
+                  {paymentMethod === "stripe" && (
                     <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-xl p-4">
                       <div className="flex items-start gap-3">
                         <span className="material-symbols-outlined text-blue-600 text-2xl">
@@ -451,7 +450,7 @@ const CheckoutPage = () => {
                     </div>
                   )}
 
-                  {paymentMethod === "credit_card" && (
+                  {paymentMethod === "stripe" && (
                     <div className="bg-gray-50 dark:bg-zinc-800/50 p-4 flex justify-center gap-6 opacity-60 mt-4 rounded-lg">
                       <span className="material-symbols-outlined text-2xl">
                         shield_lock
@@ -533,8 +532,8 @@ const CheckoutPage = () => {
                           ) : (
                             vouchers.map(v => (
                               <div key={v._id} onClick={() => {
-                                if (v.min_order_amount && subtotal < v.min_order_amount) {
-                                  toast(`Đơn hàng tối thiểu ${v.min_order_amount.toLocaleString("vi-VN")}đ để dùng voucher này`, "error");
+                                if (v.minOrderValue && subtotal < v.minOrderValue) {
+                                  toast(`Đơn hàng tối thiểu ${v.minOrderValue.toLocaleString("vi-VN")}đ để dùng voucher này`, "error");
                                   return;
                                 }
                                 setVoucherCode(v.code);
@@ -543,9 +542,9 @@ const CheckoutPage = () => {
                                 <TicketVoucher
                                   code={v.code}
                                   title={v.title}
-                                  discountValue={v.discount_type === 'percentage' ? `${v.discount_value}%` : `${v.discount_value.toLocaleString("vi-VN")}đ`}
-                                  minOrder={v.min_order_amount ? `${v.min_order_amount.toLocaleString("vi-VN")}đ` : "0đ"}
-                                  // expiryDate={new Date(v.end_date).toLocaleDateString("vi-VN")}
+                                  discountValue={v.discountType === 'percentage' ? `${v.discountValue}%` : `${v.discountValue.toLocaleString("vi-VN")}đ`}
+                                  minOrder={v.minOrderValue ? `${v.minOrderValue.toLocaleString("vi-VN")}đ` : "0đ"}
+                                  // expiryDate={new Date(v.endAt).toLocaleDateString("vi-VN")}
                                   className={`${voucherState.appliedVoucher?._id === v._id ? "ring-2 ring-orange-600 scale-[1.02]" : "scale-100 opacity-90 hover:opacity-100"} shadow-sm transition-all origin-left pointer-events-none`}
                                 />
                               </div>

@@ -6,7 +6,7 @@ export const cartVariationValidator = z.object({
 });
 
 export const addToCartValidator = z.object({
-  product_id: z.string().min(1),
+  productId: z.string().min(1),
   quantity: z.coerce.number().int().min(1).default(1),
   
   variations: z.array(cartVariationValidator).optional().default([]),

@@ -13,7 +13,7 @@ interface ProductFilters {
   page?: number;
   limit?: number;
   isAvailable?: boolean;
-  health_tags?: string[];
+  healthTags?: string[];
 }
 
 export const getAllProducts = async (filters: ProductFilters) => {
@@ -27,12 +27,15 @@ export const getAllProducts = async (filters: ProductFilters) => {
     page = 1,
     limit = 12,
     isAvailable,
-    health_tags,
+    healthTags,
   } = filters;
 
   const query: any = {};
   if (isAvailable !== undefined) {
     query.isAvailable = isAvailable;
+  }
+  if (healthTags?.length) {
+    query.healthTags = { $in: healthTags };
   }
 
   if (category && category !== 'all') {
@@ -71,7 +74,7 @@ export const getAllProducts = async (filters: ProductFilters) => {
       break;
     case 'popular':
     default:
-      sortOptions = { review_count: -1, rating: -1 };
+      sortOptions = { reviewCount: -1, rating: -1 };
       break;
   }
 
