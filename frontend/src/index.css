@@ -159,3 +159,38 @@
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
+
+/* Fly-to-cart animation */
+.fly-to-cart-item {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.35);
+  transition:
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.65s ease;
+}
+
+.fly-to-cart-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9999px;
+  border: 2px solid #f97316;
+}
+
+@keyframes cart-icon-bump {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+.cart-icon-bump {
+  animation: cart-icon-bump 0.45s ease;
+}

@@ -20,10 +20,7 @@ import { useCart } from "@/hooks/useCart";
 import { Plus, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { checkProductAllergies } from "@/hooks/useAllergyCheck";
-import toast from "react-hot-toast";
-
 import { FoodCard } from "@/components/shared/FoodCard";
-import { useToast } from "@/hooks/useToast";
 
 const FoodCardSkeleton = () => (
   <div className="bg-white rounded-[2rem] border border-slate-100 p-3 shadow-sm animate-pulse">
@@ -45,7 +42,6 @@ const MenuPage = () => {
   const { t } = useTranslation(["customer", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
   const { addItem } = useCart();
-  const { toast } = useToast();
 
   // ── State ──
   const categoryParam = searchParams.get("category") || "all";
@@ -351,7 +347,6 @@ const MenuPage = () => {
                         price: item.price,
                         quantity: 1
                       });
-                      toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
                     }}
                   />
                 ))}

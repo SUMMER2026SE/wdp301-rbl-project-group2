@@ -5,6 +5,8 @@ import { useSafeCart } from "@/hooks/useSafeCart";
 import { useAuth } from "@/hooks/useAuth";
 import { useSupportChatStore } from "@/store/supportChatStore";
 import toast from "react-hot-toast";
+import type { MouseEvent } from "react";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 import productAPI from "@/services/product.service";
 import reviewService from "@/services/review.service";
 import recommendationService from "@/services/recommendation.service";
@@ -132,7 +134,7 @@ const FoodDetailPage = () => {
   const handleDecrease = () => setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
 
   // --- [FIXED] Sửa lỗi logic bypass FSS-40 ---
-  const handleAddToCart = () => {
+  const handleAddToCart = (e?: MouseEvent<HTMLButtonElement>) => {
     if (!product) return;
 
     // Validate Variants
@@ -161,7 +163,11 @@ const FoodDetailPage = () => {
 
     // Phải dùng safeAddItem để kích hoạt luồng cảnh báo dị ứng
     safeAddItem(product, itemData, () => {
-      toast.success(t("customer:foodCard.addToCart", "Đã thêm vào giỏ hàng!"));
+      showAddToCartFeedback(
+        e?.currentTarget,
+        getImageUrl(product.image),
+        t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
+      );
     });
   };
 
@@ -441,8 +447,9 @@ const FoodDetailPage = () => {
 
                     {/* Buttons */}
                     <button
+                      type="button"
                       onClick={handleAddToCart}
-                      className="flex-1 h-14 bg-orange-100 text-orange-700 font-black text-sm sm:text-base rounded-2xl flex items-center justify-center gap-2 hover:bg-orange-200 active:scale-95 transition-all"
+                      className="flex-1 h-14 bg-orange-100 text-orange-700 font-black text-sm sm:text-base rounded-2xl flex items-center justify-center gap-2 hover:bg-orange-200 active:scale-95 transition-all cursor-pointer"
                     >
                       <ShoppingCart className="w-5 h-5 hidden sm:block" />
                       Thêm
@@ -650,7 +657,11 @@ const FoodDetailPage = () => {
               variations,
             },
             () => {
-              toast.success(t("customer:foodCard.addToCart", "Đã thêm vào giỏ hàng!"));
+              showAddToCartFeedback(
+                null,
+                getImageUrl(product.image),
+                t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
+              );
             }
           );
         }}

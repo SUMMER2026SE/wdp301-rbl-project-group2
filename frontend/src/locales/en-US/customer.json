@@ -54,7 +54,10 @@
         "checkout": "Checkout",
         "removeItem": "Remove item",
         "continueShopping": "Continue shopping",
-        "youMayLike": "You may also like"
+        "youMayLike": "You may also like",
+        "previewTitle": "Your cart",
+        "moreItems": "+{{count}} more items",
+        "viewCart": "View cart"
     },
     "checkout": {
         "title": "Checkout",
@@ -216,6 +219,7 @@
     },
     "foodCard": {
         "addToCart": "Add to cart",
+        "addedToCart": "Product added to cart!",
         "allergyWarning": "Contains allergens!",
         "caution": "Use caution"
     },

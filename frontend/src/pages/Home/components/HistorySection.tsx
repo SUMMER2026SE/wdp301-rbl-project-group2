@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { History, Plus, Loader2 } from "lucide-react";
 import orderService, { type Order } from "@/services/order.service";
+import { useTranslation } from "react-i18next";
 import { useCart } from "@/hooks/useCart";
-import { useToast } from "@/hooks/useToast";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 const formatRelativeTime = (isoDate: string) => {
   const created = new Date(isoDate);
@@ -26,8 +27,8 @@ const getImageUrl = (image: any): string => {
 const HistorySection: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const { t } = useTranslation(["customer"]);
   const { addItem } = useCart();
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchRecentOrders = async () => {
@@ -179,9 +180,13 @@ const HistorySection: React.FC = () => {
                         price: item.price,
                         quantity: 1,
                       });
-                      toast("Đã thêm món vào giỏ hàng!", "success");
+                      showAddToCartFeedback(
+                        e.currentTarget,
+                        item.image,
+                        t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
+                      );
                     }}
-                    className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors"
+                    className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors cursor-pointer"
                     aria-label="Đặt lại món ăn này"
                   >
                     <Plus className="w-4 h-4" />
