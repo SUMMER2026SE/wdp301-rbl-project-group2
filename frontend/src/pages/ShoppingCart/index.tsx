@@ -14,6 +14,7 @@ import { Ticket, X, Plus, ShoppingCart as CartIcon, Loader2 } from "lucide-react
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useToast } from "@/hooks/useToast";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
@@ -536,7 +537,8 @@ const ShoppingCartPage = () => {
                         {item.price.toLocaleString("vi-VN")}đ
                       </span>
                       <button
-                        onClick={() => {
+                        type="button"
+                        onClick={(e) => {
                           addItem({
                             productId: item._id,
                             name: item.name,
@@ -544,9 +546,13 @@ const ShoppingCartPage = () => {
                             price: item.price,
                             quantity: 1,
                           });
-                          toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
+                          showAddToCartFeedback(
+                            e.currentTarget,
+                            imageUrl,
+                            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                          );
                         }}
-                        className="bg-orange-50 dark:bg-white/5 p-1.5 rounded-lg text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-90"
+                        className="bg-orange-50 dark:bg-white/5 p-1.5 rounded-lg text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-90 cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
                       </button>

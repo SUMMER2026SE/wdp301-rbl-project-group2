@@ -54,7 +54,10 @@
         "checkout": "Thanh toán",
         "removeItem": "Xoá sản phẩm",
         "continueShopping": "Tiếp tục mua",
-        "youMayLike": "Có thể bạn sẽ thích"
+        "youMayLike": "Có thể bạn sẽ thích",
+        "previewTitle": "Giỏ hàng của bạn",
+        "moreItems": "+{{count}} món khác",
+        "viewCart": "Xem giỏ hàng"
     },
     "checkout": {
         "title": "Thanh toán",
@@ -216,6 +219,7 @@
     },
     "foodCard": {
         "addToCart": "Thêm vào giỏ",
+        "addedToCart": "Đã thêm sản phẩm vào giỏ hàng!",
         "allergyWarning": "Chứa chất gây dị ứng!",
         "caution": "Cần lưu ý"
     },

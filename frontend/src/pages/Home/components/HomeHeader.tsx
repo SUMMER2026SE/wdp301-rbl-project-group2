@@ -10,6 +10,7 @@ import { getSupportSocket } from "@/lib/support-socket";
 // import { apiClient } from "@/lib/api-client";
 import logo from "@/assets/logo.png";
 import { useCart } from "@/hooks/useCart";
+import { CartPreviewDropdown } from "@/components/shared/CartPreviewDropdown";
 
 interface HomeHeaderProps {
   searchQuery?: string;
@@ -23,15 +24,14 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const { items: cartItems, totalItems, clearCart } = useCart();
+  const { items: cartItems, totalItems, totalPrice, clearCart } = useCart();
 
-  const cartCount = cartItems.length;
+  const cartCount = totalItems > 0 ? totalItems : cartItems.length;
   // Local input state for header search
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  const [showCartPreview, setShowCartPreview] = useState(false);
 //   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
 
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
@@ -438,20 +438,25 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                 </div>
               )}
 
-              {/* Cart */}
-              <button
-                onClick={() => navigate("/cart")}
-                className="p-2.5 rounded-xl text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 relative group"
-              >
-                <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">
-                  shopping_cart
-                </span>
-                {cartCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 bg-orange-500 text-white text-[10px] font-black w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm">
-                    {cartCount > 99 ? "99+" : cartCount}
+              {/* Cart + hover preview */}
+              <CartPreviewDropdown items={cartItems} totalPrice={totalPrice}>
+                <button
+                  type="button"
+                  data-cart-icon
+                  onClick={() => navigate("/cart")}
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 relative group cursor-pointer"
+                  aria-label={t("customer:cart.title", "Giỏ hàng")}
+                >
+                  <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">
+                    shopping_cart
                   </span>
-                )}
-              </button>
+                  {cartCount > 0 && (
+                    <span className="absolute top-0.5 right-0.5 bg-orange-500 text-white text-[10px] font-black min-w-[18px] h-[18px] px-0.5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
+                </button>
+              </CartPreviewDropdown>
 
               <div className="h-7 w-px bg-gray-200 mx-2 hidden sm:block"></div>
 

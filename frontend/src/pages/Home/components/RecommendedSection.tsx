@@ -7,7 +7,6 @@ import recommendationService from "@/services/recommendation.service";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useCart } from "@/hooks/useCart";
-import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/store/authStore";
 import { FoodCard } from "@/components/shared/FoodCard";
 
@@ -42,7 +41,6 @@ const RecommendedSection = () => {
   const { t } = useTranslation(["customer", "common"]);
   const { isAuthenticated } = useAuthStore();
   const { addItem } = useCart();
-  const { toast } = useToast();
 
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +234,6 @@ const RecommendedSection = () => {
                     price: product.price,
                     quantity: 1
                   });
-                  toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
                 }}
               />
             );

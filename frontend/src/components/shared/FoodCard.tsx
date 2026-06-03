@@ -1,6 +1,8 @@
+import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Star, Clock, ShoppingCart, Sparkles, Flame, Check, Plus } from 'lucide-react';
+import { Star, Clock, Sparkles, Flame, Check, Plus } from 'lucide-react';
+import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 // ---- Types ----
 
@@ -65,6 +67,17 @@ export function FoodCard({
     const isDanger = healthStatus === 'danger';
     const isWarning = healthStatus === 'warning';
     const isHorizontal = variant === 'horizontal';
+
+    const handleAddClick = (e: MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        if (!onAddToCart) return;
+        showAddToCartFeedback(
+            e.currentTarget,
+            image,
+            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+        );
+        onAddToCart(id);
+    };
 
     const discountPercentage = originalPrice && originalPrice > price
         ? Math.round(((originalPrice - price) / originalPrice) * 100)
@@ -134,8 +147,9 @@ export function FoodCard({
                         </div>
                         {onAddToCart && !isDanger && (
                             <button
-                                onClick={(e) => { e.stopPropagation(); onAddToCart(id); }}
-                                className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center hover:bg-orange-700 shadow-lg shadow-orange-600/10 active:scale-90 transition-all shrink-0"
+                                type="button"
+                                onClick={handleAddClick}
+                                className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center hover:bg-orange-700 shadow-lg shadow-orange-600/10 active:scale-90 transition-all shrink-0 cursor-pointer"
                                 aria-label={t('customer:foodCard.addToCart')}
                             >
                                 <Plus className="w-5 h-5" />
@@ -258,12 +272,13 @@ export function FoodCard({
 
                     {onAddToCart && !isDanger && (
                         <button
-                            onClick={(e) => { e.stopPropagation(); onAddToCart(id); }}
-                            className="h-10 px-4 rounded-full bg-orange-600 text-white flex items-center gap-1.5 hover:bg-orange-700 shadow-lg shadow-orange-600/20 active:scale-95 transition-all group/btn"
+                            type="button"
+                            onClick={handleAddClick}
+                            className="h-10 px-4 rounded-full bg-orange-600 text-white flex items-center gap-1.5 hover:bg-orange-700 shadow-lg shadow-orange-600/20 active:scale-95 transition-all group/btn cursor-pointer"
                             aria-label={t('customer:foodCard.addToCart')}
                         >
                             <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
-                            <span className="text-sm font-bold">Thêm</span>
+                            <span className="text-sm font-bold">{t('customer:foodCard.addToCart', 'Thêm')}</span>
                         </button>
                     )}
                 </div>
