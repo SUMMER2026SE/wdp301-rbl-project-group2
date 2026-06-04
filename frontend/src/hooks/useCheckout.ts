@@ -59,6 +59,15 @@ export const useCheckout = () => {
   // without triggering additional re-renders that could re-run the cart-empty guard.
   const orderPlacedRef = useRef(false);
 
+  // Guard against false-positive redirect on page refresh:
+  // Zustand (localStorage) needs one render cycle to hydrate cartStore.
+  // isHydrating stays true until after the first render, so the cart-empty
+  // guard in CheckoutPage won't fire before the cart is actually loaded.
+  const [isHydrating, setIsHydrating] = useState(true);
+  useEffect(() => {
+    setIsHydrating(false);
+  }, []);
+
   const buyNowItem = location.state?.buyNowItem as CartItem | undefined;
 
   const cartItems = buyNowItem ? [buyNowItem] : storeCartItems;
@@ -323,5 +332,7 @@ export const useCheckout = () => {
     isSubmitting,
     handlePlaceOrder,
     orderPlacedRef,
+    // Hydration guard
+    isHydrating,
   };
 };

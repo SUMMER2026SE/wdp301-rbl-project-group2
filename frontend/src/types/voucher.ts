@@ -32,6 +32,11 @@ export interface Voucher {
     isStackable: boolean;
     createdAt: string;
     updatedAt: string;
+    
+    // Reward points fields
+    isReward?: boolean;
+    pointCost?: number;
+    ownerId?: string | null;
 }
 
 export interface VoucherListResponse {

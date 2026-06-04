@@ -17,11 +17,13 @@ import { BAD_REQUEST } from '@/constants/http';
 
 // GET /api/vouchers
 export const getAllVouchersHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, isActive, page, limit } = req.query;
+    const { category, isActive, isReward, ownerId, page, limit } = req.query;
 
     const filters = {
         category: category as VoucherCategory,
         isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        isReward: isReward === 'true' ? true : isReward === 'false' ? false : undefined,
+        ownerId: ownerId as string | undefined,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
     };
@@ -111,3 +113,21 @@ export const useVoucherHandler = catchErrors(async (req: Request, res: Response)
         message: 'Voucher đã được sử dụng thành công',
     });
 });
+
+import { redeemRewardVoucher } from '@/services/voucher.service';
+
+// POST /api/vouchers/:id/redeem
+export const redeemRewardVoucherHandler = catchErrors(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    // Assuming auth middleware sets req.userId
+    const userId = req.userId;
+    appAssert(userId, BAD_REQUEST, 'Vui lòng đăng nhập để đổi điểm');
+
+    const voucher = await redeemRewardVoucher(id, userId);
+
+    return res.success(OK, {
+        data: voucher,
+        message: 'Đổi điểm nhận voucher thành công!',
+    });
+});
+

@@ -107,7 +107,7 @@ const ProfileLayout = () => {
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-600/10 text-orange-600 text-xs font-bold uppercase tracking-wider mb-6 border border-orange-600/20">
                 <span className="material-symbols-outlined text-sm">stars</span>
-                {typeof me?.collectedPoints === "number" ? `${me.collectedPoints} điểm` : "—"}
+                {typeof user?.collectedPoints === "number" ? `${user.collectedPoints} điểm` : "—"}
               </div>
               <div className="grid grid-cols-3 gap-4 w-full border-t border-border pt-6">
                 <div>

@@ -5,6 +5,9 @@ import mongoose from 'mongoose';
 const VoucherSchema = new mongoose.Schema<IVoucher>(
   {
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, required: true, trim: true },
+    category: { type: String, enum: ['discount', 'freeship', 'newuser', 'special'], default: 'discount' },
     discountType: { type: String, required: true, enum: DiscountType },
     discountValue: { type: Number, required: true, min: 0 },
     maxDiscount: { type: Number, default: null, min: 0 },
@@ -12,6 +15,9 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
     usageLimit: { type: Number, required: true, min: 1 },
     usedCount: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+    isReward: { type: Boolean, default: false },
+    pointCost: { type: Number, default: 0, min: 0 },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     startAt: { type: Date, required: true },
     endAt: { type: Date, required: true },
   },
@@ -21,7 +27,6 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
 );
 
 // Indexes
-VoucherSchema.index({ code: 1 }, { unique: true });
 VoucherSchema.index({ isActive: 1 });
 VoucherSchema.index({ startAt: 1, endAt: 1 });
 

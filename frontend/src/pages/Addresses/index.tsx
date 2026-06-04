@@ -4,6 +4,7 @@ import { useAuthStore } from "@/store/authStore";
 import type { AuthAddress } from "@/store/authStore";
 import { userService } from "@/services/profile.service";
 import { AddressModal, LABEL_OPTIONS, LABEL_ICON_BG } from "@/components/shared/AddressModal";
+import { sanitizeAddressesForApi } from "@/utils/address";
 import type { AddressLabel } from "@/components/shared/AddressModal";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -35,7 +36,9 @@ const AddressesPage = () => {
     setSaving(true);
     setError(null);
     try {
-      const res = await userService.updateMe({ addresses: updated });
+      const res = await userService.updateMe({
+        addresses: sanitizeAddressesForApi(updated),
+      });
       // BE returns the full updated user — sync authStore so checkout sees the change
       const updatedUser = res.data?.data as any;
       if (updatedUser && user) {

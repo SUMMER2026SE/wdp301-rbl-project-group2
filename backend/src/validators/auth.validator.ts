@@ -93,17 +93,30 @@ const phone = z.string().trim().refine(
   'Số điện thoại không hợp lệ'
 );
 
+const emptyStringToUndefined = (val: unknown) => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val === 'string' && val.trim() === '') return undefined;
+  return val;
+};
+
+const optionalPhone = z.preprocess(emptyStringToUndefined, phone.optional());
+
+const optionalDistrict = z.preprocess(
+  emptyStringToUndefined,
+  z.string().trim().min(1).optional(),
+);
+
 export const updateMeValidator = z.object({
   username: usernameValidator.optional(),
   fullName: z.string().trim().min(1, 'Họ và tên không được để trống').optional(),
-  phone: phone.optional(),
+  phone: optionalPhone,
   addresses: z.array(z.object({
     label: z.string().trim().min(1),
     receiverName: z.string().trim().min(1),
-    phone: phone.optional(),
+    phone: optionalPhone,
     detail: z.string().trim().min(1),
     ward: z.string().trim().min(1),
-    district: z.string().trim().min(1).optional(),
+    district: optionalDistrict,
     city: z.string().trim().min(1),
     isDefault: z.boolean().optional(),
   })).max(10).optional(),

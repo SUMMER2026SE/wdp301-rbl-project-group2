@@ -15,6 +15,8 @@ export enum VoucherCategory {
 
 export interface IVoucher extends mongoose.Document<mongoose.Types.ObjectId> {
   code: string;
+  title: string;
+  description: string;
   discountType: DiscountType;
   discountValue: number;
   maxDiscount?: number | null;
@@ -24,6 +26,11 @@ export interface IVoucher extends mongoose.Document<mongoose.Types.ObjectId> {
   isActive: boolean;
   startAt: Date;
   endAt: Date;
+  
+  // Reward Points Fields
+  isReward?: boolean;
+  pointCost?: number;
+  ownerId?: mongoose.Types.ObjectId | null;
   
   category?: VoucherCategory;
   createdAt: Date;

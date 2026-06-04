@@ -5,6 +5,7 @@ import {
   DELIVERABLE_WARDS,
   DELIVERABLE_CITY,
 } from "@/utils/shipping";
+import { isValidPhone, normalizePhone } from "@/utils/address";
 
 const OTHER_CITY = "Khác";
 const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
@@ -98,25 +99,31 @@ export const AddressModal = ({
       setError("Vui lòng nhập số điện thoại");
       return;
     }
+    if (!isValidPhone(form.phone)) {
+      setError("Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)");
+      return;
+    }
     if (!form.detail.trim()) {
       setError("Vui lòng nhập địa chỉ chi tiết");
       return;
     }
-    if (!form.ward.trim()) {
+    // Ward chỉ bắt buộc khi chọn Thành phố Đà Nẵng
+    if (form.city === DELIVERABLE_CITY && !form.ward.trim()) {
       setError("Vui lòng chọn phường/xã");
       return;
     }
-    if (!form.city.trim()) {
-      setError("Vui lòng nhập thành phố");
+    if (!form.city.trim() || form.city === OTHER_CITY) {
+      setError("Vui lòng chọn thành phố");
       return;
     }
 
     const newAddr: AuthAddress = {
-      label: form.label,
+      label: form.label || 'home',
       receiverName: form.receiverName.trim(),
-      phone: form.phone.trim(),
+      phone: normalizePhone(form.phone),
       detail: form.detail.trim(),
-      ward: form.ward.trim(),
+      // Nếu không phải Đà Nẵng thì ward không có dropdown, dùng city làm giá trị placeholder
+      ward: form.city === DELIVERABLE_CITY ? form.ward.trim() : form.city.trim(),
       city: form.city.trim(),
       isDefault: form.isDefault,
     };
@@ -126,7 +133,10 @@ export const AddressModal = ({
       setError(null);
       await onSave(newAddr);
     } catch (err: any) {
-      setError(err?.message ?? "Lưu địa chỉ thất bại. Vui lòng thử lại.");
+      const apiMsg =
+        err?.response?.data?.message ??
+        err?.response?.data?.errors?.[0]?.message;
+      setError(apiMsg ?? err?.message ?? "Lưu địa chỉ thất bại. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -228,7 +238,7 @@ export const AddressModal = ({
               >
                 <option value="">-- Chọn thành phố --</option>
                 {CITY_OPTIONS.map((c) => (
-                  <option key={c} value={c === OTHER_CITY ? "" : c}>
+                  <option key={c} value={c}>
                     {c}
                   </option>
                 ))}

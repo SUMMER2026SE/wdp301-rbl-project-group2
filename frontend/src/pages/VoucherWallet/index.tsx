@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import voucherService from "@/services/voucher.service";
 import productAPI from "@/services/product.service";
 import { userService, type MembershipInfo, type PointTransaction } from "@/services/profile.service";
+import { useAuth } from "@/hooks/useAuth";
+import toast from 'react-hot-toast';
 import type { Voucher } from "@/types/voucher";
 import type { Product } from "@/types/product";
 import { DiscountType } from "@/types/voucher";
@@ -373,6 +375,7 @@ const InviteModal = ({ isOpen, onClose, code }: { isOpen: boolean; onClose: () =
 // ─── Main content (exported for reuse) ───────────────────────────────────────
 
 export const VoucherWalletContent = () => {
+    const { getUser } = useAuth();
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -381,14 +384,15 @@ export const VoucherWalletContent = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [membership, setMembership] = useState<MembershipInfo | null>(null);
     const [activities, setActivities] = useState<PointTransaction[]>([]);
-    const [rewardProducts, setRewardProducts] = useState<Product[]>([]);
+    const [rewardVouchers, setRewardVouchers] = useState<Voucher[]>([]);
     const [rewardLoading, setRewardLoading] = useState(true);
 
     const fetchVouchers = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
-            const res = await voucherService.getVouchers({ limit: 100 });
+            // Fetch user's vouchers and public vouchers
+            const res = await voucherService.getVouchers({ ownerId: 'me', limit: 100 });
             setVouchers(res.data ?? []);
         } catch (err) {
             console.error("Failed to fetch vouchers:", err);
@@ -396,15 +400,16 @@ export const VoucherWalletContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [setVouchers, setLoading, setError]);
+    }, []);
 
     const fetchRewards = useCallback(async () => {
         try {
             setRewardLoading(true);
-            const res = await productAPI.getProducts({ limit: 10, sort: "-rating" });
-            setRewardProducts(res.data ?? []);
+            // Fetch reward template vouchers
+            const res = await voucherService.getVouchers({ isReward: true, limit: 100 });
+            setRewardVouchers(res.data ?? []);
         } catch (err) {
-            console.error("Failed to fetch reward products:", err);
+            console.error("Failed to fetch reward vouchers:", err);
         } finally {
             setRewardLoading(false);
         }
@@ -574,30 +579,49 @@ export const VoucherWalletContent = () => {
                 <div className="flex gap-6 overflow-x-auto no-scrollbar pb-6 -mx-1 px-1">
                     {rewardLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="w-60 h-[300px] bg-card rounded-[24px] border border-border animate-pulse shrink-0 flex-none" />
+                            <div key={i} className="w-60 h-[150px] bg-card rounded-[24px] border border-border animate-pulse shrink-0 flex-none" />
                         ))
-                    ) : rewardProducts.length > 0 ? (
-                        rewardProducts.map((product) => {
-                            const pts = Math.ceil(product.price / 100);
-                            const imgUrl = typeof product.image === "string" ? product.image : product.image.secureUrl;
+                    ) : rewardVouchers.length > 0 ? (
+                        rewardVouchers.map((v) => {
+                            const pts = v.pointCost || 0;
+                            const color = getColor(v.category || 'discount');
+                            const canRedeem = (membership?.collectedPoints || 0) >= pts;
+
                             return (
-                                <div key={product._id} className="w-60 bg-card p-3 rounded-[24px] border border-border hover:shadow-lg transition-all group shrink-0 flex-none">
-                                    <div className="relative aspect-[4/3] bg-muted rounded-2xl mb-3 overflow-hidden">
-                                        <img
-                                            alt={product.name}
-                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            src={imgUrl}
-                                        />
-                                        {product.rating >= 4.5 && (
-                                            <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-card/90 backdrop-blur rounded-full text-[9px] font-black uppercase text-primary z-10">
-                                                Phổ biến
-                                            </div>
-                                        )}
+                                <div key={v._id} className={`w-64 bg-card p-4 rounded-[24px] border border-border hover:shadow-lg transition-all shrink-0 flex-none flex flex-col justify-between relative overflow-hidden ${!canRedeem ? "opacity-80" : ""}`}>
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                        <span className="material-symbols-outlined text-8xl">local_activity</span>
                                     </div>
-                                    <h4 className="font-bold text-base mb-1 truncate">{product.name}</h4>
-                                    <p className="text-[11px] text-muted-foreground mb-3 line-clamp-1">{product.description || "Thưởng thức món ăn tuyệt vời"}</p>
-                                    <button className="w-full py-2 bg-background border border-primary/20 text-primary font-bold rounded-xl hover:bg-primary hover:text-white transition-all text-xs flex items-center justify-center gap-2">
-                                        {pts.toLocaleString()} <span className="text-[9px] opacity-80">ĐIỂM</span>
+                                    <div>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className={`p-2 rounded-xl ${color.bg} ${color.text} flex items-center justify-center shrink-0`}>
+                                                <span className="material-symbols-outlined text-xl">loyalty</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xl font-black text-primary">{pts.toLocaleString()}</p>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">ĐIỂM</p>
+                                            </div>
+                                        </div>
+                                        <h4 className="font-bold text-lg mb-1 leading-tight line-clamp-2">{v.title}</h4>
+                                        <p className="text-xs text-muted-foreground mb-4 line-clamp-2">{v.description}</p>
+                                    </div>
+                                    <button 
+                                        onClick={async () => {
+                                            try {
+                                                await voucherService.redeemRewardVoucher(v._id);
+                                                // Refresh data locally and globally
+                                                await fetchMembershipData();
+                                                await fetchVouchers();
+                                                await getUser();
+                                                toast.success("Đổi voucher thành công! Kiểm tra trong 'Voucher của bạn'");
+                                            } catch (error: any) {
+                                                toast.error(error.response?.data?.message || "Đổi điểm thất bại");
+                                            }
+                                        }}
+                                        disabled={!canRedeem}
+                                        className={`w-full py-2.5 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${canRedeem ? "bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/20 hover:-translate-y-0.5" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                                    >
+                                        {canRedeem ? "ĐỔI NGAY" : "KHÔNG ĐỦ ĐIỂM"}
                                     </button>
                                 </div>
                             );
@@ -719,6 +743,8 @@ export const VoucherWalletContent = () => {
 
 const VoucherWalletPage = () => {
     const { t } = useTranslation(["customer", "common"]);
+    const { getUser } = useAuth();
+    
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-[#1b140d] dark:text-gray-100 transition-colors duration-200 min-h-screen">
             <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">

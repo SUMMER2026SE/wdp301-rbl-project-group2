@@ -9,6 +9,7 @@ import { AddressModal } from "@/components/shared/AddressModal";
 import { userService } from "@/services/profile.service";
 import { useAuthStore } from "@/store/authStore";
 import type { AuthAddress } from "@/store/authStore";
+import { sanitizeAddressesForApi } from "@/utils/address";
 import { AllergyWarningDialog, scanCartForAllergies } from "@/components/shared/AllergyWarningDialog";
 import productAPI from "@/services/product.service";
 import { TicketVoucher } from "@/components/shared/TicketVoucher";
@@ -40,6 +41,7 @@ const CheckoutPage = () => {
     handlePlaceOrder,
     vouchers,
     orderPlacedRef,
+    isHydrating,
   } = useCheckout();
 
   const [isVouchersOpen, setIsVouchersOpen] = useState(false);
@@ -105,7 +107,9 @@ const CheckoutPage = () => {
       updated[0] = { ...updated[0], isDefault: true };
     }
 
-    const res = await userService.updateMe({ addresses: updated });
+    const res = await userService.updateMe({
+      addresses: sanitizeAddressesForApi(updated),
+    });
     const updatedUser = res.data?.data;
     if (updatedUser) {
       setUser({ ...user, addresses: (updatedUser as any).addresses ?? updated });
@@ -139,13 +143,16 @@ const CheckoutPage = () => {
   }, [navigate]);
 
   // Guard: redirect to menu if cart is empty.
-  // Skip if submitting OR if an order has already been placed successfully
-  // (orderPlacedRef stays true through finally-block isSubmitting reset).
+  // Skip if:
+  //  - still hydrating (Zustand hasn't loaded localStorage yet — avoids false redirect on F5)
+  //  - submitting (order in progress)
+  //  - order already placed successfully (orderPlacedRef stays true through finally-block reset)
   useEffect(() => {
+    if (isHydrating) return;
     if (cartItems.length === 0 && !isSubmitting && !orderPlacedRef.current) {
       navigate("/menu", { replace: true });
     }
-  }, [cartItems.length, isSubmitting, orderPlacedRef, navigate]);
+  }, [cartItems.length, isSubmitting, orderPlacedRef, navigate, isHydrating]);
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-[#1b140d] dark:text-white min-h-screen font-display">

@@ -8,7 +8,9 @@ import {
     deleteVoucherHandler,
     validateVoucherHandler,
     useVoucherHandler,
+    redeemRewardVoucherHandler,
 } from '@/controllers/voucher.controller';
+import authenticate from '@/middlewares/authenticate';
 
 const router = Router();
 
@@ -17,6 +19,9 @@ router.get('/', getAllVouchersHandler);
 router.get('/code/:code', getVoucherByCodeHandler);
 router.get('/:id', getVoucherByIdHandler);
 router.post('/validate', validateVoucherHandler);
+
+// Protected routes (User)
+router.post('/:id/redeem', authenticate, redeemRewardVoucherHandler);
 
 // Admin routes (add auth middleware later)
 router.post('/', createVoucherHandler);

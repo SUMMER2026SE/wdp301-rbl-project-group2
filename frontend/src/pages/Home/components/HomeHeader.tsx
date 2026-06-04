@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../hooks/useAuth";
 import i18n from "../../../config/i18n";
@@ -27,8 +27,13 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const { items: cartItems, totalItems, totalPrice, clearCart } = useCart();
 
   const cartCount = totalItems > 0 ? totalItems : cartItems.length;
+  const location = useLocation();
+  const [urlSearchParams, setUrlSearchParams] = useSearchParams();
+  const isOnMenuPage = location.pathname === "/menu";
   // Local input state for header search
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
+
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -53,11 +58,25 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     navigate("/");
   };
 
-  // Navigate to /menu with search keyword
-  const handleSearch = (q: string) => {
+  // Handle search submit (either on /menu or other pages)
+  const handleSearchSubmit = (q: string) => {
     const trimmed = q.trim();
-    if (!trimmed) return;
-    navigate(`/menu?search=${encodeURIComponent(trimmed)}`);
+    if (trimmed) {
+      if (isOnMenuPage) {
+        const newParams = new URLSearchParams(urlSearchParams);
+        newParams.set("search", trimmed);
+        setUrlSearchParams(newParams, { replace: true });
+      } else {
+        navigate(`/menu?search=${encodeURIComponent(trimmed)}`);
+      }
+    } else if (isOnMenuPage) {
+      const newParams = new URLSearchParams(urlSearchParams);
+      newParams.delete("search");
+      setUrlSearchParams(newParams, { replace: true });
+    }
+    
+    // Clear input after search
+    setLocalSearch("");
     setShowMobileSearch(false);
   };
 
@@ -286,25 +305,28 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   type="text"
                   value={onSearchChange ? searchQuery || "" : localSearch}
                   onChange={(e) => {
-                    if (onSearchChange) onSearchChange(e.target.value);
-                    else setLocalSearch(e.target.value);
+                    if (onSearchChange) {
+                      onSearchChange(e.target.value);
+                    } else {
+                      setLocalSearch(e.target.value);
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       if (onSearchChange)
                         onSearchChange((e.target as HTMLInputElement).value);
-                      else handleSearch(localSearch);
+                      else handleSearchSubmit(localSearch);
                     }
                   }}
                   placeholder={t("customer:menu.searchPlaceholder")}
                   className="w-full h-12 pl-12 pr-28 bg-orange-50/60 text-gray-900 rounded-full border-2 border-orange-200 placeholder:text-gray-400 focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:outline-none transition-all duration-300 text-sm font-medium"
                 />
                 <button
-                  onClick={() =>
-                    handleSearch(
-                      onSearchChange ? searchQuery || "" : localSearch,
-                    )
-                  }
+                  onClick={() => {
+                    if (!onSearchChange) {
+                      handleSearchSubmit(localSearch);
+                    }
+                  }}
                   className="absolute right-1.5 top-1.5 h-9 px-5 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center gap-1.5 transition-all hover:scale-[1.02] shadow-md text-sm font-semibold"
                 >
                   <span className="material-symbols-outlined text-[18px]">
@@ -698,16 +720,16 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   <input
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleSearch(localSearch)
-                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSearchSubmit(localSearch);
+                    }}
                     placeholder={t("customer:menu.searchPlaceholder")}
                     className="w-full h-12 pl-12 pr-4 bg-orange-50/60 text-gray-900 rounded-full border-2 border-orange-200 placeholder:text-gray-400 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:outline-none text-sm"
                     autoFocus
                   />
                 </div>
                 <button
-                  onClick={() => handleSearch(localSearch)}
+                  onClick={() => handleSearchSubmit(localSearch)}
                   className="h-12 px-4 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
                 >
                   Tìm
