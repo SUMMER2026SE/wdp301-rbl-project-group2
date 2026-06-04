@@ -49,7 +49,7 @@ export interface PointTransaction {
 export interface AddressPayload {
   label?: string;
   receiverName: string;
-  phone: string;
+  phone?: string;
   detail: string;
   ward: string;
   district?: string;

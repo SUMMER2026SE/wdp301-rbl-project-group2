@@ -15,6 +15,8 @@ class VoucherAPI {
     async getVouchers(params?: {
         category?: VoucherCategory;
         isActive?: boolean;
+        isReward?: boolean;
+        ownerId?: string | null;
         page?: number;
         limit?: number;
     }): Promise<VoucherListResponse> {
@@ -66,6 +68,12 @@ class VoucherAPI {
     // Use voucher
     async useVoucher(id: string): Promise<VoucherDetailResponse> {
         const response = await apiClient.post<VoucherDetailResponse>(`${this.baseURL}/${id}/use`);
+        return response.data;
+    }
+
+    // Redeem reward voucher using points
+    async redeemRewardVoucher(id: string): Promise<VoucherDetailResponse> {
+        const response = await apiClient.post<VoucherDetailResponse>(`${this.baseURL}/${id}/redeem`);
         return response.data;
     }
 }

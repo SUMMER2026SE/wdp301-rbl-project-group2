@@ -2,18 +2,20 @@ import { Ticket, Clock, CheckCircle2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import voucherAPI from "@/services/voucher.service";
+import { Voucher } from "@/types/voucher";
 
 // Định nghĩa Type chuẩn để bỏ @ts-ignore
 type ThemeType = 'orange' | 'amber' | 'emerald';
 
-interface Voucher {
+interface UIVoucher {
+    id: string;
     code: string;
     title: string;
     desc: string;
     expiry: string;
     theme: ThemeType;
-    isSaved?: boolean;
 }
 
 const VoucherSection = () => {
@@ -22,30 +24,47 @@ const VoucherSection = () => {
 
     // State giả lập việc "Lưu mã"
     const [savedVouchers, setSavedVouchers] = useState<string[]>([]);
+    
+    // State dữ liệu thật
+    const [vouchers, setVouchers] = useState<UIVoucher[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const vouchers: Voucher[] = [
-        {
-            code: "GIAM20K",
-            title: "Giảm 20.000đ",
-            desc: "Đơn tối thiểu 100k. Áp dụng toàn menu.",
-            expiry: "Hết hạn: 2 ngày nữa",
-            theme: "orange"
-        },
-        {
-            code: "FREESHIP",
-            title: "Freeship 0đ",
-            desc: "Bán kính 5km. Tối đa 15k phí giao hàng.",
-            expiry: "Hết hạn: Hôm nay",
-            theme: "amber"
-        },
-        {
-            code: "BANMOI",
-            title: "Giảm 50%",
-            desc: "Tối đa 30k cho khách hàng mới.",
-            expiry: "Hết hạn: 30/05",
-            theme: "emerald"
-        },
-    ];
+    useEffect(() => {
+        const fetchVouchers = async () => {
+            try {
+                // Fetch 3 active vouchers
+                const res = await voucherAPI.getVouchers({ isActive: true, limit: 3 });
+                if (res.success && res.data) {
+                    const mapped = res.data.map((v: Voucher): UIVoucher => {
+                        // Map category to visual theme
+                        let theme: ThemeType = 'orange';
+                        if (v.category === 'freeship') theme = 'amber';
+                        if (v.category === 'newuser') theme = 'emerald';
+                        
+                        // Format date
+                        const endDate = new Date(v.endAt);
+                        const expiry = `Hết hạn: ${endDate.toLocaleDateString('vi-VN')}`;
+
+                        return {
+                            id: v._id,
+                            code: v.code,
+                            title: v.title,
+                            desc: v.description,
+                            expiry,
+                            theme
+                        };
+                    });
+                    setVouchers(mapped);
+                }
+            } catch (error) {
+                console.error("Failed to fetch vouchers", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchVouchers();
+    }, []);
 
     // Map class tĩnh cho Tailwind thay vì dùng split()
     const themeStyles = {
@@ -81,6 +100,14 @@ const VoucherSection = () => {
             prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
         );
     };
+
+    if (!loading && vouchers.length === 0) {
+        return null;
+    }
+
+    if (loading) {
+        return null; // Or you can render a skeleton if preferred
+    }
 
     return (
         <section className="w-full">
