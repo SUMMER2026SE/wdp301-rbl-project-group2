@@ -1,5 +1,5 @@
 import { IVoucher } from '@/types';
-import { DiscountType } from '@/types/voucher.type';
+import { DiscountType, VoucherCategory } from '@/types/voucher.type';
 import mongoose from 'mongoose';
 
 const VoucherSchema = new mongoose.Schema<IVoucher>(
@@ -7,7 +7,7 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
-    category: { type: String, enum: ['discount', 'freeship', 'newuser', 'special'], default: 'discount' },
+    category: { type: String, enum: VoucherCategory, default: VoucherCategory.DISCOUNT },
     discountType: { type: String, required: true, enum: DiscountType },
     discountValue: { type: Number, required: true, min: 0 },
     maxDiscount: { type: Number, default: null, min: 0 },
@@ -30,7 +30,7 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
 VoucherSchema.index({ isActive: 1 });
 VoucherSchema.index({ startAt: 1, endAt: 1 });
 
-VoucherSchema.virtual('is_valid').get(function () {
+VoucherSchema.virtual('is_valid').get(function (this: IVoucher) {
   const now = new Date();
   return this.isActive &&
     this.startAt <= now &&

@@ -6,6 +6,7 @@ import appAssert from '@/utils/app-assert';
 import { addPoints } from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
 import { UserModel } from '@/models';
+import mongoose from 'mongoose';
 
 // Get all vouchers with filters
 export const getAllVouchers = async (filters: {
