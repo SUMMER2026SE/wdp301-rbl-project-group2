@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import voucherAPI from "@/services/voucher.service";
-import { Voucher } from "@/types/voucher";
+import type { Voucher } from "@/types/voucher";
 
 // Định nghĩa Type chuẩn để bỏ @ts-ignore
 type ThemeType = 'orange' | 'amber' | 'emerald';
