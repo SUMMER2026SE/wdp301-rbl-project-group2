@@ -11,6 +11,8 @@ import { getSupportSocket } from "@/lib/support-socket";
 import logo from "@/assets/logo.png";
 import { useCart } from "@/hooks/useCart";
 import { CartPreviewDropdown } from "@/components/shared/CartPreviewDropdown";
+import { useStoreStore } from "@/store/storeStore";
+import { BranchSelectorModal } from "@/components/shared/BranchSelectorModal";
 
 interface HomeHeaderProps {
   searchQuery?: string;
@@ -32,6 +34,9 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const isOnMenuPage = location.pathname === "/menu";
   // Local input state for header search
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
+
+  const { selectedStore } = useStoreStore();
+  const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
 
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -232,11 +237,14 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       <div className="bg-[#3c2415] text-white/90 py-1.5 text-[11px] lg:text-xs font-medium z-50">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-1.5">
           <div className="flex items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer">
+            <div 
+              onClick={() => setIsBranchModalOpen(true)}
+              className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer"
+            >
               <span className="material-symbols-outlined text-[14px]">
                 location_on
               </span>
-              <span>Đà Nẵng, VN</span>
+              <span>{selectedStore ? `Chi nhánh: ${selectedStore.district}` : "Đà Nẵng, VN"}</span>
             </div>
             <div className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer">
               <span className="material-symbols-outlined text-[14px]">
@@ -691,12 +699,15 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   <span>7:00 - 22:00</span>
                 </div>
                 <div className="h-3.5 w-px bg-orange-200"></div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <button 
+                  onClick={() => setIsBranchModalOpen(true)}
+                  className="flex items-center gap-1.5 text-xs hover:text-orange-600 transition-colors cursor-pointer"
+                >
                   <span className="material-symbols-outlined text-orange-500 text-[15px]">
                     location_on
                   </span>
-                  <span>Đà Nẵng, VN</span>
-                </div>
+                  <span>{selectedStore ? `Giao từ: ${selectedStore.name}` : "Đà Nẵng, VN"}</span>
+                </button>
               </div>
             </div>
           </div>
@@ -924,6 +935,11 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
           </nav>
         </div>
       </div>
+      <BranchSelectorModal 
+        isOpen={isBranchModalOpen} 
+        onClose={() => setIsBranchModalOpen(false)} 
+        isClosable={true} 
+      />
     </>
   );
 };

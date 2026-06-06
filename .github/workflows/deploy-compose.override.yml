@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      # Ép pnpm bên trong Dockerfile cài đủ TypeScript bất chấp Node 20
+      args:
+        - PNPM_FLAGS=--no-engine-strict

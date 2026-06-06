@@ -66,14 +66,18 @@ import StaffCustomerProfile from "./pages/Staff/CustomerProfile";
 import { AddToCartWarningModal } from "./components/shared/AddToCartWarningModal";
 import ScrollToTop from "./components/common/ScrollToTop";
 
+import { useStoreStore } from "./store/storeStore";
+
 function App() {
   const { hydrate, getUser, isAuthenticated } = useAuth();
   const { hydrate: hydrateCart } = useCart();
+  const { hydrate: hydrateStore } = useStoreStore();
 
   useEffect(() => {
     hydrate();
     hydrateCart();
-  }, [hydrate, hydrateCart]);
+    hydrateStore();
+  }, [hydrate, hydrateCart, hydrateStore]);
 
   useEffect(() => {
     // Only sync when FE believes we're logged in (hydrated from storage)

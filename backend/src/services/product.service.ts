@@ -121,6 +121,7 @@ interface ProductFilters {
   limit?: number;
   isAvailable?: boolean;
   healthTags?: string[];
+  storeId?: string;
 }
 
 export const getAllProducts = async (filters: ProductFilters) => {
@@ -135,9 +136,13 @@ export const getAllProducts = async (filters: ProductFilters) => {
     limit = 12,
     isAvailable,
     healthTags,
+    storeId,
   } = filters;
 
   const query: any = {};
+  if (storeId) {
+    query.storeId = storeId;
+  }
   if (isAvailable !== undefined) {
     query.isAvailable = isAvailable;
   }
