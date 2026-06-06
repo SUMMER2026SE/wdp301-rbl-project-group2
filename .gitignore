@@ -4,6 +4,9 @@ docker-compose.override.yml
 # Helper scripts
 kill-ports.js
 
+# Local product export data
+backend/src/foa.products.csv
+
 # OS files
 .DS_Store
 Thumbs.db

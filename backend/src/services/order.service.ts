@@ -16,6 +16,7 @@ import * as membershipService from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
+import { attachSharedToppingVariants } from './shared-topping.service';
 
 const INNER_WARDS = ['Hải Châu', 'Hòa Cường', 'Thanh Khê', 'An Khê', 'An Hải', 'Sơn Trà', 'Ngũ Hành Sơn'];
 const OUTER_WARDS = ['Hòa Khánh', 'Hải Vân', 'Liên Chiểu', 'Cẩm Lệ', 'Hòa Xuân'];
@@ -80,7 +81,8 @@ const resolveOrderItems = async (
   const resolvedItems: ResolvedItem[] = [];
 
   for (const item of rawItems) {
-    const product = await ProductModel.findById(item.productId).session(session);
+    const productDoc = await ProductModel.findById(item.productId).session(session);
+    const product = await attachSharedToppingVariants(productDoc?.toObject() as any);
 
     appAssert(product, NOT_FOUND, `Không tìm thấy sản phẩm với id: ${item.productId}`);
     appAssert(product.isAvailable, BAD_REQUEST, `Sản phẩm "${product.name}" hiện không có sẵn`);
