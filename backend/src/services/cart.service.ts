@@ -3,6 +3,7 @@ import ProductModel from '@/models/product.model';
 import mongoose from 'mongoose';
 import { AddToCartInput } from '@/validators/cart.validator';
 import { ICartItem } from '@/types/cart.type';
+import { attachSharedToppingVariants } from '@/services/shared-topping.service';
 
 type InputVariation = { name: string; choice: string };
 type CartVariation = { name: string; choice: string; extraPrice: number };
@@ -31,7 +32,7 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
   if (!userId) throw new Error('Unauthorized');
   if (!mongoose.Types.ObjectId.isValid(productId)) throw new Error('Invalid productId');
 
-  const product: any = await ProductModel.findById(productId).lean();
+  const product: any = await attachSharedToppingVariants(await ProductModel.findById(productId).lean());
   if (!product) throw new Error('Product not found');
   if (product.isAvailable === false) throw new Error('Product is not available');
 
@@ -105,7 +106,7 @@ export const mergeCart = async (userId: mongoose.Types.ObjectId, guestItems: any
   for (const guestItem of guestItems) {
     const { productId, quantity, variations = [] } = guestItem;
 
-    const product: any = await ProductModel.findById(productId).lean();
+    const product: any = await attachSharedToppingVariants(await ProductModel.findById(productId).lean());
     if (!product || product.isAvailable === false) continue;
 
     const mappedVariations: CartVariation[] = variations.map((v: any) => {

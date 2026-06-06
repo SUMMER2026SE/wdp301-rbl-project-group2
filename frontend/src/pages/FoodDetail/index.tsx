@@ -27,6 +27,21 @@ const getImageUrl = (image: any): string => {
   return "";
 };
 
+const TOPPING_GROUP_NAME = "Topping ăn kèm";
+
+const normalizeLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+
+const isToppingGroup = (group: VariantGroup) =>
+  normalizeLabel(group.name) === normalizeLabel(TOPPING_GROUP_NAME) ||
+  normalizeLabel(group.name).includes("topping");
+
 const FoodDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -65,6 +80,17 @@ const FoodDetailPage = () => {
   }, [product, selectedVariants]);
 
   const currentPrice = (product?.price || 0) + extraPrice;
+  const ingredientNames = useMemo(() => {
+    if (!product?.recipe?.length) return [];
+
+    return Array.from(
+      new Set(
+        product.recipe
+          .map((ingredient) => ingredient.name?.trim())
+          .filter((name): name is string => Boolean(name)),
+      ),
+    );
+  }, [product]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -125,7 +151,10 @@ const FoodDetailPage = () => {
 
       const exists = current.includes(choice);
       let next = exists ? current.filter((c) => c !== choice) : [...current, choice];
-      if (group.maxChoices && next.length > group.maxChoices) return prev;
+      if (group.maxChoices && next.length > group.maxChoices) {
+        toast.error(`Bạn chỉ có thể chọn tối đa ${group.maxChoices} ${isToppingGroup(group) ? "topping" : "lựa chọn"}`);
+        return prev;
+      }
       return { ...prev, [group.name]: next };
     });
   };
@@ -363,14 +392,62 @@ const FoodDetailPage = () => {
                   </div>
                 </div>
 
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <Check className="w-5 h-5 text-emerald-500" />
+                    Nguyên liệu
+                  </h3>
+                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                    {ingredientNames.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {ingredientNames.map((name) => (
+                          <span
+                            key={name}
+                            className="inline-flex items-center rounded-full border border-orange-100 bg-orange-50 px-3 py-1.5 text-sm font-bold text-orange-700"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-slate-500">
+                        Chưa cập nhật nguyên liệu cho món này.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 {/* VARIANTS SECTION */}
                 {product.variants && product.variants.length > 0 && (
                   <div className="space-y-6 mb-8">
-                    {product.variants.map((group) => (
-                      <div key={group.name} className="bg-white border border-slate-200 rounded-[1.5rem] p-5 shadow-sm">
+                    {product.variants.map((group) => {
+                      const selectedCount = selectedVariants[group.name]?.length || 0;
+                      const toppingGroup = isToppingGroup(group);
+
+                      return (
+                      <div
+                        key={group.name}
+                        className={`border rounded-[1.5rem] p-5 shadow-sm ${
+                          toppingGroup
+                            ? "bg-orange-50/70 border-orange-100"
+                            : "bg-white border-slate-200"
+                        }`}
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 text-lg">{group.name}</span>
+                            {toppingGroup && (
+                              <span className="w-9 h-9 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-sm shadow-orange-500/20">
+                                <Plus className="w-5 h-5" />
+                              </span>
+                            )}
+                            <div>
+                              <span className="font-bold text-slate-900 text-lg">{group.name}</span>
+                              {toppingGroup && (
+                                <p className="text-xs font-medium text-orange-700 mt-0.5">
+                                  Chọn món ăn kèm để thêm vào phần ăn của bạn
+                                </p>
+                              )}
+                            </div>
                             {group.required && (
                               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md bg-rose-100 text-rose-600">
                                 Bắt buộc
@@ -383,7 +460,7 @@ const FoodDetailPage = () => {
                             )}
                           </div>
                           <span className="text-xs font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg">
-                            Đã chọn: {selectedVariants[group.name]?.length || 0}
+                            Đã chọn: {selectedCount}
                           </span>
                         </div>
 
@@ -394,13 +471,19 @@ const FoodDetailPage = () => {
                               <button
                                 key={option.choice}
                                 onClick={() => toggleVariant(group, option.choice)}
-                                className={`flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all text-left ${isSelected ? "border-orange-500 bg-orange-50 shadow-sm" : "border-slate-100 bg-white hover:border-orange-300"
+                                className={`flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all text-left ${isSelected ? "border-orange-500 bg-white shadow-sm" : "border-slate-100 bg-white hover:border-orange-300"
                                   }`}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                                  <div className={`w-5 h-5 ${group.multiple ? "rounded-md" : "rounded-full"} border-2 flex items-center justify-center transition-colors shrink-0 ${isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
                                     }`}>
-                                    {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                                    {isSelected && (
+                                      group.multiple ? (
+                                        <Check className="w-3.5 h-3.5 text-white" />
+                                      ) : (
+                                        <div className="w-2 h-2 bg-white rounded-full" />
+                                      )
+                                    )}
                                   </div>
                                   <span className={`text-sm font-bold ${isSelected ? "text-orange-900" : "text-slate-700"}`}>
                                     {option.choice}
@@ -416,7 +499,8 @@ const FoodDetailPage = () => {
                           })}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

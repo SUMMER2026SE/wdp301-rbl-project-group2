@@ -2,6 +2,12 @@ import ProductModel from '@/models/product.model';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
+import {
+  attachSharedToppingVariants,
+  attachSharedToppingVariantsToProducts,
+} from '@/services/shared-topping.service';
+
+const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
 
 // ─── Vietnamese Smart Search Synonym Dictionary ───
 // Maps common search terms to related keywords and categories
@@ -136,13 +142,14 @@ export const getAllProducts = async (filters: ProductFilters) => {
     limit = 12,
     isAvailable,
     healthTags,
-    storeId,
+    storeId = DEFAULT_PUBLIC_STORE_ID,
   } = filters;
 
   const query: any = {};
-  if (storeId) {
+  if (storeId && storeId !== 'all') {
     query.storeId = storeId;
   }
+
   if (isAvailable !== undefined) {
     query.isAvailable = isAvailable;
   }
@@ -199,9 +206,10 @@ export const getAllProducts = async (filters: ProductFilters) => {
     ProductModel.find(query).sort(sortOptions).skip(skip).limit(limit).lean(),
     ProductModel.countDocuments(query),
   ]);
+  const productsWithToppings = await attachSharedToppingVariantsToProducts(products);
 
   return {
-    products,
+    products: productsWithToppings,
     pagination: {
 
       page,
@@ -213,14 +221,16 @@ export const getAllProducts = async (filters: ProductFilters) => {
 };
 
 export const getDistinctCategories = async () => {
-  const categories = await ProductModel.distinct('category');
+  const categories = await ProductModel.distinct('category', {
+    storeId: DEFAULT_PUBLIC_STORE_ID,
+  });
   return categories;
 };
 
 export const getProductById = async (id: string) => {
   const product = await ProductModel.findById(id).lean();
   appAssert(product, NOT_FOUND, 'Product not found');
-  return product;
+  return attachSharedToppingVariants(product);
 };
 
 export const createProduct = async (data: Partial<IProduct>) => {
