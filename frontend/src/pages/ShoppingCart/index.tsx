@@ -6,29 +6,18 @@ import { MOCK_UPSELL_ITEMS } from "@/constants/mockOrders";
 import { useEffect } from "react";
 import { itemKey } from "@/store/cartStore";
 import { buildVariantChips } from "@/utils/cartVariants";
-import { TicketVoucher } from "@/components/shared/TicketVoucher";
-import voucherAPI from "@/services/voucher.service";
-import type { Voucher } from "@/types/voucher";
 import { useState, useMemo } from "react";
-import { Ticket, X, Plus, ShoppingCart as CartIcon, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useToast } from "@/hooks/useToast";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
-import { useSettingsStore } from "@/store/settingsStore";
-import { calculateShippingFee } from "@/utils/shipping";
 
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
-  const { settings, fetchSettings } = useSettingsStore();
-
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
   // ─── Real state from Zustand Store ───
 
   const {
@@ -44,29 +33,9 @@ const ShoppingCartPage = () => {
     clearCart,
   } = useCart();
 
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [loadingVouchers, setLoadingVouchers] = useState(true);
-  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
-  const [couponCode, setCouponCode] = useState("");
   const [showClearCartModal, setShowClearCartModal] = useState(false);
-  const [couponError, setCouponError] = useState("");
-  const [isApplying, setIsApplying] = useState(false);
   const [upsellProducts, setUpsellProducts] = useState<Product[]>([]);
   const [loadingUpsell, setLoadingUpsell] = useState(true);
-
-  useEffect(() => {
-    const fetchVouchers = async () => {
-      try {
-        const res = await voucherAPI.getVouchers({ isActive: true });
-        setVouchers(res.data);
-      } catch (err) {
-        console.error("Error fetching vouchers:", err);
-      } finally {
-        setLoadingVouchers(false);
-      }
-    };
-    fetchVouchers();
-  }, []);
 
   useEffect(() => {
     const fetchUpsellProducts = async () => {
@@ -85,82 +54,6 @@ const ShoppingCartPage = () => {
     };
     fetchUpsellProducts();
   }, []);
-
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
-    setIsApplying(true);
-    setCouponError("");
-    try {
-      const res = await voucherAPI.getVoucherByCode(couponCode.trim());
-      if (res.data) {
-        if (!res.data.isActive) {
-            setCouponError("Mã giảm giá này đã hết hiệu lực");
-            return;
-        }
-        if (totalPrice < res.data.minOrderValue) {
-            setCouponError(`Đơn hàng chưa đạt mức tối thiểu ${res.data.minOrderValue.toLocaleString()}đ`);
-            return;
-        }
-        setAppliedVoucher(res.data);
-        setCouponCode("");
-      } else {
-        setCouponError("Mã giảm giá không chính xác");
-      }
-    } catch (err) {
-      setCouponError("Mã giảm giá không tồn tại hoặc đã hết hạn");
-    } finally {
-      setIsApplying(false);
-    }
-  };
-
-  const subtotal = totalPrice;
-  
-  const discountAmount = useMemo(() => {
-    if (!appliedVoucher) return 0;
-    
-    if (appliedVoucher.discountType === 'fixed_amount') {
-        return appliedVoucher.discountValue;
-    }
-    if (appliedVoucher.discountType === 'percentage') {
-        const amount = (subtotal * appliedVoucher.discountValue) / 100;
-        return appliedVoucher.maxDiscount 
-            ? Math.min(amount, appliedVoucher.maxDiscount)
-            : amount;
-    }
-    return 0;
-  }, [appliedVoucher, subtotal]);
-
-  const defaultAddress = useMemo(() => {
-    if (!user || !user.addresses) return null;
-    return user.addresses.find((a: any) => a.isDefault) || user.addresses[0] || null;
-  }, [user]);
-
-  const shippingResult = useMemo(() => {
-    if (subtotal === 0) {
-      return { fee: 0, blocked: false };
-    }
-    if (!defaultAddress) {
-      const baseFee = settings ? (parseFloat(settings.baseDeliveryFee) || 15000) : 15000;
-      return { fee: baseFee, blocked: false };
-    }
-
-    const config = settings ? {
-      baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
-      feePerKm: parseFloat(settings.feePerKm) || 5000,
-      freeDeliveryEnabled: settings.freeDeliveryEnabled,
-      freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
-    } : undefined;
-
-    return calculateShippingFee(
-      defaultAddress.ward ?? "",
-      defaultAddress.city ?? "",
-      subtotal,
-      config
-    );
-  }, [defaultAddress, subtotal, settings]);
-
-  const deliveryFee = shippingResult.fee;
-  const total = Math.max(0, subtotal + deliveryFee - discountAmount);
 
   // Mock upsell items (vẫn giữ để UI đẹp)
   const upsellItems = MOCK_UPSELL_ITEMS;
@@ -355,72 +248,6 @@ const ShoppingCartPage = () => {
                   {t("customer:cart.continueShopping", "Thêm món khác")}
                 </Link>
 
-                {/* Voucher Selection Section */}
-                <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-100 dark:border-white/10 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                            <Ticket className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Ưu đãi của bạn</h3>
-                            <p className="text-xs text-slate-500">Chọn hoặc nhập mã giảm giá</p>
-                        </div>
-                    </div>
-
-                    {appliedVoucher ? (
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-xs uppercase">
-                                    OK
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-emerald-900">{appliedVoucher.code}</p>
-                                    <p className="text-[10px] text-emerald-700">Đã áp dụng giảm {appliedVoucher.discountValue.toLocaleString()}đ</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setAppliedVoucher(null)}
-                                className="text-emerald-900 hover:bg-emerald-100 p-1 rounded-full transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {loadingVouchers ? (
-                                <div className="flex items-center justify-center py-4">
-                                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                                </div>
-                            ) : vouchers.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {vouchers.slice(0, 2).map((v) => (
-                                        <TicketVoucher
-                                            key={v._id}
-                                            code={v.code}
-                                            title={v.title}
-                                            discountValue={v.discountType === 'fixed_amount' ? `${v.discountValue / 1000}k` : `${v.discountValue}%`}
-                                            minOrder={`từ ${v.minOrderValue?.toLocaleString() || '0'}đ`}
-                                            expiryDate={v.endAt ? new Date(v.endAt).toLocaleDateString() : 'Không thời hạn'}
-                                            onUse={() => {
-                                                if (totalPrice < v.minOrderValue) {
-                                                    setCouponError(`Mã này yêu cầu đơn hàng từ ${v.minOrderValue.toLocaleString()}đ. Bạn cần mua thêm ${(v.minOrderValue - totalPrice).toLocaleString()}đ nữa.`);
-                                                    return;
-                                                }
-                                                setAppliedVoucher(v);
-                                                setCouponCode(v.code);
-                                                setCouponError(""); 
-                                            }}
-                                            className="h-full"
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-center text-slate-400 py-4 italic">Không có mã giảm giá khả dụng</p>
-                            )}
-                        </div>
-                    )}
-                </div>
-
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-bold text-text-main dark:text-white">
                     {t("customer:checkout.orderNote")}
@@ -449,83 +276,35 @@ const ShoppingCartPage = () => {
           {cartItems.length > 0 && (
             <div className="flex flex-col gap-6">
               <div className="sticky top-32 flex flex-col gap-6">
-                {/* Manual Coupon Input Box */}
-                <div className="bg-white dark:bg-white/5 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/10">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Ticket className="w-4 h-4 text-[#9a734c]" />
-                        <span className="text-sm font-bold text-text-main dark:text-white uppercase tracking-wider">Mã giảm giá</span>
-                    </div>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text"
-                            value={couponCode}
-                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                            placeholder="Nhập mã ưu đãi..."
-                            className="flex-1 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-orange-500 outline-none transition-all dark:text-white"
-                        />
-                        <button 
-                            onClick={handleApplyCoupon}
-                            disabled={!couponCode.trim() || isApplying}
-                            className="bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-orange-700 shadow-md shadow-orange-600/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                        >
-                            {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Áp dụng"}
-                        </button>
-                    </div>
-                    {couponError && <p className="text-[10px] text-red-500 mt-2 font-medium">{couponError}</p>}
-                </div>
-
                 {/* Price Breakdown */}
                 <div className="bg-white dark:bg-white/5 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/10">
                   <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-center text-[#9a734c]">
-                      <span className="text-sm">{t("customer:cart.subtotal")}</span>
-                      <span className="text-sm font-medium">
-                        {subtotal.toLocaleString("vi-VN")}đ
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[#9a734c]">
-                      <span className="text-sm">{t("customer:cart.deliveryFee")}</span>
-                      <span className="text-sm font-medium text-green-600">
-                        {deliveryFee === 0
-                          ? t("common:status.free", "Miễn phí")
-                          : `${deliveryFee.toLocaleString("vi-VN")}đ`}
-                      </span>
-                    </div>
-                    {discountAmount > 0 && (
-                        <div className="flex justify-between items-center text-emerald-600">
-                            <span className="text-sm">Giảm giá voucher</span>
-                            <span className="text-sm font-medium">
-                                -{discountAmount.toLocaleString("vi-VN")}đ
-                            </span>
-                        </div>
-                    )}
-                    <hr className="border-gray-100 dark:border-white/10 my-2" />
                     <div className="flex justify-between items-center text-text-main dark:text-white">
                       <span className="text-lg font-bold">
-                        {t("customer:cart.grandTotal")}
+                        Tổng cộng
                       </span>
                       <span className="text-2xl font-black text-primary">
-                        {total.toLocaleString("vi-VN")}đ
+                        {totalPrice.toLocaleString("vi-VN")}đ
                       </span>
                     </div>
                   </div>
-                    <button
-                      onClick={() => {
-                        if (!isAuthenticated) {
-                          toast(t("customer:cart.loginToCheckout", "Vui lòng đăng nhập để thanh toán"), "warning");
-                          setTimeout(() => {
-                            navigate("/login", { state: { from: { pathname: "/checkout" } } });
-                          }, 2000);
-                          return;
-                        }
-                        navigate("/checkout");
-                      }}
-                      disabled={totalPrice === 0}
-                      className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg mt-8 hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
-                    >
-                      {t("customer:cart.checkout", "Tiến hành thanh toán")}
-                      <span className="material-symbols-outlined">arrow_forward</span>
-                    </button>
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast(t("customer:cart.loginToCheckout", "Vui lòng đăng nhập để thanh toán"), "warning");
+                        setTimeout(() => {
+                          navigate("/login", { state: { from: { pathname: "/checkout" } } });
+                        }, 2000);
+                        return;
+                      }
+                      navigate("/checkout");
+                    }}
+                    disabled={totalPrice === 0}
+                    className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg mt-8 hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+                  >
+                    {t("customer:cart.checkout", "Tiến hành thanh toán")}
+                    <span className="material-symbols-outlined">arrow_forward</span>
+                  </button>
 
                   <p className="text-center text-[10px] text-[#9a734c] mt-4 uppercase tracking-widest font-bold">
                     Thanh toán bảo mật qua cổng kết nối an toàn
