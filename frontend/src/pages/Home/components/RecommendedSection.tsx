@@ -9,6 +9,7 @@ import type { Product } from "@/types/product";
 import { useCart } from "@/hooks/useCart";
 import { useAuthStore } from "@/store/authStore";
 import { FoodCard } from "@/components/shared/FoodCard";
+import { useStoreStore } from "@/store/storeStore";
 
 
 // Nhãn gợi ý mặc định khi dùng fallback (không có AI)
@@ -45,6 +46,7 @@ const RecommendedSection = () => {
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAIMode, setIsAIMode] = useState(false);
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +97,7 @@ const RecommendedSection = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedStore?._id]);
 
   // ── Render ────────────────────────────────────────────
 

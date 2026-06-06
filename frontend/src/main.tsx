@@ -5,6 +5,7 @@ import './config/i18n' // Initialize i18n before anything else
 import './index.css'
 import App from './App.tsx'
 import { useAuthStore } from './store/authStore'
+import { useStoreStore } from './store/storeStore'
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -17,8 +18,9 @@ const queryClient = new QueryClient({
   },
 })
 
-// Hydrate auth state from storage on app init
+// Hydrate auth and store states from storage on app init
 useAuthStore.getState().hydrate()
+useStoreStore.getState().hydrate()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

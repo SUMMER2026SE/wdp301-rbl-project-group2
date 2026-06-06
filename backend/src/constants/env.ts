@@ -32,7 +32,7 @@ const getNumberEnv = (key: string, defaultValue: number): number => {
 
 //env
 export const NODE_ENV = getEnv('NODE_ENV');
-export const PORT = getEnv('PORT', '4004');
+export const PORT = getEnv('PORT', '8000');
 
 //app
 export const APP_ORIGIN = getEnv('APP_ORIGIN');

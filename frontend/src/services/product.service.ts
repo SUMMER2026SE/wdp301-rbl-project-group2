@@ -5,11 +5,18 @@ import type {
   ProductFilters,
 } from "@/types/product";
 
+import { useStoreStore } from "@/store/storeStore";
+
 class ProductAPI {
   async getProducts(
     filters: ProductFilters = {},
   ): Promise<ProductListResponse> {
-    const response = await apiClient.get("/products", { params: filters });
+    const { selectedStore } = useStoreStore.getState();
+    const params = { ...filters };
+    if (selectedStore && !params.storeId) {
+      params.storeId = selectedStore._id;
+    }
+    const response = await apiClient.get("/products", { params });
     return response.data;
   }
 
