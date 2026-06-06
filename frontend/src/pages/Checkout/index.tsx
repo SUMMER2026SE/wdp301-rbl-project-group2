@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useCheckout } from "@/hooks/useCheckout";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/hooks/useToast";
-import { calculateShippingFee } from "@/utils/shipping";
+import { calculateShippingFee, calculateDistance, WARD_CENTROIDS } from "@/utils/shipping";
 import { AddressModal } from "@/components/shared/AddressModal";
 import { userService } from "@/services/profile.service";
 import { useAuthStore } from "@/store/authStore";
@@ -62,8 +62,58 @@ const CheckoutPage = () => {
   const userAllergies = user?.preferences?.allergies ?? [];
   const userDietary = user?.preferences?.dietary ?? [];
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editAddressIndex, setEditAddressIndex] = useState<number | null>(null);
   const [allergyConflicts, setAllergyConflicts] = useState<any[]>([]);
   const [showAllergyWarning, setShowAllergyWarning] = useState(false);
+  const [suggestedAddress, setSuggestedAddress] = useState<AuthAddress | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Helper to find nearest ward centroid
+  const findNearestWard = (lat: number, lng: number): string => {
+    let nearest = "Hải Châu";
+    let minDist = Infinity;
+    for (const [ward, coords] of Object.entries(WARD_CENTROIDS)) {
+      const dist = calculateDistance(lat, lng, coords[1], coords[0]);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = ward;
+      }
+    }
+    return nearest;
+  };
+
+  // Geolocation trigger on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const nearestWard = findNearestWard(latitude, longitude);
+          const suggAddr: AuthAddress = {
+            label: "Vị trí hiện tại",
+            receiverName: user?.fullName || "Người nhận",
+            phone: user?.phone || "",
+            detail: "Định vị GPS",
+            ward: nearestWard,
+            city: "Đà Nẵng",
+            isDefault: false,
+          };
+          setSuggestedAddress(suggAddr);
+          setIsLocating(false);
+
+          // Priority: If user has no addresses at all, select suggested address
+          if (addresses.length === 0 && !effectiveAddress) {
+            setSelectedAddress(suggAddr as any);
+          }
+        },
+        () => {
+          setIsLocating(false);
+        },
+        { timeout: 8000 }
+      );
+    }
+  }, [user, addresses.length, effectiveAddress, setSelectedAddress]);
 
   // FSS-40: Intercept order placement to check for allergies first
   const handleCheckoutSubmit = async () => {
@@ -104,13 +154,21 @@ const CheckoutPage = () => {
   const handleSaveAddress = async (newAddr: AuthAddress) => {
     if (!user) return;
     const existing = user.addresses || [];
-    let updated = [...existing, newAddr];
+    let updated: AuthAddress[];
+
+    if (editAddressIndex !== null) {
+      // Edit existing
+      updated = existing.map((a, i) => (i === editAddressIndex ? newAddr : a));
+    } else {
+      // Add new
+      updated = [...existing, newAddr];
+    }
 
     // Normalize default
     if (newAddr.isDefault) {
       updated = updated.map((a, i) => ({
         ...a,
-        isDefault: i === updated.length - 1,
+        isDefault: editAddressIndex !== null ? i === editAddressIndex : i === updated.length - 1,
       }));
     } else if (!updated.some((a) => a.isDefault) && updated.length > 0) {
       updated[0] = { ...updated[0], isDefault: true };
@@ -125,8 +183,45 @@ const CheckoutPage = () => {
     }
 
     setIsAddressModalOpen(false);
-    // Auto-select the newly added address
+    setEditAddressIndex(null);
+    // Auto-select the newly saved address
     setSelectedAddress(newAddr as any);
+  };
+
+  const handleDeleteAddress = async (idx: number) => {
+    if (!user) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa địa chỉ này?")) return;
+
+    const existing = user.addresses || [];
+    const updated = existing.filter((_, i) => i !== idx);
+
+    // If we deleted the default and there are remaining addresses, assign first as default
+    if (existing[idx]?.isDefault && updated.length > 0) {
+      updated[0] = { ...updated[0], isDefault: true };
+    }
+
+    try {
+      const res = await userService.updateMe({
+        addresses: sanitizeAddressesForApi(updated),
+      });
+      const updatedUser = res.data?.data;
+      if (updatedUser) {
+        setUser({ ...user, addresses: (updatedUser as any).addresses ?? updated });
+      }
+
+      // If we deleted the currently selected address, switch selection to new default
+      const deletedWasSelected =
+        effectiveAddress?.detail === existing[idx]?.detail &&
+        effectiveAddress?.receiverName === existing[idx]?.receiverName;
+      if (deletedWasSelected) {
+        const newDefault = updated.find((a) => a.isDefault) ?? updated[0] ?? null;
+        setSelectedAddress(newDefault as any);
+      }
+      toast("Xóa địa chỉ thành công", "success");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "Xóa địa chỉ thất bại. Vui lòng thử lại.";
+      toast(msg, "error");
+    }
   };
 
   // PayOS cancel return: cancel created order (best-effort), then clean the URL
@@ -217,7 +312,10 @@ const CheckoutPage = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => setIsAddressModalOpen(true)}
+                    onClick={() => {
+                      setEditAddressIndex(null);
+                      setIsAddressModalOpen(true);
+                    }}
                     className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-orange-600/10 text-orange-600 text-sm font-semibold hover:bg-orange-600/20 transition-all"
                   >
                     <span>{t("customer:checkout.addAddress")}</span>
@@ -225,7 +323,7 @@ const CheckoutPage = () => {
                 </div>
 
                 <div className="p-6 flex flex-col gap-4">
-                  {addresses.length === 0 ? (
+                  {addresses.length === 0 && !suggestedAddress ? (
                     <div className="text-center py-6">
                       <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">
                         location_off
@@ -234,7 +332,10 @@ const CheckoutPage = () => {
                         Bạn chưa có địa chỉ giao hàng.
                       </p>
                       <button
-                        onClick={() => setIsAddressModalOpen(true)}
+                        onClick={() => {
+                          setEditAddressIndex(null);
+                          setIsAddressModalOpen(true);
+                        }}
                         className="inline-flex items-center gap-1 text-sm text-orange-600 font-semibold hover:underline"
                       >
                         <span className="material-symbols-outlined text-base">
@@ -245,6 +346,77 @@ const CheckoutPage = () => {
                     </div>
                   ) : (
                     <>
+                      {/* Geolocation Suggested Address Card */}
+                      {suggestedAddress && (() => {
+                        const config = settings ? {
+                          baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
+                          feePerKm: parseFloat(settings.feePerKm) || 5000,
+                          freeDeliveryEnabled: settings.freeDeliveryEnabled,
+                          freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
+                        } : undefined;
+                        const suggAddrFee = calculateShippingFee(
+                          suggestedAddress.ward ?? "",
+                          suggestedAddress.city ?? "",
+                          subtotal,
+                          selectedStore?.location?.coordinates,
+                          config
+                        );
+                        const isSuggSelected =
+                          effectiveAddress?.detail === suggestedAddress.detail &&
+                          effectiveAddress?.ward === suggestedAddress.ward;
+                        return (
+                          <label
+                            className={`flex items-start gap-4 rounded-xl border-2 p-4 cursor-pointer transition-all ${
+                              suggAddrFee.blocked
+                                ? "border-red-300 dark:border-red-800 opacity-80"
+                                : isSuggSelected
+                                  ? "border-emerald-600 bg-emerald-600/5"
+                                  : "border-gray-200 dark:border-gray-800 hover:border-emerald-600/50"
+                            }`}
+                            onClick={() => !suggAddrFee.blocked && setSelectedAddress(suggestedAddress as any)}
+                          >
+                            <input
+                              readOnly
+                              className="h-5 w-5 mt-0.5 border-2 border-gray-300 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0 accent-emerald-600"
+                              name="address"
+                              type="radio"
+                              checked={isSuggSelected && !suggAddrFee.blocked}
+                              disabled={suggAddrFee.blocked}
+                            />
+                            <div className="flex grow flex-col gap-1">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-bold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                                    <span className="material-symbols-outlined text-[18px]">my_location</span>
+                                    Vị trí hiện tại (Đề xuất)
+                                  </p>
+                                </div>
+                                {/* Fee badge */}
+                                {suggAddrFee.blocked ? (
+                                  <span className="text-[11px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">block</span>
+                                    Không giao được
+                                  </span>
+                                ) : suggAddrFee.zone === "free" ? (
+                                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                    🎁 MIỄN PHÍ
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-600/10 px-2 py-0.5 rounded-full">
+                                    Phí: {suggAddrFee.fee.toLocaleString("vi-VN")}đ {suggAddrFee.distance !== undefined && `(${suggAddrFee.distance} km)`}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                {suggestedAddress.receiverName} • Vị trí định vị
+                              </p>
+                              <p className="text-gray-500 dark:text-gray-500 text-xs mt-0.5">
+                                {suggestedAddress.detail}, {suggestedAddress.ward}, {suggestedAddress.city}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })()}
                       {addresses.map((addr: any, idx: number) => {
                         const isSelected =
                           effectiveAddress?.detail === addr.detail &&
@@ -290,20 +462,51 @@ const CheckoutPage = () => {
                                   )}
                                 </div>
                                 {/* Fee badge */}
-                                {isAddrBlocked ? (
-                                  <span className="text-[11px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[14px]">block</span>
-                                    Không giao được
-                                  </span>
-                                ) : addrFee.zone === "free" ? (
-                                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
-                                    🎁 MIỄN PHÍ
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] font-semibold text-orange-600 bg-orange-600/10 px-2 py-0.5 rounded-full">
-                                    Phí: {addrFee.fee.toLocaleString("vi-VN")}đ {addrFee.distance !== undefined && `(${addrFee.distance} km)`}
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-3">
+                                  {isAddrBlocked ? (
+                                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[14px]">block</span>
+                                      Không giao được
+                                    </span>
+                                  ) : addrFee.zone === "free" ? (
+                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                      🎁 MIỄN PHÍ
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] font-semibold text-orange-600 bg-orange-600/10 px-2 py-0.5 rounded-full">
+                                      Phí: {addrFee.fee.toLocaleString("vi-VN")}đ {addrFee.distance !== undefined && `(${addrFee.distance} km)`}
+                                    </span>
+                                  )}
+
+                                  {/* Edit / Delete actions */}
+                                  <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-800 pl-2">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setEditAddressIndex(idx);
+                                        setIsAddressModalOpen(true);
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-orange-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center justify-center cursor-pointer"
+                                      title="Sửa địa chỉ"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDeleteAddress(idx);
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-md transition-colors flex items-center justify-center cursor-pointer"
+                                      title="Xóa địa chỉ"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                               <p className="text-gray-600 dark:text-gray-400 text-sm">
                                 {addr.receiverName} • {addr.phone}
@@ -766,8 +969,12 @@ const CheckoutPage = () => {
 
       <AddressModal
         isOpen={isAddressModalOpen}
-        onClose={() => setIsAddressModalOpen(false)}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setEditAddressIndex(null);
+        }}
         onSave={handleSaveAddress}
+        initialData={editAddressIndex !== null ? addresses[editAddressIndex] : null}
         isFirstAddress={addresses.length === 0}
       />
 
