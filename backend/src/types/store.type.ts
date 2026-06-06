@@ -6,6 +6,8 @@ export interface IStore extends mongoose.Document<mongoose.Types.ObjectId> {
     type: 'Point';
     coordinates: number[]; // [lng, lat]
   };
+  address: string;
+  district: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

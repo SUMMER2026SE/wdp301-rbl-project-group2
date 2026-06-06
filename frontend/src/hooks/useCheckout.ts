@@ -14,6 +14,7 @@ import type { Voucher } from "@/types/voucher";
 import type { AuthAddress } from "@/store/authStore";
 import { calculateShippingFee } from "@/utils/shipping";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useStoreStore } from "@/store/storeStore";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -49,6 +50,7 @@ export const useCheckout = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings, fetchSettings } = useSettingsStore();
+  const { selectedStore } = useStoreStore();
 
   useEffect(() => {
     fetchSettings();
@@ -237,6 +239,7 @@ export const useCheckout = () => {
 
     try {
       const payload = {
+        storeId: selectedStore?._id,
         items: cartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,

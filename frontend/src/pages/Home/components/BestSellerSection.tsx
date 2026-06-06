@@ -6,6 +6,7 @@ import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { FoodCard } from "@/components/shared/FoodCard";
 import { useCart } from "@/hooks/useCart";
+import { useStoreStore } from "@/store/storeStore";
 
 // ── Skeleton ─────────────────────────────────────────────
 const BestSellerSkeleton = () => (
@@ -25,6 +26,7 @@ const BestSellerSection = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +49,7 @@ const BestSellerSection = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedStore?._id]);
 
   return (
     <section className="my-16">

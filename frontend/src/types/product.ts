@@ -58,4 +58,5 @@ export interface ProductFilters {
   limit?: number;
   isAvailable?: boolean;
   healthTags?: string[];
+  storeId?: string;
 }

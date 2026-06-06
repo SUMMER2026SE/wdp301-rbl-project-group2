@@ -210,13 +210,18 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
     }
 
-    const totalPrice = Math.max(0, subTotal - actualDiscount + shippingFee);
-
     const user = await UserModel.findById(userId).session(session);
     appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');
 
     const resolvedAddress = deliveryAddress ?? user.addresses.find((a: any) => a.isDefault);
     appAssert(resolvedAddress, BAD_REQUEST, 'Không tìm thấy địa chỉ giao hàng. Vui lòng thêm địa chỉ mặc định.');
+
+    // Recalculate shipping fee server-side for security and consistency
+    const shippingCalc = await calculateShippingFee(resolvedAddress.ward, resolvedAddress.city, subTotal);
+    appAssert(!shippingCalc.blocked, BAD_REQUEST, shippingCalc.reason || 'Địa chỉ nằm ngoài vùng giao hàng');
+    const actualShippingFee = shippingCalc.fee;
+
+    const totalPrice = Math.max(0, subTotal - actualDiscount + actualShippingFee);
 
     const rawNote = input.note?.trim() || undefined;
     const staffNoteItems = rawNote ? await parseOrderNoteForStaff(rawNote) : [];
@@ -224,7 +229,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     const [order] = await OrderModel.create(
       [
         {
-          storeId: new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'), // Fallback store ID or map from context
+          storeId: input.storeId ? new mongoose.Types.ObjectId(input.storeId) : new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
           cusId: userId,
           payment: {
             method: paymentMethod ?? PaymentMethod.CASH,
@@ -233,7 +238,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
           items: resolvedItems,
           voucherId: voucherObjectId ?? null,
           subTotal,
-          shippingFee,
+          shippingFee: actualShippingFee,
           totalPrice,
           note: rawNote,
           staffNoteItems,
@@ -274,8 +279,9 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
 
     if (paymentMethod === PaymentMethod.BANK_TRANSFER) {
       console.log('💳 Handling PayOS payment for order:', order.code);
-      const numericOrderCode = Date.now();
-      console.log('🔢 Generated numeric order code:', numericOrderCode);
+      // Generate a collision-resistant numeric order code by adding a 3-digit random suffix
+      const numericOrderCode = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+      console.log('🔢 Generated collision-resistant numeric order code:', numericOrderCode);
 
       const rUrl = returnUrl || `${APP_ORIGIN}/success?code=${order.code}`;
       const cUrl = cancelUrl || `${APP_ORIGIN}/failed?reason=cancel&orderCode=${numericOrderCode}`;

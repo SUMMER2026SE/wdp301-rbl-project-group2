@@ -6,6 +6,7 @@ import { FoodCard } from '@/components/shared/FoodCard';
 import productAPI from '@/services/product.service';
 import type { Product } from '@/types/product';
 import { useCart } from '@/hooks/useCart';
+import { useStoreStore } from '@/store/storeStore';
 
 const FlashSaleSection: React.FC = () => {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ const FlashSaleSection: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   // Countdown logic
   useEffect(() => {
@@ -61,7 +63,7 @@ const FlashSaleSection: React.FC = () => {
     };
 
     fetchProducts();
-  }, []);
+  }, [selectedStore?._id]);
 
   // Standardize product data for the card
   const flashSaleProducts = useMemo(() => {

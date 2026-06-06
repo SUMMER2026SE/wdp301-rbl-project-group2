@@ -15,12 +15,19 @@ import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useToast } from "@/hooks/useToast";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
+import { useSettingsStore } from "@/store/settingsStore";
+import { calculateShippingFee } from "@/utils/shipping";
 
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { settings, fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   // ─── Real state from Zustand Store ───
 
@@ -123,7 +130,36 @@ const ShoppingCartPage = () => {
     return 0;
   }, [appliedVoucher, subtotal]);
 
-  const deliveryFee = subtotal > 300000 || subtotal === 0 ? 0 : 50000;
+  const defaultAddress = useMemo(() => {
+    if (!user || !user.addresses) return null;
+    return user.addresses.find((a: any) => a.isDefault) || user.addresses[0] || null;
+  }, [user]);
+
+  const shippingResult = useMemo(() => {
+    if (subtotal === 0) {
+      return { fee: 0, blocked: false };
+    }
+    if (!defaultAddress) {
+      const baseFee = settings ? (parseFloat(settings.baseDeliveryFee) || 15000) : 15000;
+      return { fee: baseFee, blocked: false };
+    }
+
+    const config = settings ? {
+      baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
+      feePerKm: parseFloat(settings.feePerKm) || 5000,
+      freeDeliveryEnabled: settings.freeDeliveryEnabled,
+      freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
+    } : undefined;
+
+    return calculateShippingFee(
+      defaultAddress.ward ?? "",
+      defaultAddress.city ?? "",
+      subtotal,
+      config
+    );
+  }, [defaultAddress, subtotal, settings]);
+
+  const deliveryFee = shippingResult.fee;
   const total = Math.max(0, subtotal + deliveryFee - discountAmount);
 
   // Mock upsell items (vẫn giữ để UI đẹp)

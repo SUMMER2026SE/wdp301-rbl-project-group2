@@ -8,6 +8,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 
+import { useStoreStore } from "@/store/storeStore";
+import { BranchSelectorModal } from "@/components/shared/BranchSelectorModal";
+
 const ScrollToTopButton = () => {
     const [visible, setVisible] = useState(false);
 
@@ -53,6 +56,17 @@ const ScrollToTopButton = () => {
 };
 
 const MainLayout = () => {
+    const { selectedStore } = useStoreStore();
+    const [showModal, setShowModal] = useState(false);
+
+    useEffect(() => {
+        if (!selectedStore) {
+            setShowModal(true);
+        } else {
+            setShowModal(false);
+        }
+    }, [selectedStore]);
+
     return (
         <div className="min-h-screen bg-gray-50/50 text-slate-800 font-sans selection:bg-orange-100 selection:text-orange-600 flex flex-col">
             <HomeHeader />
@@ -63,6 +77,7 @@ const MainLayout = () => {
             <FloatingAIChatbot />
             <SupportChatGlobal />
             <ScrollToTopButton />
+            <BranchSelectorModal isOpen={showModal} isClosable={false} />
         </div>
     );
 };

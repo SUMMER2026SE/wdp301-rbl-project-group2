@@ -16,6 +16,8 @@ const StoreSchema = new mongoose.Schema<IStore>(
         required: true,
       },
     },
+    address: { type: String, required: true },
+    district: { type: String, required: true },
     isActive: { type: Boolean, default: true },
   },
   {

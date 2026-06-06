@@ -21,6 +21,7 @@ import { Plus, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { checkProductAllergies } from "@/hooks/useAllergyCheck";
 import { FoodCard } from "@/components/shared/FoodCard";
+import { useStoreStore } from "@/store/storeStore";
 
 const FoodCardSkeleton = () => (
   <div className="bg-white rounded-[2rem] border border-slate-100 p-3 shadow-sm animate-pulse">
@@ -59,6 +60,8 @@ const MenuPage = () => {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const selectedStore = useStoreStore((s) => s.selectedStore);
+
   const LIMIT = 9;
   const debouncedSearch = useDebounce(searchQuery, 400);
 
@@ -94,7 +97,7 @@ const MenuPage = () => {
         setLoadingMore(false);
       }
     },
-    [activeCategory, debouncedSearch, sortBy, minRating],
+    [activeCategory, debouncedSearch, sortBy, minRating, selectedStore?._id],
   );
 
   useEffect(() => {
