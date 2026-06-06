@@ -82,41 +82,143 @@ const CheckoutPage = () => {
     return nearest;
   };
 
+  const handleLocateUser = () => {
+    if (!navigator.geolocation) {
+      toast("Trình duyệt của bạn không hỗ trợ định vị GPS", "error");
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const nearestWard = findNearestWard(latitude, longitude);
+        const suggAddr: AuthAddress = {
+          label: "Vị trí hiện tại",
+          receiverName: user?.fullName || "Người nhận",
+          phone: user?.phone || "",
+          detail: "Định vị GPS",
+          ward: nearestWard,
+          city: "Đà Nẵng",
+          isDefault: false,
+        };
+        setSuggestedAddress(suggAddr);
+
+        // Auto-select by default
+        setSelectedAddress(suggAddr as any);
+
+        // Call Photon API for reverse geocoding to resolve detailed address (house number and street name)
+        fetch(`https://photon.komoot.io/reverse?lon=${longitude}&lat=${latitude}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.features && data.features.length > 0) {
+              const props = data.features[0].properties;
+              const houseNumber = props.housenumber || "";
+              const street = props.street || "";
+              const placeName = props.name || "";
+              
+              let resolvedDetail = "";
+              if (houseNumber && street) {
+                resolvedDetail = `${houseNumber} ${street}`;
+              } else if (street) {
+                if (placeName && placeName !== street) {
+                  resolvedDetail = `${placeName}, ${street}`;
+                } else {
+                  resolvedDetail = street;
+                }
+              } else {
+                resolvedDetail = placeName || "Vị trí GPS";
+              }
+
+              // Match ward against our whitelist
+              let resolvedWard = nearestWard;
+              const photonWard = props.locality || props.district || "";
+              if (photonWard) {
+                const normalizedWard = photonWard.replace(/^(phường|xã)\s+/i, "").trim().toLowerCase();
+                for (const ward of Object.keys(WARD_CENTROIDS)) {
+                  const normalizedKnown = ward.replace(/^(phường|xã)\s+/i, "").trim().toLowerCase();
+                  if (
+                    normalizedKnown === normalizedWard ||
+                    normalizedKnown.includes(normalizedWard) ||
+                    normalizedWard.includes(normalizedKnown)
+                  ) {
+                    resolvedWard = ward;
+                    break;
+                  }
+                }
+              }
+
+              const updatedSugg: AuthAddress = {
+                label: "Vị trí hiện tại",
+                receiverName: user?.fullName || "Người nhận",
+                phone: user?.phone || "",
+                detail: resolvedDetail || "Vị trí GPS",
+                ward: resolvedWard,
+                city: "Đà Nẵng",
+                isDefault: false,
+              };
+              setSuggestedAddress(updatedSugg);
+
+              setSelectedAddress((prev) => {
+                if (prev && prev.label === "Vị trí hiện tại") {
+                  return updatedSugg as any;
+                }
+                if (addresses.length === 0) {
+                  return updatedSugg as any;
+                }
+                return prev;
+              });
+            }
+          })
+          .catch((err) => {
+            console.error("Photon reverse geocoding failed", err);
+          })
+          .finally(() => {
+            setIsLocating(false);
+          });
+      },
+      () => {
+        setIsLocating(false);
+        toast("Không thể lấy vị trí hiện tại. Vui lòng cho phép quyền truy cập vị trí.", "error");
+      },
+      { timeout: 8000 }
+    );
+  };
+
   // Geolocation trigger on mount
   useEffect(() => {
-    if (navigator.geolocation) {
-      setIsLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const nearestWard = findNearestWard(latitude, longitude);
-          const suggAddr: AuthAddress = {
-            label: "Vị trí hiện tại",
-            receiverName: user?.fullName || "Người nhận",
-            phone: user?.phone || "",
-            detail: "Định vị GPS",
-            ward: nearestWard,
-            city: "Đà Nẵng",
-            isDefault: false,
-          };
-          setSuggestedAddress(suggAddr);
-          setIsLocating(false);
-
-          // Priority: If user has no addresses at all, select suggested address
-          if (addresses.length === 0 && !effectiveAddress) {
-            setSelectedAddress(suggAddr as any);
-          }
-        },
-        () => {
-          setIsLocating(false);
-        },
-        { timeout: 8000 }
-      );
+    // Only auto-locate if user has NO saved addresses
+    if (addresses.length === 0 && !effectiveAddress) {
+      handleLocateUser();
     }
-  }, [user, addresses.length, effectiveAddress, setSelectedAddress]);
+  }, [addresses.length, effectiveAddress]);
 
   // FSS-40: Intercept order placement to check for allergies first
   const handleCheckoutSubmit = async () => {
+    if (!effectiveAddress) {
+      toast("Vui lòng chọn hoặc thêm địa chỉ nhận hàng", "warning");
+      return;
+    }
+
+    if (effectiveAddress.detail === "Định vị GPS") {
+      toast("Vui lòng nhập cụ thể số nhà, tên đường cho vị trí định vị hiện tại.", "warning");
+      return;
+    }
+
+    if (!effectiveAddress.detail?.trim()) {
+      toast("Vui lòng nhập cụ thể số nhà, tên đường của địa chỉ nhận hàng.", "warning");
+      return;
+    }
+
+    if (!effectiveAddress.receiverName?.trim()) {
+      toast("Vui lòng nhập tên người nhận hàng.", "warning");
+      return;
+    }
+
+    if (!effectiveAddress.phone?.trim()) {
+      toast("Vui lòng nhập số điện thoại nhận hàng.", "warning");
+      return;
+    }
+
     if (userAllergies.length === 0 && userDietary.length === 0) {
       handlePlaceOrder();
       return;
@@ -311,15 +413,29 @@ const CheckoutPage = () => {
                       {t("customer:checkout.deliveryAddress")}
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditAddressIndex(null);
-                      setIsAddressModalOpen(true);
-                    }}
-                    className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-orange-600/10 text-orange-600 text-sm font-semibold hover:bg-orange-600/20 transition-all"
-                  >
-                    <span>{t("customer:checkout.addAddress")}</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleLocateUser}
+                      disabled={isLocating}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-emerald-600/10 text-emerald-600 text-sm font-semibold hover:bg-emerald-600/20 transition-all disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px] mr-1">
+                        {isLocating ? "sync" : "my_location"}
+                      </span>
+                      <span>{isLocating ? "Đang định vị..." : "Lấy vị trí GPS"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditAddressIndex(null);
+                        setIsAddressModalOpen(true);
+                      }}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-orange-600/10 text-orange-600 text-sm font-semibold hover:bg-orange-600/20 transition-all"
+                    >
+                      <span>{t("customer:checkout.addAddress")}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-6 flex flex-col gap-4">
@@ -408,11 +524,75 @@ const CheckoutPage = () => {
                                 )}
                               </div>
                               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                                {suggestedAddress.receiverName} • Vị trí định vị
+                                {suggestedAddress.receiverName} • {suggestedAddress.phone || "Chưa có SĐT"}
                               </p>
                               <p className="text-gray-500 dark:text-gray-500 text-xs mt-0.5">
                                 {suggestedAddress.detail}, {suggestedAddress.ward}, {suggestedAddress.city}
                               </p>
+                              {isSuggSelected && (
+                                <div className="mt-3 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                      Tên người nhận:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={suggestedAddress.receiverName}
+                                      placeholder="Ví dụ: Nguyễn Văn A"
+                                      onChange={(e) => {
+                                        const updatedAddr = {
+                                          ...suggestedAddress,
+                                          receiverName: e.target.value
+                                        };
+                                        setSuggestedAddress(updatedAddr);
+                                        setSelectedAddress(updatedAddr as any);
+                                      }}
+                                      className="w-full text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-zinc-800 px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                      Số điện thoại:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={suggestedAddress.phone}
+                                      placeholder="Ví dụ: 0912345678"
+                                      onChange={(e) => {
+                                        const updatedAddr = {
+                                          ...suggestedAddress,
+                                          phone: e.target.value
+                                        };
+                                        setSuggestedAddress(updatedAddr);
+                                        setSelectedAddress(updatedAddr as any);
+                                      }}
+                                      className="w-full text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-zinc-800 px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                      Số nhà, tên đường cụ thể:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={suggestedAddress.detail === "Định vị GPS" ? "" : suggestedAddress.detail}
+                                      placeholder="Ví dụ: 123 Nguyễn Văn Thoại"
+                                      onChange={(e) => {
+                                        const updatedVal = e.target.value;
+                                        const updatedAddr = {
+                                          ...suggestedAddress,
+                                          detail: updatedVal || "Định vị GPS"
+                                        };
+                                        setSuggestedAddress(updatedAddr);
+                                        setSelectedAddress(updatedAddr as any);
+                                      }}
+                                      className="w-full text-sm rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-zinc-800 px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </label>
                         );
