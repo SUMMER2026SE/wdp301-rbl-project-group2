@@ -48,6 +48,14 @@ const CheckoutPage = () => {
 
   const { toasts, dismiss, toast } = useToast();
 
+  // PayOS limit check: If total drops below 2,000 VND and paymentMethod is "bank_transfer", fallback to "cash"
+  useEffect(() => {
+    if (total < 2000 && paymentMethod === "bank_transfer") {
+      setPaymentMethod("cash");
+      toast("Chuyển khoản PayOS yêu cầu giao dịch từ 2.000đ trở lên. Đã chuyển sang COD.", "info");
+    }
+  }, [total, paymentMethod, setPaymentMethod, toast]);
+
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const userAllergies = user?.preferences?.allergies ?? [];
@@ -381,21 +389,31 @@ const CheckoutPage = () => {
                     </div>
 
                     {/* Bank Transfer (PayOS) */}
-                    <button
-                      id="payment-bank"
-                      onClick={() => setPaymentMethod("bank_transfer")}
-                      className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl gap-2 transition-all ${paymentMethod === "bank_transfer"
-                        ? "border-2 border-orange-600 bg-orange-600/5"
-                        : "border border-gray-200 dark:border-gray-800 hover:border-orange-600/50"
-                        }`}
-                    >
-                      <span className="material-symbols-outlined">
-                        account_balance
-                      </span>
-                      <span className="text-sm font-bold">
-                        Chuyển khoản (PayOS)
-                      </span>
-                    </button>
+                    <div className="flex-1 relative">
+                      <button
+                        id="payment-bank"
+                        disabled={total < 2000}
+                        onClick={() => setPaymentMethod("bank_transfer")}
+                        className={`w-full flex flex-col items-center justify-center p-4 rounded-xl gap-2 transition-all ${total < 2000
+                          ? "border border-gray-100 dark:border-gray-800 opacity-40 cursor-not-allowed grayscale"
+                          : paymentMethod === "bank_transfer"
+                            ? "border-2 border-orange-600 bg-orange-600/5"
+                            : "border border-gray-200 dark:border-gray-800 hover:border-orange-600/50"
+                          }`}
+                      >
+                        <span className="material-symbols-outlined">
+                          account_balance
+                        </span>
+                        <span className="text-sm font-bold">
+                          Chuyển khoản (PayOS)
+                        </span>
+                      </button>
+                      {total < 2000 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm whitespace-nowrap">
+                          Min 2.000đ
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* COD Info */}
