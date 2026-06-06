@@ -1,5 +1,5 @@
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel } from '@/models';
+import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel } from '@/models';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
 import withTransaction from '@/utils/with-transaction';
@@ -25,11 +25,51 @@ const DEFAULT_BASE_FEE = 15_000;
 const DEFAULT_FEE_PER_KM = 5_000;
 const DEFAULT_FREE_THRESHOLD = 300_000;
 
+const WARD_CENTROIDS: Record<string, [number, number]> = {
+  'Hải Châu': [108.2200, 16.0600],
+  'Hòa Cường': [108.2200, 16.0300],
+  'Thanh Khê': [108.1800, 16.0600],
+  'An Khê': [108.1700, 16.0500],
+  'An Hải': [108.2300, 16.0600],
+  'Sơn Trà': [108.2400, 16.0700],
+  'Ngũ Hành Sơn': [108.2500, 16.0100],
+  'Hòa Khánh': [108.1500, 16.0800],
+  'Hải Vân': [108.1300, 16.1800],
+  'Liên Chiểu': [108.1600, 16.0800],
+  'Cẩm Lệ': [108.2100, 16.0100],
+  'Hòa Xuân': [108.2200, 15.9900],
+};
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const getWardCentroid = (wardName: string): [number, number] | null => {
+  const normalized = wardName.trim().toLowerCase();
+  for (const [key, coords] of Object.entries(WARD_CENTROIDS)) {
+    if (key.toLowerCase() === normalized) {
+      return coords;
+    }
+  }
+  return null;
+};
+
 export async function calculateShippingFee(
   ward: string,
   city: string,
-  subtotal: number
-): Promise<{ fee: number; blocked: boolean; reason?: string }> {
+  subtotal: number,
+  storeId?: string
+): Promise<{ fee: number; blocked: boolean; reason?: string; distance?: number }> {
   const normalCity = city.trim();
   const normalWard = ward.trim();
 
@@ -59,9 +99,30 @@ export async function calculateShippingFee(
     }
   } catch (_) {}
 
-  if (freeDeliveryEnabled && subtotal >= freeDeliveryThreshold) return { fee: 0, blocked: false };
-  if (isInner) return { fee: baseDeliveryFee, blocked: false };
-  return { fee: baseDeliveryFee + feePerKm * 5, blocked: false };
+  // Determine distance
+  let distance = isInner ? 2.0 : 5.0; // fallback defaults
+  if (storeId) {
+    try {
+      const store = await StoreModel.findById(storeId).lean();
+      if (store && store.location && store.location.coordinates && store.location.coordinates.length === 2) {
+        const wardCentroid = getWardCentroid(normalWard);
+        if (wardCentroid) {
+          const storeLng = store.location.coordinates[0];
+          const storeLat = store.location.coordinates[1];
+          const wardLng = wardCentroid[0];
+          const wardLat = wardCentroid[1];
+          const rawDistance = calculateDistance(storeLat, storeLng, wardLat, wardLng);
+          // Round to 1 decimal place (e.g. 2.4 km)
+          distance = Math.round(rawDistance * 10) / 10;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (freeDeliveryEnabled && subtotal >= freeDeliveryThreshold) return { fee: 0, blocked: false, distance };
+
+  const fee = Math.round(baseDeliveryFee + feePerKm * distance);
+  return { fee, blocked: false, distance };
 }
 
 interface ResolvedItem {
@@ -215,7 +276,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     appAssert(resolvedAddress, BAD_REQUEST, 'Không tìm thấy địa chỉ giao hàng. Vui lòng thêm địa chỉ mặc định.');
 
     // Recalculate shipping fee server-side for security and consistency
-    const shippingCalc = await calculateShippingFee(resolvedAddress.ward, resolvedAddress.city, subTotal);
+    const shippingCalc = await calculateShippingFee(resolvedAddress.ward, resolvedAddress.city, subTotal, input.storeId);
     appAssert(!shippingCalc.blocked, BAD_REQUEST, shippingCalc.reason || 'Địa chỉ nằm ngoài vùng giao hàng');
     const actualShippingFee = shippingCalc.fee;
 

@@ -37,6 +37,7 @@ const CheckoutPage = () => {
     isDeliverable,
     shippingResult,
     settings,
+    selectedStore,
     isSubmitting,
     handlePlaceOrder,
     vouchers,
@@ -255,7 +256,7 @@ const CheckoutPage = () => {
                           freeDeliveryEnabled: settings.freeDeliveryEnabled,
                           freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
                         } : undefined;
-                        const addrFee = calculateShippingFee(addr.ward ?? "", addr.city ?? "", subtotal, config);
+                        const addrFee = calculateShippingFee(addr.ward ?? "", addr.city ?? "", subtotal, selectedStore?.location?.coordinates, config);
                         const isAddrBlocked = addrFee.blocked;
                         return (
                           <label
@@ -300,7 +301,7 @@ const CheckoutPage = () => {
                                   </span>
                                 ) : (
                                   <span className="text-[11px] font-semibold text-orange-600 bg-orange-600/10 px-2 py-0.5 rounded-full">
-                                    Phí: {addrFee.fee.toLocaleString("vi-VN")}đ
+                                    Phí: {addrFee.fee.toLocaleString("vi-VN")}đ {addrFee.distance !== undefined && `(${addrFee.distance} km)`}
                                   </span>
                                 )}
                               </div>
@@ -653,8 +654,13 @@ const CheckoutPage = () => {
                       <span>{subtotal.toLocaleString("vi-VN")}đ</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">
+                      <span className="text-gray-500 flex items-center gap-1">
                         {t("customer:cart.deliveryFee")}
+                        {shippingResult?.distance !== undefined && (
+                          <span className="text-xs text-muted-foreground font-medium">
+                            ({shippingResult.distance} km)
+                          </span>
+                        )}
                       </span>
                       <span className="text-green-600">
                         {deliveryFee === 0
