@@ -7,21 +7,68 @@
 export const DELIVERABLE_CITY = "Đà Nẵng";
 
 export const INNER_WARDS = [
+  "Hải Châu I",
+  "Hải Châu II",
+  "Thạch Thang",
+  "Thanh Bình",
+  "Thuận Phước",
+  "Hòa Thuận Đông",
+  "Hòa Thuận Tây",
+  "Nam Dương",
+  "Phước Ninh",
+  "Bình Hiên",
+  "Bình Thuận",
+  "Hòa Cường Bắc",
+  "Hòa Cường Nam",
   "Hải Châu",
   "Hòa Cường",
-  "Thanh Khê",
+
+  "Vĩnh Trung",
+  "Tân Chính",
+  "Thạc Gián",
+  "Chính Gián",
+  "Tam Thuận",
+  "Xuân Hà",
   "An Khê",
-  "An Hải",
+  "Hòa Khê",
+  "Thanh Khê Đông",
+  "Thanh Khê Tây",
+  "Thanh Khê",
+
+  "An Hải Bắc",
+  "An Hải Tây",
+  "An Hải Đông",
+  "Phước Mỹ",
+  "Nại Hiên Đông",
+  "Mân Thái",
+  "Thọ Quang",
   "Sơn Trà",
+  "An Hải",
+
+  "Mỹ An",
+  "Khuê Mỹ",
+  "Hòa Hải",
+  "Hòa Quý",
   "Ngũ Hành Sơn",
+
+  "Khuê Trung",
+  "Hòa Thọ Đông",
+  "Hòa An",
+  "Hòa Phát",
+  "Cẩm Lệ",
 ];
 
 export const OUTER_WARDS = [
+  "Hòa Thọ Tây",
+  "Hòa Xuân",
+  "Hòa Minh",
+  "Hòa Khánh Nam",
+  "Hòa Khánh Bắc",
+  "Hòa Hiệp Nam",
+  "Hòa Hiệp Bắc",
+  "Liên Chiểu",
   "Hòa Khánh",
   "Hải Vân",
-  "Liên Chiểu",
-  "Cẩm Lệ",
-  "Hòa Xuân",
 ];
 
 export const DELIVERABLE_WARDS = [...INNER_WARDS, ...OUTER_WARDS];
@@ -54,18 +101,72 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
 };
 
 export const WARD_CENTROIDS: Record<string, [number, number]> = {
+  // --- Hải Châu ---
+  "Hải Châu I": [108.2210, 16.0660],
+  "Hải Châu II": [108.2170, 16.0620],
+  "Thạch Thang": [108.2160, 16.0730],
+  "Thanh Bình": [108.2110, 16.0750],
+  "Thuận Phước": [108.2150, 16.0850],
+  "Hòa Thuận Đông": [108.2190, 16.0480],
+  "Hòa Thuận Tây": [108.2030, 16.0460],
+  "Nam Dương": [108.2170, 16.0590],
+  "Phước Ninh": [108.2200, 16.0580],
+  "Bình Hiên": [108.2190, 16.0550],
+  "Bình Thuận": [108.2180, 16.0510],
+  "Hòa Cường Bắc": [108.2180, 16.0370],
+  "Hòa Cường Nam": [108.2190, 16.0260],
   "Hải Châu": [108.2200, 16.0600],
   "Hòa Cường": [108.2200, 16.0300],
+
+  // --- Thanh Khê ---
+  "Vĩnh Trung": [108.2110, 16.0600],
+  "Tân Chính": [108.2100, 16.0660],
+  "Thạc Gián": [108.2080, 16.0580],
+  "Chính Gián": [108.2000, 16.0610],
+  "Tam Thuận": [108.2040, 16.0710],
+  "Xuân Hà": [108.1960, 16.0670],
+  "An Khê": [108.1720, 16.0540],
+  "Hòa Khê": [108.1810, 16.0560],
+  "Thanh Khê Đông": [108.1830, 16.0680],
+  "Thanh Khê Tây": [108.1700, 16.0660],
   "Thanh Khê": [108.1800, 16.0600],
-  "An Khê": [108.1700, 16.0500],
-  "An Hải": [108.2300, 16.0600],
+
+  // --- Sơn Trà ---
+  "An Hải Bắc": [108.2370, 16.0690],
+  "An Hải Tây": [108.2290, 16.0610],
+  "An Hải Đông": [108.2360, 16.0580],
+  "Phước Mỹ": [108.2430, 16.0590],
+  "Nại Hiên Đông": [108.2340, 16.0880],
+  "Mân Thái": [108.2440, 16.0760],
+  "Thọ Quang": [108.2580, 16.1040],
   "Sơn Trà": [108.2400, 16.0700],
+  "An Hải": [108.2300, 16.0600],
+
+  // --- Ngũ Hành Sơn ---
+  "Mỹ An": [108.2450, 16.0450],
+  "Khuê Mỹ": [108.2480, 16.0230],
+  "Hòa Hải": [108.2600, 15.9850],
+  "Hòa Quý": [108.2320, 15.9800],
   "Ngũ Hành Sơn": [108.2500, 16.0100],
+
+  // --- Cẩm Lệ ---
+  "Khuê Trung": [108.2110, 16.0220],
+  "Hòa Thọ Đông": [108.1990, 16.0140],
+  "Hòa Thọ Tây": [108.1670, 16.0090],
+  "Hòa An": [108.1760, 16.0330],
+  "Hòa Phát": [108.1820, 16.0230],
+  "Hòa Xuân": [108.2180, 15.9920],
+  "Cẩm Lệ": [108.2100, 16.0100],
+
+  // --- Liên Chiểu ---
+  "Hòa Minh": [108.1740, 16.0710],
+  "Hòa Khánh Nam": [108.1480, 16.0600],
+  "Hòa Khánh Bắc": [108.1500, 16.0810],
+  "Hòa Hiệp Nam": [108.1390, 16.0960],
+  "Hòa Hiệp Bắc": [108.1180, 16.1430],
+  "Liên Chiểu": [108.1600, 16.0800],
   "Hòa Khánh": [108.1500, 16.0800],
   "Hải Vân": [108.1300, 16.1800],
-  "Liên Chiểu": [108.1600, 16.0800],
-  "Cẩm Lệ": [108.2100, 16.0100],
-  "Hòa Xuân": [108.2200, 15.9900],
 };
 
 export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
