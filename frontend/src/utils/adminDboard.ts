@@ -3,10 +3,7 @@ import type {
   CustomerAPI,
   RecentOrderItem,
   RevenueChartItem,
-  RevenueFilterType,
 } from "@/types/adminDboard";
-
-export const VI_DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export const isCompletedOrder = (status?: string) =>
   String(status).trim().toLowerCase() === "completed";
@@ -23,89 +20,14 @@ export const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 };
 
-export const getDaysInMonth = (month: number, year: number) => {
-  return new Date(year, month + 1, 0).getDate();
-};
-
-export const getRevenueDataByFilter = (
+export const getRevenueDataByYear = (
   orders: Order[],
-  filter: RevenueFilterType,
+  year = new Date().getFullYear(),
 ): RevenueChartItem[] => {
-  const now = new Date();
-  const result: RevenueChartItem[] = [];
-
-  if (filter === "week") {
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(now.getDate() - i);
-
-      result.push({
-        day: VI_DAY_NAMES[date.getDay()],
-        revenue: 0,
-        orders: 0,
-        fullDate: formatDateKey(date),
-      });
-    }
-
-    const map = new Map(result.map((item) => [item.fullDate, item]));
-
-    orders.forEach((order) => {
-      if (!isCompletedOrder(order.status)) return;
-
-      const createdAt = new Date(order.createdAt);
-      const key = formatDateKey(createdAt);
-      const target = map.get(key);
-
-      if (target) {
-        target.revenue += Number(order.totalPrice || 0);
-        target.orders += 1;
-      }
-    });
-
-    return result;
-  }
-
-  if (filter === "month") {
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const totalDays = getDaysInMonth(currentMonth, currentYear);
-
-    for (let day = 1; day <= totalDays; day++) {
-      const date = new Date(currentYear, currentMonth, day);
-
-      result.push({
-        day: `${day}`,
-        revenue: 0,
-        orders: 0,
-        fullDate: formatDateKey(date),
-      });
-    }
-
-    orders.forEach((order) => {
-      if (!isCompletedOrder(order.status)) return;
-
-      const createdAt = new Date(order.createdAt);
-      if (
-        createdAt.getMonth() !== currentMonth ||
-        createdAt.getFullYear() !== currentYear
-      ) {
-        return;
-      }
-
-      const dayIndex = createdAt.getDate() - 1;
-      if (result[dayIndex]) {
-        result[dayIndex].revenue += Number(order.totalPrice || 0);
-        result[dayIndex].orders += 1;
-      }
-    });
-
-    return result;
-  }
-
-  const currentYear = now.getFullYear();
   const monthLabels = [
     "T1",
     "T2",
@@ -121,22 +43,22 @@ export const getRevenueDataByFilter = (
     "T12",
   ];
 
-  for (let month = 0; month < 12; month++) {
-    result.push({
-      day: monthLabels[month],
-      revenue: 0,
-      orders: 0,
-      fullDate: `${currentYear}-${String(month + 1).padStart(2, "0")}`,
-    });
-  }
+  const result: RevenueChartItem[] = monthLabels.map((label, index) => ({
+    day: label,
+    revenue: 0,
+    orders: 0,
+    fullDate: `${year}-${String(index + 1).padStart(2, "0")}`,
+  }));
 
   orders.forEach((order) => {
     if (!isCompletedOrder(order.status)) return;
 
     const createdAt = new Date(order.createdAt);
-    if (createdAt.getFullYear() !== currentYear) return;
+    if (Number.isNaN(createdAt.getTime())) return;
+    if (createdAt.getFullYear() !== year) return;
 
     const monthIndex = createdAt.getMonth();
+
     result[monthIndex].revenue += Number(order.totalPrice || 0);
     result[monthIndex].orders += 1;
   });
@@ -186,19 +108,6 @@ export const getStatusLabel = (status: string) => {
   }
 };
 
-export const getRevenueFilterLabel = (filter: RevenueFilterType) => {
-  switch (filter) {
-    case "week":
-      return "7 ngày gần nhất";
-    case "month":
-      return "Tháng hiện tại";
-    case "year":
-      return "Năm hiện tại";
-    default:
-      return "";
-  }
-};
-
 export const getRecentOrdersForList = (orders: Order[]): RecentOrderItem[] => {
   return [...orders]
     .sort(
@@ -230,7 +139,7 @@ export const getNewCustomersCount = (customers: CustomerAPI[]) => {
     if (!rawDate) return false;
 
     const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return false;
+    if (Number.isNaN(d.getTime())) return false;
 
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
@@ -246,19 +155,21 @@ export const getRevenueBars = (revenueData: RevenueChartItem[]) => {
 };
 
 export const getOrderBars = (revenueData: RevenueChartItem[]) => {
-  const dailyOrders = revenueData.map((item) => item.orders);
-  const maxOrders = Math.max(...dailyOrders, 1);
+  const monthlyOrders = revenueData.map((item) => item.orders);
+  const maxOrders = Math.max(...monthlyOrders, 1);
 
-  return dailyOrders.map((count) =>
+  return monthlyOrders.map((count) =>
     Math.max(Math.round((count / maxOrders) * 100), 12),
   );
 };
 
 export const getCustomerBars = (customers: CustomerAPI[]) => {
   const today = new Date();
+
   const recent7Days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(today.getDate() - (6 - index));
+
     return {
       key: formatDateKey(date),
       count: 0,
@@ -272,10 +183,11 @@ export const getCustomerBars = (customers: CustomerAPI[]) => {
     if (!rawDate) return;
 
     const parsed = new Date(rawDate);
-    if (isNaN(parsed.getTime())) return;
+    if (Number.isNaN(parsed.getTime())) return;
 
     const key = formatDateKey(parsed);
     const target = customerMap.get(key);
+
     if (target) target.count += 1;
   });
 
