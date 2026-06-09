@@ -18,15 +18,16 @@ export interface AllergyCheckResult {
   warningMessage: string;
 }
 
-// ─── Normalize string for fuzzy matching ───────────────────────────────────
-function normalize(str: string): string {
-  return str
+const EMPTY_PREFERENCES: string[] = [];
+
+const normalize = (value: unknown): string =>
+  String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '');
 }
 
-function fuzzyMatch(a: string, b: string): boolean {
+const fuzzyMatch = (a: unknown, b: unknown): boolean => {
   const na = normalize(a);
   const nb = normalize(b);
   return nb.includes(na) || na.includes(nb);
@@ -50,11 +51,27 @@ const SEAFOOD_INGREDIENTS = [
   'tôm sú', 'surimi', 'chả cá', 'mắm', 'mắm tôm', 'mắm ruốc',
 ];
 
-/** Dietary keywords that mean "vegetarian or vegan" */
-const VEGETARIAN_KEYWORDS = ['chay', 'vegan', 'vegetarian', 'thuần chay', 'ăn chay'];
+const VEGETARIAN_KEYWORDS = ['chay', 'vegan', 'vegetarian', 'thu\u1ea7n chay', '\u0103n chay'];
+const PESCATARIAN_KEYWORDS = ['pescatarian', '\u0103n c\u00e1', 'no meat'];
+const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', '\u00edt carb'];
+const HIGH_CARB_INGREDIENTS = ['c\u01a1m', 'b\u00fan', 'm\u00ec', 'b\u00e1nh m\u00ec', 'khoai t\u00e2y', 'b\u00e1nh g\u1ea1o', 'b\u1ed9t m\u00ec', 'm\u00ec g\u1ea1o'];
 
-/** Dietary keywords that restrict red meat but allow seafood */
-const PESCATARIAN_KEYWORDS = ['pescatarian', 'ăn cá', 'no meat'];
+const getRecipeName = (item: Product['recipe'][number]): string => {
+  if (item.name?.trim()) return item.name.trim();
+  if (typeof item.ingredientId === 'object') return item.ingredientId.name?.trim() ?? '';
+  return '';
+};
+
+const productKeywords = (product: Product): string[] => [
+  product.name,
+  product.description,
+  ...((product.recipe ?? []).map(getRecipeName)),
+  ...(product.tags ?? []),
+  ...(product.healthTags ?? []),
+].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
+
+const findConflicts = (product: Product, forbidden: string[]): string[] => {
+  const found: string[] = [];
 
 /** Dietary keywords for low-carb / keto users */
 const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', 'ít carb'];
@@ -79,31 +96,45 @@ function containsIngredient(product: Product, ingredients: string[]): string[] {
     }
   }
   return found;
-}
+};
 
-// ─── Core check function ───────────────────────────────────────────────────
+const isDietaryKeyword = (diet: unknown, keywords: string[]): boolean =>
+  keywords.some((keyword) => fuzzyMatch(keyword, diet));
+
+const toAllergenId = (value: unknown) => normalize(value).replace(/\s+/g, '_');
 
 export function checkProductAllergies(
   product: Product | null | undefined,
-  userAllergies: string[],
-  userDietary: string[] = []
+  userAllergies: unknown[],
+  userDietary: unknown[] = [],
 ): AllergyCheckResult {
   if (!product) return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 
-  // ── Step 1: Check hard allergies (DANGER) ────────────────────────────────
-  if (userAllergies.length > 0) {
-    const conflictIngredients: string[] = [];
+  if (product.healthRisk && product.healthRisk.level !== 'safe') {
+    const matchedIngredients = Array.isArray(product.healthRisk.matchedIngredients)
+      ? product.healthRisk.matchedIngredients.filter(Boolean)
+      : [];
+    const matchedAllergens = Array.isArray(product.healthRisk.matchedAllergens)
+      ? product.healthRisk.matchedAllergens.filter(Boolean)
+      : [];
 
-    // Recipe ingredient match
-    if (product.recipe?.length) {
-      for (const ingredient of product.recipe) {
-        for (const allergen of userAllergies) {
-          if (fuzzyMatch(allergen, ingredient.name) && !conflictIngredients.includes(ingredient.name)) {
-            conflictIngredients.push(ingredient.name);
-          }
-        }
-      }
-    }
+    return {
+      level: product.healthRisk.level,
+      conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
+      warningMessage: product.healthRisk.message ?? '',
+    };
+  }
+
+  const allergyIds = new Set(userAllergies.map(toAllergenId).filter(Boolean));
+  if (allergyIds.size > 0) {
+    const conflictIngredients = (product.recipe ?? [])
+      .filter((item) => {
+        const directTags = item.allergenTags ?? [];
+        const ingredientTags = typeof item.ingredientId === 'object' ? item.ingredientId.allergenTags ?? [] : [];
+        return [...directTags, ...ingredientTags].some((tag) => allergyIds.has(toAllergenId(tag)));
+      })
+      .map(getRecipeName)
+      .filter((name): name is string => Boolean(name));
 
     if (conflictIngredients.length > 0) {
       return {
@@ -204,13 +235,12 @@ export function checkProductAllergies(
 // ─── Hook (reads from auth store automatically) ────────────────────────────
 
 export function useAllergyCheck(product: Product | null | undefined): AllergyCheckResult {
-  const user = useAuthStore((s) => s.user);
-  const userAllergies: string[] = user?.preferences?.allergies ?? [];
-  const userDietary: string[] = user?.preferences?.dietary ?? [];
+  const user = useAuthStore((state) => state.user);
+  const userAllergies = user?.preferences?.allergies ?? EMPTY_PREFERENCES;
+  const userDietary = user?.preferences?.dietary ?? EMPTY_PREFERENCES;
 
   return useMemo(
     () => checkProductAllergies(product, userAllergies, userDietary),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [product?._id, userAllergies.join(','), userDietary.join(',')]
+    [product, userAllergies, userDietary],
   );
 }

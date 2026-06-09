@@ -29,8 +29,8 @@ const getImageUrl = (image: any): string => {
 
 const TOPPING_GROUP_NAME = "Topping ăn kèm";
 
-const normalizeLabel = (value: string) =>
-  value
+const normalizeLabel = (value: unknown) =>
+  String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
