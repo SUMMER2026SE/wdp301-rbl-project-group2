@@ -14,6 +14,7 @@ const variantGroupValidator = z.object({
 });
 
 export const productValidator = z.object({
+  storeId: z.string().length(24, 'Store id is invalid').optional(),
   name: z.string().min(1, 'Dish name is required').trim(),
   description: z.string().min(1, 'Description is required').trim(),
   image: z.string().optional(),
@@ -24,8 +25,12 @@ export const productValidator = z.object({
   recipe: z
     .array(
       z.object({
-        name: z.string(),
-        quantity: z.string(),
+        ingredientId: z.string().length(24, 'Ingredient id is invalid').optional(),
+        ingredientName: z.string().min(1, 'Ingredient name is required').trim().optional(),
+        quantity: z.coerce.number().positive('Quantity must be greater than 0'),
+        unit: z.string().min(1, 'Unit is required').trim(),
+      }).refine((item) => item.ingredientId || item.ingredientName, {
+        message: 'Ingredient id or ingredient name is required',
       })
     )
     .optional(),

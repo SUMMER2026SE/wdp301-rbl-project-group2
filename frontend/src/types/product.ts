@@ -1,5 +1,6 @@
 export interface Product {
   _id: string;
+  storeId?: string;
   name: string;
   description: string;
   image: string | { secureUrl: string };
@@ -10,12 +11,25 @@ export interface Product {
   rating: number;
   reviewCount: number;
   recipe: {
-    name: string;
-    quantity: string;
+    name?: string;
+    ingredientId?: {
+      _id: string;
+      name: string;
+      allergenTags?: string[];
+    } | string;
+    quantity: number | string;
+    unit?: string;
+    allergenTags?: string[];
   }[];
   tags: string[];
   healthWarning?: string;
   healthTags: string[];
+  healthRisk?: {
+    level: "safe" | "warning" | "danger";
+    matchedAllergens: string[];
+    matchedIngredients: string[];
+    message: string;
+  };
   isAvailable: boolean;
   aiReason?: string;
   createdAt: string;
