@@ -10,8 +10,6 @@ import { userService } from "@/services/profile.service";
 import { useAuthStore } from "@/store/authStore";
 import type { AuthAddress } from "@/store/authStore";
 import { sanitizeAddressesForApi } from "@/utils/address";
-import { AllergyWarningDialog, scanCartForAllergies } from "@/components/shared/AllergyWarningDialog";
-import productAPI from "@/services/product.service";
 import { TicketVoucher } from "@/components/shared/TicketVoucher";
 import paymentService from "@/services/payment.service";
 
@@ -59,8 +57,6 @@ const CheckoutPage = () => {
 
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const userAllergies = user?.preferences?.allergies ?? [];
-  const userDietary = user?.preferences?.dietary ?? [];
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editAddressIndex, setEditAddressIndex] = useState<number | null>(null);
   const [allergyConflicts, setAllergyConflicts] = useState<any[]>([]);
@@ -192,7 +188,6 @@ const CheckoutPage = () => {
     }
   }, [addresses.length, effectiveAddress]);
 
-  // FSS-40: Intercept order placement to check for allergies first
   const handleCheckoutSubmit = async () => {
     if (!effectiveAddress) {
       toast("Vui lòng chọn hoặc thêm địa chỉ nhận hàng", "warning");
@@ -1157,15 +1152,6 @@ const CheckoutPage = () => {
         initialData={editAddressIndex !== null ? addresses[editAddressIndex] : null}
         isFirstAddress={addresses.length === 0}
       />
-
-      {/* FSS-40: Allergy Warning Modal */}
-      {showAllergyWarning && (
-        <AllergyWarningDialog
-          conflicts={allergyConflicts}
-          onConfirm={handleConfirmAllergyWarning}
-          onCancel={() => setShowAllergyWarning(false)}
-        />
-      )}
     </div>
   );
 };
