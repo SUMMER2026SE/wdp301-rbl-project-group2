@@ -10,6 +10,7 @@ import { useCart } from "@/hooks/useCart";
 import { useAuthStore } from "@/store/authStore";
 import { FoodCard } from "@/components/shared/FoodCard";
 import { useStoreStore } from "@/store/storeStore";
+import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
 
 
 // Nhãn gợi ý mặc định khi dùng fallback (không có AI)
@@ -35,6 +36,22 @@ type DisplayItem =
   | { type: "ai"; data: { product: Product; healthScore: number; aiReason: string } }
   | { type: "fallback"; data: Product; tag: string };
 
+const getProductKey = (product: Product) =>
+  product.name
+    ? product.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()
+    : product._id;
+
+const uniqueDisplayItems = (list: DisplayItem[]) => {
+  const seen = new Set<string>();
+  return list.filter((item) => {
+    const product = item.type === "ai" ? item.data.product : item.data;
+    const key = getProductKey(product);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 // ── Main Component ────────────────────────────────────────
 
 const RecommendedSection = () => {
@@ -57,10 +74,10 @@ const RecommendedSection = () => {
         if (isAuthenticated) {
           // ── Thử lấy AI recommendations ──
           try {
-            const res = await recommendationService.getAIRecommendations();
+            const res = await recommendationService.getAIRecommendations({ storeId: selectedStore?._id });
             const aiData = res.data.data;
             if (!cancelled && aiData && aiData.length > 0) {
-              setItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "ai", data: d })));
+              setItems(uniqueDisplayItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "ai", data: d }))));
               setIsAIMode(true);
               return;
             }
@@ -78,11 +95,11 @@ const RecommendedSection = () => {
         });
         if (!cancelled) {
           setItems(
-            res.data.slice(0, 3).map((p, idx) => ({
+            uniqueDisplayItems(res.data.map((p, idx) => ({
               type: "fallback",
               data: p,
               tag: FALLBACK_TAGS[idx] ?? "Great Choice",
-            })),
+            }))).slice(0, 3),
           );
           setIsAIMode(false);
         }
@@ -201,7 +218,7 @@ const RecommendedSection = () => {
 
         {/* Items */}
         {!loading &&
-          items.map((item, idx) => {
+          items.map((item) => {
             const isAI = item.type === "ai";
             const product = isAI ? item.data.product : item.data;
             const customBadge = isAI
@@ -217,7 +234,7 @@ const RecommendedSection = () => {
 
             return (
               <FoodCard
-                key={isAI ? product._id + idx : product._id}
+                key={product._id}
                 id={product._id}
                 name={product.name}
                 image={typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '')}
@@ -226,6 +243,8 @@ const RecommendedSection = () => {
                 restaurant={product.restaurant}
                 time={product.time}
                 description={isAI ? item.data.aiReason : product.description}
+                healthStatus={getProductHealthStatus(product)}
+                allergenInfo={getProductAllergenInfo(product)}
                 variant="horizontal"
                 customBadge={customBadge}
                 onAddToCart={() => {

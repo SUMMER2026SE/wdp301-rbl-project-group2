@@ -80,7 +80,6 @@ export const placeOrderHandler = catchErrors(async (req, res) => {
             voucherId: order.voucherId,
             checkoutUrl: (order as any).checkoutUrl,
             createdAt: (order as any).createdAt,
-            allergyWarnings: (order as any).allergyWarnings ?? [],
         },
         message: 'Đặt hàng thành công',
     });
