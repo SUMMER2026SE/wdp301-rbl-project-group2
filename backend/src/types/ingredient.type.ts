@@ -2,7 +2,17 @@ import mongoose from 'mongoose';
 
 export interface IIngredient extends mongoose.Document<mongoose.Types.ObjectId> {
   name: string;
+  description?: string;
   allergenTags: string[];
+  allergenSuggestion?: {
+    suggestedTags: string[];
+    confidence: number;
+    reason: string;
+    suggestedAt: Date;
+  };
+  allergenReviewStatus?: 'pending' | 'reviewed' | 'rejected';
+  allergenConfidence?: number;
+  allergenSource?: 'manual' | 'ai' | 'ai_confirmed';
   createdAt: Date;
   updatedAt: Date;
 }

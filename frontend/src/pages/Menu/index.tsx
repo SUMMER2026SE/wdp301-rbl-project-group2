@@ -21,6 +21,7 @@ import { Plus, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { checkProductAllergies } from "@/hooks/useAllergyCheck";
 import { FoodCard } from "@/components/shared/FoodCard";
+import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
 import { useStoreStore } from "@/store/storeStore";
 
 const FoodCardSkeleton = () => (
@@ -321,6 +322,8 @@ const MenuPage = () => {
                     rating={item.rating}
                     restaurant={item.restaurant}
                     time={item.time}
+                    healthStatus={getProductHealthStatus(item)}
+                    allergenInfo={getProductAllergenInfo(item)}
                     onAddToCart={() => {
                       addItem({
                         productId: item._id,

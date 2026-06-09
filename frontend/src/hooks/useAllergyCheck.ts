@@ -15,24 +15,6 @@ export interface AllergyCheckResult {
   warningMessage: string;
 }
 
-type RecipeItemWithAllergens = Product['recipe'][number] & {
-  ingredientId?: {
-    name?: string;
-    allergenTags?: unknown[];
-  } | string;
-  allergenTags?: unknown[];
-};
-
-type ProductWithHealthRisk = Omit<Product, 'recipe'> & {
-  recipe?: RecipeItemWithAllergens[];
-  healthRisk?: {
-    level?: AllergyLevel;
-    matchedIngredients?: unknown[];
-    matchedAllergens?: unknown[];
-    message?: string;
-  };
-};
-
 const EMPTY_PREFERENCES: string[] = [];
 
 const normalize = (value: unknown): string =>
@@ -67,13 +49,13 @@ const PESCATARIAN_KEYWORDS = ['pescatarian', '\u0103n c\u00e1', 'no meat'];
 const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', '\u00edt carb'];
 const HIGH_CARB_INGREDIENTS = ['c\u01a1m', 'b\u00fan', 'm\u00ec', 'b\u00e1nh m\u00ec', 'khoai t\u00e2y', 'b\u00e1nh g\u1ea1o', 'b\u1ed9t m\u00ec', 'm\u00ec g\u1ea1o'];
 
-const getRecipeName = (item: RecipeItemWithAllergens): string => {
+const getRecipeName = (item: Product['recipe'][number]): string => {
   if (item.name?.trim()) return item.name.trim();
   if (typeof item.ingredientId === 'object') return item.ingredientId.name?.trim() ?? '';
   return '';
 };
 
-const productKeywords = (product: ProductWithHealthRisk): string[] => [
+const productKeywords = (product: Product): string[] => [
   product.name,
   product.description,
   ...((product.recipe ?? []).map(getRecipeName)),
@@ -81,7 +63,7 @@ const productKeywords = (product: ProductWithHealthRisk): string[] => [
   ...(product.healthTags ?? []),
 ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
 
-const findConflicts = (product: ProductWithHealthRisk, forbidden: string[]): string[] => {
+const findConflicts = (product: Product, forbidden: string[]): string[] => {
   const found: string[] = [];
 
   for (const keyword of productKeywords(product)) {
@@ -101,26 +83,24 @@ const isDietaryKeyword = (diet: unknown, keywords: string[]): boolean =>
 const toAllergenId = (value: unknown) => normalize(value).replace(/\s+/g, '_');
 
 export function checkProductAllergies(
-  product: ProductWithHealthRisk | null | undefined,
+  product: Product | null | undefined,
   userAllergies: unknown[],
   userDietary: unknown[] = [],
 ): AllergyCheckResult {
   if (!product) return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 
-  const healthRisk = product.healthRisk;
-  const serverRiskLevel = healthRisk?.level;
-  if (serverRiskLevel && serverRiskLevel !== 'safe') {
-    const matchedIngredients = Array.isArray(healthRisk.matchedIngredients)
-      ? healthRisk.matchedIngredients.map(String).filter(Boolean)
+  if (product.healthRisk && product.healthRisk.level !== 'safe') {
+    const matchedIngredients = Array.isArray(product.healthRisk.matchedIngredients)
+      ? product.healthRisk.matchedIngredients.filter(Boolean)
       : [];
-    const matchedAllergens = Array.isArray(healthRisk.matchedAllergens)
-      ? healthRisk.matchedAllergens.map(String).filter(Boolean)
+    const matchedAllergens = Array.isArray(product.healthRisk.matchedAllergens)
+      ? product.healthRisk.matchedAllergens.filter(Boolean)
       : [];
 
     return {
-      level: serverRiskLevel,
+      level: product.healthRisk.level,
       conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
-      warningMessage: healthRisk.message ?? '',
+      warningMessage: product.healthRisk.message ?? '',
     };
   }
 

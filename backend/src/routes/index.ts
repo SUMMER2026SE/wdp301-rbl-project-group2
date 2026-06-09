@@ -18,11 +18,17 @@ import { uploadBuffer } from '@/utils/upload-file';
 import { parseFormData } from '@/utils/parse-form-data';
 import settingsRoute from './settings.route';
 import storeRoutes from './store.route';
+import ingredientRoutes from './ingredient.route';
+import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
 
 const appRoutes = Router();
 
 appRoutes.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+appRoutes.get('/allergens', (_req, res) => {
+  res.json({ success: true, data: ALLERGEN_CATALOG });
 });
 
 appRoutes.use('/auth', authRoutes);
@@ -43,6 +49,7 @@ appRoutes.use('/support', supportChatRoutes);
 appRoutes.use('/payments', paymentRoutes);
 appRoutes.use('/settings', settingsRoute);
 appRoutes.use('/stores', storeRoutes);
+appRoutes.use('/ingredients', ingredientRoutes);
 
 appRoutes.post('/upload', uploadImage.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Thiếu ảnh' });

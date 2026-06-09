@@ -9,7 +9,11 @@
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "test": "jest",
-    "setup:toppings": "ts-node -r tsconfig-paths/register src/scripts/setup-product-toppings.ts"
+    "setup:toppings": "ts-node -r tsconfig-paths/register src/scripts/setup-product-toppings.ts",
+    "backfill:recipes": "ts-node -r tsconfig-paths/register src/scripts/backfill-product-recipes.ts",
+    "cleanup:unused-ingredients": "ts-node -r tsconfig-paths/register src/scripts/cleanup-unused-ingredients.ts",
+    "rename:ingredients": "ts-node -r tsconfig-paths/register src/scripts/rename-ingredients.ts",
+    "sync:products": "ts-node -r tsconfig-paths/register src/scripts/sync-products-from-csv.ts"
   },
   "engines": {
     "node": "22.x",
