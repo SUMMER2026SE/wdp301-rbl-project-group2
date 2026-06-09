@@ -32,21 +32,6 @@ class ProductAPI {
     return response.data;
   }
 
-  async getProductHealthRisk(
-    id: string,
-  ): Promise<{
-    success: boolean;
-    data: {
-      level: "safe" | "warning" | "danger";
-      matchedAllergens: string[];
-      matchedIngredients: string[];
-      message: string;
-    };
-  }> {
-    const response = await apiClient.get(`/products/${id}/health-risk`);
-    return response.data;
-  }
-
   async createProduct(
     data: Partial<Product>,
   ): Promise<{ success: boolean; data: Product; message: string }> {

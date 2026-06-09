@@ -60,7 +60,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="w-10 h-10 rounded-lg flex items-center justify-center border border-[#e7dbcf] text-[#9a734c] hover:bg-[#fcfaf8] hover:text-[#ee8c2b] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="w-10 h-10 rounded-lg flex items-center justify-center border border-[#e7dbcf] text-[#9a734c] hover:bg-[#fcfaf8] hover:text-[#ea580c] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           title="Trang trước"
         >
           <span className="material-symbols-outlined">chevron_left</span>
@@ -73,8 +73,8 @@ export const Pagination: React.FC<PaginationProps> = ({
             className={clsx(
               "w-10 h-10 rounded-lg text-sm font-bold flex items-center justify-center transition-all border",
               page === currentPage
-                ? "bg-[#ee8c2b] border-[#ee8c2b] text-white shadow-lg shadow-[#ee8c2b]/20"
-                : "bg-white border-[#e7dbcf] text-[#9a734c] hover:border-[#ee8c2b] hover:text-[#ee8c2b]",
+                ? "bg-[#ea580c] border-[#ea580c] text-white shadow-lg shadow-[#ea580c]/20"
+                : "bg-white border-[#e7dbcf] text-[#9a734c] hover:border-[#ea580c] hover:text-[#ea580c]",
             )}
           >
             {page}
@@ -84,7 +84,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="w-10 h-10 rounded-lg flex items-center justify-center border border-[#e7dbcf] text-[#9a734c] hover:bg-[#fcfaf8] hover:text-[#ee8c2b] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="w-10 h-10 rounded-lg flex items-center justify-center border border-[#e7dbcf] text-[#9a734c] hover:bg-[#fcfaf8] hover:text-[#ea580c] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           title="Trang sau"
         >
           <span className="material-symbols-outlined">chevron_right</span>

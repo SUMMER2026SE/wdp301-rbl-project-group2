@@ -9,18 +9,9 @@ export { CATEGORIES, HEALTH_TAG_OPTIONS };
 // ---- Types ----
 
 export interface RecipeItem {
-  ingredientId: string;
-  ingredientName: string;
+  name: string;
   quantity: string;
-  unit: string;
 }
-
-const DEFAULT_RECIPE_ITEM: RecipeItem = {
-  ingredientId: "",
-  ingredientName: "",
-  quantity: "",
-  unit: "g",
-};
 
 export interface ProductFormData {
   name: string;
@@ -48,8 +39,6 @@ const DEFAULT_FORM: ProductFormData = {
   recipe: [],
 };
 
-const createDefaultRecipeItem = (): RecipeItem => ({ ...DEFAULT_RECIPE_ITEM });
-
 /**
  * Chuyển Product (từ API) thành ProductFormData (cho form).
  * Dùng khi mode === 'edit' để pre-fill.
@@ -64,17 +53,7 @@ const productToFormData = (product: Product): ProductFormData => ({
   healthWarning: product.healthWarning ?? "",
   healthTags: product.healthTags ?? [],
   tags: product.tags ?? [],
-  recipe: (product.recipe ?? []).map((item) => ({
-    ingredientId:
-      typeof item.ingredientId === "object"
-        ? item.ingredientId._id
-        : typeof item.ingredientId === "string"
-          ? item.ingredientId
-          : "",
-    ingredientName: typeof item.name === "string" ? item.name : "",
-    quantity: String(item.quantity ?? ""),
-    unit: item.unit ?? "g",
-  })),
+  recipe: product.recipe ?? [],
 });
 
 // ---- Hook ----
@@ -112,24 +91,22 @@ export const useProductForm = ({
    * useEffect này chạy mỗi khi mode/product thay đổi để re-initialize đúng.
    */
   useEffect(() => {
-    void Promise.resolve().then(() => {
-      if (mode === "edit" && product) {
-        setFormData(productToFormData(product));
-        setImagePreview(
-          product.image && typeof product.image === "object"
-            ? product.image.secureUrl
-            : "",
-        );
-        setImageFile(null);
-        setError("");
-      } else if (mode === "add") {
-        setFormData(DEFAULT_FORM);
-        setImagePreview("");
-        setImageFile(null);
-        setError("");
-      }
-    });
-  }, [mode, product]);
+    if (mode === "edit" && product) {
+      setFormData(productToFormData(product));
+      setImagePreview(
+        product.image && typeof product.image === "object"
+          ? product.image.secureUrl
+          : "",
+      );
+      setImageFile(null);
+      setError("");
+    } else if (mode === "add") {
+      setFormData(DEFAULT_FORM);
+      setImagePreview("");
+      setImageFile(null);
+      setError("");
+    }
+  }, [mode, product?._id]); // Dùng product._id thay vì product object để tránh re-render không cần thiết
 
   // ---- Field Handlers ----
 
@@ -166,7 +143,7 @@ export const useProductForm = ({
   const addRecipeItem = useCallback(() => {
     setFormData((prev) => ({
       ...prev,
-      recipe: [...prev.recipe, createDefaultRecipeItem()],
+      recipe: [...prev.recipe, { name: "", quantity: "" }],
     }));
   }, []);
 
@@ -175,12 +152,6 @@ export const useProductForm = ({
       setFormData((prev) => {
         const updated = [...prev.recipe];
         updated[index] = { ...updated[index], [field]: value };
-        if (field === "ingredientId" && value) {
-          updated[index].ingredientName = "";
-        }
-        if (field === "ingredientName" && value) {
-          updated[index].ingredientId = "";
-        }
         return { ...prev, recipe: updated };
       });
     },
@@ -194,13 +165,6 @@ export const useProductForm = ({
     }));
   }, []);
 
-  const resetForm = useCallback(() => {
-    setFormData(DEFAULT_FORM);
-    setImageFile(null);
-    setImagePreview("");
-    setError("");
-  }, []);
-
   // ---- Submit ----
 
   const handleSubmit = useCallback(
@@ -212,18 +176,13 @@ export const useProductForm = ({
       try {
         // Lọc recipe items rỗng
         const cleanRecipe = formData.recipe.filter(
-          (r) => (r.ingredientId.trim() || r.ingredientName.trim()) && r.quantity.trim() && r.unit.trim(),
+          (r) => r.name.trim() && r.quantity.trim(),
         );
 
-        const payload: Partial<Product> & { price: number; recipe: { ingredientId?: string; ingredientName?: string; quantity: number; unit: string }[] } = {
+        const payload: Record<string, any> = {
           ...formData,
           price: Number(formData.price),
-          recipe: cleanRecipe.map((item) => ({
-            ingredientId: item.ingredientId || undefined,
-            ingredientName: item.ingredientName || undefined,
-            quantity: Number(item.quantity),
-            unit: item.unit,
-          })),
+          recipe: cleanRecipe,
         };
 
         // Nếu có ảnh mới → upload trước, lấy MongoDB ObjectId gán vào payload
@@ -241,18 +200,24 @@ export const useProductForm = ({
         onSuccess();
         onClose();
         resetForm();
-      } catch (err: unknown) {
-        const maybeError = err as { response?: { data?: { message?: string } } };
+      } catch (err: any) {
         const message =
-          maybeError.response?.data?.message ||
+          err?.response?.data?.message ||
           `Lỗi khi ${mode === "add" ? "thêm" : "cập nhật"} sản phẩm`;
         setError(message);
       } finally {
         setLoading(false);
       }
     },
-    [formData, imageFile, mode, product, onSuccess, onClose, resetForm],
+    [formData, imageFile, mode, product, onSuccess, onClose],
   );
+
+  const resetForm = useCallback(() => {
+    setFormData(DEFAULT_FORM);
+    setImageFile(null);
+    setImagePreview("");
+    setError("");
+  }, []);
 
   return {
     formData,

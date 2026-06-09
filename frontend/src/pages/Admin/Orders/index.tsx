@@ -200,10 +200,10 @@ const AdminOrders = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#ee8c2b]/20 flex items-center justify-center text-[#ee8c2b] font-bold text-xs">
-                            {typeof order.cusId === "object" ? order.cusId?.username?.charAt(0) || "U" : "U"}
+                            {typeof order.cusId === "object" ? (order.cusId?.fullName || order.cusId?.username)?.charAt(0) || "U" : "U"}
                           </div>
                           <span className="text-sm font-semibold text-[#1b140d]">
-                            {typeof order.cusId === "object" ? order.cusId?.username || "Ẩn danh" : "Ẩn danh"}
+                            {typeof order.cusId === "object" ? order.cusId?.fullName || order.cusId?.username || "Ẩn danh" : "Ẩn danh"}
                           </span>
                         </div>
                       </td>
@@ -322,7 +322,7 @@ const AdminOrders = () => {
                           </span>
                         </div>
                         <p className="text-sm font-semibold mb-3">
-                          {typeof card.cusId === "object" ? card.cusId?.username : "Khách hàng"}
+                          {typeof card.cusId === "object" ? card.cusId?.fullName || card.cusId?.username : "Khách hàng"}
                         </p>
                         <div className="flex justify-between items-center text-sm mb-2">
                           <span className="text-gray-500">Số món:</span>
@@ -461,7 +461,7 @@ const AdminOrders = () => {
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><User size={20} /></div>
                 <div>
                   <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">Khách hàng</p>
-                  <p className="text-sm font-bold text-[#1b140d]">{typeof orderDetails.cusId === "object" ? orderDetails.cusId?.username || "Khách vãng lai" : "Khách vãng lai"}</p>
+                  <p className="text-sm font-bold text-[#1b140d]">{typeof orderDetails.cusId === "object" ? orderDetails.cusId?.fullName || orderDetails.cusId?.username || "Khách vãng lai" : "Khách vãng lai"}</p>
                   <p className="text-xs text-[#9a734c]">{orderDetails.deliveryAddress?.receiverName} • {orderDetails.deliveryAddress?.phone}</p>
                 </div>
               </div>

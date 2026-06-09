@@ -208,9 +208,10 @@ export const useCheckout = () => {
       effectiveAddress.ward ?? "",
       effectiveAddress.city ?? "",
       subtotal,
+      selectedStore?.location?.coordinates,
       config
     );
-  }, [effectiveAddress, subtotal, settings]);
+  }, [effectiveAddress, subtotal, settings, selectedStore]);
 
   const deliveryFee = shippingResult.fee;
   const isDeliverable = !shippingResult.blocked;
@@ -331,6 +332,7 @@ export const useCheckout = () => {
     isDeliverable,
     shippingResult,
     settings,
+    selectedStore,
     // Submit
     isSubmitting,
     handlePlaceOrder,

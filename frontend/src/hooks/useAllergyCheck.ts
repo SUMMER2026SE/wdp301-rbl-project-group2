@@ -1,6 +1,9 @@
 /**
- * FSS-40: checks the current product against the user's health preferences.
- * This is a customer-facing warning only; the backend still owns final safety logic.
+ * FSS-40: useAllergyCheck
+ * Client-side hook that checks a product against:
+ *   1. User's declared allergies (preferences.allergies[])  → danger level
+ *   2. User's dietary restrictions (preferences.dietary[])  → warning level
+ *      e.g. 'chay', 'vegan', 'vegetarian' → warns on meat/seafood
  */
 
 import { useMemo } from 'react';
@@ -21,27 +24,31 @@ const normalize = (value: unknown): string =>
   String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\u0111/g, 'd')
-    .trim();
+    .replace(/\p{Diacritic}/gu, '');
+}
 
 const fuzzyMatch = (a: unknown, b: unknown): boolean => {
   const na = normalize(a);
   const nb = normalize(b);
-  return Boolean(na && nb) && (nb.includes(na) || na.includes(nb));
-};
+  return nb.includes(na) || na.includes(nb);
+}
 
+// ─── Dietary restriction rules ─────────────────────────────────────────────
+
+/** Ingredients that are NOT vegetarian/vegan */
 const MEAT_INGREDIENTS = [
-  'th\u1ecbt b\u00f2', 'th\u1ecbt heo', 'th\u1ecbt l\u1ee3n', 'th\u1ecbt g\u00e0', 'th\u1ecbt v\u1ecbt', 'th\u1ecbt d\u00ea',
-  'b\u00f2', 'heo', 'l\u1ee3n', 'g\u00e0', 'v\u1ecbt', 'd\u00ea', 'tr\u00e2u', 'c\u1eebu',
-  'x\u00e1 x\u00edu', 'bacon', 'th\u1ecbt xay', 'x\u00fac x\u00edch', 'gi\u0103m b\u00f4ng', 'ham',
-  'l\u1ea1p x\u01b0\u1edfng', 'ch\u1ea3 l\u1ee5a', 'ch\u1ea3 gi\u00f2', 'b\u00f2 vi\u00ean', 'g\u00e2n b\u00f2', 'n\u1ea1m b\u00f2',
+  'thịt bò', 'thịt heo', 'thịt lợn', 'thịt gà', 'thịt vịt', 'thịt dê',
+  'bò', 'heo', 'lợn', 'gà', 'vịt', 'dê', 'trâu', 'cừu',
+  'thịt xá xíu', 'xá xíu', 'thịt xông khói', 'bacon', 'thịt xay',
+  'xúc xích', 'giăm bông', 'ham', 'lạp xưởng', 'chả lụa', 'chả giò',
+  'thịt nướng', 'bò viên', 'gân bò', 'nạm bò',
 ];
 
+/** Ingredients that are NOT pescatarian-safe (seafood) */
 const SEAFOOD_INGREDIENTS = [
-  't\u00f4m', 'cua', 'm\u1ef1c', 'ngh\u00eau', 's\u00f2', 'ng\u00eau', 'h\u1ea3i s\u1ea3n', 'c\u00e1',
-  'c\u00e1 h\u1ed3i', 'c\u00e1 ng\u1eeb', 'c\u00e1 l\u00f3c', 'c\u00e1 thu', 's\u00f2 \u0111i\u1ec7p', 't\u00f4m h\u00f9m',
-  't\u00f4m s\u00fa', 'surimi', 'ch\u1ea3 c\u00e1', 'm\u1eafm', 'm\u1eafm t\u00f4m', 'm\u1eafm ru\u1ed1c',
+  'tôm', 'cua', 'mực', 'nghêu', 'sò', 'ngêu', 'hải sản', 'cá',
+  'cá hồi', 'cá ngừ', 'cá lóc', 'cá thu', 'sò điệp', 'tôm hùm',
+  'tôm sú', 'surimi', 'chả cá', 'mắm', 'mắm tôm', 'mắm ruốc',
 ];
 
 const VEGETARIAN_KEYWORDS = ['chay', 'vegan', 'vegetarian', 'thu\u1ea7n chay', '\u0103n chay'];
@@ -66,14 +73,28 @@ const productKeywords = (product: Product): string[] => [
 const findConflicts = (product: Product, forbidden: string[]): string[] => {
   const found: string[] = [];
 
-  for (const keyword of productKeywords(product)) {
-    for (const forbiddenKeyword of forbidden) {
-      if (fuzzyMatch(forbiddenKeyword, keyword) && !found.includes(keyword)) {
-        found.push(keyword);
+/** Dietary keywords for low-carb / keto users */
+const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', 'ít carb'];
+
+/** High-carb ingredients to warn low-carb users */
+const HIGH_CARB_INGREDIENTS = [
+  'cơm', 'bún', 'mì', 'bánh mì', 'khoai tây', 'bánh gạo', 'bột mì', 'mì gạo',
+];
+
+function isDietaryKeyword(diet: string, keywords: string[]): boolean {
+  return keywords.some(k => fuzzyMatch(k, diet));
+}
+
+function containsIngredient(product: Product, ingredients: string[]): string[] {
+  const found: string[] = [];
+  if (!product.recipe) return found;
+  for (const item of product.recipe) {
+    for (const ing of ingredients) {
+      if (fuzzyMatch(ing, item.name) && !found.includes(item.name)) {
+        found.push(item.name);
       }
     }
   }
-
   return found;
 };
 
@@ -116,53 +137,90 @@ export function checkProductAllergies(
       .filter((name): name is string => Boolean(name));
 
     if (conflictIngredients.length > 0) {
-      const uniqueConflicts = [...new Set(conflictIngredients)];
       return {
         level: 'danger',
-        conflictIngredients: uniqueConflicts,
-        warningMessage: `M\u00f3n n\u00e0y c\u00f3 ${uniqueConflicts.join(', ')}, c\u00f3 th\u1ec3 kh\u00f4ng ph\u00f9 h\u1ee3p v\u1edbi h\u1ed3 s\u01a1 d\u1ecb \u1ee9ng c\u1ee7a b\u1ea1n.`,
+        conflictIngredients,
+        warningMessage: `Món này chứa nguyên liệu bạn dị ứng: ${conflictIngredients.join(', ')}`,
+      };
+    }
+
+    // healthTags match (WARNING)
+    const tagConflicts: string[] = [];
+    for (const tag of product.healthTags ?? []) {
+      for (const allergen of userAllergies) {
+        if (fuzzyMatch(allergen, tag) && !tagConflicts.includes(tag)) {
+          tagConflicts.push(tag);
+        }
+      }
+    }
+    if (tagConflicts.length > 0) {
+      return {
+        level: 'warning',
+        conflictIngredients: tagConflicts,
+        warningMessage: `Món này có thể không phù hợp với hồ sơ sức khỏe của bạn`,
       };
     }
   }
 
+  // ── Step 2: Check dietary restrictions (WARNING) ─────────────────────────
   if (userDietary.length > 0) {
-    const isVegetarian = userDietary.some((diet) => isDietaryKeyword(diet, VEGETARIAN_KEYWORDS));
+    // 2a. Vegetarian / Vegan
+    const isVegetarian = userDietary.some(d => isDietaryKeyword(d, VEGETARIAN_KEYWORDS));
     if (isVegetarian) {
-      const conflicts = findConflicts(product, [...MEAT_INGREDIENTS, ...SEAFOOD_INGREDIENTS]);
-      if (conflicts.length > 0) {
+      const meatFound = containsIngredient(product, MEAT_INGREDIENTS);
+      const seafoodFound = containsIngredient(product, SEAFOOD_INGREDIENTS);
+      const allConflicts = [...meatFound, ...seafoodFound];
+
+      if (allConflicts.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: conflicts,
-          warningMessage: `B\u1ea1n \u0111ang \u0103n chay, m\u00f3n n\u00e0y c\u00f3 th\u1ec3 ch\u1ee9a: ${conflicts.join(', ')}`,
+          conflictIngredients: allConflicts,
+          warningMessage: `Bạn đang ăn chay — món này chứa: ${allConflicts.join(', ')}`,
+        };
+      }
+
+      // Check healthTags for meat/seafood hints
+      const meatTags = (product.healthTags ?? []).filter(t =>
+        MEAT_INGREDIENTS.some(m => fuzzyMatch(m, t)) ||
+        SEAFOOD_INGREDIENTS.some(s => fuzzyMatch(s, t))
+      );
+      if (meatTags.length > 0) {
+        return {
+          level: 'warning',
+          conflictIngredients: meatTags,
+          warningMessage: `Bạn đang ăn chay — món này có thể chứa thịt hoặc hải sản`,
         };
       }
     }
 
-    const isPescatarian = userDietary.some((diet) => isDietaryKeyword(diet, PESCATARIAN_KEYWORDS));
+    // 2b. Pescatarian (no red meat, fish ok)
+    const isPescatarian = userDietary.some(d => isDietaryKeyword(d, PESCATARIAN_KEYWORDS));
     if (isPescatarian && !isVegetarian) {
-      const conflicts = findConflicts(product, MEAT_INGREDIENTS);
-      if (conflicts.length > 0) {
+      const meatFound = containsIngredient(product, MEAT_INGREDIENTS);
+      if (meatFound.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: conflicts,
-          warningMessage: `B\u1ea1n kh\u00f4ng \u0103n th\u1ecbt \u0111\u1ecf, m\u00f3n n\u00e0y c\u00f3 th\u1ec3 ch\u1ee9a: ${conflicts.join(', ')}`,
+          conflictIngredients: meatFound,
+          warningMessage: `Bạn không ăn thịt đỏ — món này chứa: ${meatFound.join(', ')}`,
         };
       }
     }
 
-    const isLowCarb = userDietary.some((diet) => isDietaryKeyword(diet, LOW_CARB_KEYWORDS));
+    // 2c. Low-carb / Keto
+    const isLowCarb = userDietary.some(d => isDietaryKeyword(d, LOW_CARB_KEYWORDS));
     if (isLowCarb) {
-      const conflicts = findConflicts(product, HIGH_CARB_INGREDIENTS);
-      if (conflicts.length > 0) {
+      const carbFound = containsIngredient(product, HIGH_CARB_INGREDIENTS);
+      if (carbFound.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: conflicts,
-          warningMessage: `Ch\u1ebf \u0111\u1ed9 Low-carb/Keto, m\u00f3n n\u00e0y ch\u1ee9a nhi\u1ec1u tinh b\u1ed9t: ${conflicts.join(', ')}`,
+          conflictIngredients: carbFound,
+          warningMessage: `Chế độ Low-carb/Keto — món này chứa nhiều tinh bột: ${carbFound.join(', ')}`,
         };
       }
     }
   }
 
+  // ── Step 3: Generic product healthWarning ────────────────────────────────
   if (product.healthWarning?.trim()) {
     return {
       level: 'warning',
@@ -173,6 +231,8 @@ export function checkProductAllergies(
 
   return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 }
+
+// ─── Hook (reads from auth store automatically) ────────────────────────────
 
 export function useAllergyCheck(product: Product | null | undefined): AllergyCheckResult {
   const user = useAuthStore((state) => state.user);

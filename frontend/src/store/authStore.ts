@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { disconnectSupportSocket, reconnectSupportSocket } from "@/lib/support-socket";
+import { removeToken } from "@/utils/storage";
 
 // ---- Types (aligned with BE) ----
 
@@ -97,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrated: true, // Already hydrated synchronously above
 
   login: (user) => {
+    disconnectSupportSocket();
     const normalizedUser = normalizeUser(user);
     setStoredUser(normalizedUser);
     // Reset location alert state so it shows after login
@@ -109,7 +112,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    disconnectSupportSocket();
     clearStoredUser();
+    removeToken();
     set({
       user: null,
       isAuthenticated: false,
@@ -133,6 +138,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const user = normalizeUser(res.data);
         setStoredUser(user);
         set({ user, role: normalizeRole(user.role) });
+        reconnectSupportSocket();
       }
     } catch (error) {
       // If cookie session is invalid/expired, clear local auth to avoid mismatch

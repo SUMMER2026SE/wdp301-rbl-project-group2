@@ -1,8 +1,19 @@
 import type { Product } from "@/types/product";
+import type { HealthStatus } from "@/components/shared/FoodCard";
 
-export const getProductHealthStatus = (product: Product) => product.healthRisk?.level ?? "safe";
+type ProductHealthRisk = {
+  level?: HealthStatus;
+  matchedIngredients?: string[];
+  matchedAllergens?: string[];
+};
 
-export const getProductAllergenInfo = (product: Product) => {
+type ProductWithHealthRisk = Product & {
+  healthRisk?: ProductHealthRisk;
+};
+
+export const getProductHealthStatus = (product: ProductWithHealthRisk): HealthStatus => product.healthRisk?.level ?? "safe";
+
+export const getProductAllergenInfo = (product: ProductWithHealthRisk) => {
   const risk = product.healthRisk;
   if (!risk || risk.level === "safe") return undefined;
   const matchedIngredients = Array.isArray(risk.matchedIngredients) ? risk.matchedIngredients.filter(Boolean) : [];

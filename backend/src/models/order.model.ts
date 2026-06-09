@@ -77,7 +77,7 @@ const OrderSchema = new mongoose.Schema<IOrder>(
       default: OrderStatus.PENDING,
     },
     items: { type: [OrderItemSchema], required: true },
-    
+
     voucherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Voucher', default: null },
     voucherCode: { type: String, default: null },
     discountType: { type: String, enum: DiscountType, default: null },
@@ -93,7 +93,7 @@ const OrderSchema = new mongoose.Schema<IOrder>(
 
     deliveryAddress: { type: DeliveryAddressSchema, required: true },
     deliveryInfo: { type: DeliveryInfoSchema, default: () => ({}) },
-    
+
     note: { type: String },
     staffNoteItems: { type: [String], default: [] },
     payment: {

@@ -1,7 +1,7 @@
-﻿import type { MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Star, Clock, Sparkles, AlertTriangle, Check, Plus } from 'lucide-react';
+import { Star, Clock, Sparkles, Flame, Check, Plus } from 'lucide-react';
 import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 // ---- Types ----
@@ -38,7 +38,7 @@ export interface FoodCardProps {
 // ---- Helpers ----
 
 const formatPrice = (price: number) =>
-    price.toLocaleString('vi-VN') + '\u0111';
+    price.toLocaleString('vi-VN') + 'đ';
 
 // ---- Component ----
 
@@ -74,7 +74,7 @@ export function FoodCard({
         showAddToCartFeedback(
             e.currentTarget,
             image,
-            t('customer:foodCard.addedToCart', 'ÄÃ£ thÃªm sáº£n pháº©m vÃ o giá» hÃ ng!'),
+            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
         );
         onAddToCart(id);
     };
@@ -145,7 +145,7 @@ export function FoodCard({
                                 {formatPrice(price)}
                             </span>
                         </div>
-                        {onAddToCart && (
+                        {onAddToCart && !isDanger && (
                             <button
                                 type="button"
                                 onClick={handleAddClick}
@@ -173,7 +173,7 @@ export function FoodCard({
                     src={image}
                     alt={name}
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isDanger ? 'brightness-50 saturate-50' : ''}`}
                 />
 
                 {/* Badges Overlay */}
@@ -181,14 +181,14 @@ export function FoodCard({
                     <div className="flex flex-col gap-2">
                         {/* Health Warnings */}
                         {isDanger ? (
-                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-lg border border-amber-200 shadow-sm flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> {allergenInfo || 'Dá»‹ á»©ng'}
+                            <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
+                                <Flame className="w-3 h-3" /> {allergenInfo || 'Dị ứng'}
                             </span>
                         ) : isWarning ? (
                             <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-lg border border-amber-200 shadow-sm flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> {allergenInfo || 'Cáº©n trá»ng'}
+                                <Sparkles className="w-3 h-3" /> {allergenInfo || 'Cẩn trọng'}
                             </span>
-                        ) : healthStatus === 'safe' && tags?.some(tag => ['healthy', 'Healthy', 'lÃ nh máº¡nh'].includes(tag)) ? (
+                        ) : healthStatus === 'safe' && tags?.some(tag => ['healthy', 'Healthy', 'lành mạnh'].includes(tag)) ? (
                             <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
                                 <Check className="w-3 h-3" /> Healthy
                             </span>
@@ -270,7 +270,7 @@ export function FoodCard({
                         </span>
                     </div>
 
-                    {onAddToCart && (
+                    {onAddToCart && !isDanger && (
                         <button
                             type="button"
                             onClick={handleAddClick}
@@ -278,7 +278,7 @@ export function FoodCard({
                             aria-label={t('customer:foodCard.addToCart')}
                         >
                             <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
-                            <span className="text-sm font-bold">{t('customer:foodCard.addToCart', 'ThÃªm')}</span>
+                            <span className="text-sm font-bold">{t('customer:foodCard.addToCart', 'Thêm')}</span>
                         </button>
                     )}
                 </div>
