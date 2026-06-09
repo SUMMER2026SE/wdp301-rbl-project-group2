@@ -33,7 +33,7 @@
     align-items: center;
     gap: 6px;
     padding: 8px 16px;
-    background: #ee8c2b;
+    background: #ea580c;
     color: white;
     border: none;
     border-radius: 8px;
@@ -102,7 +102,7 @@
     padding: 8px 12px;
     background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
     border-radius: 8px;
-    border-left: 4px solid #ee8c2b;
+    border-left: 4px solid #ea580c;
 }
 
 .instructions-list {

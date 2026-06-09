@@ -72,6 +72,7 @@ export interface Order {
   | {
     _id: string;
     username: string;
+    fullName?: string;
     email: string;
     phone: string;
   };
@@ -115,6 +116,12 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   isReviewed?: boolean;
+  cancellation?: {
+    reason: string;
+    cancelledBy: "staff" | "customer";
+    refundRequired?: boolean;
+    refundedAt?: string | null;
+  } | null;
 }
 
 export interface OrderListResponse {

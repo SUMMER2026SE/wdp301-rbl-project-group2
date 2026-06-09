@@ -11,7 +11,8 @@ import {
     Bell,
     Truck,
     MessageCircleMore,
-    Search
+    Search,
+    Clock
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -23,6 +24,7 @@ import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import orderService from "@/services/order.service";
 
 interface OrderNotification {
     id: string;
@@ -40,6 +42,13 @@ export default function StaffLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false); // Sidebar hover
     const [notifications, setNotifications] = useState<OrderNotification[]>([]);
+    const [socketConnected, setSocketConnected] = useState(() => {
+        try {
+            return getSupportSocket().connected;
+        } catch {
+            return false;
+        }
+    });
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { playNotification } = useNotificationSound();
@@ -49,6 +58,46 @@ export default function StaffLayout() {
     const sidebarW = isHovered ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED;
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
+
+    // Fetch pending orders on mount to pre-populate notifications
+    useEffect(() => {
+        const fetchPendingOrders = async () => {
+            try {
+                const res = await orderService.getAllOrders({ status: "pending", limit: 20 });
+                if (res?.success && Array.isArray(res.data)) {
+                    const mapped: OrderNotification[] = res.data.map(order => ({
+                        id: order._id,
+                        code: order.code,
+                        totalPrice: order.totalPrice,
+                        itemsCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+                        createdAt: order.createdAt,
+                        isRead: true // mark as read by default so the badge doesn't bounce/count old orders on load
+                    }));
+                    setNotifications(mapped);
+                }
+            } catch (err) {
+                console.error("Failed to fetch pending orders for notifications:", err);
+            }
+        };
+
+        void fetchPendingOrders();
+    }, []);
+
+    // Sync socket connection state
+    useEffect(() => {
+        const socket = getSupportSocket();
+
+        const handleConnect = () => setSocketConnected(true);
+        const handleDisconnect = () => setSocketConnected(false);
+
+        socket.on("connect", handleConnect);
+        socket.on("disconnect", handleDisconnect);
+
+        return () => {
+            socket.off("connect", handleConnect);
+            socket.off("disconnect", handleDisconnect);
+        };
+    }, []);
 
     // Socket listener for new orders
     useEffect(() => {
@@ -218,15 +267,17 @@ export default function StaffLayout() {
 
                 {/* Bottom Section (AI Status & Logout) */}
                 <div className="p-4 border-t border-slate-100 shrink-0">
-                    {/* AI Status Widget */}
+                    {/* Shift Status Widget */}
                     <div className={`flex items-center p-3 bg-slate-50 border border-slate-200/60 rounded-xl mb-3 transition-all duration-300 ${isHovered ? 'gap-3' : 'justify-center p-2'}`}>
+                        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                            <Clock className="w-4 h-4 animate-pulse" />
+                            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white" />
+                        </div>
                         {isHovered && (
-                            <>
-                                <div className="relative flex h-2.5 w-2.5 shrink-0 mr-1">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                </div>
-                            </>
+                            <div className="flex flex-col overflow-hidden whitespace-nowrap animate-in fade-in duration-300 text-left">
+                                <span className="text-xs font-black text-slate-800">Đang Trong Ca Trực</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Hệ thống hoạt động</span>
+                            </div>
                         )}
                     </div>
 

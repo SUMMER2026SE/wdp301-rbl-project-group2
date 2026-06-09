@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import staffSupportChatService, {
     type StaffConversationSummary,
     type SupportMessage,
 } from '@/services/support-chat-staff.service';
 import { useSupportRealtime } from '@/hooks/useSupportRealtime';
+import { getSupportSocket } from '@/lib/support-socket';
 
 export function useStaffSupportChat() {
     const [conversations, setConversations] = useState<StaffConversationSummary[]>([]);
@@ -14,7 +15,7 @@ export function useStaffSupportChat() {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchConversations = async () => {
+    const fetchConversations = useCallback(async () => {
         try {
             setLoadingConversations(true);
             const res = await staffSupportChatService.listConversations();
@@ -28,11 +29,25 @@ export function useStaffSupportChat() {
         } finally {
             setLoadingConversations(false);
         }
-    };
+    }, [selectedConversationId]);
 
     useEffect(() => {
         void fetchConversations();
-    }, []);
+    }, [fetchConversations]);
+
+    useEffect(() => {
+        const socket = getSupportSocket();
+        
+        const handleInboxUpdated = (data: any) => {
+            console.debug('[SupportChat] Inbox updated:', data);
+            void fetchConversations();
+        };
+
+        socket.on('support:inbox_updated', handleInboxUpdated);
+        return () => {
+            socket.off('support:inbox_updated', handleInboxUpdated);
+        };
+    }, [fetchConversations]);
 
     useEffect(() => {
         const loadMessages = async () => {

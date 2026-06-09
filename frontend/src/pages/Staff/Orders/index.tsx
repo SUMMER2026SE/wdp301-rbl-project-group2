@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Loader2, RefreshCw, BellRing, ChefHat, PackageCheck, Inbox } from "lucide-react";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
@@ -44,12 +44,27 @@ export default function StaffOrders() {
     return () => clearInterval(id);
   }, [fetchOrders]);
 
+  // Sort orders by createdAt ascending (older orders on top)
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [orders]);
+
   // Derived columns
-  const pendingOrders = orders.filter((o) => o.status === "pending");
-  const preparingOrders = orders.filter(
-    (o) => o.status === "confirmed" || o.status === "processing",
-  );
-  const readyOrders = orders.filter((o) => o.status === "ready_for_delivery");
+  const pendingOrders = useMemo(() => sortedOrders.filter((o) => o.status === "pending"), [sortedOrders]);
+  const preparingOrders = useMemo(() => sortedOrders.filter(
+    (o) => o.status === "confirmed" || o.status === "processing"
+  ), [sortedOrders]);
+  const readyOrders = useMemo(() => sortedOrders.filter((o) => o.status === "ready_for_delivery"), [sortedOrders]);
+
+  // Check for pending orders older than 5 minutes
+  const overdueOrders = useMemo(() => {
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    return pendingOrders.filter(
+      (o) => new Date(o.createdAt).getTime() < fiveMinutesAgo
+    );
+  }, [pendingOrders]);
 
   // Sound alert when new PENDING orders arrive
   useEffect(() => {
@@ -58,6 +73,17 @@ export default function StaffOrders() {
     }
     prevPendingCount.current = pendingOrders.length;
   }, [pendingOrders.length, playNotification]);
+
+  // Sound alarm periodically if there are overdue pending orders
+  useEffect(() => {
+    if (overdueOrders.length > 0) {
+      playNotification();
+      const interval = setInterval(() => {
+        playNotification();
+      }, 15000); // sound reminder every 15 seconds
+      return () => clearInterval(interval);
+    }
+  }, [overdueOrders.length, playNotification]);
 
   // ── Helpers ────────────────────────────────────────────────────────────
   const startActioning = (id: string) =>
@@ -240,6 +266,37 @@ export default function StaffOrders() {
         </button>
       </div>
 
+      {/* Flashing Warning Banner for unconfirmed orders > 5 mins */}
+      {overdueOrders.length > 0 && (
+        <div className="mb-6 p-4 bg-rose-50 border-2 border-rose-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+              <BellRing className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-rose-800 uppercase tracking-wide">
+                Cảnh báo đơn hàng trễ xác nhận!
+              </p>
+              <p className="text-xs text-rose-600 font-bold mt-0.5">
+                Có {overdueOrders.length} đơn hàng đã quá 5 phút chưa được xác nhận: {" "}
+                <span className="font-mono text-rose-700 bg-rose-100/50 px-1.5 py-0.5 rounded">
+                  {overdueOrders.map(o => `#${o.code}`).join(", ")}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              playNotification();
+              toast(`Nhắc nhở: Cần xử lý gấp ${overdueOrders.length} đơn hàng trễ!`, "info");
+            }}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm shadow-rose-600/10 shrink-0 self-end sm:self-auto"
+          >
+            Nhắc nhở staff
+          </button>
+        </div>
+      )}
+
       {/* Kanban board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
         {/* Column 1: PENDING */}
@@ -257,6 +314,7 @@ export default function StaffOrders() {
               onReject={handleRejectOpen}
               onMarkReady={handleMarkReady}
               isActioning={actioningIds.has(order._id)}
+              isOverdue={overdueOrders.some((o) => o._id === order._id)}
             />
           ))}
         </KanbanColumn>

@@ -215,11 +215,27 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 /**
  * Get customers with order statistics (cancellation rate, etc.)
  */
-export const getCustomersWithStats = async (page: number = 1, limit: number = 10) => {
+export const getCustomersWithStats = async (
+  page: number = 1,
+  limit: number = 10,
+  search?: string
+) => {
   const skip = (page - 1) * limit;
 
+  const matchQuery: any = { role: Role.CUSTOMER };
+
+  if (search && search.trim() !== '') {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    matchQuery.$or = [
+      { fullName: { $regex: escapedSearch, $options: 'i' } },
+      { email: { $regex: escapedSearch, $options: 'i' } },
+      { phone: { $regex: escapedSearch, $options: 'i' } },
+      { username: { $regex: escapedSearch, $options: 'i' } },
+    ];
+  }
+
   const users = await UserModel.aggregate([
-    { $match: { role: Role.CUSTOMER } },
+    { $match: matchQuery },
     { $sort: { createdAt: -1 } },
     { $skip: skip },
     { $limit: limit },
@@ -278,7 +294,7 @@ export const getCustomersWithStats = async (page: number = 1, limit: number = 10
     },
   ]);
 
-  const total = await UserModel.countDocuments({ role: Role.CUSTOMER });
+  const total = await UserModel.countDocuments(matchQuery);
 
   return {
     users,
@@ -497,7 +513,7 @@ export const listAdminActiveDeliveries = async () => {
     status: { $in: [OrderStatus.READY_FOR_DELIVERY, OrderStatus.SHIPPING] },
   })
     .sort({ createdAt: -1 })
-    .populate('cusId', 'username')
+    .populate('cusId', 'username fullName')
     .populate('deliveryInfo.driverId', 'username phone isActive')
     .select(
       'code status createdAt deliveryInfo.driverId deliveryInfo.shippedAt deliveryInfo.deliveredAt deliveryAddress cusId'
@@ -512,7 +528,7 @@ export const listAdminActiveDeliveries = async () => {
     return {
       id: String(o._id),
       shipper: driver?.username || 'Chưa nhận',
-      customer: o.cusId?.username || 'Unknown',
+      customer: o.cusId?.fullName || o.cusId?.username || 'Unknown',
       address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
       status,
       estimatedTime:
@@ -534,7 +550,7 @@ export const listAdminDispatchPendingOrders = async () => {
     'deliveryInfo.driverId': null,
   })
     .sort({ createdAt: -1 })
-    .populate('cusId', 'username')
+    .populate('cusId', 'username fullName')
     .select('code createdAt totalPrice status items deliveryAddress cusId');
 
   const formatRelative = (createdAt: Date) => {
@@ -549,7 +565,7 @@ export const listAdminDispatchPendingOrders = async () => {
   return orders.map((o: any) => ({
     id: String(o._id),
     orderNumber: o.code,
-    customer: o.cusId?.username || 'Unknown',
+    customer: o.cusId?.fullName || o.cusId?.username || 'Unknown',
     address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
     items: Array.isArray(o.items) ? o.items.length : 0,
     total: o.totalPrice || 0,
