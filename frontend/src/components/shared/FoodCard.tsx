@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Star, Clock, Sparkles, Flame, Check, Plus } from 'lucide-react';
+import { Star, Clock, Sparkles, AlertTriangle, Check, Plus } from 'lucide-react';
 import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 // ---- Types ----
@@ -145,7 +145,7 @@ export function FoodCard({
                                 {formatPrice(price)}
                             </span>
                         </div>
-                        {onAddToCart && !isDanger && (
+                        {onAddToCart && (
                             <button
                                 type="button"
                                 onClick={handleAddClick}
@@ -173,7 +173,7 @@ export function FoodCard({
                     src={image}
                     alt={name}
                     loading="lazy"
-                    className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isDanger ? 'brightness-50 saturate-50' : ''}`}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
                 {/* Badges Overlay */}
@@ -181,8 +181,8 @@ export function FoodCard({
                     <div className="flex flex-col gap-2">
                         {/* Health Warnings */}
                         {isDanger ? (
-                            <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
-                                <Flame className="w-3 h-3" /> {allergenInfo || 'Dị ứng'}
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-lg border border-amber-200 shadow-sm flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> {allergenInfo || 'Dị ứng'}
                             </span>
                         ) : isWarning ? (
                             <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-lg border border-amber-200 shadow-sm flex items-center gap-1">
@@ -270,7 +270,7 @@ export function FoodCard({
                         </span>
                     </div>
 
-                    {onAddToCart && !isDanger && (
+                    {onAddToCart && (
                         <button
                             type="button"
                             onClick={handleAddClick}
