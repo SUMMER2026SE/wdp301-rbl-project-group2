@@ -118,8 +118,8 @@ export const getRecentOrdersForList = (orders: Order[]): RecentOrderItem[] => {
     .map((o) => ({
       code: o.code || "N/A",
       customer:
-        typeof o.cusId === "object" && o.cusId?.username
-          ? o.cusId.username
+        typeof o.cusId === "object"
+          ? o.cusId.fullName || o.cusId.username || "Ẩn danh"
           : "Ẩn danh",
       time: formatShortDate(o.createdAt),
       items: Array.isArray(o.items) ? o.items.length : 0,

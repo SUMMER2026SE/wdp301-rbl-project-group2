@@ -71,6 +71,10 @@ io.on('connection', (socket) => {
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined;
     const accessToken = authToken || bearerToken || parsed.accessToken || '';
     const { payload } = verifyToken(accessToken);
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(__dirname, '../../socket-debug.log');
+
     if (payload) {
       socket.data.userId = payload.userId;
       socket.data.role = payload.role;
@@ -79,8 +83,18 @@ io.on('connection', (socket) => {
       // Join user specific room for targeted notifications
       socket.join(`user:${payload.userId}`);
       console.debug(`[Socket] Joined room: user:${payload.userId}`);
+
+      const roleLower = String(payload.role).toLowerCase();
+      let joinedStaff = false;
+      if (roleLower === 'staff' || roleLower === 'admin' || roleLower === 'manager') {
+        socket.join('staff');
+        joinedStaff = true;
+        console.debug(`[Socket] Joined room: staff`);
+      }
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] Connect: socketId=${socket.id}, userId=${payload.userId}, role=${payload.role}, joinedStaff=${joinedStaff}\n`);
     } else {
       console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] Connect unauthenticated: socketId=${socket.id}, rawCookie=${rawCookie.slice(0, 100)}\n`);
     }
   } catch (e) {
     console.debug(`[Socket] Auth error socketId=${socket.id}:`, (e as Error).message);

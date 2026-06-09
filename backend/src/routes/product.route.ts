@@ -33,7 +33,7 @@ router.get('/:id', getProductByIdHandler);
 
 // Admin routes
 router.post('/', authenticate, authorize(Role.ADMIN), createProductHandler);
-router.put('/:id', authenticate, authorize(Role.ADMIN), updateProductHandler);
+router.put('/:id', authenticate, authorize(Role.ADMIN, Role.STAFF), updateProductHandler);
 router.delete('/:id', authenticate, authorize(Role.ADMIN), deleteProductHandler);
 
 export default router;

@@ -39,8 +39,24 @@ export const placeOrderHandler = catchErrors(async (req, res) => {
 
     // Notify staff via socket (best-effort)
     const io = req.app.get('io');
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const logPath = path.join(__dirname, '../../../socket-debug.log');
+        const hasIo = !!io;
+        const staffSockets = io ? Array.from(io.sockets.adapter.rooms.get('staff') || []) : [];
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] placeOrderHandler: code=${order.code}, hasIo=${hasIo}, active staff sockets in room = ${JSON.stringify(staffSockets)}\n`);
+    } catch (e: any) {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const logPath = path.join(__dirname, '../../../socket-debug.log');
+            fs.appendFileSync(logPath, `[${new Date().toISOString()}] placeOrderHandler log error: ${e.message}\n`);
+        } catch (_) {}
+    }
+
     if (io) {
-        io.emit('order:new', {
+        io.to('staff').emit('order:new', {
             _id: order._id,
             code: order.code,
             totalPrice: order.totalPrice,

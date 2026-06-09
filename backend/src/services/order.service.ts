@@ -543,7 +543,7 @@ export const getOrders = async (query: any = {}) => {
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(safeLimit)
-    .populate('cusId', 'username email phone')
+    .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -560,7 +560,7 @@ export const getOrderById = async (idOrCode: string) => {
       ? { $or: [{ code: idOrCode }, { 'payment.payosOrderCode': Number(idOrCode) }] }
       : { code: idOrCode };
 
-  const order = await OrderModel.findOne(query).populate('cusId', 'username email phone').populate({
+  const order = await OrderModel.findOne(query).populate('cusId', 'username fullName email phone').populate({
     path: 'items.productId',
     select: 'name image price',
   });
@@ -680,7 +680,7 @@ export const confirmOrder = async (orderId: string, staffId: mongoose.Types.Obje
     { $set: { status: OrderStatus.CONFIRMED } },
     { new: true }
   )
-    .populate('cusId', 'username email phone')
+    .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -759,7 +759,7 @@ export const markOrderReady = async (orderId: string, staffId: mongoose.Types.Ob
     { $set: { status: OrderStatus.READY_FOR_DELIVERY } },
     { new: true }
   )
-    .populate('cusId', 'username email phone')
+    .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -801,7 +801,7 @@ export const assignDelivery = async (orderId: string, staffId: mongoose.Types.Ob
     },
     { new: true }
   )
-    .populate('cusId', 'username email phone')
+    .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -846,7 +846,7 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
   }
 
   const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
-    .populate('cusId', 'username email phone')
+    .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -951,5 +951,5 @@ export const getDashboardStats = async () => {
 };
 
 export const getRecentOrders = async () => {
-  return OrderModel.find().sort({ createdAt: -1 }).limit(5).populate('cusId', 'username email phone');
+  return OrderModel.find().sort({ createdAt: -1 }).limit(5).populate('cusId', 'username fullName email phone');
 };

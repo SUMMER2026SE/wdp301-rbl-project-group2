@@ -85,6 +85,11 @@ export const sendMessage = catchErrors(async (req: Request, res: Response) => {
         conversationId: payload.conversationId,
         message: payload,
       });
+    } else if (payload.senderType === 'USER') {
+      io?.to('staff')?.emit('support:inbox_updated', {
+        conversationId: payload.conversationId,
+        message: payload,
+      });
     }
   } catch {
     // ignore realtime errors

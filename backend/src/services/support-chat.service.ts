@@ -81,6 +81,9 @@ export const sendMessage = async (
     image_url: imageUrl || null,
   });
 
+  conversation.updatedAt = new Date();
+  await conversation.save();
+
   return message;
 };
 
