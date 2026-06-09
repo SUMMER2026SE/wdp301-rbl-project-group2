@@ -16,6 +16,7 @@ import { generateUsernameFromEmail } from '@/utils/generate-username';
 import { getStaffInviteTemplate } from '@/utils/email-templates';
 import mongoose from 'mongoose';
 import { assignDelivery } from '@/services/order.service';
+import { listIngredients } from '@/services/ingredient.service';
 
 export const createStaffByAdmin = async (
   adminId: mongoose.Types.ObjectId | string,
@@ -372,29 +373,12 @@ export const replyAdminReview = async (adminId: mongoose.Types.ObjectId, reviewI
  * Derived ingredients: unique recipe names from products.
  */
 export const listAdminIngredients = async () => {
-  const ingredients = await IngredientModel.find().lean();
-  const products = await ProductModel.find({}, { recipe: 1 }).lean();
-
-  const mapCount = new Map<string, number>();
-  for (const p of products) {
-    const uniqIds = new Set((p.recipe || []).map((r: any) => String(r.ingredientId || '')));
-    for (const id of uniqIds) {
-      if (id) {
-        mapCount.set(id, (mapCount.get(id) ?? 0) + 1);
-      }
-    }
-  }
-
-  const items = ingredients.map((ing: any) => ({
-    id: ing._id.toString(),
-    name: ing.name,
+  const ingredients = await listIngredients();
+  return ingredients.map((ing: any) => ({
+    ...ing,
     allergens: ing.allergenTags || [],
     dietary: [] as string[],
-    usedInProducts: mapCount.get(ing._id.toString()) ?? 0,
   }));
-
-  items.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  return items;
 };
 
 /**

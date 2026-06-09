@@ -130,61 +130,6 @@ const resolveOrderItems = async (
   return { resolvedItems, subTotal };
 };
 
-import { buildForbiddenKeywordSet, fuzzyMatch } from '@/utils/health-filter';
-
-interface AllergyWarning {
-  productName: string;
-  conflictIngredients: string[];
-  level: 'danger' | 'warning';
-}
-
-async function checkOrderHealthConflicts(
-  resolvedItems: ResolvedItem[],
-  preferences: any,
-  session: mongoose.ClientSession
-): Promise<AllergyWarning[]> {
-  const forbiddenKeywords = buildForbiddenKeywordSet(preferences);
-
-  if (forbiddenKeywords.size === 0) return [];
-
-  const warnings: AllergyWarning[] = [];
-
-  for (const item of resolvedItems) {
-    const product = await ProductModel.findById(item.productId).session(session).lean();
-    if (!product) continue;
-
-    const conflictIngredients: string[] = [];
-    const recipe: { name: string }[] = (product as any).recipe ?? [];
-    const tagList: string[] = [...((product as any).tags ?? []), ...((product as any).healthTags ?? [])];
-
-    const keywordsToScan = [
-      (product as any).name,
-      (product as any).description,
-      ...recipe.map((r) => r.name),
-      ...tagList,
-    ];
-
-    for (const keyword of keywordsToScan) {
-      if (!keyword) continue;
-      for (const forbidden of forbiddenKeywords) {
-        if (fuzzyMatch(forbidden, keyword) && !conflictIngredients.includes(forbidden)) {
-          conflictIngredients.push(forbidden);
-        }
-      }
-    }
-
-    if (conflictIngredients.length > 0) {
-      warnings.push({
-        productName: product.name,
-        conflictIngredients,
-        level: 'danger',
-      });
-    }
-  }
-
-  return warnings;
-}
-
 export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceOrderValidator) => {
   const { voucher: voucherId, paymentMethod, items, deliveryAddress, shippingFee, returnUrl, cancelUrl } = input;
 
@@ -267,16 +212,6 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       { session }
     );
 
-    let allergyWarnings: { productName: string; conflictIngredients: string[]; level: string }[] = [];
-    try {
-      allergyWarnings = await checkOrderHealthConflicts(resolvedItems, user.preferences, session);
-      if (allergyWarnings.length > 0) {
-        console.warn(`[FSS-40] Health conflict detected in order for user ${user.email}:`, allergyWarnings);
-      }
-    } catch (e) {
-      console.error('[FSS-40] Health check failed (non-blocking):', e);
-    }
-
     if (paymentMethod === PaymentMethod.BANK_TRANSFER) {
       console.log('💳 Handling PayOS payment for order:', order.code);
       // Generate a collision-resistant numeric order code by adding a 3-digit random suffix
@@ -303,7 +238,6 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
         return {
           ...order.toObject(),
           checkoutUrl: paymentLink.checkoutUrl,
-          allergyWarnings,
         };
       } catch (payosError) {
         console.error('❌ PayOS link creation failed:', payosError);
@@ -312,7 +246,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     }
 
     console.log('✅ COD order placed successfully');
-    return { ...order.toObject(), allergyWarnings };
+    return order.toObject();
   });
 };
 
@@ -775,3 +709,4 @@ export const getDashboardStats = async () => {
 export const getRecentOrders = async () => {
   return OrderModel.find().sort({ createdAt: -1 }).limit(5).populate('cusId', 'username email phone');
 };
+

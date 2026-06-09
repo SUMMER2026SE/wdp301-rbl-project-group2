@@ -170,12 +170,24 @@ const AdminMenuManagement = () => {
         />
       );
     }
-    return (
-      <span className="material-symbols-outlined text-[#9a734c]">
-        restaurant
-      </span>
-    );
+    return null;
   };
+
+  const getRecipeIngredients = (item: Product) => {
+    const ingredients =
+      item.recipe
+        ?.map((recipeItem) => {
+          if (typeof recipeItem.ingredientId === "object") {
+            return recipeItem.ingredientId.name;
+          }
+          return recipeItem.name;
+        })
+        .filter(Boolean) ?? [];
+
+    return ingredients.length > 0 ? ingredients : ["Chưa có thành phần"];
+  };
+
+  const getRecipeIngredientsText = (item: Product) => getRecipeIngredients(item).join(", ");
 
   // ── JSX ──
 
@@ -352,15 +364,19 @@ const AdminMenuManagement = () => {
                   >
                     <td className="py-4 px-6">
                       <div className="h-12 w-12 rounded-lg bg-[#f3ede7] flex items-center justify-center overflow-hidden">
-                        {renderImage(item)}
+                        {renderImage(item) || (
+                          <span className="material-symbols-outlined text-[#9a734c] text-[20px]">
+                            restaurant
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <div className="flex flex-col">
+                      <div className="flex flex-col gap-2">
                         <span className="text-sm font-bold text-[#1b140d]">
                           {item.name}
                         </span>
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="flex flex-wrap gap-1">
                           {item.healthTags?.map((tag) => (
                             <span
                               key={tag}
@@ -369,14 +385,29 @@ const AdminMenuManagement = () => {
                               {tag}
                             </span>
                           ))}
-                          {item.healthWarning && (
-                            <span className="px-1.5 py-0.5 bg-red-50 text-[10px] text-red-700 font-black border border-red-100 rounded uppercase flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[12px]">
-                                warning
-                              </span>
-                              {item.healthWarning}
+
+                        </div>
+                        <div className="inline-flex max-w-full flex-col gap-2 rounded-xl border border-[#eadfce] bg-gradient-to-r from-[#fffaf4] to-[#fcfaf8] px-3 py-2.5 shadow-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9a734c]">
+                              Thành phần
                             </span>
-                          )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {getRecipeIngredients(item).map((ingredient) => (
+                              <span
+                                key={ingredient}
+                                className={clsx(
+                                  "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium border",
+                                  ingredient === "Chưa có thành phần"
+                                    ? "border-dashed border-[#e0d1bf] bg-white text-[#9a734c]"
+                                    : "border-[#e9d8c5] bg-white/90 text-[#5a4632] shadow-[0_1px_0_rgba(0,0,0,0.02)]",
+                                )}
+                              >
+                                {ingredient}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -480,7 +511,7 @@ const AdminMenuManagement = () => {
                     edit
                   </span>
                 </button>
-                {(item.healthTags?.length > 0 || item.healthWarning) && (
+                {item.healthTags?.length > 0 && (
                   <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-1">
                     {item.healthTags?.slice(0, 2).map((tag) => (
                       <span
@@ -490,14 +521,6 @@ const AdminMenuManagement = () => {
                         {tag}
                       </span>
                     ))}
-                    {item.healthWarning && (
-                      <span className="px-2 py-0.5 bg-red-600 text-[9px] text-white font-black rounded-md uppercase shadow-sm flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[10px]">
-                          warning
-                        </span>{" "}
-                        CẢNH BÁO
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
