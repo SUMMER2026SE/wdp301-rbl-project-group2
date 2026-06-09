@@ -19,8 +19,6 @@ import {
   SearchX, AlertTriangle, Info, FileText, Quote, MessageCircle, X
 } from "lucide-react";
 import { useAllergyCheck } from "@/hooks/useAllergyCheck";
-import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
-import { getAllergenLabel } from "@/constants/allergenCatalog";
 
 const getImageUrl = (image: any): string => {
   if (!image) return "";
@@ -44,35 +42,6 @@ const isToppingGroup = (group: VariantGroup) =>
   normalizeLabel(group.name) === normalizeLabel(TOPPING_GROUP_NAME) ||
   normalizeLabel(group.name).includes("topping");
 
-const buildHealthNotice = (
-  productName: string,
-  risk: {
-    level: "safe" | "warning" | "danger";
-    warningMessage: string;
-    conflictIngredients: string[];
-    matchedAllergens?: string[];
-  },
-) => {
-  const ingredients = risk.conflictIngredients.filter(Boolean);
-  const allergenLabels = (risk.matchedAllergens ?? []).map(getAllergenLabel).filter(Boolean);
-  const ingredientText = ingredients.length > 0 ? ingredients.join(", ") : "một số thành phần trong món";
-  const allergenText = allergenLabels.length > 0 ? allergenLabels.join(", ") : ingredientText;
-
-  if (risk.level === "danger") {
-    return {
-      title: "Thông tin dị ứng của món",
-      summary: `${productName} có chứa ${ingredientText}. Thành phần này thuộc nhóm ${allergenText}, có thể gây phản ứng với người có hồ sơ dị ứng tương ứng.`,
-      impact: "Người nhạy cảm có thể gặp các dấu hiệu như ngứa, nổi mẩn, khó chịu đường tiêu hóa hoặc phản ứng nghiêm trọng hơn tùy cơ địa. Thông tin này dùng để bạn cân nhắc trước khi chọn món.",
-    };
-  }
-
-  return {
-    title: "Lưu ý chế độ ăn",
-    summary: risk.warningMessage || `${productName} có một số thành phần có thể chưa phù hợp với chế độ ăn bạn đã chọn.`,
-    impact: "Món vẫn có thể đặt bình thường; phần này chỉ giúp bạn kiểm tra lại thành phần nếu đang ăn kiêng hoặc theo mục tiêu sức khỏe riêng.",
-  };
-};
-
 const FoodDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -89,28 +58,9 @@ const FoodDetailPage = () => {
   const [loadingSuggested, setLoadingSuggested] = useState(false);
   const [openVariantModal, setOpenVariantModal] = useState(false);
   const [allergyBannerDismissed, setAllergyBannerDismissed] = useState(false);
-  const [serverRisk, setServerRisk] = useState<{
-    level: "safe" | "warning" | "danger";
-    matchedAllergens: string[];
-    matchedIngredients: string[];
-    message: string;
-  } | null>(null);
 
   // FSS-40: Check allergy status
   const allergyResult = useAllergyCheck(product);
-  const displayAllergyResult = serverRisk
-    ? {
-        level: serverRisk.level,
-        warningMessage: serverRisk.message,
-        matchedAllergens: serverRisk.matchedAllergens,
-        conflictIngredients: serverRisk.matchedIngredients.length
-          ? serverRisk.matchedIngredients
-          : serverRisk.matchedAllergens,
-      }
-    : { ...allergyResult, matchedAllergens: [] };
-  const healthNotice = product && displayAllergyResult.level !== "safe"
-    ? buildHealthNotice(product.name, displayAllergyResult)
-    : null;
   const [reviews, setReviews] = useState<any[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({});
@@ -136,13 +86,7 @@ const FoodDetailPage = () => {
     return Array.from(
       new Set(
         product.recipe
-          .map((ingredient) => {
-            if (ingredient.name?.trim()) return ingredient.name.trim();
-            if (typeof ingredient.ingredientId === "object") {
-              return ingredient.ingredientId.name?.trim();
-            }
-            return "";
-          })
+          .map((ingredient) => ingredient.name?.trim())
           .filter((name): name is string => Boolean(name)),
       ),
     );
@@ -159,16 +103,6 @@ const FoodDetailPage = () => {
         setLoading(true);
         const res = await productAPI.getProductById(id);
         setProduct(res.data);
-        setServerRisk(res.data.healthRisk ?? null);
-
-        if (isAuthenticated && !res.data.healthRisk) {
-          try {
-            const riskRes = await productAPI.getProductHealthRisk(id);
-            setServerRisk(riskRes.data);
-          } catch {
-            setServerRisk(null);
-          }
-        }
 
         setLoadingReviews(true);
         const reviewRes = await reviewService.getProductReviews(id);
@@ -353,35 +287,31 @@ const FoodDetailPage = () => {
               <div className="lg:col-span-7 flex flex-col h-full pt-2">
 
                 {/* [FIXED] FSS-40: Allergy Warning Banner */}
-                {healthNotice && !allergyBannerDismissed && (
+                {allergyResult.level !== "safe" && !allergyBannerDismissed && (
                   <div
-                    className="mb-6 rounded-[1.5rem] p-4 flex gap-4 items-start border shadow-sm relative overflow-hidden bg-amber-50 border-amber-200"
+                    className={`mb-6 rounded-[1.5rem] p-4 flex gap-4 items-start border shadow-sm relative overflow-hidden ${allergyResult.level === "danger" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
+                      }`}
                   >
-                    <div className="p-2 rounded-xl shrink-0 bg-amber-100 text-amber-600">
-                      {displayAllergyResult.level === "danger" ? <AlertTriangle className="w-6 h-6" /> : <Info className="w-6 h-6" />}
+                    <div className={`p-2 rounded-xl shrink-0 ${allergyResult.level === "danger" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
+                      {allergyResult.level === "danger" ? <AlertTriangle className="w-6 h-6" /> : <Info className="w-6 h-6" />}
                     </div>
                     <div className="flex-1 pt-0.5">
-                      <p className="font-black text-sm mb-1 uppercase tracking-wide text-amber-800">
-                        {healthNotice.title}
+                      <p className={`font-black text-sm mb-1 uppercase tracking-wide ${allergyResult.level === "danger" ? "text-red-800" : "text-amber-800"}`}>
+                        {allergyResult.level === "danger" ? "Cảnh báo dị ứng!" : "Lưu ý sức khỏe"}
                       </p>
-                      <p className="text-sm font-semibold leading-relaxed text-amber-800/90">
-                        {healthNotice.summary}
+                      <p className={`text-sm font-medium leading-relaxed ${allergyResult.level === "danger" ? "text-red-700/90" : "text-amber-700/90"}`}>
+                        {allergyResult.warningMessage}
                       </p>
-                      <p className="text-xs font-medium leading-relaxed mt-2 text-amber-700/80">
-                        {healthNotice.impact}
-                      </p>
-                      {displayAllergyResult.conflictIngredients.length > 0 && (
+                      {allergyResult.conflictIngredients.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-3">
-                          {displayAllergyResult.conflictIngredients.map((ing: string, i: number) => (
-                            <span key={i} className="text-[11px] font-bold px-2.5 py-1 rounded-lg border bg-white border-amber-200 text-amber-600">
+                          {allergyResult.conflictIngredients.map((ing: string, i: number) => (
+                            <span key={i} className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${allergyResult.level === "danger" ? "bg-white border-red-200 text-red-600" : "bg-white border-amber-200 text-amber-600"
+                              }`}>
                               {ing}
                             </span>
                           ))}
                         </div>
                       )}
-                      <p className="text-xs font-bold text-slate-500 mt-3">
-                        Bạn vẫn có thể thêm vào giỏ hàng hoặc đặt món nếu đã cân nhắc.
-                      </p>
                     </div>
                     <button
                       onClick={() => setAllergyBannerDismissed(true)}
@@ -780,8 +710,6 @@ const FoodDetailPage = () => {
                       rating={suggestedItem.rating}
                       restaurant={suggestedItem.restaurant}
                       time={suggestedItem.time}
-                      healthStatus={getProductHealthStatus(suggestedItem)}
-                      allergenInfo={getProductAllergenInfo(suggestedItem)}
                     />
                   ))}
                 </div>
@@ -827,4 +755,3 @@ const FoodDetailPage = () => {
 };
 
 export default FoodDetailPage;
-
