@@ -1,4 +1,5 @@
 import axios from "axios";
+import { setToken } from "@/utils/storage";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_API;
 
@@ -13,7 +14,13 @@ export const apiClient = axios.create({
 
 // Response interceptor
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const tokens = response.data?.tokens;
+    if (tokens?.accessToken) {
+      setToken(tokens.accessToken);
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     const url = (originalRequest?.url as string | undefined) ?? "";
@@ -32,6 +39,14 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       try {
         await apiClient.post("/auth/refresh");
+
+        try {
+          const { reconnectSupportSocket } = await import("@/lib/support-socket");
+          reconnectSupportSocket();
+        } catch (socketErr) {
+          console.error("Failed to reconnect socket after token refresh:", socketErr);
+        }
+
         return apiClient(originalRequest);
       } catch {
         // Refresh failed — redirect to login (but don't loop if already there)

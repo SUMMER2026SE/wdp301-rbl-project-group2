@@ -19,6 +19,9 @@ import {
 import { createStaffValidator } from '@/validators/admin.validator';
 import { getUsersByRole } from '@/services/user.service';
 import { Role } from '@/types/user.type';
+import { UserModel } from '@/models';
+import appAssert from '@/utils/app-assert';
+import { NOT_FOUND } from '@/constants/http';
 
 export const createStaffHandler = catchErrors(async (req, res) => {
   const body = createStaffValidator.parse(req.body);
@@ -35,12 +38,22 @@ export const createStaffHandler = catchErrors(async (req, res) => {
 export const getCustomersHandler = catchErrors(async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
+  const search = req.query.search as string;
 
-  const result = await getCustomersWithStats(page, limit);
+  const result = await getCustomersWithStats(page, limit, search);
 
   return res.success(OK, {
     message: 'Lấy danh sách khách hàng thành công',
     data: result,
+  });
+});
+
+export const getCustomerDetailHandler = catchErrors(async (req, res) => {
+  const user = await UserModel.findById(req.params.id).select('-passwordHash').lean();
+  appAssert(user, NOT_FOUND, 'Không tìm thấy khách hàng');
+  return res.success(OK, {
+    message: 'Lấy thông tin khách hàng thành công',
+    data: user,
   });
 });
 

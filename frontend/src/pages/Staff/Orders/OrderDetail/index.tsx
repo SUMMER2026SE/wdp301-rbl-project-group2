@@ -337,7 +337,7 @@ export default function StaffOrderDetail() {
                   <User className="w-4 h-4 text-orange-500" />
                   <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Khách hàng</h3>
                 </div>
-                <p className="font-bold text-slate-900 text-lg">{typeof order.cusId === 'object' ? order.cusId.username : "Khách hàng"}</p>
+                <p className="font-bold text-slate-900 text-lg">{typeof order.cusId === 'object' ? (order.cusId.fullName || order.cusId.username) : "Khách hàng"}</p>
                 <p className="text-orange-600 font-bold mb-4">{typeof order.cusId === 'object' ? order.cusId.phone : order.deliveryAddress?.phone || "Chưa có SĐT"}</p>
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex gap-3">
