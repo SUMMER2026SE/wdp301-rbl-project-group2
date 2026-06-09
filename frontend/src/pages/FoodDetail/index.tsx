@@ -31,8 +31,8 @@ const getImageUrl = (image: any): string => {
 
 const TOPPING_GROUP_NAME = "Topping ăn kèm";
 
-const normalizeLabel = (value: string) =>
-  value
+const normalizeLabel = (value: unknown) =>
+  String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
@@ -98,14 +98,20 @@ const FoodDetailPage = () => {
 
   // FSS-40: Check allergy status
   const allergyResult = useAllergyCheck(product);
+  const serverMatchedIngredients = Array.isArray(serverRisk?.matchedIngredients)
+    ? serverRisk.matchedIngredients.filter(Boolean)
+    : [];
+  const serverMatchedAllergens = Array.isArray(serverRisk?.matchedAllergens)
+    ? serverRisk.matchedAllergens.filter(Boolean)
+    : [];
   const displayAllergyResult = serverRisk
     ? {
         level: serverRisk.level,
-        warningMessage: serverRisk.message,
-        matchedAllergens: serverRisk.matchedAllergens,
-        conflictIngredients: serverRisk.matchedIngredients.length
-          ? serverRisk.matchedIngredients
-          : serverRisk.matchedAllergens,
+        warningMessage: serverRisk.message ?? "",
+        matchedAllergens: serverMatchedAllergens,
+        conflictIngredients: serverMatchedIngredients.length
+          ? serverMatchedIngredients
+          : serverMatchedAllergens,
       }
     : { ...allergyResult, matchedAllergens: [] };
   const healthNotice = product && displayAllergyResult.level !== "safe"

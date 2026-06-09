@@ -15,15 +15,17 @@ export interface AllergyCheckResult {
   warningMessage: string;
 }
 
-const normalize = (value: string): string =>
-  value
+const EMPTY_PREFERENCES: string[] = [];
+
+const normalize = (value: unknown): string =>
+  String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\u0111/g, 'd')
     .trim();
 
-const fuzzyMatch = (a: string, b: string): boolean => {
+const fuzzyMatch = (a: unknown, b: unknown): boolean => {
   const na = normalize(a);
   const nb = normalize(b);
   return Boolean(na && nb) && (nb.includes(na) || na.includes(nb));
@@ -59,7 +61,7 @@ const productKeywords = (product: Product): string[] => [
   ...((product.recipe ?? []).map(getRecipeName)),
   ...(product.tags ?? []),
   ...(product.healthTags ?? []),
-].filter((value): value is string => Boolean(value));
+].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
 
 const findConflicts = (product: Product, forbidden: string[]): string[] => {
   const found: string[] = [];
@@ -75,29 +77,34 @@ const findConflicts = (product: Product, forbidden: string[]): string[] => {
   return found;
 };
 
-const isDietaryKeyword = (diet: string, keywords: string[]): boolean =>
+const isDietaryKeyword = (diet: unknown, keywords: string[]): boolean =>
   keywords.some((keyword) => fuzzyMatch(keyword, diet));
 
-const toAllergenId = (value: string) => normalize(value).replace(/\s+/g, '_');
+const toAllergenId = (value: unknown) => normalize(value).replace(/\s+/g, '_');
 
 export function checkProductAllergies(
   product: Product | null | undefined,
-  userAllergies: string[],
-  userDietary: string[] = [],
+  userAllergies: unknown[],
+  userDietary: unknown[] = [],
 ): AllergyCheckResult {
   if (!product) return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 
   if (product.healthRisk && product.healthRisk.level !== 'safe') {
+    const matchedIngredients = Array.isArray(product.healthRisk.matchedIngredients)
+      ? product.healthRisk.matchedIngredients.filter(Boolean)
+      : [];
+    const matchedAllergens = Array.isArray(product.healthRisk.matchedAllergens)
+      ? product.healthRisk.matchedAllergens.filter(Boolean)
+      : [];
+
     return {
       level: product.healthRisk.level,
-      conflictIngredients: product.healthRisk.matchedIngredients.length
-        ? product.healthRisk.matchedIngredients
-        : product.healthRisk.matchedAllergens,
-      warningMessage: product.healthRisk.message,
+      conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
+      warningMessage: product.healthRisk.message ?? '',
     };
   }
 
-  const allergyIds = new Set(userAllergies.map(toAllergenId));
+  const allergyIds = new Set(userAllergies.map(toAllergenId).filter(Boolean));
   if (allergyIds.size > 0) {
     const conflictIngredients = (product.recipe ?? [])
       .filter((item) => {
@@ -169,13 +176,11 @@ export function checkProductAllergies(
 
 export function useAllergyCheck(product: Product | null | undefined): AllergyCheckResult {
   const user = useAuthStore((state) => state.user);
-  const userAllergies = user?.preferences?.allergies ?? [];
-  const userDietary = user?.preferences?.dietary ?? [];
-  const allergyKey = userAllergies.join(',');
-  const dietaryKey = userDietary.join(',');
+  const userAllergies = user?.preferences?.allergies ?? EMPTY_PREFERENCES;
+  const userDietary = user?.preferences?.dietary ?? EMPTY_PREFERENCES;
 
   return useMemo(
     () => checkProductAllergies(product, userAllergies, userDietary),
-    [product, allergyKey, dietaryKey],
+    [product, userAllergies, userDietary],
   );
 }
