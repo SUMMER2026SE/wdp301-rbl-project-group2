@@ -7,12 +7,8 @@ import {
     getAllProducts,
     getDistinctCategories,
     getProductById,
-    getProductHealthRisk,
     updateProduct
 } from '@/services/product.service';
-import UserModel from '@/models/user.model';
-import appAssert from '@/utils/app-assert';
-import { NOT_FOUND } from '@/constants/http';
 import { productValidator, updateProductValidator } from '@/validators/product.validator';
 
 // GET /api/products/categories
@@ -38,8 +34,7 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
         storeId: storeId as string,
     };
 
-    const user = req.userId ? await UserModel.findById(req.userId).select('preferences').lean() : null;
-    const result = await getAllProducts(filters, user?.preferences);
+    const result = await getAllProducts(filters);
 
     return res.success(OK, {
         data: result.products,
@@ -50,18 +45,8 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
 // GET /api/products/:id
 export const getProductByIdHandler = catchErrors(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const user = req.userId ? await UserModel.findById(req.userId).select('preferences').lean() : null;
-    const product = await getProductById(id, user?.preferences);
+    const product = await getProductById(id);
     return res.success(OK, { data: product });
-});
-
-// GET /api/products/:id/health-risk
-export const getProductHealthRiskHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const user = await UserModel.findById(req.userId).select('preferences').lean();
-    appAssert(user, NOT_FOUND, 'User not found');
-    const data = await getProductHealthRisk(id, user.preferences);
-    return res.success(OK, { data });
 });
 
 // POST /api/products

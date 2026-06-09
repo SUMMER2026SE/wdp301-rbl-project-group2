@@ -1,6 +1,4 @@
-import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
-import { IngredientModel } from '@/models/ingredient.model';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
@@ -8,37 +6,8 @@ import {
   attachSharedToppingVariants,
   attachSharedToppingVariantsToProducts,
 } from '@/services/shared-topping.service';
-import { evaluateProductHealthRisk } from '@/services/health-risk.service';
 
 const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
-
-const PRODUCT_RECIPE_POPULATE = {
-  path: 'recipe.ingredientId',
-  select: 'name allergenTags',
-};
-
-const normalizeIngredientName = (value: string) => {
-  const trimmed = value.trim();
-  return trimmed
-    ? trimmed
-        .split(/\s+/)
-        .map((word) => word[0]?.toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
-    : trimmed;
-};
-
-const withRecipeNames = <T extends Record<string, any>>(product: T): T => {
-  if (!Array.isArray(product.recipe)) return product;
-
-  return {
-    ...product,
-    recipe: product.recipe.map((item: any) => ({
-      ...item,
-      name: item?.ingredientId?.name,
-      allergenTags: item?.ingredientId?.allergenTags ?? [],
-    })),
-  };
-};
 
 // ─── Vietnamese Smart Search Synonym Dictionary ───
 // Maps common search terms to related keywords and categories
@@ -161,44 +130,7 @@ interface ProductFilters {
   storeId?: string;
 }
 
-const attachHealthRisk = <T extends Record<string, any>>(product: T, preferences?: any): T => {
-  if (!preferences) return product;
-  return {
-    ...product,
-    healthRisk: evaluateProductHealthRisk(product, preferences),
-  };
-};
-
-const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredientName?: string; quantity: number; unit: string }>) => {
-  const resolved = [] as Array<{ ingredientId: mongoose.Types.ObjectId; quantity: number; unit: string }>;
-  for (const item of recipe) {
-    let ingredientId = item.ingredientId;
-    if (!ingredientId && item.ingredientName) {
-      const name = normalizeIngredientName(item.ingredientName);
-      const existing = await IngredientModel.findOne({ name }).lean();
-      const ingredient = existing
-        ? existing
-        : await IngredientModel.create({
-            name,
-            description: '',
-            allergenTags: [],
-            allergenReviewStatus: 'pending',
-            allergenSource: 'manual',
-          });
-      ingredientId = String(ingredient._id);
-    }
-
-    if (!ingredientId) continue;
-    resolved.push({
-      ingredientId: new mongoose.Types.ObjectId(ingredientId),
-      quantity: item.quantity,
-      unit: item.unit,
-    });
-  }
-  return resolved;
-};
-
-export const getAllProducts = async (filters: ProductFilters, preferences?: any) => {
+export const getAllProducts = async (filters: ProductFilters) => {
   const {
     category,
     minPrice,
@@ -211,7 +143,7 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     isAvailable,
     healthTags,
     storeId = DEFAULT_PUBLIC_STORE_ID,
-} = filters;
+  } = filters;
 
   const query: any = {};
   if (storeId && storeId !== 'all') {
@@ -271,20 +203,13 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   const skip = (page - 1) * limit;
 
   const [products, total] = await Promise.all([
-    ProductModel.find(query)
-      .populate(PRODUCT_RECIPE_POPULATE)
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+    ProductModel.find(query).sort(sortOptions).skip(skip).limit(limit).lean(),
     ProductModel.countDocuments(query),
   ]);
-  const productsWithIngredients = products.map((product) => withRecipeNames(product));
-  const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
-  const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
+  const productsWithToppings = await attachSharedToppingVariantsToProducts(products);
 
   return {
-    products: productsWithRisk,
+    products: productsWithToppings,
     pagination: {
 
       page,
@@ -302,42 +227,20 @@ export const getDistinctCategories = async () => {
   return categories;
 };
 
-export const getProductById = async (id: string, preferences?: any) => {
-  const product = await ProductModel.findById(id).populate(PRODUCT_RECIPE_POPULATE).lean();
+export const getProductById = async (id: string) => {
+  const product = await ProductModel.findById(id).lean();
   appAssert(product, NOT_FOUND, 'Product not found');
-  const productWithToppings = await attachSharedToppingVariants(withRecipeNames(product));
-  return attachHealthRisk(productWithToppings, preferences);
-};
-
-export const getProductHealthRisk = async (id: string, preferences: any) => {
-  const product = await ProductModel.findById(id).populate(PRODUCT_RECIPE_POPULATE).lean();
-  appAssert(product, NOT_FOUND, 'Product not found');
-  return evaluateProductHealthRisk(product, preferences);
+  return attachSharedToppingVariants(product);
 };
 
 export const createProduct = async (data: Partial<IProduct>) => {
-  const recipe = await resolveRecipeItems((data as any).recipe ?? []);
-  const product = await ProductModel.create({
-    ...data,
-    recipe,
-    storeId: (data as any).storeId ?? DEFAULT_PUBLIC_STORE_ID,
-    imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
-  });
+  const product = await ProductModel.create(data);
 
   return product;
 };
 
 export const updateProduct = async (id: string, data: Partial<IProduct>) => {
-  const recipe = data.recipe ? await resolveRecipeItems((data as any).recipe ?? []) : undefined;
-  const product = await ProductModel.findByIdAndUpdate(
-    id,
-    {
-      ...data,
-      ...(recipe ? { recipe } : {}),
-      imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
-    },
-    { new: true }
-  );
+  const product = await ProductModel.findByIdAndUpdate(id, data, { new: true });
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;
 };

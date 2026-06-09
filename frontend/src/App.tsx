@@ -63,6 +63,7 @@ import StaffSupportChatPage from "./pages/Staff/SupportChat";
 import StaffSupportSettingsPage from "./pages/Staff/SupportSettings";
 import StaffDeliveryMode from "./pages/Staff/DeliveryMode";
 import StaffCustomerProfile from "./pages/Staff/CustomerProfile";
+import { AddToCartWarningModal } from "./components/shared/AddToCartWarningModal";
 import ScrollToTop from "./components/common/ScrollToTop";
 
 import { useStoreStore } from "./store/storeStore";
@@ -186,6 +187,7 @@ function App() {
         {/* Catch-all 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <AddToCartWarningModal />
     </BrowserRouter>
   );
 }
