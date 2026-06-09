@@ -1,4 +1,4 @@
-import { filterSafeProducts } from '@/utils/health-filter';
+import { evaluateProductHealthRisk } from '@/services/health-risk.service';
 
 export type AiRecommendationRow = { productId: string; reason: string; healthScore: number };
 
@@ -29,7 +29,7 @@ export function normalizeAiRecommendations(raw: unknown): AiRecommendationRow[] 
 const DEFAULT_MAX = 6;
 
 /**
- * Giữ gợi ý chỉ từ ID đã gửi cho AI, xác minh lại bằng filterSafeProducts.
+ * Giữ gợi ý chỉ từ ID đã gửi cho AI, xác minh lại bằng health-risk service.
  * Không ép đủ số lượng — chỉ trả các món thật sự an toàn (tối đa maxCount).
  */
 export function sanitizeAiRecommendations(
@@ -53,7 +53,7 @@ export function sanitizeAiRecommendations(
     if (seen.has(r.productId)) continue;
     const p = productById.get(r.productId);
     if (!p) continue;
-    if (filterSafeProducts([p], ctx.preferences).length !== 1) continue;
+    if (evaluateProductHealthRisk(p, ctx.preferences).level === 'danger') continue;
     verified.push(r);
     seen.add(r.productId);
     if (verified.length >= maxCount) break;

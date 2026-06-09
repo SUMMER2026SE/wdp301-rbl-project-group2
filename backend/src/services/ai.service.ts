@@ -309,7 +309,7 @@ export const getAIResponseForChat = async (
   } | null
 ): Promise<string> => {
 
-  // ── 1. Try Custom AI Microservice (Ollama / fine-tuned model) ─────────────
+  // ── 1. Try Custom AI Microservice ─────────────────────────────────────────
   if (await isMicroserviceAvailable()) {
     try {
       const res = await axios.post(`${AI_MICROSERVICE_URL}/chat/message`, {
@@ -320,7 +320,7 @@ export const getAIResponseForChat = async (
 
       const response = res.data?.response as string;
       if (response) {
-        console.log('[AI] Using Microservice (Ollama) for chat');
+        console.log('[AI] Using Microservice for chat');
         return response;
       }
     } catch (err) {

@@ -23,11 +23,11 @@ export interface SafeFoodsResponse {
 }
 
 const recommendationService = {
-    getAIRecommendations: () => {
-        return apiClient.get<{ data: AIRecommendation[] }>('/products/recommendations');
+    getAIRecommendations: (params?: { storeId?: string; refresh?: boolean }) => {
+        return apiClient.get<{ data: AIRecommendation[] }>('/products/recommendations', { params });
     },
-    getSafeFoods: () => {
-        return apiClient.get<SafeFoodsResponse>('/products/safe-foods');
+    getSafeFoods: (params?: { storeId?: string; refresh?: boolean }) => {
+        return apiClient.get<SafeFoodsResponse>('/products/safe-foods', { params });
     },
 };
 

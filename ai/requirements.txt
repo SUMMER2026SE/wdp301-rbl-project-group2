@@ -1,0 +1,23 @@
+fastapi
+uvicorn[standard]
+pydantic
+
+# ML / Data
+scikit-learn
+numpy
+pandas
+scipy
+
+# Database connectivity (for training data export)
+pymongo
+motor
+
+# HTTP client for Groq
+httpx
+requests
+
+# Model persistence
+joblib
+
+# Utilities
+python-dotenv
