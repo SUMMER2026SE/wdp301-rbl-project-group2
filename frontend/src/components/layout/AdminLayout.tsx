@@ -13,12 +13,12 @@ import { ShoppingBag } from "lucide-react";
 import orderService from "@/services/order.service";
 
 interface OrderNotification {
-    id: string;
-    code: string;
-    totalPrice: number;
-    itemsCount: number;
-    createdAt: string;
-    isRead: boolean;
+  id: string;
+  code: string;
+  totalPrice: number;
+  itemsCount: number;
+  createdAt: string;
+  isRead: boolean;
 }
 
 // ---- Sidebar Item Component ----
@@ -55,7 +55,8 @@ const SidebarItem = ({
   const isPathMatch = (path: string, href: string) =>
     href === "/admin" ? path === "/admin" : path.startsWith(href);
 
-  const hasActiveChild = hasSubItems && subItems.some(sub => isPathMatch(currentPath, sub.href));
+  const hasActiveChild =
+    hasSubItems && subItems.some((sub) => isPathMatch(currentPath, sub.href));
 
   // Sync open state with collapsed/active state
   if (isCollapsed && isOpen) {
@@ -158,17 +159,6 @@ const NAV_ITEMS = [
     icon: "dashboard",
   },
   {
-    label: "Vận hành",
-    href: "/admin/orders", // Defaults to Orders, but will have tabs
-    icon: "local_shipping",
-    subItems: [
-      { label: "Quản lý đơn hàng", href: "/admin/orders" },
-      { label: "Công nợ nhân viên", href: "/admin/cash-control" },
-      // { label: "Điều phối", href: "/admin/dispatch" },
-      { label: "Lịch trình giao", href: "/admin/delivery" },
-    ],
-  },
-  {
     label: "Danh mục & AI",
     href: "/admin/menu",
     icon: "restaurant_menu",
@@ -179,16 +169,12 @@ const NAV_ITEMS = [
     ],
   },
   {
-    label: "Khách hàng",
-    href: "/admin/customers",
+    label: "Đội ngũ nhân sự",
+    href: "/admin/staff",
     icon: "group",
-    subItems: [
-      { label: "Người dùng", href: "/admin/customers" },
-      { label: "Đánh giá", href: "/admin/reviews" },
-    ],
   },
   {
-    label: "Marketing",
+    label: "Quản lí chiến dịch",
     href: "/admin/vouchers",
     icon: "campaign",
     subItems: [
@@ -200,11 +186,7 @@ const NAV_ITEMS = [
     label: "Cài đặt & Hệ thống",
     href: "/admin/settings",
     icon: "settings",
-    subItems: [
-      { label: "Cấu hình chung", href: "/admin/settings" },
-      { label: "Đội ngũ nhân sự", href: "/admin/staff" },
-      { label: "Báo cáo chi tiết", href: "/admin/analytics" },
-    ],
+    subItems: [{ label: "Cấu hình chung", href: "/admin/settings" }],
   },
 ];
 
@@ -256,21 +238,27 @@ const AdminLayout = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { playNotification } = useNotificationSound();
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   // Fetch pending orders on mount to pre-populate notifications
   useEffect(() => {
     const fetchPendingOrders = async () => {
       try {
-        const res = await orderService.getAllOrders({ status: "pending", limit: 20 });
+        const res = await orderService.getAllOrders({
+          status: "pending",
+          limit: 20,
+        });
         if (res?.success && Array.isArray(res.data)) {
-          const mapped: OrderNotification[] = res.data.map(order => ({
+          const mapped: OrderNotification[] = res.data.map((order) => ({
             id: order._id,
             code: order.code,
             totalPrice: order.totalPrice,
-            itemsCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+            itemsCount: order.items.reduce(
+              (sum, item) => sum + item.quantity,
+              0,
+            ),
             createdAt: order.createdAt,
-            isRead: true
+            isRead: true,
           }));
           setNotifications(mapped);
         }
@@ -286,67 +274,84 @@ const AdminLayout = () => {
   useEffect(() => {
     const socket = getSupportSocket();
 
-    socket.on('order:new', (data: { _id: string; code: string; totalPrice: number; itemsCount: number; createdAt: string }) => {
-      console.log('New order received in AdminLayout:', data);
+    socket.on(
+      "order:new",
+      (data: {
+        _id: string;
+        code: string;
+        totalPrice: number;
+        itemsCount: number;
+        createdAt: string;
+      }) => {
+        console.log("New order received in AdminLayout:", data);
 
-      const newNotif: OrderNotification = {
-        id: data._id,
-        code: data.code,
-        totalPrice: data.totalPrice,
-        itemsCount: data.itemsCount,
-        createdAt: data.createdAt,
-        isRead: false
-      };
+        const newNotif: OrderNotification = {
+          id: data._id,
+          code: data.code,
+          totalPrice: data.totalPrice,
+          itemsCount: data.itemsCount,
+          createdAt: data.createdAt,
+          isRead: false,
+        };
 
-      setNotifications(prev => [newNotif, ...prev].slice(0, 20));
-      playNotification();
+        setNotifications((prev) => [newNotif, ...prev].slice(0, 20));
+        playNotification();
 
-      toast.custom((t) => (
-        <div
-          className={`${t.visible ? 'animate-enter' : 'animate-leave'
-            } max-w-md w-full bg-white dark:bg-gray-900 shadow-lg rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border-l-4 border-orange-500`}
-        >
-          <div className="flex-1 w-0 p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0 pt-0.5">
-                <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600">
-                  <ShoppingBag size={20} />
+        toast.custom(
+          (t) => (
+            <div
+              className={`${
+                t.visible ? "animate-enter" : "animate-leave"
+              } max-w-md w-full bg-white dark:bg-gray-900 shadow-lg rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border-l-4 border-orange-500`}
+            >
+              <div className="flex-1 w-0 p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600">
+                      <ShoppingBag size={20} />
+                    </div>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-black text-slate-900 dark:text-white">
+                      Đơn hàng mới #{data.code}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500 font-medium h-5 overflow-hidden">
+                      {data.itemsCount} món •{" "}
+                      {data.totalPrice.toLocaleString("vi-VN")}₫
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-black text-slate-900 dark:text-white">
-                  Đơn hàng mới #{data.code}
-                </p>
-                <p className="mt-1 text-sm text-slate-500 font-medium h-5 overflow-hidden">
-                  {data.itemsCount} món • {data.totalPrice.toLocaleString('vi-VN')}₫
-                </p>
+              <div className="flex border-l border-slate-100 dark:border-gray-800">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    navigate(`/admin/orders`);
+                  }}
+                  className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-black text-orange-600 hover:bg-orange-50 dark:hover:bg-gray-800 focus:outline-none"
+                >
+                  Xem ngay
+                </button>
               </div>
             </div>
-          </div>
-          <div className="flex border-l border-slate-100 dark:border-gray-800">
-            <button
-              onClick={() => {
-                toast.dismiss(t.id);
-                navigate(`/admin/orders`);
-              }}
-              className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-black text-orange-600 hover:bg-orange-50 dark:hover:bg-gray-800 focus:outline-none"
-            >
-              Xem ngay
-            </button>
-          </div>
-        </div>
-      ), { duration: 5000 });
-    });
+          ),
+          { duration: 5000 },
+        );
+      },
+    );
 
     return () => {
-      socket.off('order:new');
+      socket.off("order:new");
     };
   }, [playNotification, navigate]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowNotifDropdown(false);
       }
     }
@@ -390,7 +395,7 @@ const AdminLayout = () => {
               alt="FoodieDash"
               className={cn(
                 "object-contain group-hover:rotate-12 transition-transform duration-300",
-                isHovered ? "h-18 -ml-8 -mr-10" : "h-14"
+                isHovered ? "h-18 -ml-8 -mr-10" : "h-14",
               )}
             />
             {isHovered && (
@@ -507,7 +512,9 @@ const AdminLayout = () => {
               onMouseEnter={() => {
                 setShowNotifDropdown(true);
                 // Mark all as read when hovering
-                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                setNotifications((prev) =>
+                  prev.map((n) => ({ ...n, isRead: true })),
+                );
               }}
               onMouseLeave={() => setShowNotifDropdown(false)}
             >
@@ -515,7 +522,7 @@ const AdminLayout = () => {
                 type="button"
                 className={cn(
                   "w-9 h-9 flex items-center justify-center rounded-xl bg-[#f3ede7] dark:bg-gray-800 text-[#1b140d] dark:text-white hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors relative",
-                  showNotifDropdown && "bg-orange-100 text-orange-600"
+                  showNotifDropdown && "bg-orange-100 text-orange-600",
                 )}
                 title="Thông báo"
               >
@@ -537,7 +544,9 @@ const AdminLayout = () => {
                 <div className="absolute right-0 top-full pt-2 w-80 sm:w-96 z-[60] animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                   <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-gray-800 overflow-hidden">
                     <div className="px-5 py-4 border-b border-slate-50 dark:border-gray-800 flex items-center justify-between bg-slate-50/50 dark:bg-gray-800/50">
-                      <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight">Thông báo mới</h3>
+                      <h3 className="text-sm font-black text-slate-800 dark:text-white tracking-tight">
+                        Thông báo mới
+                      </h3>
                       <button
                         onClick={() => setNotifications([])}
                         className="text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 transition-colors"
@@ -550,10 +559,16 @@ const AdminLayout = () => {
                       {notifications.length === 0 ? (
                         <div className="py-12 flex flex-col items-center justify-center text-center px-6">
                           <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-gray-800 flex items-center justify-center mb-3">
-                            <span className="material-symbols-outlined text-[24px] text-slate-300">notifications</span>
+                            <span className="material-symbols-outlined text-[24px] text-slate-300">
+                              notifications
+                            </span>
                           </div>
-                          <p className="text-sm font-bold text-slate-400">Không có thông báo mới</p>
-                          <p className="text-xs text-slate-400 mt-1">Các đơn hàng mới sẽ xuất hiện ở đây</p>
+                          <p className="text-sm font-bold text-slate-400">
+                            Không có thông báo mới
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Các đơn hàng mới sẽ xuất hiện ở đây
+                          </p>
                         </div>
                       ) : (
                         <div className="divide-y divide-slate-50 dark:divide-gray-800">
@@ -572,16 +587,25 @@ const AdminLayout = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between mb-0.5">
-                                    <p className="text-sm font-black text-slate-800 dark:text-white truncate">Đơn hàng #{notif.code}</p>
+                                    <p className="text-sm font-black text-slate-800 dark:text-white truncate">
+                                      Đơn hàng #{notif.code}
+                                    </p>
                                     <span className="text-[10px] font-medium text-slate-400 shrink-0 ml-2">
-                                      {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: vi })}
+                                      {formatDistanceToNow(
+                                        new Date(notif.createdAt),
+                                        { addSuffix: true, locale: vi },
+                                      )}
                                     </span>
                                   </div>
                                   <p className="text-xs font-semibold text-slate-500 mb-2">
-                                    {notif.itemsCount} món • {notif.totalPrice.toLocaleString('vi-VN')}₫
+                                    {notif.itemsCount} món •{" "}
+                                    {notif.totalPrice.toLocaleString("vi-VN")}₫
                                   </p>
                                   <div className="inline-flex items-center text-[11px] font-black text-orange-500 group-hover:translate-x-1 transition-transform">
-                                    Chi tiết <span className="material-symbols-outlined text-[14px] ml-1">arrow_forward</span>
+                                    Chi tiết{" "}
+                                    <span className="material-symbols-outlined text-[14px] ml-1">
+                                      arrow_forward
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -595,7 +619,7 @@ const AdminLayout = () => {
                       <div className="p-3 bg-slate-50/50 dark:bg-gray-800/50 border-t border-slate-50 dark:border-gray-800">
                         <button
                           onClick={() => {
-                            navigate('/admin/orders');
+                            navigate("/admin/orders");
                             setShowNotifDropdown(false);
                           }}
                           className="w-full py-2.5 text-xs font-black text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition-colors"
