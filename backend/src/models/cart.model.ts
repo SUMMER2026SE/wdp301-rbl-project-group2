@@ -45,6 +45,8 @@ const CartItemDocSchema = new mongoose.Schema<ICartItemDoc>(
   {
     cartId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cart', required: true },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, trim: true },
+    image: { type: String },
     quantity: { type: Number, required: true },
     price: { type: Number, required: true },
     note: { type: String, default: null },
@@ -62,6 +64,7 @@ export const CartItemModel = mongoose.model<ICartItemDoc>('CartItem', CartItemDo
 const CartItemVariationDocSchema = new mongoose.Schema<ICartItemVariationDoc>(
   {
     cartItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'CartItem', required: true },
+    variation_optionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'VariationOption' }],
     name: { type: String, required: true, trim: true },
     choice: { type: String, required: true, trim: true },
     extraPrice: { type: Number, default: 0 },

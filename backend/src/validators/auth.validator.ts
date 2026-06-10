@@ -126,6 +126,7 @@ export const updateMeValidator = z.object({
     allergies: z.array(z.string().trim()).optional(),
     healthGoals: z.array(z.string().trim()).optional(),
   }).optional(),
+  receiveCampaignNotifications: z.boolean().optional(),
 }).strict();
 
 export type TUpdateMeParams = z.infer<typeof updateMeValidator>;

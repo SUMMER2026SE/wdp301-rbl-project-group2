@@ -6,10 +6,17 @@ export interface ICampaignProductItem {
   discount?: number | null;
 }
 
+export enum CampaignStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 export interface ICampaign extends mongoose.Document<mongoose.Types.ObjectId> {
   name: string;
   type: string;
-  storeIds: mongoose.Types.ObjectId[];
+  status: CampaignStatus;
+  createdBy: mongoose.Types.ObjectId;
   products: ICampaignProductItem[];
   startTime: Date;
   endTime: Date;
@@ -18,8 +25,8 @@ export interface ICampaign extends mongoose.Document<mongoose.Types.ObjectId> {
 }
 
 export interface ICampaignProduct extends mongoose.Document<mongoose.Types.ObjectId> {
-  campaignId: mongoose.Types.ObjectId;
-  productId: mongoose.Types.ObjectId;
+  campaignIds: mongoose.Types.ObjectId[];
+  productIds: mongoose.Types.ObjectId[];
   fixedPrice?: number | null;
   discount?: number | null;
   createdAt: Date;

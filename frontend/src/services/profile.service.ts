@@ -28,6 +28,8 @@ export type UserMeResponse = {
   ordersCount?: number;
   reviewsCount?: number;
   savedCount?: number;
+  receiveCampaignNotifications?: boolean;
+  storeId?: string | null;
 };
 
 export interface MembershipInfo {
@@ -64,6 +66,7 @@ export type UpdateMePayload = {
   avatar?: string;
   preferences?: Partial<UserPreferences>;
   addresses?: AddressPayload[];
+  receiveCampaignNotifications?: boolean;
 };
 
 export const userService = {

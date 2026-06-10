@@ -20,6 +20,7 @@ import { StoreModel, StoreSettingsModel } from './store.model';
 import { IngredientModel, ProductRecipeModel } from './ingredient.model';
 import { CampaignModel, CampaignProductModel } from './campaign.model';
 import { ConversationModel, MessageModel } from './conversation.model';
+import { VariationModel, VariationOptionModel } from './variation.model';
 
 export {
   UserModel,
@@ -53,4 +54,6 @@ export {
   CampaignProductModel,
   ConversationModel,
   MessageModel,
+  VariationModel,
+  VariationOptionModel,
 };

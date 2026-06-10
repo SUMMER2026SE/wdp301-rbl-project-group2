@@ -65,6 +65,15 @@ const CancellationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const OrderStatusHistorySchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: OrderStatus, required: true },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const OrderSchema = new mongoose.Schema<IOrder>(
   {
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
@@ -76,6 +85,7 @@ const OrderSchema = new mongoose.Schema<IOrder>(
       enum: OrderStatus,
       default: OrderStatus.PENDING,
     },
+    statusHistory: { type: [OrderStatusHistorySchema], default: [] },
     items: { type: [OrderItemSchema], required: true },
 
     voucherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Voucher', default: null },
@@ -136,6 +146,8 @@ const OrderItemDocSchema = new mongoose.Schema<IOrderItemDoc>(
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
     name: { type: String, required: true, trim: true },
+    image: { type: String, default: null },
+    price: { type: Number, required: true },
     subTotal: { type: Number, required: true },
     quantity: { type: Number, required: true },
   },
@@ -152,8 +164,10 @@ export const OrderItemModel = mongoose.model<IOrderItemDoc>('OrderItem', OrderIt
 const OrderItemVariationDocSchema = new mongoose.Schema<IOrderItemVariationDoc>(
   {
     orderItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrderItem', required: true },
+    variation_optionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'VariationOption' }],
     name: { type: String, required: true, trim: true },
     choice: { type: String, required: true, trim: true },
+    extraPrice: { type: Number, required: true, default: 0 },
   },
   {
     _id: true,

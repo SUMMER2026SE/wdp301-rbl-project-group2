@@ -54,6 +54,7 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
     if (payload.username !== undefined) update.username = payload.username;
     if (payload.fullName !== undefined) update.fullName = payload.fullName;
     if (payload.phone !== undefined) update.phone = payload.phone;
+    if (payload.receiveCampaignNotifications !== undefined) update.receiveCampaignNotifications = payload.receiveCampaignNotifications;
     if (payload.addresses !== undefined) update.addresses = normalizeDefaultAddress(payload.addresses);
     if (payload.preferences !== undefined) {
       update.preferences = {
