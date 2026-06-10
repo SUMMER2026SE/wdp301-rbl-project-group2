@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { disconnectSupportSocket, reconnectSupportSocket } from "@/lib/support-socket";
+import {
+  disconnectSupportSocket,
+  reconnectSupportSocket,
+} from "@/lib/support-socket";
 import { removeToken } from "@/utils/storage";
 
 // ---- Types (aligned with BE) ----
