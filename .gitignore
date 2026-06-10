@@ -10,3 +10,17 @@ backend/src/foa.products.csv
 # OS files
 .DS_Store
 Thumbs.db
+
+# Dependencies
+node_modules/
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Env configurations
+.env
+.env.*
+!.env.example
