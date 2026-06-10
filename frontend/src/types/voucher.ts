@@ -37,6 +37,7 @@ export interface Voucher {
     isReward?: boolean;
     pointCost?: number;
     ownerId?: string | null;
+    minTier?: string | null;
 }
 
 export interface VoucherListResponse {

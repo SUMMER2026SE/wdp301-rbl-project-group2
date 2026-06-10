@@ -1,12 +1,27 @@
-import { IVoucher } from '@/types';
+import { IVoucher, UserVoucherStatus } from '@/types';
 import VoucherModel from '@/models/voucher.model';
 import { VoucherCategory } from '@/types/voucher.type';
+import { UserTier } from '@/types/user.type';
 import { NOT_FOUND, BAD_REQUEST, CONFLICT } from '@/constants/http';
 import appAssert from '@/utils/app-assert';
 import { addPoints } from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
-import { UserModel } from '@/models';
+import { UserModel, UserVoucherModel } from '@/models';
 import mongoose from 'mongoose';
+
+const TIER_ORDER = [
+    UserTier.BRONZE,
+    UserTier.SILVER,
+    UserTier.GOLD,
+    UserTier.PLATINUM,
+    UserTier.DIAMOND
+];
+
+export const isTierAtLeast = (userTier: UserTier, minTier: UserTier): boolean => {
+    const userIndex = TIER_ORDER.indexOf(userTier);
+    const minIndex = TIER_ORDER.indexOf(minTier);
+    return userIndex >= minIndex;
+};
 
 // Get all vouchers with filters
 export const getAllVouchers = async (filters: {
@@ -16,23 +31,54 @@ export const getAllVouchers = async (filters: {
     ownerId?: string | null;
     page?: number;
     limit?: number;
-}) => {
+}, currentUserId?: string) => {
     const { category, isActive, isReward, ownerId, page = 1, limit = 10 } = filters;
 
     const query: any = {};
 
     if (category) query.category = category;
     if (isActive !== undefined) query.isActive = isActive;
-    if (isReward !== undefined) query.isReward = isReward;
 
-    if (ownerId === 'me' || ownerId === undefined) {
-        // 'me' needs to be resolved by the controller passing actual userId - skip ownerId filter
-    } else if (ownerId !== undefined) {
-        // Include both public vouchers (ownerId null) and user's own vouchers
-        query.$or = [
-            { ownerId: null },
-            { ownerId }
-        ];
+    const LEGACY_PUBLIC_VOUCHERS = ['WELCOME100', 'SHIP0D'];
+
+    if (isReward === true) {
+        query.isReward = true;
+    } else {
+        const targetUserId = (ownerId && ownerId !== 'me') ? ownerId : currentUserId;
+
+        // Fetch user tier if available
+        let userTier = UserTier.BRONZE;
+        const fetchTierUserId = targetUserId || currentUserId;
+        if (fetchTierUserId) {
+            const user = await UserModel.findById(fetchTierUserId).lean();
+            if (user) userTier = user.tier || UserTier.BRONZE;
+        }
+
+        const allowedTiers = TIER_ORDER.slice(0, TIER_ORDER.indexOf(userTier) + 1);
+        query.minTier = { $in: [null, ...allowedTiers] };
+
+        if (targetUserId) {
+            const userVouchers = await UserVoucherModel.find({
+                userId: new mongoose.Types.ObjectId(targetUserId),
+                status: UserVoucherStatus.AVAILABLE,
+            }).lean();
+            const claimedVoucherIds = userVouchers.map((uv) => uv.voucherId);
+
+            query.$or = [
+                { _id: { $in: claimedVoucherIds } },
+                { 
+                    code: { $in: LEGACY_PUBLIC_VOUCHERS },
+                    isReward: { $ne: true }
+                }
+            ];
+        } else {
+            if (isReward === false) {
+                query.isReward = false;
+            } else {
+                query.isReward = { $ne: true };
+            }
+            query.code = { $in: LEGACY_PUBLIC_VOUCHERS };
+        }
     }
 
     // Only get vouchers that haven't expired
@@ -124,10 +170,32 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
 
     appAssert(voucher, NOT_FOUND, 'Voucher không tồn tại');
 
-    // Check ownership if it's a personal voucher
-    if (voucher.ownerId) {
+    const LEGACY_PUBLIC_VOUCHERS = ['WELCOME100', 'SHIP0D'];
+    const isPublic = LEGACY_PUBLIC_VOUCHERS.includes(voucher.code.toUpperCase());
+
+    if (!isPublic) {
+        appAssert(!voucher.isReward, BAD_REQUEST, 'Voucher này yêu cầu đổi bằng điểm để sử dụng, không thể áp dụng trực tiếp');
         appAssert(userId, BAD_REQUEST, 'Cần đăng nhập để sử dụng voucher cá nhân này');
-        appAssert(voucher.ownerId.toString() === userId.toString(), BAD_REQUEST, 'Bạn không có quyền sử dụng voucher này');
+        
+        const userVoucher = await UserVoucherModel.findOne({
+            userId: new mongoose.Types.ObjectId(userId),
+            voucherId: voucher._id,
+            status: UserVoucherStatus.AVAILABLE,
+        });
+        appAssert(userVoucher, BAD_REQUEST, 'Bạn không sở hữu hoặc đã sử dụng voucher này');
+    }
+
+    // Check tier restrictions for direct use of public vouchers or own vouchers if minTier is configured
+    if (voucher.minTier) {
+        appAssert(userId, BAD_REQUEST, 'Cần đăng nhập để sử dụng voucher này');
+        const user = await UserModel.findById(userId);
+        appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
+        const userTier = user.tier || UserTier.BRONZE;
+        appAssert(
+            isTierAtLeast(userTier, voucher.minTier),
+            BAD_REQUEST,
+            `Voucher này yêu cầu hạng thành viên tối thiểu là ${voucher.minTier}`
+        );
     }
 
     // Check if active and not just a template
@@ -195,6 +263,23 @@ export const redeemRewardVoucher = async (voucherId: string, userId: mongoose.Ty
     appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
     appAssert(user.collectedPoints >= template.pointCost, BAD_REQUEST, 'Bạn không đủ điểm để đổi voucher này');
 
+    // Check if user has already claimed this voucher template
+    const alreadyClaimed = await UserVoucherModel.findOne({
+        userId,
+        voucherId: template._id,
+    });
+    appAssert(!alreadyClaimed, BAD_REQUEST, 'Bạn đã đổi voucher này rồi');
+
+    // Enforce tier restriction for reward templates
+    if (template.minTier) {
+        const userTier = user.tier || UserTier.BRONZE;
+        appAssert(
+            isTierAtLeast(userTier, template.minTier),
+            BAD_REQUEST,
+            `Voucher này yêu cầu hạng thành viên tối thiểu là ${template.minTier}`
+        );
+    }
+
     // Deduct points
     await addPoints(
         userId,
@@ -203,28 +288,15 @@ export const redeemRewardVoucher = async (voucherId: string, userId: mongoose.Ty
         `Đổi ${template.pointCost} điểm lấy voucher ${template.title}`
     );
 
-    // Create personal voucher
-    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newCode = `RDM-${template.discountValue}-${randomSuffix}`;
-    
-    const personalVoucher = await VoucherModel.create({
-        code: newCode,
-        title: template.title,
-        description: template.description,
-        category: template.category,
-        discountType: template.discountType,
-        discountValue: template.discountValue,
-        maxDiscount: template.maxDiscount,
-        minOrderValue: template.minOrderValue,
-        usageLimit: 1, // Only 1 use
-        usedCount: 0,
-        isActive: true,
-        isReward: false,
-        pointCost: 0,
-        ownerId: userId,
-        startAt: new Date(),
-        endAt: template.endAt,
+    // Link the user with this voucher template in user_vouchers
+    await UserVoucherModel.create({
+        userId,
+        voucherId: template._id,
+        status: UserVoucherStatus.AVAILABLE,
+        claimedAt: new Date(),
+        usedAt: null,
+        usageCount: 0,
     });
 
-    return personalVoucher;
+    return template;
 };

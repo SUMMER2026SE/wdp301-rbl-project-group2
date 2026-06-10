@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OK } from '@/constants/http';
-import { PointTransactionModel, UserModel } from '@/models';
+import { PointTransactionModel, UserModel, UserVoucherModel } from '@/models';
 import * as membershipService from '@/services/membership.service';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND, BAD_REQUEST } from '@/constants/http';
@@ -30,7 +30,17 @@ export const getMyMembershipHandler = catchErrors(async (req: Request, res: Resp
     const user = await UserModel.findById(userId).select('collectedPoints tier referralCode referredBy');
     appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
-    return res.status(OK).json({ success: true, data: user });
+    // Fetch all redeemed voucher IDs for this user
+    const userVouchers = await UserVoucherModel.find({ userId }).select('voucherId').lean();
+    const redeemedVoucherIds = userVouchers.map(uv => uv.voucherId.toString());
+
+    return res.status(OK).json({
+        success: true,
+        data: {
+            ...user.toObject(),
+            redeemedVoucherIds
+        }
+    });
 });
 
 /**

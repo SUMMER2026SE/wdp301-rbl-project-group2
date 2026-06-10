@@ -15,6 +15,17 @@ const TIER_THRESHOLDS = {
 };
 
 /**
+ * Determine tier based on points
+ */
+const calculateTier = (points: number): UserTier => {
+    if (points >= TIER_THRESHOLDS[UserTier.DIAMOND]) return UserTier.DIAMOND;
+    if (points >= TIER_THRESHOLDS[UserTier.PLATINUM]) return UserTier.PLATINUM;
+    if (points >= TIER_THRESHOLDS[UserTier.GOLD]) return UserTier.GOLD;
+    if (points >= TIER_THRESHOLDS[UserTier.SILVER]) return UserTier.SILVER;
+    return UserTier.BRONZE;
+};
+
+/**
  * Add points to a user and log the transaction
  */
 export const addPoints = async (
@@ -58,17 +69,6 @@ export const addPoints = async (
 };
 
 /**
- * Determine tier based on points
- */
-const calculateTier = (points: number): UserTier => {
-    if (points >= TIER_THRESHOLDS[UserTier.DIAMOND]) return UserTier.DIAMOND;
-    if (points >= TIER_THRESHOLDS[UserTier.PLATINUM]) return UserTier.PLATINUM;
-    if (points >= TIER_THRESHOLDS[UserTier.GOLD]) return UserTier.GOLD;
-    if (points >= TIER_THRESHOLDS[UserTier.SILVER]) return UserTier.SILVER;
-    return UserTier.BRONZE;
-};
-
-/**
  * Handle referral reward when a new user joins
  */
 export const rewardReferral = async (userId: string | mongoose.Types.ObjectId, referralCode: string) => {
@@ -84,10 +84,12 @@ export const rewardReferral = async (userId: string | mongoose.Types.ObjectId, r
         // Update new user
         newUser.referredBy = referrer._id as mongoose.Types.ObjectId;
         newUser.collectedPoints += 50; // Bonus for joining
+        newUser.tier = calculateTier(newUser.collectedPoints);
         await newUser.save({ session });
 
         // Reward referrer
         referrer.collectedPoints += 100; // Bonus for inviting
+        referrer.tier = calculateTier(referrer.collectedPoints);
         await referrer.save({ session });
 
         // Log transactions

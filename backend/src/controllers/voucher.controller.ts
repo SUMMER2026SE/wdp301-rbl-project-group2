@@ -28,7 +28,7 @@ export const getAllVouchersHandler = catchErrors(async (req: Request, res: Respo
         limit: limit ? parseInt(limit as string) : undefined,
     };
 
-    const result = await getAllVouchers(filters);
+    const result = await getAllVouchers(filters, req.userId?.toString());
 
     return res.success(OK, {
         data: result.vouchers,
@@ -88,11 +88,14 @@ export const deleteVoucherHandler = catchErrors(async (req: Request, res: Respon
 
 // POST /api/vouchers/validate
 export const validateVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { code, orderAmount, userId } = req.body;
+    const { code, orderAmount, userId: bodyUserId } = req.body;
 
     appAssert(code && orderAmount, BAD_REQUEST, 'Code và orderAmount là bắt buộc');
 
-    const result = await validateVoucher(code, orderAmount, userId);
+    // Use token userId if available, fallback to request body for compatibility
+    const activeUserId = req.userId || bodyUserId;
+
+    const result = await validateVoucher(code, orderAmount, activeUserId?.toString());
 
     return res.success(OK, {
         data: {

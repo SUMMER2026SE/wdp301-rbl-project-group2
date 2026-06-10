@@ -176,7 +176,7 @@ export const BranchSelectorModal: React.FC<BranchSelectorModalProps> = ({
         <div className="flex justify-between items-start mb-5">
           <div className="space-y-1">
             <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
-              📍 Chọn Chi Nhánh Gần Bạn
+              📍 Chọn Chi Nhánh
             </h2>
             <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium">
               Vui lòng chọn chi nhánh FoodieDash tại Đà Nẵng để xem thực đơn chính xác và đặt hàng.
