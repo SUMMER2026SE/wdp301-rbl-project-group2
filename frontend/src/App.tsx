@@ -153,7 +153,10 @@ function App() {
               <Route path="delivery" element={<StaffDeliveryMode />} />
               <Route path="menu" element={<StaffMenu />} />
               <Route path="support" element={<StaffSupportChatPage />} />
-              <Route path="support/settings" element={<StaffSupportSettingsPage />} />
+              <Route
+                path="support/settings"
+                element={<StaffSupportSettingsPage />}
+              />
               <Route path="customers" element={<StaffCustomerProfile />} />
               <Route path="customers/:id" element={<StaffCustomerProfile />} />
               <Route path="*" element={<Navigate to="/staff" replace />} />
