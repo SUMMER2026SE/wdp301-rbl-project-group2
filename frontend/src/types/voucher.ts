@@ -18,30 +18,22 @@ export type DiscountType = (typeof DiscountType)[keyof typeof DiscountType];
 export interface Voucher {
   _id: string;
   code: string;
-
-  title?: string;
-  description?: string;
-
+  title: string;
+  description: string;
   category: VoucherCategory;
   discountType: DiscountType;
   discountValue: number;
   maxDiscount: number | null;
   minOrderValue: number;
-
   startAt: string;
   endAt: string;
-
   usageLimit: number | null;
   usedCount: number;
-
   conditions: string[];
-
   isActive: boolean;
   isStackable: boolean;
-
   createdAt: string;
   updatedAt: string;
-
   isReward?: boolean;
   pointCost?: number;
   ownerId?: string | null;
@@ -83,21 +75,15 @@ export interface CreateVoucherRequest {
   code: string;
   title: string;
   description: string;
-
   category: VoucherCategory;
   discountType: DiscountType;
   discountValue: number;
   maxDiscount?: number;
-
   minOrderValue: number;
-
   startAt: string;
   endAt: string;
-
   usageLimit: number;
-
   conditions: string[];
-
   isActive?: boolean;
   isStackable?: boolean;
 }
