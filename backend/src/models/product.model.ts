@@ -11,25 +11,6 @@ const ProductRecipeItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const VariantOptionSchema = new mongoose.Schema(
-  {
-    choice: { type: String, required: true, trim: true },
-    extraPrice: { type: Number, default: 0, min: 0 },
-  },
-  { _id: false }
-);
-
-const VariantGroupSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, trim: true },
-    required: { type: Boolean, default: false },
-    multiple: { type: Boolean, default: false },
-    maxChoices: { type: Number, min: 1 },
-    options: { type: [VariantOptionSchema], default: [] },
-  },
-  { _id: false }
-);
-
 const ProductSchema = new mongoose.Schema<IProduct>(
   {
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
@@ -54,7 +35,8 @@ const ProductSchema = new mongoose.Schema<IProduct>(
     healthWarning: { type: String },
     healthTags: { type: [String], default: [] },
     isAvailable: { type: Boolean, default: true },
-    variants: { type: [VariantGroupSchema], default: [] },
+    isCampaignRunning: { type: Boolean, default: false },
+    variationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Variation' }],
     tags: { type: [String], default: [] },
   },
   {

@@ -12,6 +12,7 @@ export enum NotificationType {
 
 export interface INotification extends mongoose.Document<mongoose.Types.ObjectId> {
   userId: mongoose.Types.ObjectId;
+  orderId?: mongoose.Types.ObjectId | null;
   title: string;
   body?: string;
   type: NotificationType;

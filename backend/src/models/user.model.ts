@@ -72,7 +72,7 @@ const UserSchema = new mongoose.Schema<IUser>(
     role: { 
       type: String, 
       required: true, 
-      enum: [...Object.values(Role), 'ADMIN', 'MANAGER', 'STAFF', 'CUSTOMER', 'SHIPPER', 'admin', 'manager', 'staff', 'customer', 'shipper'], 
+      enum: Object.values(Role), 
       default: Role.CUSTOMER 
     },
     isHealthSetup: { type: Boolean, default: false },
@@ -82,7 +82,7 @@ const UserSchema = new mongoose.Schema<IUser>(
     status: { 
       type: String, 
       required: true, 
-      enum: [...Object.values(UserStatus), 'ACTIVE', 'INACTIVE', 'BLOCKED', 'DELETED', 'active', 'inactive', 'blocked', 'deleted'], 
+      enum: Object.values(UserStatus), 
       default: UserStatus.ACTIVE 
     },
     collectedPoints: {
@@ -101,6 +101,10 @@ const UserSchema = new mongoose.Schema<IUser>(
     preferences: {
       type: PreferencesSchema,
       default: () => ({ dietary: [] as string[], allergies: [] as string[], healthGoals: [] as string[] }),
+    },
+    receiveCampaignNotifications: {
+      type: Boolean,
+      default: true,
     },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,

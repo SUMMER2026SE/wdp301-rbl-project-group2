@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 const NotificationSchema = new mongoose.Schema<INotification>(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
     title: { type: String, required: true, trim: true },
     body: { type: String, trim: true },
     type: { type: String, required: true, enum: NotificationType },

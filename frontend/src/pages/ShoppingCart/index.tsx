@@ -4,9 +4,10 @@ import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { MOCK_UPSELL_ITEMS } from "@/constants/mockOrders";
 import { useEffect } from "react";
-import { itemKey } from "@/store/cartStore";
+import { itemKey, useCartStore } from "@/store/cartStore";
 import { buildVariantChips } from "@/utils/cartVariants";
-import { useState, useMemo } from "react";
+import campaignAPI from "@/services/campaign.service";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
@@ -54,6 +55,61 @@ const ShoppingCartPage = () => {
     };
     fetchUpsellProducts();
   }, []);
+
+  // Sync cart item prices with active approved campaigns on load or change
+  useEffect(() => {
+    const syncPrices = async () => {
+      if (cartItems.length === 0) return;
+      try {
+        const [productsRes, campaignsRes] = await Promise.all([
+          Promise.all(
+            cartItems.map((item) =>
+              productAPI.getProductById(item.productId).catch(() => null)
+            )
+          ),
+          campaignAPI.getCampaigns().catch(() => ({ data: [] })),
+        ]);
+
+        const now = new Date();
+        const activeCampaigns = (campaignsRes.data || []).filter(
+          (c) =>
+            c.status === "approved" &&
+            new Date(c.startTime) <= now &&
+            new Date(c.endTime) >= now
+        );
+
+        const campaignRuleMap: Record<string, { fixedPrice?: number | null; discount?: number | null }> = {};
+        for (const camp of activeCampaigns) {
+          for (const prod of camp.products) {
+            const pId = typeof prod.productId === "string" ? prod.productId : (prod.productId as any)._id;
+            campaignRuleMap[pId] = prod;
+          }
+        }
+
+        const priceMap: Record<string, number> = {};
+        productsRes.forEach((res) => {
+          if (!res || !res.success || !res.data) return;
+          const product = res.data;
+          let price = product.price;
+
+          const rule = campaignRuleMap[product._id];
+          if (rule) {
+            if (rule.fixedPrice !== null && rule.fixedPrice !== undefined) {
+              price = rule.fixedPrice;
+            } else if (rule.discount !== null && rule.discount !== undefined) {
+              price = product.price * (1 - rule.discount / 100);
+            }
+          }
+          priceMap[product._id] = price;
+        });
+
+        useCartStore.getState().updateItemPrices(priceMap);
+      } catch (err) {
+        console.error("Failed to sync cart prices with active campaigns:", err);
+      }
+    };
+    syncPrices();
+  }, [cartItems.length]);
 
   // Mock upsell items (vẫn giữ để UI đẹp)
   const upsellItems = MOCK_UPSELL_ITEMS;

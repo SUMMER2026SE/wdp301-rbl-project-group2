@@ -5,7 +5,6 @@ export enum Role {
   MANAGER = 'manager',
   STAFF = 'staff',
   CUSTOMER = 'customer',
-  SHIPPER = 'shipper',
 }
 
 export enum UserStatus {
@@ -68,6 +67,7 @@ export interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
   referralCode?: string;
   referredBy?: mongoose.Types.ObjectId | null;
   storeId?: mongoose.Types.ObjectId | null;
+  receiveCampaignNotifications?: boolean;
 
   aiRecommendationsCache?: {
     data?: any;

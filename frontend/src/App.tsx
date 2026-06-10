@@ -43,6 +43,7 @@ import AdminDashboard from "./pages/Admin/Dashboard";
 import AdminMenuManagement from "./pages/Admin/MenuManagement";
 import AdminOrders from "./pages/Admin/Orders";
 import AdminVouchers from "./pages/Admin/Vouchers";
+import AdminCampaigns from "./pages/Admin/Campaigns";
 import AdminSettings from "./pages/Admin/Settings";
 import AdminCustomers from "./pages/Admin/Customers";
 // import AdminAnalytics from "./pages/Admin/Analytics";
@@ -161,7 +162,7 @@ function App() {
         </Route>
         {/* Admin — protected by role */}
         <Route element={<RequireAuth />}>
-          <Route element={<RequireRole allowedRoles={["ADMIN"]} />}>
+          <Route element={<RequireRole allowedRoles={["ADMIN", "MANAGER"]} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route element={<AdminOperationsLayout />}>
@@ -176,6 +177,7 @@ function App() {
               <Route path="staff" element={<AdminStaff />} />
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="vouchers" element={<AdminVouchers />} />
+              <Route path="campaigns" element={<AdminCampaigns />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="ingredients" element={<AdminIngredients />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />

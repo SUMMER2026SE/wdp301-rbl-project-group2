@@ -60,11 +60,13 @@ const ProfileSettingsPage = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [receiveCampaignNotifications, setReceiveCampaignNotifications] = useState(true);
   const [initial, setInitial] = useState<{ username: string; fullName: string; phone: string }>({
     username: "",
     fullName: "",
     phone: "",
   });
+  const [initialNotifications, setInitialNotifications] = useState(true);
 
   const [allergies, setAllergies] = useState<string[]>([]);
   const [initialAllergies, setInitialAllergies] = useState<string[]>([]);
@@ -82,7 +84,8 @@ const ProfileSettingsPage = () => {
   const isDirty =
     normalize(username) !== normalize(initial.username) ||
     normalize(fullName) !== normalize(initial.fullName) ||
-    normalize(phone) !== normalize(initial.phone);
+    normalize(phone) !== normalize(initial.phone) ||
+    receiveCampaignNotifications !== initialNotifications;
 
   const isPrefsDirty =
     JSON.stringify([...allergies].sort()) !== JSON.stringify([...initialAllergies].sort());
@@ -116,11 +119,13 @@ const ProfileSettingsPage = () => {
         setFullName(me.fullName ?? "");
         setEmail(me.email ?? "");
         setPhone(me.phone ?? "");
+        setReceiveCampaignNotifications(me.receiveCampaignNotifications ?? true);
         setInitial({
           username: me.username ?? "",
           fullName: me.fullName ?? "",
           phone: me.phone ?? "",
         });
+        setInitialNotifications(me.receiveCampaignNotifications ?? true);
 
         const prefs = me.preferences ?? { dietary: [], allergies: [], healthGoals: [] };
         setAllergies(prefs.allergies ?? []);
@@ -145,18 +150,21 @@ const ProfileSettingsPage = () => {
         username: username.trim(),
         fullName: fullName.trim() || undefined,
         phone: phone.trim() || undefined,
+        receiveCampaignNotifications,
       });
       setInitial({
         username: username.trim(),
         fullName: fullName.trim(),
         phone: phone.trim(),
       });
+      setInitialNotifications(receiveCampaignNotifications);
       if (user) {
         setUser({
           ...user,
           username: username.trim(),
           fullName: fullName.trim() || undefined,
           phone: phone.trim() || undefined,
+          receiveCampaignNotifications,
         });
       }
       toast.success(t("customer:profileSettings.updateSuccess"));
@@ -368,6 +376,27 @@ const ProfileSettingsPage = () => {
                   />
                 </div>
               </div>
+
+              <div className="md:col-span-2 border-t border-border pt-6 mt-4">
+                <h4 className="text-sm font-bold mb-3">Cài đặt thông báo</h4>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={receiveCampaignNotifications}
+                    onChange={(e) => setReceiveCampaignNotifications(e.target.checked)}
+                    disabled={loading || saving}
+                    className="mt-1 accent-orange-600 size-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground group-hover:text-orange-600 transition-colors">
+                      Nhận email thông báo chiến dịch ưu đãi
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Chúng tôi sẽ gửi email cho bạn khi có các chiến dịch khuyến mãi mới với ưu đãi đặc biệt.
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -380,6 +409,7 @@ const ProfileSettingsPage = () => {
                   setUsername(initial.username);
                   setFullName(initial.fullName);
                   setPhone(initial.phone);
+                  setReceiveCampaignNotifications(initialNotifications);
                   setError(null);
                 }}
                 disabled={saving}

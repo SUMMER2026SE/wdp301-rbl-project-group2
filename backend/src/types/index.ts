@@ -11,5 +11,7 @@ export { INotification, NotificationType } from './notification.type';
 export { IAuditLog, AuditAction, AuditEntityType, AuditLogAction } from './audit-log.type';
 export { IStore, IStoreSettings } from './store.type';
 export { IIngredient, IProductRecipe, IUserAllergy } from './ingredient.type';
-export { ICampaign, ICampaignProduct, ICampaignProductItem } from './campaign.type';
+export { ICampaign, ICampaignProduct, ICampaignProductItem, CampaignStatus } from './campaign.type';
 export { IConversation, IMessage, MessageType } from './conversation.type';
+export { IVariation, IVariationOption } from './variation.type';
+

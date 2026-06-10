@@ -20,6 +20,7 @@ import settingsRoute from './settings.route';
 import storeRoutes from './store.route';
 import ingredientRoutes from './ingredient.route';
 import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
+import campaignRoutes from './campaign.route';
 
 const appRoutes = Router();
 
@@ -34,6 +35,7 @@ appRoutes.get('/allergens', (_req, res) => {
 appRoutes.use('/auth', authRoutes);
 appRoutes.use('/admin', adminRoutes);
 appRoutes.use('/vouchers', voucherRoutes);
+appRoutes.use('/campaigns', campaignRoutes);
 appRoutes.use('/products', productRoute);
 appRoutes.use('/location', locationRoutes);
 appRoutes.use('/orders', orderRoutes);
