@@ -1,4 +1,4 @@
-import { ICampaign, ICampaignProduct } from '@/types/campaign.type';
+import { CampaignStatus, ICampaign, ICampaignProduct } from '@/types/campaign.type';
 import mongoose from 'mongoose';
 
 const CampaignProductItemSchema = new mongoose.Schema(
@@ -15,7 +15,8 @@ const CampaignSchema = new mongoose.Schema<ICampaign>(
   {
     name: { type: String, required: true, trim: true },
     type: { type: String, required: true, trim: true },
-    storeIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }],
+    status: { type: String, enum: CampaignStatus, default: CampaignStatus.PENDING, required: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     products: { type: [CampaignProductItemSchema], default: [] },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
@@ -26,7 +27,6 @@ const CampaignSchema = new mongoose.Schema<ICampaign>(
 );
 
 // Indexes
-CampaignSchema.index({ storeIds: 1 });
 CampaignSchema.index({ startTime: 1, endTime: 1 });
 
 export const CampaignModel = mongoose.model<ICampaign>('Campaign', CampaignSchema, 'campaigns');
@@ -34,8 +34,8 @@ export const CampaignModel = mongoose.model<ICampaign>('Campaign', CampaignSchem
 // --- CAMPAIGN PRODUCTS ---
 const CampaignProductSchema = new mongoose.Schema<ICampaignProduct>(
   {
-    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true },
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    campaignIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Campaign' }],
+    productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
     fixedPrice: { type: Number, default: null },
     discount: { type: Number, default: null },
   },
@@ -45,7 +45,7 @@ const CampaignProductSchema = new mongoose.Schema<ICampaignProduct>(
 );
 
 // Indexes
-CampaignProductSchema.index({ campaignId: 1, productId: 1 }, { unique: true });
-CampaignProductSchema.index({ productId: 1 });
+CampaignProductSchema.index({ campaignIds: 1 });
+CampaignProductSchema.index({ productIds: 1 });
 
 export const CampaignProductModel = mongoose.model<ICampaignProduct>('CampaignProduct', CampaignProductSchema, 'campaign_products');

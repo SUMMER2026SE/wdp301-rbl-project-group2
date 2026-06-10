@@ -9,7 +9,7 @@ export interface IIngredient extends mongoose.Document<mongoose.Types.ObjectId> 
 
 export interface IProductRecipe extends mongoose.Document<mongoose.Types.ObjectId> {
   productId: mongoose.Types.ObjectId;
-  ingredientId: mongoose.Types.ObjectId;
+  ingredientIds: mongoose.Types.ObjectId[];
   quantity: number;
   unit: string;
   createdAt: Date;
@@ -17,8 +17,7 @@ export interface IProductRecipe extends mongoose.Document<mongoose.Types.ObjectI
 
 export interface IUserAllergy extends mongoose.Document<mongoose.Types.ObjectId> {
   userId: mongoose.Types.ObjectId;
-  ingredientId: mongoose.Types.ObjectId;
-  name?: string;
-  tag?: string;
+  ingredientIds: mongoose.Types.ObjectId[];
   createdAt: Date;
 }
+

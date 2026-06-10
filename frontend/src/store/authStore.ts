@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 // ---- Types (aligned with BE) ----
 
-export type UserRole = "ADMIN" | "STAFF" | "CUSTOMER";
+export type UserRole = "ADMIN" | "MANAGER" | "STAFF" | "CUSTOMER";
 export type ApiUserRole = UserRole | Lowercase<UserRole>;
 
 export interface AuthAddress {
@@ -34,6 +34,8 @@ export interface AuthUser {
     allergies: string[];
     healthGoals: string[];
   };
+  receiveCampaignNotifications?: boolean;
+  storeId?: string | null;
 }
 
 interface AuthState {

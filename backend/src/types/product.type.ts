@@ -54,7 +54,8 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   
   // camelCase fields
   isAvailable?: boolean;
-  variants?: IProductVariantGroup[];
+  isCampaignRunning: boolean;
+  variationIds: mongoose.Types.ObjectId[];
   tags?: string[];
   createdAt: Date;
   updatedAt: Date;

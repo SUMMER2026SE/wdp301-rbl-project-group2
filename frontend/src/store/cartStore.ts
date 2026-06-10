@@ -34,6 +34,7 @@ interface CartState {
   clearCart: () => void;
   hydrate: () => void;
   mergeGuestCartIntoCurrentUser: () => void;
+  updateItemPrices: (priceMap: Record<string, number>) => void;
 }
 
 // ---- Storage ----
@@ -259,5 +260,22 @@ export const useCartStore = create<CartState>((set, get) => ({
     localStorage.setItem(cartKey, JSON.stringify(merged));
     localStorage.removeItem(GUEST_CART_KEY);
     set({ items: merged, ...computeTotals(merged) });
+  },
+
+  updateItemPrices: (priceMap: Record<string, number>) => {
+    const currentItems = get().items;
+    const newItems = currentItems.map((item) => {
+      const newPrice = priceMap[item.productId];
+      if (newPrice !== undefined && newPrice !== item.price) {
+        return { ...item, price: newPrice };
+      }
+      return item;
+    });
+
+    const hasChanged = newItems.some((item, idx) => item.price !== currentItems[idx].price);
+    if (hasChanged) {
+      saveCart(newItems);
+      set({ items: newItems, ...computeTotals(newItems) });
+    }
   },
 }));

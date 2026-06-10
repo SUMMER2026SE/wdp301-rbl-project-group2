@@ -18,6 +18,7 @@ import { uploadBuffer } from '@/utils/upload-file';
 import { parseFormData } from '@/utils/parse-form-data';
 import settingsRoute from './settings.route';
 import storeRoutes from './store.route';
+import campaignRoutes from './campaign.route';
 
 const appRoutes = Router();
 
@@ -28,6 +29,7 @@ appRoutes.get('/health', (req, res) => {
 appRoutes.use('/auth', authRoutes);
 appRoutes.use('/admin', adminRoutes);
 appRoutes.use('/vouchers', voucherRoutes);
+appRoutes.use('/campaigns', campaignRoutes);
 appRoutes.use('/products', productRoute);
 appRoutes.use('/location', locationRoutes);
 appRoutes.use('/orders', orderRoutes);

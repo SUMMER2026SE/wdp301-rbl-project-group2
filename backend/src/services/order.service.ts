@@ -1,5 +1,6 @@
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel } from '@/models';
+import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, CampaignProductModel } from '@/models';
+import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
 import withTransaction from '@/utils/with-transaction';
@@ -85,33 +86,67 @@ const resolveOrderItems = async (
     appAssert(product, NOT_FOUND, `Không tìm thấy sản phẩm với id: ${item.productId}`);
     appAssert(product.isAvailable, BAD_REQUEST, `Sản phẩm "${product.name}" hiện không có sẵn`);
 
-    const normalizedVariations = (item.variations ?? []).map((selected) => {
-      const variantGroup = product.variants?.find((variant: any) => variant.name === selected.name);
+    const normalizedVariations = [];
+    if (item.variations && item.variations.length > 0) {
+      const { VariationModel, VariationOptionModel } = await import('@/models/variation.model');
+      for (const selected of item.variations) {
+        // Find Variation by name that is referenced in product.variationIds
+        const variation = await VariationModel.findOne({
+          _id: { $in: product.variationIds },
+          name: selected.name,
+        }).session(session);
 
-      appAssert(
-        variantGroup,
-        BAD_REQUEST,
-        `Biến thể "${selected.name}" không tồn tại trong sản phẩm "${product.name}"`
-      );
+        appAssert(
+          variation,
+          BAD_REQUEST,
+          `Biến thể "${selected.name}" không tồn tại trong sản phẩm "${product.name}"`
+        );
 
-      const matchedOption = variantGroup.options?.find((option: any) => option.choice === selected.choice);
+        // Find VariationOption under that variation
+        const matchedOption = await VariationOptionModel.findOne({
+          variationId: variation._id,
+          name: selected.choice,
+          isAvailable: true,
+        }).session(session);
 
-      appAssert(
-        matchedOption,
-        BAD_REQUEST,
-        `Lựa chọn "${selected.choice}" không hợp lệ cho biến thể "${selected.name}"`
-      );
+        appAssert(
+          matchedOption,
+          BAD_REQUEST,
+          `Lựa chọn "${selected.choice}" không hợp lệ cho biến thể "${selected.name}"`
+        );
 
-      return {
-        name: selected.name,
-        choice: selected.choice,
-        extraPrice: matchedOption.extraPrice ?? 0,
-      };
-    });
+        normalizedVariations.push({
+          name: selected.name,
+          choice: selected.choice,
+          extraPrice: matchedOption.extraPrice ?? 0,
+        });
+      }
+    }
 
     const variationExtraPerUnit = normalizedVariations.reduce((sum, variation) => sum + (variation.extraPrice ?? 0), 0);
 
-    const unitPrice = product.price + variationExtraPerUnit;
+    // Apply active approved campaign discount if available
+    let basePrice = product.price;
+    const campaignProduct = await CampaignProductModel.findOne({ productIds: product._id })
+      .populate({
+        path: 'campaignIds',
+        match: {
+          status: CampaignStatus.APPROVED,
+          startTime: { $lte: new Date() },
+          endTime: { $gte: new Date() },
+        },
+      })
+      .session(session);
+
+    if (campaignProduct && campaignProduct.campaignIds && campaignProduct.campaignIds.length > 0) {
+      if (campaignProduct.fixedPrice !== null && campaignProduct.fixedPrice !== undefined) {
+        basePrice = campaignProduct.fixedPrice;
+      } else if (campaignProduct.discount !== null && campaignProduct.discount !== undefined) {
+        basePrice = product.price * (1 - campaignProduct.discount / 100);
+      }
+    }
+
+    const unitPrice = basePrice + variationExtraPerUnit;
     const itemSubTotal = unitPrice * item.quantity;
 
     subTotal += itemSubTotal;

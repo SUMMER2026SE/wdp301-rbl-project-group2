@@ -62,12 +62,19 @@ export interface IDeliveryInfo {
   deliveredAt?: Date | null;
 }
 
+export interface IOrderStatusHistory {
+  status: OrderStatus;
+  changedBy: mongoose.Types.ObjectId;
+  createdAt: Date;
+}
+
 export interface IOrder extends mongoose.Document<mongoose.Types.ObjectId> {
   storeId: mongoose.Types.ObjectId;
   code: string;
   staffId?: mongoose.Types.ObjectId | null;
   cusId: mongoose.Types.ObjectId;
   status: OrderStatus;
+  statusHistory: IOrderStatusHistory[];
   items: IOrderItem[];
 
   voucherId?: mongoose.Types.ObjectId | null;
@@ -111,6 +118,8 @@ export interface IOrderItemDoc extends mongoose.Document<mongoose.Types.ObjectId
   orderId: mongoose.Types.ObjectId;
   productId: mongoose.Types.ObjectId;
   name: string;
+  image?: string | null;
+  price: number;
   subTotal: number;
   quantity: number;
   createdAt: Date;
@@ -118,6 +127,8 @@ export interface IOrderItemDoc extends mongoose.Document<mongoose.Types.ObjectId
 
 export interface IOrderItemVariationDoc extends mongoose.Document<mongoose.Types.ObjectId> {
   orderItemId: mongoose.Types.ObjectId;
+  variation_optionIds: mongoose.Types.ObjectId[];
   name: string;
   choice: string;
+  extraPrice: number;
 }

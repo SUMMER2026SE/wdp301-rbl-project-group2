@@ -175,6 +175,10 @@ const NAV_ITEMS = [
     label: "Marketing",
     href: "/admin/vouchers",
     icon: "campaign",
+    subItems: [
+      { label: "Vouchers", href: "/admin/vouchers" },
+      { label: "Chiến dịch", href: "/admin/campaigns" },
+    ],
   },
   {
     label: "Cài đặt & Hệ thống",
@@ -199,6 +203,31 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout: authLogout } = useAuth();
+
+  const userRole = user?.role?.toUpperCase();
+  const filteredNavItems = NAV_ITEMS.map(item => {
+    if (userRole === "MANAGER") {
+      if (item.label === "Marketing") {
+        return {
+          ...item,
+          subItems: item.subItems?.filter(sub => sub.label === "Chiến dịch")
+        };
+      }
+      if (item.label === "Danh mục & AI") {
+        return {
+          ...item,
+          subItems: item.subItems?.filter(sub => sub.label === "Thực đơn")
+        };
+      }
+    }
+    return item;
+  }).filter(item => {
+    if (userRole === "MANAGER") {
+      return item.label === "Bảng điều khiển" || item.label === "Marketing" || item.label === "Danh mục & AI";
+    }
+    return true;
+  });
+
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem("admin_theme") === "dark",
   );
@@ -260,7 +289,7 @@ const AdminLayout = () => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {NAV_ITEMS.map((item) => {
+          {filteredNavItems.map((item) => {
             // For "Tổng quan" parent, check for exact /admin match
             const isExactMatch =
               item.href === "/admin/overview"

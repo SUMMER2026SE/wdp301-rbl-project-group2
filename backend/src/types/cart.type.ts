@@ -26,6 +26,8 @@ export interface ICart extends mongoose.Document<mongoose.Types.ObjectId> {
 export interface ICartItemDoc extends mongoose.Document<mongoose.Types.ObjectId> {
   cartId: mongoose.Types.ObjectId;
   productId: mongoose.Types.ObjectId;
+  name?: string;
+  image?: string;
   quantity: number;
   price: number;
   note?: string;
@@ -35,6 +37,7 @@ export interface ICartItemDoc extends mongoose.Document<mongoose.Types.ObjectId>
 
 export interface ICartItemVariationDoc extends mongoose.Document<mongoose.Types.ObjectId> {
   cartItemId: mongoose.Types.ObjectId;
+  variation_optionIds: mongoose.Types.ObjectId[];
   name: string;
   choice: string;
   extraPrice: number;

@@ -1,0 +1,186 @@
+import { CampaignModel, CampaignProductModel, UserModel } from '@/models';
+import { CampaignStatus, ICampaign } from '@/types/campaign.type';
+import { Role } from '@/types/user.type';
+import appAssert from '@/utils/app-assert';
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
+import { TCreateCampaignParams, TUpdateCampaignParams } from '@/validators/campaign.validator';
+import mongoose from 'mongoose';
+import { sendMail } from '@/utils/send-mail';
+
+// Helper to notify customers when a campaign is approved/activated
+async function notifyCustomersOfCampaign(campaign: ICampaign) {
+  try {
+    // Fetch all customers who opted in to receive notifications
+    const customers = await UserModel.find({
+      role: Role.CUSTOMER,
+      receiveCampaignNotifications: { $ne: false },
+    }).select('email username').lean();
+
+    if (!customers.length) return;
+
+    const subject = `🎉 Chiến dịch ưu đãi mới: ${campaign.name}`;
+    const text = `Xin chào! Cửa hàng vừa ra mắt chiến dịch khuyến mãi "${campaign.name}" mới từ ngày ${new Date(campaign.startTime).toLocaleDateString('vi-VN')} đến ngày ${new Date(campaign.endTime).toLocaleDateString('vi-VN')}. Hãy ghé thăm thực đơn để nhận ngay các ưu đãi đặc biệt nhé!`;
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #f3ede7; border-radius: 12px; max-width: 600px;">
+        <h2 style="color: #ea580c;">Khuyến mãi đặc biệt từ FoodieDash! 🎁</h2>
+        <p>Xin chào quý khách,</p>
+        <p>Chúng tôi xin trân trọng thông báo chiến dịch ưu đãi mới <strong>"${campaign.name}"</strong> chính thức bắt đầu từ ngày <strong>${new Date(campaign.startTime).toLocaleDateString('vi-VN')}</strong> đến ngày <strong>${new Date(campaign.endTime).toLocaleDateString('vi-VN')}</strong>.</p>
+        <p>Nhanh tay truy cập FoodieDash để chọn mua các sản phẩm yêu thích với mức giá ưu đãi cực sốc!</p>
+        <hr style="border: 0; border-top: 1px solid #e7dbcf; margin: 20px 0;" />
+        <p style="font-size: 11px; color: #9a734c;">Nếu bạn không muốn nhận các email thông báo này nữa, vui lòng thay đổi cấu hình trong trang cài đặt tài khoản của bạn.</p>
+      </div>
+    `;
+
+    // Send emails asynchronously
+    for (const customer of customers) {
+      if (customer.email) {
+        sendMail({
+          to: customer.email,
+          subject,
+          text,
+          html,
+        }).catch((err) => console.error(`Failed to send campaign email to ${customer.email}:`, err));
+      }
+    }
+  } catch (error) {
+    console.error('Failed to notify customers of new campaign:', error);
+  }
+}
+
+// Sync Campaign Product mappings in the database based on campaign products definition
+async function syncCampaignProducts(campaign: ICampaign, session?: mongoose.ClientSession) {
+  // Clear old mappings first
+  await CampaignProductModel.deleteMany({ campaignIds: campaign._id }, { session });
+
+  // Only create mappings if approved
+  if (campaign.status === CampaignStatus.APPROVED) {
+    const mappings = campaign.products.map((p) => ({
+      campaignIds: [campaign._id],
+      productIds: [p.productId],
+      fixedPrice: p.fixedPrice,
+      discount: p.discount,
+    }));
+    if (mappings.length > 0) {
+      await CampaignProductModel.insertMany(mappings, { session });
+    }
+  }
+}
+
+export const createCampaign = async (
+  userId: mongoose.Types.ObjectId,
+  userRole: Role,
+  params: TCreateCampaignParams
+) => {
+  const status = userRole === Role.ADMIN ? CampaignStatus.APPROVED : CampaignStatus.PENDING;
+
+  const campaign = await CampaignModel.create({
+    ...params,
+    status,
+    createdBy: userId,
+  });
+
+  await syncCampaignProducts(campaign);
+
+  if (status === CampaignStatus.APPROVED) {
+    // Notify customers asynchronously
+    notifyCustomersOfCampaign(campaign);
+  }
+
+  return campaign;
+};
+
+export const getCampaigns = async (userRole?: Role) => {
+  const query: Record<string, any> = {};
+
+  // If not Admin/Manager, only list approved active campaigns
+  if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
+    query.status = CampaignStatus.APPROVED;
+  }
+
+  return CampaignModel.find(query)
+    .sort({ createdAt: -1 })
+    .populate('createdBy', 'username email')
+    .lean();
+};
+
+export const getCampaignById = async (id: string) => {
+  const campaign = await CampaignModel.findById(id)
+    .populate('createdBy', 'username email')
+    .populate('products.productId', 'name price image');
+  appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
+  return campaign;
+};
+
+export const updateCampaign = async (
+  id: string,
+  userId: mongoose.Types.ObjectId,
+  userRole: Role,
+  params: TUpdateCampaignParams
+) => {
+  const campaign = await CampaignModel.findById(id);
+  appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
+
+  // Manager can only edit their own pending campaigns
+  if (userRole === Role.MANAGER) {
+    appAssert(
+      campaign.createdBy.toString() === userId.toString(),
+      FORBIDDEN,
+      'Bạn không có quyền chỉnh sửa chiến dịch của người khác'
+    );
+    appAssert(
+      campaign.status === CampaignStatus.PENDING,
+      BAD_REQUEST,
+      'Không thể chỉnh sửa chiến dịch đã được phê duyệt hoặc từ chối'
+    );
+  }
+
+  // Update properties
+  if (params.name !== undefined) campaign.name = params.name;
+  if (params.type !== undefined) campaign.type = params.type;
+  if (params.products !== undefined) campaign.products = params.products as any;
+  if (params.startTime !== undefined) campaign.startTime = new Date(params.startTime);
+  if (params.endTime !== undefined) campaign.endTime = new Date(params.endTime);
+
+  await campaign.save();
+  await syncCampaignProducts(campaign);
+
+  return campaign;
+};
+
+export const deleteCampaign = async (id: string, userId: mongoose.Types.ObjectId, userRole: Role) => {
+  const campaign = await CampaignModel.findById(id);
+  appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
+
+  if (userRole === Role.MANAGER) {
+    appAssert(
+      campaign.createdBy.toString() === userId.toString(),
+      FORBIDDEN,
+      'Bạn không có quyền xóa chiến dịch của người khác'
+    );
+    appAssert(
+      campaign.status === CampaignStatus.PENDING,
+      BAD_REQUEST,
+      'Không thể xóa chiến dịch đã được phê duyệt hoặc từ chối'
+    );
+  }
+
+  await CampaignModel.findByIdAndDelete(id);
+  await CampaignProductModel.deleteMany({ campaignIds: id });
+};
+
+export const updateCampaignStatus = async (id: string, status: CampaignStatus) => {
+  const campaign = await CampaignModel.findById(id);
+  appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
+
+  const oldStatus = campaign.status;
+  campaign.status = status;
+  await campaign.save();
+
+  await syncCampaignProducts(campaign);
+
+  if (status === CampaignStatus.APPROVED && oldStatus !== CampaignStatus.APPROVED) {
+    notifyCustomersOfCampaign(campaign);
+  }
+
+  return campaign;
+};
