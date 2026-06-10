@@ -32,15 +32,15 @@ export const useStoreStore = create<StoreState>((set, get) => ({
     }
   },
   selectStore: (store) => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
     set({ selectedStore: store });
   },
   clearSelectedStore: () => {
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
     set({ selectedStore: null });
   },
   hydrate: () => {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
         const store = JSON.parse(raw) as IStore;

@@ -407,7 +407,22 @@ export const VoucherWalletContent = () => {
             setRewardLoading(true);
             // Fetch reward template vouchers
             const res = await voucherService.getVouchers({ isReward: true, limit: 100 });
-            setRewardVouchers(res.data ?? []);
+            
+            const tiersOrder = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+            const getTierWeight = (t?: string | null) => {
+                if (!t) return 0;
+                const idx = tiersOrder.indexOf(t);
+                return idx === -1 ? 0 : idx;
+            };
+
+            const sorted = (res.data ?? []).sort((a, b) => {
+                const wA = getTierWeight(a.minTier);
+                const wB = getTierWeight(b.minTier);
+                if (wA !== wB) return wA - wB;
+                return (a.pointCost || 0) - (b.pointCost || 0);
+            });
+
+            setRewardVouchers(sorted);
         } catch (err) {
             console.error("Failed to fetch reward vouchers:", err);
         } finally {
@@ -585,10 +600,17 @@ export const VoucherWalletContent = () => {
                         rewardVouchers.map((v) => {
                             const pts = v.pointCost || 0;
                             const color = getColor(v.category || 'discount');
-                            const canRedeem = (membership?.collectedPoints || 0) >= pts;
+                            
+                            const tiers = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+                            const userTier = membership?.tier || "Bronze";
+                            const minTier = v.minTier;
+                            const isAlreadyClaimed = membership?.redeemedVoucherIds?.includes(v._id);
+                            const isTierQualified = !minTier || tiers.indexOf(userTier) >= tiers.indexOf(minTier);
+                            const hasEnoughPoints = (membership?.collectedPoints || 0) >= pts;
+                            const canRedeem = hasEnoughPoints && isTierQualified && !isAlreadyClaimed;
 
                             return (
-                                <div key={v._id} className={`w-64 bg-card p-4 rounded-[24px] border border-border hover:shadow-lg transition-all shrink-0 flex-none flex flex-col justify-between relative overflow-hidden ${!canRedeem ? "opacity-80" : ""}`}>
+                                <div key={v._id} className={`w-64 bg-card p-4 rounded-[24px] border border-border hover:shadow-lg transition-all shrink-0 flex-none flex flex-col justify-between relative overflow-hidden ${isAlreadyClaimed ? "opacity-50 grayscale" : !canRedeem ? "opacity-80" : ""}`}>
                                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                                         <span className="material-symbols-outlined text-8xl">local_activity</span>
                                     </div>
@@ -603,10 +625,19 @@ export const VoucherWalletContent = () => {
                                             </div>
                                         </div>
                                         <h4 className="font-bold text-lg mb-1 leading-tight line-clamp-2">{v.title}</h4>
-                                        <p className="text-xs text-muted-foreground mb-4 line-clamp-2">{v.description}</p>
+                                        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{v.description}</p>
+                                        
+                                        {minTier && minTier !== "Bronze" && (
+                                            <div className="mb-4">
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-orange-600/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded">
+                                                    Hạng {minTier === 'Silver' ? 'Bạc' : minTier === 'Gold' ? 'Vàng' : minTier === 'Platinum' ? 'Bạch Kim' : minTier === 'Diamond' ? 'Kim Cương' : minTier}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                     <button 
                                         onClick={async () => {
+                                            if (isAlreadyClaimed) return;
                                             try {
                                                 await voucherService.redeemRewardVoucher(v._id);
                                                 // Refresh data locally and globally
@@ -614,14 +645,15 @@ export const VoucherWalletContent = () => {
                                                 await fetchVouchers();
                                                 await getUser();
                                                 toast.success("Đổi voucher thành công! Kiểm tra trong 'Voucher của bạn'");
-                                            } catch (error: any) {
-                                                toast.error(error.response?.data?.message || "Đổi điểm thất bại");
+                                            } catch (error) {
+                                                const err = error as { response?: { data?: { message?: string } } };
+                                                toast.error(err.response?.data?.message || "Đổi điểm thất bại");
                                             }
                                         }}
                                         disabled={!canRedeem}
                                         className={`w-full py-2.5 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${canRedeem ? "bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/20 hover:-translate-y-0.5" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
                                     >
-                                        {canRedeem ? "ĐỔI NGAY" : "KHÔNG ĐỦ ĐIỂM"}
+                                        {isAlreadyClaimed ? "ĐÃ ĐỔI" : canRedeem ? "ĐỔI NGAY" : !isTierQualified ? `HẠNG CHƯA ĐỦ` : "KHÔNG ĐỦ ĐIỂM"}
                                     </button>
                                 </div>
                             );

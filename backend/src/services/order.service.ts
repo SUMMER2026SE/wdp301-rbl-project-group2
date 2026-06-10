@@ -414,7 +414,8 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
           appAssert(v, NOT_FOUND, 'Không tìm thấy voucher');
           return v.code as string;
         })(),
-        subTotal
+        subTotal,
+        userId.toString()
       );
 
       actualDiscount = discountAmount;

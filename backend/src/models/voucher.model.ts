@@ -1,5 +1,6 @@
 import { IVoucher } from '@/types';
 import { DiscountType, VoucherCategory } from '@/types/voucher.type';
+import { UserTier } from '@/types/user.type';
 import mongoose from 'mongoose';
 
 const VoucherSchema = new mongoose.Schema<IVoucher>(
@@ -17,7 +18,7 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
     isActive: { type: Boolean, default: true },
     isReward: { type: Boolean, default: false },
     pointCost: { type: Number, default: 0, min: 0 },
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    minTier: { type: String, enum: UserTier, default: null },
     startAt: { type: Date, required: true },
     endAt: { type: Date, required: true },
   },
