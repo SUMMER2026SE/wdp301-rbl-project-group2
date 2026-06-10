@@ -12,7 +12,7 @@ import reviewService from "@/services/review.service";
 import recommendationService from "@/services/recommendation.service";
 import type { Product, VariantGroup } from "@/types/product";
 import { FoodCard } from "@/components/shared/FoodCard";
-import VariantModal from "@/components/model/VariantModel";
+import VariantModal from "@/components/modal/VariantModal";
 import {
   User, ThumbsUp, MessageSquare, Star, Loader2, Plus, Minus,
   Check, ChevronLeft, ShieldCheck, Flame, ShoppingCart, Zap,
