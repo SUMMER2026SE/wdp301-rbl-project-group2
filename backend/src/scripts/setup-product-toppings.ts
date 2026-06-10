@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
+import { VariationModel, VariationOptionModel } from '@/models/variation.model';
 import {
   getSharedToppingRulesForProduct,
   SHARED_TOPPING_GROUP_NAME,
@@ -138,9 +139,6 @@ const buildToppingVariant = (
   };
 };
 
-const withoutToppingGroup = (variants: any[] = []) =>
-  variants.filter((group) => group?.name !== SHARED_TOPPING_GROUP_NAME);
-
 const main = async () => {
   const { apply, csvPreview, csvPath } = parseArgs();
   const rows = readCsvProducts(csvPath);
@@ -192,11 +190,20 @@ const main = async () => {
   let changed = 0;
   const preview: string[] = [];
 
+  // Find or create the Shared Toppings Variation
+  let toppingVariation = await VariationModel.findOne({ name: SHARED_TOPPING_GROUP_NAME });
+  if (!toppingVariation && apply) {
+    toppingVariation = await VariationModel.create({
+      name: SHARED_TOPPING_GROUP_NAME,
+      description: 'Shared toppings variation group',
+    });
+  }
+
   for (const storeId of storeIds) {
     const products = await ProductModel.find({
       storeId,
       category: { $ne: SIDE_DISH_CATEGORY },
-    }).lean();
+    });
 
     for (const product of products) {
       scanned += 1;
@@ -210,20 +217,33 @@ const main = async () => {
         storeToppingPrices.get(storeId),
       );
 
-      const nextVariants = toppingGroup
-        ? [...withoutToppingGroup(product.variants), toppingGroup]
-        : withoutToppingGroup(product.variants);
+      if (!toppingGroup) continue;
 
-      if (JSON.stringify(product.variants ?? []) === JSON.stringify(nextVariants)) continue;
+      // Check if product already references the Shared Toppings Variation
+      const hasTopping = toppingVariation && product.variationIds.includes(toppingVariation._id);
 
-      changed += 1;
-      if (preview.length < 25) {
-        const optionNames = toppingGroup?.options.map((option) => `${option.choice} (+${option.extraPrice})`).join(', ') || 'none';
-        preview.push(`- ${product.name}: ${optionNames}`);
-      }
+      if (!hasTopping) {
+        changed += 1;
+        if (preview.length < 25) {
+          const optionNames = toppingGroup.options.map((option) => `${option.choice} (+${option.extraPrice})`).join(', ');
+          preview.push(`- ${product.name}: ${optionNames}`);
+        }
 
-      if (apply) {
-        await ProductModel.updateOne({ _id: product._id }, { $set: { variants: nextVariants } });
+        if (apply && toppingVariation) {
+          // Add options under the topping variation
+          for (const opt of toppingGroup.options) {
+            await VariationOptionModel.findOneAndUpdate(
+              { variationId: toppingVariation._id, name: opt.choice },
+              { $set: { extraPrice: opt.extraPrice, isAvailable: true } },
+              { upsert: true }
+            );
+          }
+          // Push Variation ID to product
+          await ProductModel.updateOne(
+            { _id: product._id },
+            { $addToSet: { variationIds: toppingVariation._id } }
+          );
+        }
       }
     }
   }
