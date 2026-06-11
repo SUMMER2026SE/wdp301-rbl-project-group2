@@ -1,0 +1,2 @@
+pnpm lint:all
+pnpm build:all
