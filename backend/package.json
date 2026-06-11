@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
+    "lint": "eslint .",
     "test": "jest",
     "setup:toppings": "ts-node -r tsconfig-paths/register src/scripts/setup-product-toppings.ts",
     "backfill:recipes": "ts-node -r tsconfig-paths/register src/scripts/backfill-product-recipes.ts",
@@ -42,6 +43,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
@@ -51,11 +53,14 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^20.19.22",
     "@types/nodemailer": "^7.0.5",
+    "eslint": "^9.39.4",
+    "globals": "^16.5.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.10",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
-    "tsc-alias": "^1.8.10"
+    "typescript-eslint": "^8.61.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": []

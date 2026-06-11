@@ -12,8 +12,7 @@ import {
     History,
     Search,
     Clock,
-    Zap,
-    Loader2
+    Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -39,10 +38,6 @@ const VouchersPage = () => {
         { id: "special", name: "Đặc biệt" },
     ];
 
-    useEffect(() => {
-        fetchVouchers();
-    }, [activeCategory]);
-
     const fetchVouchers = async () => {
         try {
             setLoading(true);
@@ -66,6 +61,10 @@ const VouchersPage = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchVouchers();
+    }, [activeCategory]);
 
     const handleCopy = (code: string) => {
         navigator.clipboard.writeText(code);

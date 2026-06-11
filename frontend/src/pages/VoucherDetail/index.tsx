@@ -28,12 +28,6 @@ const VoucherDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) {
-            fetchVoucherDetail();
-        }
-    }, [id]);
-
     const fetchVoucherDetail = async () => {
         try {
             setLoading(true);
@@ -47,6 +41,12 @@ const VoucherDetailPage = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (id) {
+            fetchVoucherDetail();
+        }
+    }, [id]);
 
     const handleCopy = () => {
         if (voucher) {
