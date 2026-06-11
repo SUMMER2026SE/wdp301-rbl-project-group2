@@ -59,6 +59,19 @@ const AdminStaff = () => {
         phone: "",
     });
 
+    const normalizeStaff = (s: StaffAPI): StaffMember => ({
+        id: s._id,
+        name: s.fullName ?? s.name ?? "—",
+        email: s.email ?? "—",
+        phone: s.phone ?? s.phoneNumber ?? "—",
+        role: s.role.toLowerCase() as StaffMember["role"],
+        status: s.isActive ? "active" : "inactive",
+        joinDate: s.createdAt,
+        lastActive: s.updatedAt,
+        ordersHandled: s.totalOrders ?? 0,
+        performance: 92, // Placeholder performance
+    });
+
     const fetchStaff = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -89,19 +102,6 @@ const AdminStaff = () => {
             setLoading(false);
         }
     }, []);
-
-    const normalizeStaff = (s: StaffAPI): StaffMember => ({
-        id: s._id,
-        name: s.fullName ?? s.name ?? "—",
-        email: s.email ?? "—",
-        phone: s.phone ?? s.phoneNumber ?? "—",
-        role: s.role.toLowerCase() as StaffMember["role"],
-        status: s.isActive ? "active" : "inactive",
-        joinDate: s.createdAt,
-        lastActive: s.updatedAt,
-        ordersHandled: s.totalOrders ?? 0,
-        performance: 92, // Placeholder performance
-    });
 
     useEffect(() => {
         fetchStaff();

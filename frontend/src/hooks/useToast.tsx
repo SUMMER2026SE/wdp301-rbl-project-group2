@@ -24,26 +24,21 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 // ---- Hook ----
 
 export function useToast() {
-    const ctx = useContext(ToastContext);
-    if (!ctx) {
-        // Fallback if used outside provider — still functional
-        const [toasts, setToasts] = useState<Toast[]>([]);
+    const [toasts, setToasts] = useState<Toast[]>([]);
 
-        const toast = useCallback((message: string, variant: ToastVariant = 'success', duration = 3000) => {
-            const id = Date.now().toString();
-            setToasts((prev) => [...prev, { id, message, variant, duration }]);
-            setTimeout(() => {
-                setToasts((prev) => prev.filter((t) => t.id !== id));
-            }, duration);
-        }, []);
-
-        const dismiss = useCallback((id: string) => {
+    const toast = useCallback((message: string, variant: ToastVariant = 'success', duration = 3000) => {
+        const id = Date.now().toString();
+        setToasts((prev) => [...prev, { id, message, variant, duration }]);
+        setTimeout(() => {
             setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, []);
+        }, duration);
+    }, []);
 
-        return { toasts, toast, dismiss };
-    }
-    return ctx;
+    const dismiss = useCallback((id: string) => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, []);
+
+    return { toasts, toast, dismiss };
 }
 
 // ---- Icons ----
