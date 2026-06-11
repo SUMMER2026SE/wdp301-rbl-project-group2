@@ -1,0 +1,39 @@
+name: CI Verification
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  validate:
+    name: Code Quality & Build Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM & Node
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: |
+            frontend/pnpm-lock.yaml
+            backend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: |
+          cd frontend && pnpm install
+          cd ../backend && pnpm install
+
+      - name: Lint Frontend
+        run: cd frontend && pnpm lint
+
+      - name: Build Backend
+        run: cd backend && pnpm build
+
+      - name: Build Frontend
+        run: cd frontend && pnpm build

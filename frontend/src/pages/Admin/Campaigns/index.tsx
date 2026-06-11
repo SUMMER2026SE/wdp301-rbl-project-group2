@@ -43,6 +43,7 @@ const AdminCampaigns = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -80,6 +81,7 @@ const AdminCampaigns = () => {
     setCampaignProducts([]);
     setStartTime("");
     setEndTime("");
+    setProductSearch("");
     setShowModal(true);
   };
 
@@ -99,24 +101,33 @@ const AdminCampaigns = () => {
       };
     });
     setCampaignProducts(formattedProducts);
+    setProductSearch("");
     setShowModal(true);
   };
 
-  const handleAddProductRow = () => {
-    const usedIds = new Set(campaignProducts.map(p => p.productId));
-    const nextProduct = products.find(p => !usedIds.has(p._id));
-    if (!nextProduct) return;
-    setCampaignProducts([...campaignProducts, { productId: nextProduct._id, fixedPrice: null, discount: 10 }]);
+  const handleToggleProduct = (productId: string) => {
+    setCampaignProducts(prev =>
+      prev.some(p => p.productId === productId)
+        ? prev.filter(p => p.productId !== productId)
+        : [...prev, { productId, fixedPrice: null, discount: 10 }]
+    );
   };
 
-  const handleRemoveProductRow = (index: number) => {
-    setCampaignProducts(campaignProducts.filter((_, i) => i !== index));
+  const handleProductRuleChange = (productId: string, field: "fixedPrice" | "discount", value: number) => {
+    setCampaignProducts(prev =>
+      prev.map(p => (p.productId === productId ? { ...p, [field]: value } : p))
+    );
   };
 
-  const handleProductRowChange = (index: number, field: string, value: any) => {
-    const updated = [...campaignProducts];
-    updated[index] = { ...updated[index], [field]: value };
-    setCampaignProducts(updated);
+  const getFinalPrice = (
+    basePrice: number,
+    rule: { fixedPrice?: number | null; discount?: number | null }
+  ): number | null => {
+    if (formType === "fixed_price") {
+      return rule.fixedPrice ?? null;
+    }
+    if (rule.discount === null || rule.discount === undefined) return null;
+    return Math.round(basePrice * (1 - rule.discount / 100));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -492,85 +503,128 @@ const AdminCampaigns = () => {
               </div>
 
               {/* Products selection */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center border-t border-slate-100 pt-4">
                   <label className="text-sm font-bold text-slate-800">Danh sách sản phẩm và ưu đãi</label>
-                  <button
-                    type="button"
-                    onClick={handleAddProductRow}
-                    disabled={campaignProducts.length >= products.length}
-                    title={campaignProducts.length >= products.length ? "Đã thêm tất cả sản phẩm có sẵn" : undefined}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-50 text-orange-600 hover:bg-orange-100 font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-50"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Thêm sản phẩm
-                  </button>
+                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full">
+                    Đã chọn {campaignProducts.length} sản phẩm
+                  </span>
                 </div>
 
-                {campaignProducts.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    Chưa có sản phẩm nào được chọn. Vui lòng click "Thêm sản phẩm".
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {campaignProducts.map((row, index) => (
-                      <div key={index} className="flex flex-col sm:flex-row gap-3.5 items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        {/* Selector */}
-                        <div className="flex-1 w-full">
-                          <select
-                            value={row.productId}
-                            onChange={(e) => handleProductRowChange(index, "productId", e.target.value)}
-                            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs"
+                {/* Search within product list */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] w-4 h-4" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Tìm sản phẩm theo tên..."
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs placeholder:text-slate-400"
+                  />
+                </div>
+
+                {/* Tick-list of products */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+                    {(() => {
+                      const visibleProducts = products.filter(p =>
+                        p.name.toLowerCase().includes(productSearch.trim().toLowerCase())
+                      );
+                      if (visibleProducts.length === 0) {
+                        return (
+                          <p className="text-xs text-slate-400 italic text-center py-8">
+                            {products.length === 0 ? "Không có sản phẩm khả dụng" : "Không tìm thấy sản phẩm phù hợp"}
+                          </p>
+                        );
+                      }
+                      return visibleProducts.map(p => {
+                        const rule = campaignProducts.find(cp => cp.productId === p._id);
+                        const isSelected = !!rule;
+                        const finalPrice = rule ? getFinalPrice(p.price, rule) : null;
+                        const isPriceIncreased = finalPrice !== null && finalPrice > p.price;
+                        return (
+                          <div
+                            key={p._id}
+                            className={`flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${
+                              isSelected ? "bg-orange-50/60" : "hover:bg-slate-50"
+                            }`}
+                            onClick={() => handleToggleProduct(p._id)}
                           >
-                            {products
-                              .filter(p => p._id === row.productId || !campaignProducts.some((cp, i) => i !== index && cp.productId === p._id))
-                              .map(p => (
-                                <option key={p._id} value={p._id}>{p.name} - ({p.price.toLocaleString()}đ)</option>
-                              ))}
-                          </select>
-                        </div>
-
-                        {/* Value */}
-                        <div className="w-full sm:w-48">
-                          {formType === "discount" ? (
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={row.discount ?? ""}
-                                onChange={(e) => handleProductRowChange(index, "discount", Number(e.target.value))}
-                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-8"
-                                placeholder="Mức giảm (%)"
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleProduct(p._id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4.5 h-4.5 shrink-0 rounded border-slate-300 accent-orange-600 cursor-pointer"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm truncate ${isSelected ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
+                                {p.name}
+                              </p>
+                              {isSelected && finalPrice !== null ? (
+                                <p className="text-xs flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-slate-400 line-through">{p.price.toLocaleString("vi-VN")}đ</span>
+                                  <span className="text-slate-400">→</span>
+                                  <span className={`font-bold ${isPriceIncreased ? "text-rose-600" : "text-emerald-600"}`}>
+                                    {finalPrice.toLocaleString("vi-VN")}đ
+                                  </span>
+                                  {isPriceIncreased ? (
+                                    <span className="text-rose-500 font-semibold">cao hơn giá gốc!</span>
+                                  ) : (
+                                    p.price > 0 && finalPrice < p.price && (
+                                      <span className="text-emerald-600/80">
+                                        (-{Math.round(((p.price - finalPrice) / p.price) * 100)}%)
+                                      </span>
+                                    )
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-[#9a734c]">{p.price.toLocaleString("vi-VN")}đ</p>
+                              )}
                             </div>
-                          ) : (
-                            <div className="relative">
-                              <input
-                                type="number"
-                                min="0"
-                                value={row.fixedPrice ?? ""}
-                                onChange={(e) => handleProductRowChange(index, "fixedPrice", Number(e.target.value))}
-                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-8"
-                                placeholder="Giá cố định"
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">đ</span>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Delete Row Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProductRow(index)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-stretch sm:self-auto flex items-center justify-center border border-transparent hover:border-rose-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                            {/* Inline rule input for the selected product */}
+                            {isSelected && (
+                              <div className="w-32 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                {formType === "discount" ? (
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      value={rule.discount ?? ""}
+                                      onChange={(e) => handleProductRuleChange(p._id, "discount", Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-7"
+                                      placeholder="Giảm"
+                                    />
+                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                                  </div>
+                                ) : (
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={rule.fixedPrice ?? ""}
+                                      onChange={(e) => handleProductRuleChange(p._id, "fixedPrice", Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-7"
+                                      placeholder="Giá"
+                                    />
+                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">đ</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
+                </div>
+
+                {campaignProducts.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">
+                    Tick chọn sản phẩm trong danh sách trên để thêm vào chiến dịch.
+                  </p>
                 )}
               </div>
 
