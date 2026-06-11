@@ -4,10 +4,14 @@
   "scripts": {
     "dev:be": "pnpm --filter backend dev",
     "dev:fe": "pnpm --filter fe-foa dev",
+   "dev:all": "concurrently \"pnpm dev:be\" \"pnpm dev:fe\"",
     "build:be": "pnpm --filter backend build",
     "build:fe": "pnpm --filter fe-foa build",
     "build:all": "pnpm build:be && pnpm build:fe",
     "docker:up": "pnpm build:all && docker-compose up -d --build",
     "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }
