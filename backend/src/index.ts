@@ -71,49 +71,32 @@ io.on('connection', (socket) => {
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined;
     const accessToken = authToken || bearerToken || parsed.accessToken || '';
     const { payload } = verifyToken(accessToken);
-    const fs = require('fs');
-    const path = require('path');
-    const logPath = path.join(__dirname, '../../socket-debug.log');
 
     if (payload) {
       socket.data.userId = payload.userId;
       socket.data.role = payload.role;
-      console.debug(`[Socket] Connected: userId=${payload.userId} role=${payload.role} socketId=${socket.id}`);
 
       // Join user specific room for targeted notifications
       socket.join(`user:${payload.userId}`);
-      console.debug(`[Socket] Joined room: user:${payload.userId}`);
 
       const roleLower = String(payload.role).toLowerCase();
-      let joinedStaff = false;
       if (roleLower === 'staff' || roleLower === 'admin' || roleLower === 'manager') {
         socket.join('staff');
-        joinedStaff = true;
-        console.debug(`[Socket] Joined room: staff`);
       }
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] Connect: socketId=${socket.id}, userId=${payload.userId}, role=${payload.role}, joinedStaff=${joinedStaff}\n`);
-    } else {
-      console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] Connect unauthenticated: socketId=${socket.id}, rawCookie=${rawCookie.slice(0, 100)}\n`);
     }
-  } catch (e) {
-    console.debug(`[Socket] Auth error socketId=${socket.id}:`, (e as Error).message);
-  }
+  } catch (e) {}
 
   socket.on('support:join', async (conversationId: string, cb?: (ok: boolean) => void) => {
     const userId = socket.data.userId as string | undefined;
     const role = socket.data.role as string | undefined;
-    console.debug(`[Socket] support:join conversationId=${conversationId} userId=${userId} role=${role}`);
     try {
       if (!userId || !role) {
-        console.debug(`[Socket] join rejected: unauthenticated`);
         cb?.(false);
         return;
       }
 
       const conv = await SupportConversationModel.findById(conversationId);
       if (!conv) {
-        console.debug(`[Socket] join rejected: conversation not found id=${conversationId}`);
         cb?.(false);
         return;
       }
@@ -122,16 +105,13 @@ io.on('connection', (socket) => {
       const normalizedRole = role.toLowerCase();
       const isStaff = normalizedRole === 'staff' || normalizedRole === 'admin';
       if (!isOwner && !isStaff) {
-        console.debug(`[Socket] join rejected: not authorized userId=${userId} isOwner=${isOwner} isStaff=${isStaff}`);
         cb?.(false);
         return;
       }
 
       await socket.join(`support:conversation:${conversationId}`);
-      console.debug(`[Socket] join SUCCESS room=support:conversation:${conversationId}`);
       cb?.(true);
     } catch (e) {
-      console.debug(`[Socket] join error:`, (e as Error).message);
       cb?.(false);
     }
   });
