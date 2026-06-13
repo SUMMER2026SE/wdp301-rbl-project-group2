@@ -4,11 +4,11 @@ function getChangedFiles() {
   try {
     // 1. Get current branch name
     const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
-    
+
     // We want to compare HEAD with the target branch.
     // Usually, in a pre-push hook, we can compare HEAD against its merge base with origin/develop, develop, origin/main, or main.
     let base = '';
-    
+
     // Determine target branches, prioritizing main/master for hotfix or release branches
     let targetBranches = ['origin/develop', 'develop', 'origin/main', 'main'];
     if (currentBranch.startsWith('hotfix/') || currentBranch.startsWith('release/')) {
@@ -27,7 +27,7 @@ function getChangedFiles() {
         // Continue searching
       }
     }
-    
+
     if (!base) {
       // If no target branches are found, use HEAD~1 as a fallback
       try {
@@ -52,7 +52,7 @@ function runCommand(command, args, cwd = process.cwd()) {
   return new Promise((resolve, reject) => {
     console.log(`[Husky] Running: ${command} ${args.join(' ')}`);
     const proc = spawn(command, args, { stdio: 'inherit', shell: true, cwd });
-    
+
     proc.on('close', (code) => {
       if (code === 0) {
         resolve();
@@ -65,10 +65,10 @@ function runCommand(command, args, cwd = process.cwd()) {
 
 async function main() {
   const changedFiles = getChangedFiles();
-  
+
   let runBackend = false;
   let runFrontend = false;
-  
+
   if (changedFiles === null) {
     // Fallback: run both
     runBackend = true;
@@ -127,7 +127,7 @@ async function main() {
       console.log('       Frontend skipped                 ');
       console.log('----------------------------------------');
     }
-    
+
     console.log('\n[Husky] All pre-push checks completed successfully! 🎉\n');
   } catch (error) {
     console.error(`\n❌ [Husky] Pre-push verification failed: ${error.message}\n`);
