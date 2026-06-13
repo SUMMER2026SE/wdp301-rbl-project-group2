@@ -9,8 +9,13 @@ function getChangedFiles() {
     // Usually, in a pre-push hook, we can compare HEAD against its merge base with origin/develop, develop, origin/main, or main.
     let base = '';
     
+    // Determine target branches, prioritizing main/master for hotfix or release branches
+    let targetBranches = ['origin/develop', 'develop', 'origin/main', 'main'];
+    if (currentBranch.startsWith('hotfix/') || currentBranch.startsWith('release/')) {
+      targetBranches = ['origin/main', 'main', 'origin/develop', 'develop'];
+    }
+
     // Attempt to find the merge base with target branches
-    const targetBranches = ['origin/develop', 'develop', 'origin/main', 'main'];
     for (const target of targetBranches) {
       try {
         base = execSync(`git merge-base ${target} HEAD`, { encoding: 'utf8' }).trim();
