@@ -21,10 +21,10 @@ graph TD
 
 ### Chi tiết các workflow:
 
-1. **`ci.yml` (CI Verification - Chạy trên Pull Request)**
+1. **`ci.yml` (CI Verification - Chạy trên Pull Request - Tối ưu hóa)**
    * **Mục tiêu:** Kiểm tra chất lượng code tự động trước khi merge để đảm bảo không ai đưa lỗi lên các nhánh chính.
    * **Trigger:** Chạy tự động khi có bất kỳ Pull Request nào nhắm tới nhánh `develop` hoặc `main`.
-   * **Các bước thực hiện:** Cài đặt dependencies, chạy quét lỗi cú pháp (`pnpm lint:all`), chạy build thử dự án (`pnpm build:all`).
+   * **Các bước thực hiện:** Cài đặt dependencies, tự động phát hiện tệp tin thay đổi trong PR qua `dorny/paths-filter`. Chỉ chạy quét lỗi cú pháp (`lint`) và biên dịch thử (`build`) của khu vực bị ảnh hưởng (Backend hoặc Frontend). Nếu thay đổi không liên quan đến code (ví dụ chỉ sửa file tài liệu md), các bước kiểm tra code sẽ tự động bỏ qua để hoàn thành PR nhanh hơn.
 
 2. **`deploy-dev.yml` (Deploy Dev - Triển khai Môi trường Dev)**
    * **Mục tiêu:** Tự động triển khai phiên bản phát triển lên VPS thử nghiệm sau khi code được duyệt.
