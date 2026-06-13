@@ -8,7 +8,6 @@ function getChangedFiles() {
     // We want to compare HEAD with the target branch.
     // Usually, in a pre-push hook, we can compare HEAD against its merge base with origin/develop, develop, origin/main, or main.
     let base = '';
-
     // Determine target branches, prioritizing main/master for hotfix or release branches
     let targetBranches = ['origin/develop', 'develop', 'origin/main', 'main'];
     if (currentBranch.startsWith('hotfix/') || currentBranch.startsWith('release/')) {
