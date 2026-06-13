@@ -1,2 +1,1 @@
-pnpm lint:all
-pnpm build:all
+node .husky/pre-push.js
