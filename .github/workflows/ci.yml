@@ -27,8 +27,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Lint All (Frontend & Backend)
-        run: pnpm lint:all
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
 
-      - name: Build All (Frontend & Backend)
-        run: pnpm build:all
+      - name: Lint Backend
+        if: steps.filter.outputs.backend == 'true'
+        run: pnpm lint:be
+
+      - name: Build Backend
+        if: steps.filter.outputs.backend == 'true'
+        run: pnpm build:be
+
+      - name: Lint Frontend
+        if: steps.filter.outputs.frontend == 'true'
+        run: pnpm lint:fe
+
+      - name: Build Frontend
+        if: steps.filter.outputs.frontend == 'true'
+        run: pnpm build:fe
