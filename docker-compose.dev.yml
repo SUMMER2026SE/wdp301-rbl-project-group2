@@ -6,7 +6,7 @@ services:
 
   be-dev:
     image: ${DOCKERHUB_USERNAME}/anngon-backend:dev
-    env_file: .env.dev # Chứa MONGODB_URI=mongodb+srv://... (Trỏ tới DB 'my_app_prod' trên Atlas)
+    env_file: .env # Chứa MONGODB_URI=mongodb+srv://... (Trỏ tới DB 'my_app_prod' trên Atlas)
     restart: always
     networks: [ web-network ]
 
