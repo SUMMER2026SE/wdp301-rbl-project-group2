@@ -67,11 +67,13 @@ async function main() {
 
   let runBackend = false;
   let runFrontend = false;
+  let runAI = false;
 
   if (changedFiles === null) {
-    // Fallback: run both
+    // Fallback: run all
     runBackend = true;
     runFrontend = true;
+    runAI = true;
   } else {
     if (changedFiles.length === 0) {
       console.log('[Husky] No changed files detected.');
@@ -89,12 +91,15 @@ async function main() {
         runBackend = true;
       } else if (file.startsWith('frontend/')) {
         runFrontend = true;
+      } else if (file.startsWith('ai/')) {
+        runAI = true;
       } else {
-        // Any file not in frontend or backend (e.g., package.json, pnpm-lock.yaml, docker-compose, etc.)
-        // will trigger checks on both modules for safety.
-        console.log(`[Husky] Global/root file change detected: "${file}". Triggering checks for both frontend and backend.`);
+        // Any file not in frontend, backend or ai (e.g., package.json, pnpm-lock.yaml, docker-compose, etc.)
+        // will trigger checks on all modules for safety.
+        console.log(`[Husky] Global/root file change detected: "${file}". Triggering checks for frontend, backend, and AI.`);
         runBackend = true;
         runFrontend = true;
+        runAI = true;
         break;
       }
     }
@@ -124,6 +129,19 @@ async function main() {
     } else {
       console.log('\n----------------------------------------');
       console.log('       Frontend skipped                 ');
+      console.log('----------------------------------------');
+    }
+
+    // Run AI checks
+    if (runAI) {
+      console.log('\n========================================');
+      console.log('       RUNNING AI CHECKS                ');
+      console.log('========================================');
+      console.log('[Husky] Compiling all Python files in the AI service directory to verify syntax...');
+      await runCommand('python3', ['-m', 'compileall', '-q', 'ai']);
+    } else {
+      console.log('\n----------------------------------------');
+      console.log('       AI skipped                       ');
       console.log('----------------------------------------');
     }
 

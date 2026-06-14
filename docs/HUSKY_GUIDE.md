@@ -22,9 +22,10 @@ Chúng ta đang cấu hình hook **`pre-push`** (chạy ngay khi gõ lệnh `git
 
 1. **Phát hiện tệp thay đổi:** Script tự động so sánh mã nguồn hiện tại của bạn với nhánh đích (như `develop` hoặc `main`) để tìm ra những tệp tin bạn vừa sửa đổi.
 2. **Quyết định chạy kiểm tra cục bộ:**
-   * **Chỉ sửa Backend (`backend/`):** Chỉ chạy kiểm tra Backend (`pnpm lint:be` và `pnpm build:be`). Hiển thị thông báo `Frontend skipped`.
-   * **Chỉ sửa Frontend (`frontend/`):** Chỉ chạy kiểm tra Frontend (`pnpm lint:fe` và `pnpm build:fe`). Hiển thị thông báo `Backend skipped`.
-   * **Sửa đổi toàn cục (ví dụ `package.json`, cấu hình chung...):** Chạy kiểm tra cả hai phía để đảm bảo an toàn tuyệt đối.
+   * **Chỉ sửa Backend (`backend/`):** Chỉ chạy kiểm tra Backend (`pnpm lint:be` và `pnpm build:be`). Hiển thị thông báo `Frontend skipped` và `AI skipped`.
+   * **Chỉ sửa Frontend (`frontend/`):** Chỉ chạy kiểm tra Frontend (`pnpm lint:fe` và `pnpm build:fe`). Hiển thị thông báo `Backend skipped` và `AI skipped`.
+   * **Chỉ sửa AI (`ai/`):** Chỉ chạy kiểm tra cú pháp các file Python (`python3 -m compileall -q ai`). Hiển thị thông báo `Backend skipped` và `Frontend skipped`.
+   * **Sửa đổi toàn cục (ví dụ `package.json`, cấu hình chung...):** Chạy kiểm tra cả ba phía (Backend, Frontend, và AI) để đảm bảo an toàn tuyệt đối.
 3. **Ưu tiên so sánh nhánh thông minh:**
    * Đối với nhánh tính năng thông thường, script so sánh với nhánh phát triển `develop`.
    * Đối với nhánh sửa lỗi nóng (`hotfix/*` hoặc `release/*`), script sẽ ưu tiên so sánh trực tiếp với nhánh sản phẩm `main` để cho ra kết quả thay đổi chính xác nhất.
