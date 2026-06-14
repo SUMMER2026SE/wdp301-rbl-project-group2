@@ -9,13 +9,13 @@ declare global {
       userId: mongoose.Types.ObjectId;
       role: Role;
       sessionId: mongoose.Types.ObjectId;
+      scope?: {
+        storeId?: mongoose.Types.ObjectId;
+      };
     }
 
     interface Response {
-      success<T>(
-        status: number,
-        options?: { data?: T; message?: string; [key: string]: any }
-      ): this;
+      success<T>(status: number, options?: { data?: T; message?: string; [key: string]: any }): this;
 
       error(
         status: number,

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 // ---- Types ----
 
-export type OrderStep = 'pending' | 'confirmed' | 'preparing' | 'delivering' | 'completed';
+export type OrderStep = 'pending' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'completed';
 
 export interface OrderTimelineProps {
     currentStep: OrderStep;
@@ -17,6 +17,7 @@ const STEPS: { key: OrderStep; icon: string }[] = [
     { key: 'confirmed', icon: 'check_circle' },
     { key: 'preparing', icon: 'skillet' },
     { key: 'delivering', icon: 'delivery_dining' },
+    { key: 'delivered', icon: 'home' },
     { key: 'completed', icon: 'task_alt' },
 ];
 
@@ -42,7 +43,10 @@ export function OrderTimeline({ currentStep, className }: OrderTimelineProps) {
                                 className={cn(
                                     'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 shrink-0',
                                     isCompleted && 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30',
-                                    isActive && 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/30 scale-110',
+                                    isActive && cn(
+                                        'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/30 scale-110',
+                                        step.key === 'delivered' && 'animate-pulse'
+                                    ),
                                     isUpcoming && 'bg-card border-border text-muted-foreground'
                                 )}
                             >
@@ -75,8 +79,13 @@ export function OrderTimeline({ currentStep, className }: OrderTimelineProps) {
                                 {t(`tracking.status.${step.key}`)}
                             </p>
                             {isActive && (
-                                <p className="text-xs text-muted-foreground mt-0.5 animate-pulse">
-                                    {t('tracking.inProgress', 'Đang xử lý...')}
+                                <p className={cn(
+                                    "text-xs mt-0.5 animate-pulse",
+                                    step.key === 'delivered' ? "text-orange-600 dark:text-orange-400 font-semibold" : "text-muted-foreground"
+                                )}>
+                                    {step.key === 'delivered'
+                                        ? t('tracking.confirmReceiptPrompt', 'Vui lòng xác nhận đã nhận hàng')
+                                        : t('tracking.inProgress', 'Đang xử lý...')}
                                 </p>
                             )}
                         </div>

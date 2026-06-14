@@ -1,5 +1,33 @@
 import { apiClient } from "@/lib/api-client";
 
+export interface ManagerOrderActionPayload {
+  reason?: string;
+  note?: string;
+}
+
+export interface ManagerAssignDeliveryPayload extends ManagerOrderActionPayload {
+  driverId: string;
+}
+
+export interface ManagerOverrideStatusPayload extends ManagerOrderActionPayload {
+  status: Order['status'];
+}
+
+export interface StaffStoreScope {
+  storeId: string;
+}
+
+export interface StaffOrderListParams extends StaffStoreScope {
+  status?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+export interface StaffOrderActionPayload extends StaffStoreScope {
+  reason?: string;
+}
+
 export interface PlaceOrderItemVariation {
   name: string;
   choice: string;
@@ -67,6 +95,7 @@ export interface PlacedOrder {
 export interface Order {
   _id: string;
   code: string;
+  storeId?: string | { _id: string } | null;
   cusId?:
   | string
   | {
@@ -95,8 +124,11 @@ export interface Order {
   | "pending"
   | "confirmed"
   | "processing"
+  | "preparing"
   | "ready_for_delivery"
   | "shipping"
+  | "delivering"
+  | "delivered"
   | "completed"
   | "cancelled";
   subTotal: number;
@@ -116,6 +148,8 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   isReviewed?: boolean;
+  discountAmount?: number;
+  statusHistory?: any[];
   cancellation?: {
     reason: string;
     cancelledBy: "staff" | "customer";
@@ -184,6 +218,59 @@ class OrderService {
 
   // ── Staff actions ────────────────────────────────────────────────────────
 
+  async getStaffOrders(params: StaffOrderListParams): Promise<OrderListResponse> {
+    const response = await apiClient.get('/orders/staff/orders', { params });
+    return response.data;
+  }
+
+  async getStaffOrderById(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.get(`/orders/staff/orders/${id}`, { params: scope });
+    return response.data;
+  }
+
+  async staffConfirmOrder(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/staff/orders/${id}/confirm`, scope);
+    return response.data;
+  }
+
+  async staffRejectOrder(
+    id: string,
+    data: StaffOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/staff/orders/${id}/reject`, data);
+    return response.data;
+  }
+
+  async staffMarkOrderReady(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/staff/orders/${id}/ready`, scope);
+    return response.data;
+  }
+
+  async staffAssignDelivery(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/staff/orders/${id}/deliver`, scope);
+    return response.data;
+  }
+
+  async staffCompleteDelivery(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/staff/orders/${id}/complete`, scope);
+    return response.data;
+  }
+
   /** Staff: Nhận đơn (PENDING → CONFIRMED) */
   async confirmOrder(id: string): Promise<{ success: boolean; data: Order }> {
     const response = await apiClient.patch(`/orders/${id}/confirm`);
@@ -214,6 +301,73 @@ class OrderService {
   /** Staff: Giao thành công (SHIPPING → COMPLETED) */
   async completeDelivery(id: string): Promise<{ success: boolean; data: Order }> {
     const response = await apiClient.patch(`/orders/${id}/complete`);
+    return response.data;
+  }
+
+  /** Customer: Xác nhận đã nhận hàng (DELIVERED → COMPLETED) */
+  async confirmReceipt(id: string): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/${id}/customer-confirm`);
+    return response.data;
+  }
+
+  // ── Manager actions ──────────────────────────────────────────────────────
+
+  async getManagerOrders(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<OrderListResponse> {
+    const response = await apiClient.get('/manager/orders', { params });
+    return response.data;
+  }
+
+  async getManagerOrderById(id: string): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.get(`/manager/orders/${id}`);
+    return response.data;
+  }
+
+  async managerConfirmOrder(id: string): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/confirm`);
+    return response.data;
+  }
+
+  async managerRejectOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/reject`, data);
+    return response.data;
+  }
+
+  async managerCancelOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/cancel`, data);
+    return response.data;
+  }
+
+  async managerAssignDelivery(
+    id: string,
+    data: ManagerAssignDeliveryPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/assign-delivery`, data);
+    return response.data;
+  }
+
+  async managerManualCompleteOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/manual-complete`, data);
+    return response.data;
+  }
+
+  async managerOverrideOrderStatus(
+    id: string,
+    data: ManagerOverrideStatusPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/override-status`, data);
     return response.data;
   }
 }

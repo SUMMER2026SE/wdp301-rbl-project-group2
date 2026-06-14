@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import orderService from "@/services/order.service";
+import { getStores } from "@/services/store.service";
 
 interface OrderNotification {
     id: string;
@@ -38,10 +39,9 @@ interface OrderNotification {
 export default function StaffLayout() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, storeId } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isHovered, setIsHovered] = useState(false); // Sidebar hover
-    const [notifications, setNotifications] = useState<OrderNotification[]>([]);
+    const [storeName, setStoreName] = useState("Chi nhánh Ngũ Hành Sơn");
     const [socketConnected, setSocketConnected] = useState(() => {
         try {
             return getSupportSocket().connected;
@@ -49,6 +49,8 @@ export default function StaffLayout() {
             return false;
         }
     });
+    const [isHovered, setIsHovered] = useState(false); // Sidebar hover
+    const [notifications, setNotifications] = useState<OrderNotification[]>([]);
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { playNotification } = useNotificationSound();
@@ -62,8 +64,9 @@ export default function StaffLayout() {
     // Fetch pending orders on mount to pre-populate notifications
     useEffect(() => {
         const fetchPendingOrders = async () => {
+            if (!storeId) return;
             try {
-                const res = await orderService.getAllOrders({ status: "pending", limit: 20 });
+                const res = await orderService.getStaffOrders({ storeId, status: "pending", limit: 20 });
                 if (res?.success && Array.isArray(res.data)) {
                     const mapped: OrderNotification[] = res.data.map(order => ({
                         id: order._id,
@@ -81,8 +84,32 @@ export default function StaffLayout() {
         };
 
         void fetchPendingOrders();
-    }, []);
+    }, [storeId]);
 
+    // Fetch store name that staff is working at
+    useEffect(() => {
+        const fetchStore = async () => {
+            if (!user?.storeId) {
+                setStoreName("Chi nhánh Ngũ Hành Sơn");
+                return;
+            }
+            try {
+                const res = await getStores();
+                if (res?.success && Array.isArray(res.data)) {
+                    const matchedStore = res.data.find(s => s._id === user.storeId);
+                    if (matchedStore) {
+                        setStoreName(matchedStore.name);
+                    } else {
+                        setStoreName("Chi nhánh Ngũ Hành Sơn");
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch store name:", err);
+                setStoreName("Chi nhánh Ngũ Hành Sơn");
+            }
+        };
+        void fetchStore();
+    }, [user?.storeId]);
     // Sync socket connection state
     useEffect(() => {
         const socket = getSupportSocket();
@@ -271,12 +298,20 @@ export default function StaffLayout() {
                     <div className={`flex items-center p-3 bg-slate-50 border border-slate-200/60 rounded-xl mb-3 transition-all duration-300 ${isHovered ? 'gap-3' : 'justify-center p-2'}`}>
                         <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
                             <Clock className="w-4 h-4 animate-pulse" />
-                            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white" />
+                            <span 
+                                className={cn(
+                                    "absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white transition-colors duration-300",
+                                    socketConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                                )} 
+                                title={socketConnected ? "Hệ thống kết nối thời gian thực ổn định" : "Mất kết nối thời gian thực"}
+                            />
                         </div>
                         {isHovered && (
                             <div className="flex flex-col overflow-hidden whitespace-nowrap animate-in fade-in duration-300 text-left">
                                 <span className="text-xs font-black text-slate-800">Đang Trong Ca Trực</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Hệ thống hoạt động</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 truncate max-w-[150px]" title={storeName}>
+                                    {storeName}
+                                </span>
                             </div>
                         )}
                     </div>

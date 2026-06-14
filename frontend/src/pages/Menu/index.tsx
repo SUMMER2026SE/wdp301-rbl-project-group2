@@ -80,6 +80,10 @@ const MenuPage = () => {
           isAvailable: true,
         };
 
+        if (selectedStore?._id) {
+          filters.storeId = selectedStore._id;
+        }
+
         if (activeCategory !== "all") filters.category = activeCategory;
         if (debouncedSearch.trim()) filters.search = debouncedSearch.trim();
         if (minRating) filters.minRating = minRating;

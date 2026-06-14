@@ -17,6 +17,7 @@ import {
     Settings,
     RefreshCw,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { useStaffSupportChat } from '@/hooks/useStaffSupportChat';
 import orderService from '@/services/order.service';
 import type { Order } from '@/services/order.service';
@@ -68,6 +69,7 @@ function groupMessagesByDate(messages: { id: string; createdAt: string; senderTy
 
 export default function StaffSupportChatPage() {
     const navigate = useNavigate();
+    const { storeId } = useAuth();
     const {
         conversations,
         selectedConversationId,
@@ -79,7 +81,7 @@ export default function StaffSupportChatPage() {
         error,
         fetchConversations,
         sendMessage,
-    } = useStaffSupportChat();
+    } = useStaffSupportChat(storeId ?? undefined);
 
     const [search, setSearch] = useState('');
     const [input, setInput] = useState('');
@@ -118,12 +120,13 @@ export default function StaffSupportChatPage() {
             if (orderDetail) setOrderDetail(null);
             return;
         }
+        if (!storeId) return;
         setLoadingOrder(true);
-        orderService.getOrderById(conv.orderId)
+        orderService.getStaffOrderById(conv.orderId, { storeId })
             .then((res) => setOrderDetail(res.data))
             .catch(() => setOrderDetail(null))
             .finally(() => setLoadingOrder(false));
-    }, [selectedConversationId, conversations]);
+    }, [selectedConversationId, conversations, storeId]);
 
     const handleSend = async (content?: string) => {
         const text = (content ?? input).trim();

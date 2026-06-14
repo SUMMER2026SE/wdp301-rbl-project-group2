@@ -31,6 +31,9 @@ export interface Product {
     message: string;
   };
   isAvailable: boolean;
+  status: "active" | "inactive" | "out_of_stock" | "deleted";
+  operationalNote?: string;
+  variationIds?: VariantGroup[];
   aiReason?: string;
   createdAt: string;
   updatedAt: string;
@@ -73,4 +76,5 @@ export interface ProductFilters {
   isAvailable?: boolean;
   healthTags?: string[];
   storeId?: string;
+  showAll?: boolean;
 }

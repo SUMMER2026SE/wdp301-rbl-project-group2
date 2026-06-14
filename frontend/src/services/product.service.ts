@@ -62,6 +62,14 @@ class ProductAPI {
     return response.data;
   }
 
+  async updateProductAvailability(
+    id: string,
+    data: { isAvailable?: boolean; status?: string; operationalNote?: string },
+  ): Promise<{ success: boolean; data: Product; message: string }> {
+    const response = await apiClient.patch(`/products/${id}/availability`, data);
+    return response.data;
+  }
+
   async deleteProduct(
     id: string,
   ): Promise<{ success: boolean; message: string }> {
@@ -86,10 +94,31 @@ class ProductAPI {
     return response.data.data;
   }
 
+  async getManagerMenu(params?: {
+    category?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data: Product[] }> {
+    const response = await apiClient.get("/manager/menu", { params });
+    return response.data;
+  }
 
+  async getManagerProductById(
+    id: string,
+  ): Promise<{ success: boolean; data: Product }> {
+    const response = await apiClient.get(`/manager/menu/${id}`);
+    return response.data;
+  }
 
-
-
+  async updateManagerProductAvailability(
+    id: string,
+    data: { isAvailable?: boolean; status?: string; operationalNote?: string },
+  ): Promise<{ success: boolean; data: Product }> {
+    const response = await apiClient.patch(
+      `/manager/menu/${id}/availability`,
+      data,
+    );
+    return response.data;
+  }
 }
 
 export default new ProductAPI();

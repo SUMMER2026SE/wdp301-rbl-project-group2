@@ -16,7 +16,7 @@ export interface RegisterRequest {
 
 /**
  * BE user object shape (after omitPassword).
- * Role is UPPERCASE enum from BE: 'ADMIN' | 'STAFF' | 'CUSTOMER'
+ * Role is normalized by FE auth store: 'ADMIN' | 'MANAGER' | 'STAFF' | 'CUSTOMER'.
  */
 export interface BEUser {
   _id: string;
@@ -31,7 +31,8 @@ export interface BEUser {
     isHealthSetup?: boolean;
   };
   isHealthSetup?: boolean;
-  role: "ADMIN" | "STAFF" | "CUSTOMER";
+  role: "ADMIN" | "MANAGER" | "STAFF" | "CUSTOMER";
+  storeId?: string | null;
   isActive: boolean;
   verifiedAt: string | null;
   addresses: Array<{

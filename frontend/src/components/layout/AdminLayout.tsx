@@ -51,9 +51,9 @@ const SidebarItem = ({
   const [isOpen, setIsOpen] = useState(false);
   const hasSubItems = subItems && subItems.length > 0;
 
-  // Exact match for "/admin" (dashboard), startsWith for longer paths
+  // Exact match for "/admin" (dashboard), exact match or subpath with slash for other items
   const isPathMatch = (path: string, href: string) =>
-    href === "/admin" ? path === "/admin" : path.startsWith(href);
+    href === "/admin" ? path === "/admin" : path === href || path.startsWith(href + "/");
 
   const hasActiveChild =
     hasSubItems && subItems.some((sub) => isPathMatch(currentPath, sub.href));
@@ -172,6 +172,10 @@ const NAV_ITEMS = [
     label: "Đội ngũ nhân sự",
     href: "/admin/staff",
     icon: "group",
+    subItems: [
+      { label: "Danh sách nhân sự", href: "/admin/staff" },
+      { label: "Đề xuất nhân sự", href: "/admin/staff-requests" },
+    ],
   },
   {
     label: "Quản lí chiến dịch",

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { CREATED, OK } from '@/constants/http';
 import { catchErrors } from '@/utils/async-handler';
 import {
@@ -16,6 +17,12 @@ import {
   listAdminDispatchPendingOrders,
   assignAdminDispatchOrder,
 } from '@/services/admin.service';
+import {
+  approveStaffRequest,
+  getAdminStaffRequestById,
+  listAdminStaffRequests,
+  rejectStaffRequest,
+} from '@/services/admin-staff-request.service';
 import { createStaffValidator } from '@/validators/admin.validator';
 import { getUsersByRole } from '@/services/user.service';
 import { Role } from '@/types/user.type';
@@ -172,4 +179,26 @@ export const assignAdminDispatchOrderHandler = catchErrors(async (req, res) => {
 
   const updated = await assignAdminDispatchOrder(orderId, driverId, adminId);
   return res.success(OK, { data: updated });
+});
+
+export const getAdminStaffRequestsHandler = catchErrors(async (req, res) => {
+  const requests = await listAdminStaffRequests(req.query);
+  return res.success(OK, { data: requests });
+});
+
+export const getAdminStaffRequestDetailHandler = catchErrors(async (req, res) => {
+  const request = await getAdminStaffRequestById(req.params.id);
+  return res.success(OK, { data: request });
+});
+
+export const approveAdminStaffRequestHandler = catchErrors(async (req, res) => {
+  const adminId = new mongoose.Types.ObjectId(req.userId!);
+  const request = await approveStaffRequest(adminId, req.params.id, req.body);
+  return res.success(OK, { data: request });
+});
+
+export const rejectAdminStaffRequestHandler = catchErrors(async (req, res) => {
+  const adminId = new mongoose.Types.ObjectId(req.userId!);
+  const request = await rejectStaffRequest(adminId, req.params.id, req.body);
+  return res.success(OK, { data: request });
 });

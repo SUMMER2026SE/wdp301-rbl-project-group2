@@ -102,6 +102,7 @@
             "confirmed": "Đã xác nhận",
             "preparing": "Đang chuẩn bị",
             "delivering": "Đang giao",
+            "delivered": "Đã giao (Chờ xác nhận)",
             "completed": "Hoàn thành",
             "cancelled": "Đã huỷ"
         },

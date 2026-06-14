@@ -6,6 +6,7 @@ import {
     getProductByIdHandler,
     getProductCategoriesHandler,
     getProductHealthRiskHandler,
+    updateProductAvailabilityHandler,
     updateProductHandler
 } from '@/controllers/product.controller';
 import { getRecommendationsHandler, getSafeFoodsHandler } from '@/controllers/recommendation.controller';
@@ -34,7 +35,10 @@ router.get('/safe-foods', authenticate, async (req, res, next) => {
 router.get('/:id/health-risk', authenticate, getProductHealthRiskHandler);
 router.get('/:id', optionalAuthenticate, getProductByIdHandler);
 
-// Admin routes
+// Staff + Admin: toggle product availability only
+router.patch('/:id/availability', authenticate, authorize(Role.ADMIN, Role.STAFF), updateProductAvailabilityHandler);
+
+// Admin-only: full product CRUD
 router.post('/', authenticate, authorize(Role.ADMIN), createProductHandler);
 router.put('/:id', authenticate, authorize(Role.ADMIN), updateProductHandler);
 router.delete('/:id', authenticate, authorize(Role.ADMIN), deleteProductHandler);

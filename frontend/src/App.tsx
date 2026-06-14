@@ -49,6 +49,7 @@ import AdminCustomers from "./pages/Admin/Customers";
 // import AdminAnalytics from "./pages/Admin/Analytics";
 import AdminInventory from "./pages/Admin/Inventory";
 import AdminStaff from "./pages/Admin/Staff";
+import AdminStaffRequests from "./pages/Admin/StaffRequests";
 import AdminReviews from "./pages/Admin/Reviews";
 import AdminDelivery from "./pages/Admin/Delivery";
 import AdminDispatch from "./pages/Admin/Dispatch";
@@ -64,6 +65,19 @@ import StaffSupportChatPage from "./pages/Staff/SupportChat";
 import StaffSupportSettingsPage from "./pages/Staff/SupportSettings";
 import StaffDeliveryMode from "./pages/Staff/DeliveryMode";
 import StaffCustomerProfile from "./pages/Staff/CustomerProfile";
+import StaffNoStore from "./pages/Staff/NoStore";
+import ManagerLayout from "./components/layout/ManagerLayout";
+import RequireStaffStore from "./components/guards/RequireStaffStore";
+import RequireManagerStore from "./components/guards/RequireManagerStore";
+import ManagerDashboard from "./pages/Manager/Dashboard";
+import ManagerNoStore from "./pages/Manager/NoStore";
+import ManagerOrders from "./pages/Manager/Orders";
+import ManagerOrderDetail from "./pages/Manager/Orders/OrderDetail";
+import ManagerMenu from "./pages/Manager/Menu";
+import ManagerCash from "./pages/Manager/Cash";
+import ManagerStaff from "./pages/Manager/Staff";
+import ManagerStaffRequests from "./pages/Manager/StaffRequests";
+import ManagerSettings from "./pages/Manager/Settings";
 import { AddToCartWarningModal } from "./components/shared/AddToCartWarningModal";
 import ScrollToTop from "./components/common/ScrollToTop";
 
@@ -143,26 +157,49 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
-        {/* Staff — protected by role */}
+        {/* Staff — protected by role and assigned store */}
         <Route element={<RequireAuth />}>
-          <Route element={<RequireRole allowedRoles={["STAFF", "ADMIN"]} />}>
-            <Route path="/staff" element={<StaffLayout />}>
-              <Route index element={<StaffDashboard />} />
-              <Route path="orders" element={<StaffOrders />} />
-              <Route path="orders/:id" element={<StaffOrderDetail />} />
-              <Route path="delivery" element={<StaffDeliveryMode />} />
-              <Route path="menu" element={<StaffMenu />} />
-              <Route path="support" element={<StaffSupportChatPage />} />
-              <Route path="support/settings" element={<StaffSupportSettingsPage />} />
-              <Route path="customers" element={<StaffCustomerProfile />} />
-              <Route path="customers/:id" element={<StaffCustomerProfile />} />
-              <Route path="*" element={<Navigate to="/staff" replace />} />
+          <Route element={<RequireRole allowedRoles={["STAFF"]} />}>
+            <Route path="/staff/no-store" element={<StaffNoStore />} />
+            <Route element={<RequireStaffStore />}>
+              <Route path="/staff" element={<StaffLayout />}>
+                <Route index element={<StaffDashboard />} />
+                <Route path="orders" element={<StaffOrders />} />
+                <Route path="orders/:id" element={<StaffOrderDetail />} />
+                <Route path="delivery" element={<StaffDeliveryMode />} />
+                <Route path="menu" element={<StaffMenu />} />
+                <Route path="support" element={<StaffSupportChatPage />} />
+                <Route path="support/settings" element={<StaffSupportSettingsPage />} />
+                <Route path="customers" element={<StaffCustomerProfile />} />
+                <Route path="customers/:id" element={<StaffCustomerProfile />} />
+                <Route path="*" element={<Navigate to="/staff" replace />} />
+              </Route>
+            </Route>
+          </Route>
+        </Route>
+        {/* Manager — protected by role and assigned store */}
+        <Route element={<RequireAuth />}>
+          <Route element={<RequireRole allowedRoles={["MANAGER"]} />}>
+            <Route path="/manager/no-store" element={<ManagerNoStore />} />
+            <Route element={<RequireManagerStore />}>
+              <Route path="/manager" element={<ManagerLayout />}>
+                <Route index element={<Navigate to="/manager/dashboard" replace />} />
+                <Route path="dashboard" element={<ManagerDashboard />} />
+                <Route path="orders" element={<ManagerOrders />} />
+                <Route path="orders/:id" element={<ManagerOrderDetail />} />
+                <Route path="menu" element={<ManagerMenu />} />
+                <Route path="cash" element={<ManagerCash />} />
+                <Route path="staff" element={<ManagerStaff />} />
+                <Route path="staff-requests" element={<ManagerStaffRequests />} />
+                <Route path="settings" element={<ManagerSettings />} />
+                <Route path="*" element={<Navigate to="/manager/dashboard" replace />} />
+              </Route>
             </Route>
           </Route>
         </Route>
         {/* Admin — protected by role */}
         <Route element={<RequireAuth />}>
-          <Route element={<RequireRole allowedRoles={["ADMIN", "MANAGER"]} />}>
+          <Route element={<RequireRole allowedRoles={["ADMIN"]} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route element={<AdminOperationsLayout />}>
@@ -175,6 +212,7 @@ function App() {
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="inventory" element={<AdminInventory />} />
               <Route path="staff" element={<AdminStaff />} />
+              <Route path="staff-requests" element={<AdminStaffRequests />} />
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="vouchers" element={<AdminVouchers />} />
               <Route path="campaigns" element={<AdminCampaigns />} />

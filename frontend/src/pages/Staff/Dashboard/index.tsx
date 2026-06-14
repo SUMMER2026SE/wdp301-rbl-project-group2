@@ -21,6 +21,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
 import { formatCurrency } from "@/utils/adminDboard";
@@ -109,6 +110,11 @@ const VI_DAYS = [
 
 const DONUT_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#ef4444"];
 
+const getOrderStoreId = (order: Order) => {
+  if (!order.storeId) return null;
+  return typeof order.storeId === "string" ? order.storeId : order.storeId._id;
+};
+
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function StaffDashboard() {
@@ -116,6 +122,8 @@ export default function StaffDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const { storeId } = useAuth();
 
   // ── Realtime clock ────────────────────────────────────────────────────
   useEffect(() => {
@@ -126,10 +134,12 @@ export default function StaffDashboard() {
   // ── Fetch data ────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (!storeId) return;
       try {
         setLoading(true);
-        const res = await orderService.getAllOrders({ limit: 100 });
-        setOrders(res.data ?? []);
+        const res = await orderService.getStaffOrders({ storeId, limit: 100 });
+        const scopedOrders = res.data?.filter((order) => getOrderStoreId(order) === storeId) ?? [];
+        setOrders(scopedOrders);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
       } finally {
@@ -137,7 +147,7 @@ export default function StaffDashboard() {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [storeId]);
 
   // ── Computed stats ────────────────────────────────────────────────────
   const pendingCount = useMemo(

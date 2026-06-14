@@ -53,7 +53,12 @@ const FlashSaleSection: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await productAPI.getProducts({ limit: 4, page: 1 });
+        const response = await productAPI.getProducts({
+          limit: 4,
+          page: 1,
+          isAvailable: true,
+          ...(selectedStore?._id ? { storeId: selectedStore._id } : {}),
+        });
         setProducts(response.data);
       } catch (error) {
         console.error("Error fetching flash sale products:", error);

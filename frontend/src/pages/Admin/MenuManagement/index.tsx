@@ -90,6 +90,7 @@ const AdminMenuManagement = () => {
   const filters: Record<string, any> = {
     page: currentPage,
     limit: pageSize,
+    showAll: true,
   };
   if (activeCategory !== "all") filters.category = activeCategory;
   if (searchTerm) filters.search = searchTerm;
