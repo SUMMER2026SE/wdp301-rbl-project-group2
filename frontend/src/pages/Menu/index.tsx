@@ -102,7 +102,7 @@ const MenuPage = () => {
         setLoadingMore(false);
       }
     },
-    [activeCategory, debouncedSearch, sortBy, minRating, selectedStore?._id],
+    [activeCategory, debouncedSearch, sortBy, minRating, selectedStore],
   );
 
   useEffect(() => {

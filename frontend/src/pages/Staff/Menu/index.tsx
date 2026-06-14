@@ -62,7 +62,7 @@ export default function StaffMenu() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.storeId]);
+  }, [user]);
 
   // Initial load - deferred to avoid synchronous setState inside effect body
   useEffect(() => {

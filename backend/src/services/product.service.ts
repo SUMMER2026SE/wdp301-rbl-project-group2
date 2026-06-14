@@ -384,7 +384,7 @@ export const updateProduct = async (id: string, data: Partial<IProduct>, globalU
 
     // Propagate update to all products with the same name (case-insensitive regex to be safe)
     const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
     };
     
     // Omit storeId from propagation to avoid changing other stores' storeIds
@@ -412,7 +412,7 @@ export const deleteProduct = async (id: string, globalDelete?: boolean) => {
 
     // Delete all products with the same name (case-insensitive regex)
     const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
     };
     await ProductModel.deleteMany(nameQuery);
     return originalProduct;
