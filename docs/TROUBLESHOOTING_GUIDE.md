@@ -1,62 +1,68 @@
-# Hướng Dẫn Kiểm Tra Lỗi Hệ Thống & Cấu Hình Swap Memory
+# Hướng Dẫn Kiểm Tra Lỗi Hệ Thống, Tránh Tràn RAM & Cấu Hình Swap Memory
 
-Tài liệu này hướng dẫn chi tiết quy trình chẩn đoán lỗi khi server bị sập đột ngột (crash) và các bước cấu hình Swap Memory (bộ nhớ ảo) làm phương án dự phòng chống tràn RAM (OOM - Out of Memory) trên VPS Linux.
+Tài liệu này hướng dẫn chi tiết quy trình chẩn đoán lỗi khi server bị sập đột ngột (crash), các bước nâng cao để tìm ra nguyên nhân ẩn và case study thực tế về lỗi tràn RAM ảo (HugePages) giúp giải phóng ngay lập tức 2.3 GB RAM trên VPS Linux.
 
 ---
 
-## Phần 1: Quy Trình Kiểm Tra Lỗi Hệ Thống (Troubleshooting)
+## Phần 1: Quy Trình Từng Bước Chẩn Đoán Khi Server Bị Sập Đột Ngột
 
-Khi hệ thống gặp lỗi hoặc các dịch vụ dev/prod đột ngột ngưng hoạt động mà không rõ nguyên nhân, thực hiện kiểm tra theo trình tự sau:
+Khi hệ thống gặp lỗi hoặc các dịch vụ dev/prod đột ngột ngưng hoạt động mà không rõ nguyên nhân, hãy thực hiện kiểm tra tuần tự theo các bước dưới đây để tìm ra thủ phạm:
 
-### 1. Kiểm tra trạng thái các Docker Container
-Xem danh sách các container đang chạy và đã dừng để kiểm tra mã thoát (Exit Code):
+### Bước 1: Kiểm tra trạng thái và Mã thoát của Docker Container
+Xem danh sách toàn bộ các container (kể cả các container đã dừng hoặc liên tục restart):
 ```bash
 docker ps -a
 ```
-* **Lưu ý cột `STATUS`:** Nếu container bị dừng, hãy để ý mã thoát của nó:
-  * **`Exited (137)`**: Đây là mã lỗi điển hình báo hiệu tiến trình đã bị hệ thống ép buộc tắt bằng lệnh `SIGKILL` (thường 99% là do bị hệ điều hành tắt khi RAM bị cạn kiệt - OOM Killer).
-  * **`Exited (1)`**: Lỗi ứng dụng (lỗi code, thiếu biến môi trường, hoặc cấu hình sai).
+* **Phân tích cột `STATUS`**:
+  * **`Exited (137)`**: Container đã bị hệ thống ép buộc tắt bằng lệnh `SIGKILL`. Đây là dấu hiệu **99% do hệ điều hành cạn kiệt RAM (Out of Memory - OOM)**, kích hoạt cơ chế tự hạ sát tiến trình để cứu hệ thống.
+  * **`Exited (1)`**: Lỗi phần mềm (ví dụ: lỗi cú pháp code, thiếu file cấu hình `.env`, lỗi kết nối database, hoặc sai phiên bản node).
+  * **`Restarting (137) ...`**: Container bị sập do thiếu RAM nhưng được cấu hình `restart: always` nên Docker liên tục khởi động lại nó trong vòng lặp vô hạn.
 
-### 2. Xem logs của ứng dụng
-Di chuyển vào thư mục dự án tương ứng (`anngon-dev` hoặc `anngon-prod`) và xem logs của container để phân tích nguyên nhân:
-```bash
-# Xem log của toàn bộ stack dev/prod kèm thời gian thực
-docker compose -f docker-compose.dev.yml logs --tail=100 -f
-
-# Hoặc xem log của một container cụ thể
-docker logs <tên_hoặc_id_container>
-```
-
-### 3. Kiểm tra tài nguyên của VPS
-Thiếu hụt tài nguyên (RAM, ổ cứng) là nguyên nhân hàng đầu khiến dịch vụ bị crash.
-
-#### a. Kiểm tra dung lượng RAM và bộ nhớ ảo Swap
-```bash
-free -m
-```
-* **Cột `available`**: RAM vật lý thực sự còn lại cho hệ thống. Nếu con số này quá thấp (dưới 300MB), nguy cơ sập ứng dụng rất cao.
-* **Dòng `Swap`**: Nếu `total = 0`, hệ thống chưa có bộ nhớ ảo và sẽ crash ngay khi RAM vật lý bị đầy.
-
-#### b. Kiểm tra dung lượng ổ đĩa (Disk Space)
-Nếu phân vùng ổ đĩa chứa Docker bị đầy 100%, Docker daemon sẽ ngưng hoạt động hoặc không thể ghi chép dữ liệu:
-```bash
-df -h
-```
-Kiểm tra dung lượng do Docker chiếm dụng:
-```bash
-docker system df
-```
-Nếu dung lượng gần đầy, dọn dẹp các tài nguyên dư thừa (container đã tắt, image không sử dụng, mạng không dùng):
-```bash
-docker system prune -f
-```
-
-### 4. Kiểm tra Logs hệ thống phát hiện lỗi OOM (Out Of Memory)
-Chạy lệnh sau để truy vấn trực tiếp xem hệ điều hành có kích hoạt cơ chế OOM-Killer để tắt tiến trình của bạn hay không:
+### Bước 2: Truy vấn log OOM (Out Of Memory) của hệ thống
+Hãy kiểm tra xem kernel của Linux có ghi nhận sự kiện hạ sát tiến trình do tràn RAM hay không:
 ```bash
 sudo dmesg -T | grep -i -E 'oom|kill'
 ```
-* Nếu có log xuất hiện dạng: `Out of memory: Killed process <PID> (MainThread/node)...`, điều đó xác nhận hệ thống bị thiếu RAM vật lý.
+* **Ý nghĩa**: Nếu bạn nhìn thấy dòng có dạng `Out of memory: Killed process <PID> (node / python3)...`, điều đó khẳng định chắc chắn 100% server đã bị hết RAM vật lý tại thời điểm đó.
+
+### Bước 3: Kiểm tra dung lượng tài nguyên thực tế của VPS
+Chạy lệnh hiển thị thông tin RAM và ổ cứng hiện tại:
+* **Bộ nhớ (RAM & Swap)**:
+  ```bash
+  free -m
+  ```
+  Hãy kiểm tra cột `available` (RAM khả dụng thực tế). Nếu con số này dưới 300MB, nguy cơ bị crash khi biên dịch mã nguồn hoặc chạy tác vụ nặng là rất cao.
+* **Ổ cứng (Disk Space)**:
+  ```bash
+  df -h
+  docker system df
+  ```
+  Nếu phân vùng chứa thư mục Docker đầy 100%, Docker daemon sẽ bị treo cứng. Chạy lệnh dọn dẹp file rác của Docker nếu cần thiết:
+  ```bash
+  docker system prune -f
+  ```
+
+### Bước 4: Sắp xếp và cộng tổng RAM thực tế của các tiến trình đang chạy
+Đôi khi tổng dung lượng RAM báo trong `free -m` (cột `used`) rất cao (ví dụ: 3.2 GB), nhưng khi bạn xem nhanh qua lệnh `top`/`htop` lại không thấy tiến trình nào chiếm quá 200MB. Hãy chạy 2 lệnh kiểm tra nâng cao này:
+
+1. **Liệt kê 15 tiến trình đang ngốn nhiều RAM nhất hệ thống**:
+   ```bash
+   ps aux --sort=-%mem | head -n 15
+   ```
+2. **Tính tổng RAM thực tế (RSS) mà TẤT CẢ các tiến trình đang sử dụng**:
+   ```bash
+   ps aux --sort=-rss | awk '{sum+=$6} END {print sum/1024 " MB"}'
+   ```
+* **Cách phân tích**: 
+  * Nếu tổng RAM của tất cả tiến trình cộng lại (ví dụ: 800MB) nhỏ hơn rất nhiều so với dung lượng RAM báo đang dùng trong `free -m` (ví dụ: 3.2GB), hệ thống của bạn đang bị **Khóa RAM ẩn** ở cấp độ Kernel (xem Phần 3).
+
+### Bước 5: Truy vết xem tiến trình lạ trên Host thuộc Container nào
+Khi bạn dùng lệnh `ps aux` hoặc `htop` trên máy chủ VPS, bạn có thể thấy các tiến trình lạ (ví dụ: `tsx ./backend/index.ts` hay `node dist/index.js`) chạy dưới quyền `root` nhưng không rõ nó thuộc dự án nào hoặc container nào.
+Để tìm ra container chứa tiến trình đó, hãy lấy **PID** của tiến trình và chạy lệnh:
+```bash
+cat /proc/<PID_CỦA_TIẾN_TRÌNH>/cgroup
+```
+* **Cách đọc**: Kết quả trả về sẽ hiển thị đường dẫn cgroup chứa ID container dài 64 ký tự (ví dụ: `docker-e16a3b886984...`). 12 ký tự đầu chính là **Container ID** của container chứa tiến trình đó. Bạn có thể dùng `docker inspect <Container_ID>` để kiểm tra chi tiết.
 
 ---
 
@@ -128,3 +134,44 @@ Mặc định hệ điều hành có độ nhạy Swappiness là `60` (chuyển 
    ```bash
    echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
    ```
+
+---
+
+## Phần 3: Case Study Thực Tế - Tràn RAM Ẩn Do Cấu Hình HugePages
+
+### 1. Hiện tượng (Symptom)
+* Cả hai container `fe-dev` và `be-dev` của dự án liên tục bị tắt đột ngột với mã thoát **`137 (OOM)`**.
+* Khi chạy lệnh kiểm tra bộ nhớ `free -m`, hệ thống luôn báo RAM đã bị sử dụng khoảng **`3.2 GB`** (chỉ còn trống khoảng 100MB - 300MB khả dụng).
+* Tuy nhiên, khi dùng lệnh cộng dồn tổng dung lượng RAM của toàn bộ tiến trình đang hoạt động (`ps aux --sort=-rss | awk ...`), kết quả chỉ hiển thị khoảng **`800 MB`**.
+* Hệ thống xuất hiện khoảng trống bộ nhớ **2.1 GB** bị sử dụng nhưng không thuộc về bất kỳ tiến trình nào hiển thị trên hệ điều hành. Các thao tác xóa cache (`drop_caches`) hoàn toàn không giải phóng được lượng RAM này.
+
+### 2. Chẩn đoán nguyên nhân (Diagnosis)
+Chạy lệnh kiểm tra thông tin phân bổ bộ nhớ sâu của Kernel:
+```bash
+cat /proc/meminfo | grep -E 'HugePages_Total|Unevictable|Mlocked'
+```
+Kết quả hiển thị:
+```txt
+HugePages_Total:    1171
+Unevictable:       27620 kB
+Mlocked:           27620 kB
+```
+* **Nguyên nhân chính**: Hệ thống đã được cấu hình tĩnh trước đó để đặt chỗ và khóa cứng **1171 HugePages** (trang nhớ siêu lớn). Mặc định mỗi trang HugePage trên hệ thống Linux là **2MB**.
+* Tổng dung lượng RAM bị khóa cứng: $1171 \times 2\text{MB} = 2342\text{MB}$ (khoảng **2.34 GB**).
+* Lượng RAM này bị cô lập ở cấp độ nhân Kernel và chỉ cho phép các ứng dụng được cấu hình đặc biệt sử dụng. Các tiến trình thông thường như Node.js, Docker... bị chặn quyền truy cập, khiến các container dev bị bóp nghẹt tài nguyên trong không gian RAM 1.6GB còn lại dẫn đến sập liên tục.
+
+### 3. Cách khắc phục triệt để (Resolution)
+
+#### Tác động ngay lập tức (Không cần khởi động lại VPS)
+Chạy lệnh thiết lập số lượng HugePages tĩnh về `0` để trả lại toàn bộ 2.34 GB RAM bị khóa về bộ nhớ RAM thường khả dụng:
+```bash
+sudo sysctl -w vm.nr_hugepages=0
+```
+*(Ngay sau khi chạy lệnh này, kiểm tra `free -m` sẽ thấy dung lượng RAM khả dụng lập tức tăng thêm ~2.3 GB, mức RAM sử dụng rớt về ~835MB)*.
+
+#### Cấu hình tắt vĩnh viễn (Không bị cấu hình lại khi reboot VPS)
+Thêm cấu hình thiết lập HugePages về 0 vào cuối file `/etc/sysctl.conf`:
+```bash
+echo "vm.nr_hugepages = 0" | sudo tee -a /etc/sysctl.conf
+```
+Lệnh này đảm bảo rằng mỗi lần máy chủ khởi động lại, hệ điều hành sẽ tự động giải phóng các trang Hugepages về 0, duy trì tối đa bộ nhớ RAM thường khả dụng cho ứng dụng của bạn.
