@@ -1,4 +1,4 @@
-import { CREATED, OK } from '@/constants/http';
+import { CREATED, FORBIDDEN, OK } from '@/constants/http';
 import {
   getOrderById,
   getOrders,
@@ -13,12 +13,19 @@ import {
   markOrderReady,
   assignDelivery,
   completeDelivery,
+  confirmReceipt,
 } from '@/services/order.service';
+import {
+  getStaffOrders as getStaffOrdersService,
+  getStaffOrderById as getStaffOrderByIdService,
+  transitionStaffOrderStatus,
+} from '@/services/staff-order.service';
 import { createOrderStatusNotification } from '@/services/notification.service';
 import { OrderStatus } from '@/types/order.type';
 import { catchErrors } from '@/utils/async-handler';
 import { placeOrderValidator } from '@/validators/order.validator';
 import { formatOrderNote } from '@/utils/format-order-note';
+import appAssert from '@/utils/app-assert';
 import z from 'zod';
 
 /**
@@ -39,9 +46,27 @@ export const placeOrderHandler = catchErrors(async (req, res) => {
 
   // Notify staff via socket (best-effort)
   const io = req.app.get('io');
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(__dirname, '../../../socket-debug.log');
+    const hasIo = !!io;
+    const staffSockets = io ? Array.from(io.sockets.adapter.rooms.get('staff') || []) : [];
+    fs.appendFileSync(
+      logPath,
+      `[${new Date().toISOString()}] placeOrderHandler: code=${order.code}, storeId=${order.storeId}, hasIo=${hasIo}, active staff sockets in room = ${JSON.stringify(staffSockets)}\n`
+    );
+  } catch (e: any) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const logPath = path.join(__dirname, '../../../socket-debug.log');
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] placeOrderHandler log error: ${e.message}\n`);
+    } catch (_) {}
+  }
 
   if (io) {
-    io.to('staff').emit('order:new', {
+    io.to(`store:${order.storeId}`).emit('order:new', {
       _id: order._id,
       code: order.code,
       totalPrice: order.totalPrice,
@@ -171,6 +196,75 @@ export const getDashboardStatsHandler = catchErrors(async (_req, res) => {
 export const getRecentOrdersHandler = catchErrors(async (_req, res) => {
   const orders = await getRecentOrders();
   return res.success(OK, { data: orders });
+});
+
+export const getStaffOrders = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+
+  const result = await getStaffOrdersService(req.scope.storeId, {
+    status: req.query.status as string | undefined,
+    page: Number(req.query.page) || undefined,
+    limit: Number(req.query.limit) || undefined,
+    sort: req.query.sort as string | undefined,
+  });
+
+  return res.status(OK).json({
+    success: true,
+    data: result.orders,
+    pagination: result.pagination,
+  });
+});
+
+export const getStaffOrderById = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const order = await getStaffOrderByIdService(req.scope.storeId, req.params.id);
+  return res.status(OK).json({ success: true, data: order });
+});
+
+export const staffConfirmOrder = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const order = await transitionStaffOrderStatus(req.scope.storeId, req.params.id, OrderStatus.CONFIRMED, req.userId, {
+    action: 'staff_confirm_order',
+  });
+  return res.status(OK).json({ success: true, data: order });
+});
+
+export const staffRejectOrder = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const { reason } = z.object({ reason: z.string().min(1, 'Vui lòng cung cấp lý do từ chối') }).parse(req.body);
+  const order = await transitionStaffOrderStatus(req.scope.storeId, req.params.id, OrderStatus.CANCELLED, req.userId, {
+    action: 'staff_reject_order',
+    reason,
+  });
+  return res.status(OK).json({ success: true, data: order });
+});
+
+export const staffMarkOrderReady = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const order = await transitionStaffOrderStatus(
+    req.scope.storeId,
+    req.params.id,
+    OrderStatus.READY_FOR_DELIVERY,
+    req.userId,
+    { action: 'staff_mark_order_ready' }
+  );
+  return res.status(OK).json({ success: true, data: order });
+});
+
+export const staffAssignDelivery = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const order = await transitionStaffOrderStatus(req.scope.storeId, req.params.id, OrderStatus.SHIPPING, req.userId, {
+    action: 'staff_assign_delivery',
+  });
+  return res.status(OK).json({ success: true, data: order });
+});
+
+export const staffCompleteDelivery = catchErrors(async (req, res) => {
+  appAssert(req.scope?.storeId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  const order = await transitionStaffOrderStatus(req.scope.storeId, req.params.id, OrderStatus.COMPLETED, req.userId, {
+    action: 'staff_complete_delivery',
+  });
+  return res.status(OK).json({ success: true, data: order });
 });
 
 /**
@@ -312,9 +406,41 @@ export const completeDeliveryHandler = catchErrors(async (req, res) => {
       orderId: order._id,
       code: order.code,
       status: order.status,
-      message: `Đơn hàng #${order.code} đã được giao thành công. Chúc bạn ngon miệng!`,
+      message: `Đơn hàng #${order.code} đã được giao tới bạn. Vui lòng xác nhận nhận hàng!`,
     });
   }
 
   return res.success(OK, { data: order, message: 'Đã giao đơn hàng thành công' });
+});
+
+export const customerConfirmOrderHandler = catchErrors(async (req, res) => {
+  const order = await confirmReceipt(req.params.id, req.userId);
+
+  // Create notification record
+  if (order.cusId) {
+    await createOrderStatusNotification({
+      userId: order.cusId as any,
+      orderCode: order.code,
+      status: order.status,
+    });
+  }
+
+  // Notify user and staff via socket
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user:${order.cusId}`).emit('order:status_updated', {
+      orderId: order._id,
+      code: order.code,
+      status: order.status,
+      message: `Bạn đã xác nhận nhận hàng cho đơn hàng #${order.code}. Cảm ơn bạn!`,
+    });
+    io.to(`store:${order.storeId}`).emit('order:status_updated', {
+      orderId: order._id,
+      code: order.code,
+      status: order.status,
+      message: `Khách hàng đã xác nhận đã nhận đơn hàng #${order.code}.`,
+    });
+  }
+
+  return res.success(OK, { data: order, message: 'Xác nhận nhận hàng thành công' });
 });

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import http from 'http';
+import dns from 'node:dns';
 import { Server } from 'socket.io';
 import { parse as parseCookie } from 'cookie';
 import { APP_ORIGIN, PORT } from './constants/env';
@@ -9,7 +10,12 @@ import appRoutes from './routes';
 import connectToDatabase from './config/db';
 import { customResponse, errorHandler } from './middlewares';
 import { verifyToken } from '@/utils/jwt';
-import { SupportConversationModel } from '@/models';
+import { SupportConversationModel, OrderModel, UserModel } from '@/models';
+import cron from 'node-cron';
+import { completeOrderInternal } from '@/services/order.service';
+import { OrderStatus } from '@/types/order.type';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const app = express();
 //middleware
@@ -59,7 +65,7 @@ export const io = new Server(server, {
 
 app.set('io', io);
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   // Auth from cookie or bearer token for mobile clients.
   try {
     const rawCookie = socket.handshake.headers.cookie || '';
@@ -80,9 +86,25 @@ io.on('connection', (socket) => {
       socket.join(`user:${payload.userId}`);
 
       const roleLower = String(payload.role).toLowerCase();
+      if (roleLower === 'manager') {
+        socket.join('role:manager');
+        console.debug(`[Socket] Joined room: role:manager`);
+      }
+
+      const payloadStoreId = (payload as any).storeId;
+      const fallbackUser = payloadStoreId ? null : await UserModel.findById(payload.userId).select('storeId').lean();
+      const storeId = payloadStoreId ?? fallbackUser?.storeId;
+      if (storeId) {
+        socket.join(`store:${storeId}`);
+        console.debug(`[Socket] Joined room: store:${storeId}`);
+      }
+
       if (roleLower === 'staff' || roleLower === 'admin' || roleLower === 'manager') {
         socket.join('staff');
+        console.debug(`[Socket] Joined room: staff`);
       }
+    } else {
+      console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
     }
   } catch (e) {}
 
@@ -115,6 +137,54 @@ io.on('connection', (socket) => {
       cb?.(false);
     }
   });
+});
+
+// Auto-complete delivered orders after N minutes (default 30)
+cron.schedule('* * * * *', async () => {
+  try {
+    const delayMinutes = Number(process.env.ORDER_AUTO_COMPLETE_DELAY_MINUTES) || 30;
+    const cutOffTime = new Date(Date.now() - delayMinutes * 60 * 1000);
+
+    const pendingAutoCompletion = await OrderModel.find({
+      status: OrderStatus.DELIVERED,
+      'deliveryInfo.deliveredAt': { $lte: cutOffTime },
+    });
+
+    if (pendingAutoCompletion.length > 0) {
+      console.log(`[Auto-Complete Job] Found ${pendingAutoCompletion.length} orders pending completion.`);
+
+      for (const order of pendingAutoCompletion) {
+        try {
+          const completedOrder = await completeOrderInternal(order._id.toString());
+          console.log(`[Auto-Complete Job] Successfully completed order #${order.code}`);
+
+          // Emit socket notifications to customer and staff
+          if (io && completedOrder.cusId) {
+            const customerId =
+              typeof completedOrder.cusId === 'object' ? (completedOrder.cusId as any)._id : completedOrder.cusId;
+
+            io.to(`user:${customerId}`).emit('order:status_updated', {
+              orderId: completedOrder._id,
+              code: completedOrder.code,
+              status: completedOrder.status,
+              message: `Đơn hàng #${completedOrder.code} đã tự động hoàn thành sau ${delayMinutes} phút.`,
+            });
+
+            io.to(`store:${completedOrder.storeId}`).emit('order:status_updated', {
+              orderId: completedOrder._id,
+              code: completedOrder.code,
+              status: completedOrder.status,
+              message: `Đơn hàng #${completedOrder.code} đã tự động hoàn thành bởi hệ thống.`,
+            });
+          }
+        } catch (err: any) {
+          console.error(`[Auto-Complete Job] Failed to complete order #${order.code}:`, err.message);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('[Auto-Complete Job] Error running cron:', err.message);
+  }
 });
 
 server.listen(PORT, async () => {

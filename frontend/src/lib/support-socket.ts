@@ -53,11 +53,13 @@ export function disconnectSupportSocket() {
  * Preserves any registered event listeners.
  */
 export function reconnectSupportSocket() {
+  const token = getToken();
   if (socket) {
     console.debug("[SupportSocket] Reconnecting socket to refresh auth...");
-    const token = getToken();
     socket.auth = token ? { accessToken: token } : {};
     socket.disconnect();
     socket.connect();
+  } else {
+    getSupportSocket();
   }
 }

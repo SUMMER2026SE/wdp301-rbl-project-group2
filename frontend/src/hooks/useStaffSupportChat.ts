@@ -6,7 +6,7 @@ import staffSupportChatService, {
 import { useSupportRealtime } from '@/hooks/useSupportRealtime';
 import { getSupportSocket } from '@/lib/support-socket';
 
-export function useStaffSupportChat() {
+export function useStaffSupportChat(storeId?: string) {
     const [conversations, setConversations] = useState<StaffConversationSummary[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -16,9 +16,13 @@ export function useStaffSupportChat() {
     const [error, setError] = useState<string | null>(null);
 
     const fetchConversations = useCallback(async () => {
+        if (!storeId) {
+            setConversations([]);
+            return;
+        }
         try {
             setLoadingConversations(true);
-            const res = await staffSupportChatService.listConversations();
+            const res = await staffSupportChatService.listConversations({ storeId });
             setConversations(res.data.conversations);
             if (!selectedConversationId && res.data.conversations.length > 0) {
                 setSelectedConversationId(res.data.conversations[0].id);
@@ -29,7 +33,7 @@ export function useStaffSupportChat() {
         } finally {
             setLoadingConversations(false);
         }
-    }, [selectedConversationId]);
+    }, [storeId, selectedConversationId]);
 
     useEffect(() => {
         void fetchConversations();

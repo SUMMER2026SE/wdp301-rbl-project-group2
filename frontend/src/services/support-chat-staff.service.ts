@@ -69,8 +69,8 @@ export interface SupportSettings {
 }
 
 const staffSupportChatService = {
-    listConversations() {
-        return apiClient.get<ListConversationsResponse>('/support/staff/conversations');
+    listConversations(params?: { storeId?: string }) {
+        return apiClient.get<ListConversationsResponse>('/support/staff/conversations', { params });
     },
 
     getMessages(conversationId: string) {

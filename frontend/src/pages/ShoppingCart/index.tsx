@@ -13,6 +13,7 @@ import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useToast } from "@/hooks/useToast";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
+import { useStoreStore } from "@/store/storeStore";
 
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ const ShoppingCartPage = () => {
   const [showClearCartModal, setShowClearCartModal] = useState(false);
   const [upsellProducts, setUpsellProducts] = useState<Product[]>([]);
   const [loadingUpsell, setLoadingUpsell] = useState(true);
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
     const fetchUpsellProducts = async () => {
@@ -44,7 +46,8 @@ const ShoppingCartPage = () => {
         const res = await productAPI.getProducts({
           category: "Gọi Thêm Ăn Kèm",
           limit: 4,
-          isAvailable: true
+          isAvailable: true,
+          ...(selectedStore?._id ? { storeId: selectedStore._id } : {}),
         });
         setUpsellProducts(res.data);
       } catch (err) {
@@ -54,7 +57,7 @@ const ShoppingCartPage = () => {
       }
     };
     fetchUpsellProducts();
-  }, []);
+  }, [selectedStore?._id]);
 
   // Sync cart item prices with active approved campaigns on load or change
   useEffect(() => {

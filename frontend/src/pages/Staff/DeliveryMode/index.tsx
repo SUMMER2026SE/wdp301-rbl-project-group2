@@ -287,6 +287,30 @@ export default function StaffDeliveryMode() {
     const { user } = useAuth();
     const { toast } = useToast();
 
+    const [confirmModalData, setConfirmModalData] = useState<{
+        isOpen: boolean;
+        orderId: string | null;
+        code: string;
+        totalPrice: number;
+        isCOD: boolean;
+    }>({
+        isOpen: false,
+        orderId: null,
+        code: "",
+        totalPrice: 0,
+        isCOD: false,
+    });
+
+    const triggerCompleteDelivery = (order: Order) => {
+        setConfirmModalData({
+            isOpen: true,
+            orderId: order._id,
+            code: order.code,
+            totalPrice: order.totalPrice,
+            isCOD: isCodPayment(order.payment?.method),
+        });
+    };
+
     // Sort orders: earlier orders (older) on top, later orders (newer) at the bottom
     const sortedOrders = useMemo(() => {
         return [...orders].sort(
@@ -295,14 +319,18 @@ export default function StaffDeliveryMode() {
     }, [orders]);
 
     const fetchDeliveries = useCallback(async (showLoader = false) => {
-        if (!user?._id) return;
+        if (!user?._id || !user.storeId) return;
         if (showLoader) setLoading(true);
         try {
-            const res = await orderService.getAllOrders({
+            const res = await orderService.getStaffOrders({
+                storeId: user.storeId,
                 status: "shipping",
-                driverId: user._id,
             });
-            setOrders(res.data);
+            // Filter to only orders assigned to this driver
+            const myDeliveries = (res.data ?? []).filter(
+                (o) => o.deliveryInfo?.driverId === user._id
+            );
+            setOrders(myDeliveries);
         } catch (error) {
             console.error("Failed to fetch deliveries", error);
         } finally {
@@ -318,13 +346,14 @@ export default function StaffDeliveryMode() {
     }, [fetchDeliveries]);
 
     const handleCompleteDelivery = async (orderId: string) => {
-        if (actioningIds.has(orderId)) return;
+        if (actioningIds.has(orderId) || !user?.storeId) return;
         setActioningIds((prev) => new Set(prev).add(orderId));
         try {
-            await orderService.completeDelivery(orderId);
+            await orderService.staffCompleteDelivery(orderId, { storeId: user.storeId });
             toast("Đã giao hàng thành công! 🎉", "success");
             setDrawerOpen(false);
             setSelectedOrder(null);
+            setConfirmModalData((prev) => ({ ...prev, isOpen: false }));
             await fetchDeliveries();
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Không thể hoàn thành đơn hàng.";
@@ -511,7 +540,7 @@ export default function StaffDeliveryMode() {
 
                                 {/* CTA Giao Hàng Chính */}
                                 <button
-                                    onClick={() => handleCompleteDelivery(order._id)}
+                                    onClick={() => triggerCompleteDelivery(order)}
                                     disabled={isActioning}
                                     className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shadow-md ${isCOD
                                         ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-500/20"
@@ -536,9 +565,92 @@ export default function StaffDeliveryMode() {
                 order={selectedOrder}
                 open={drawerOpen}
                 onClose={closeDrawer}
-                onComplete={handleCompleteDelivery}
+                onComplete={(orderId) => {
+                    console.debug("Drawer delivery completion triggered for order ID:", orderId);
+                    if (selectedOrder) {
+                        triggerCompleteDelivery(selectedOrder);
+                    }
+                }}
                 isActioning={selectedOrder ? actioningIds.has(selectedOrder._id) : false}
             />
+
+            {/* Modal Xác nhận đã giao */}
+            {confirmModalData.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={() => {
+                            const isModalActioning = confirmModalData.orderId ? actioningIds.has(confirmModalData.orderId) : false;
+                            if (!isModalActioning) {
+                                setConfirmModalData((prev) => ({ ...prev, isOpen: false }));
+                            }
+                        }}
+                    />
+                    <div className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 z-10">
+                        {/* Header Modal */}
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 text-left">
+                            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
+                                <Truck className="w-5 h-5 text-orange-500" />
+                            </div>
+                            <h3 className="font-black text-slate-800 text-lg">Xác nhận đã giao hàng</h3>
+                        </div>
+
+                        {/* Body Modal */}
+                        <div className="p-6 space-y-4 text-left">
+                            <p className="text-slate-600 text-sm font-medium leading-relaxed">
+                                Bạn xác nhận đã giao đơn hàng <span className="font-extrabold text-slate-900">#{confirmModalData.code.slice(-4)}</span> thành công?
+                            </p>
+
+                            {confirmModalData.isCOD ? (
+                                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex flex-col items-center justify-center">
+                                    <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">Số tiền cần thu (COD)</span>
+                                    <span className="text-2xl font-black text-orange-600">{formatCurrency(confirmModalData.totalPrice)}</span>
+                                </div>
+                            ) : (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col items-center justify-center">
+                                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Trạng thái thanh toán</span>
+                                    <span className="text-sm font-black text-emerald-700">Đã thanh toán trực tuyến</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer Modal */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                            <button
+                                onClick={() => setConfirmModalData((prev) => ({ ...prev, isOpen: false }))}
+                                disabled={confirmModalData.orderId ? actioningIds.has(confirmModalData.orderId) : false}
+                                className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 active:scale-95 transition-all text-sm disabled:opacity-50"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    const orderId = confirmModalData.orderId;
+                                    if (orderId) {
+                                        await handleCompleteDelivery(orderId);
+                                    }
+                                }}
+                                disabled={confirmModalData.orderId ? actioningIds.has(confirmModalData.orderId) : false}
+                                className={`flex-1 py-3 text-white font-bold rounded-xl active:scale-95 transition-all text-sm shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                                    confirmModalData.isCOD
+                                        ? "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/20"
+                                        : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/20"
+                                }`}
+                            >
+                                {confirmModalData.orderId && actioningIds.has(confirmModalData.orderId) ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Đang lưu...
+                                    </>
+                                ) : (
+                                    "Xác nhận đã giao"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

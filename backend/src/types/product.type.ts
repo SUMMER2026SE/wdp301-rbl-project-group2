@@ -12,6 +12,14 @@ export enum ProductCategory {
   DRINK = 'drink',
   COMBO = 'combo',
   OTHER = 'other',
+
+  // Vietnamese category values (operational in production)
+  COM_DIA_TRUYEN_THONG = 'Cơm Đĩa Truyền Thống',
+  GIAI_KHAT_TRANG_MIENG = 'Giải Khát & Tráng Miệng',
+  GOC_HEALTHY_AN_KIENG = 'Góc Healthy & Ăn Kiêng',
+  GOI_THEM_AN_KEM = 'Gọi Thêm Ăn Kèm',
+  TRU_DANH_MON_NUOC = 'Trứ Danh Món Nước',
+  DAC_SAN_BAN_CHAY = 'Đặc Sản & Bán Chạy',
 }
 
 export interface IProductRecipeItem {
@@ -51,12 +59,13 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   allergenTags: string[];
   healthWarning?: string;
   healthTags?: string[];
-  
+
   // camelCase fields
   isAvailable?: boolean;
   isCampaignRunning: boolean;
   variationIds: mongoose.Types.ObjectId[];
   tags?: string[];
+  operationalNote?: string;
   createdAt: Date;
   updatedAt: Date;
 }

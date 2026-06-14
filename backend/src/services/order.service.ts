@@ -621,8 +621,9 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
     OrderStatus.CANCELLED,
   ],
   [OrderStatus.READY_FOR_DELIVERY]: [OrderStatus.SHIPPING, OrderStatus.DELIVERING, OrderStatus.CANCELLED],
-  [OrderStatus.SHIPPING]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
-  [OrderStatus.DELIVERING]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERING]: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
   [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.REFUNDED]: [],
@@ -861,7 +862,7 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
   appAssert(
     order.status === OrderStatus.SHIPPING || order.status === OrderStatus.DELIVERING,
     BAD_REQUEST,
-    'Chỉ có thể hoàn thành đơn hàng đang được giao'
+    'Chỉ có thể đánh dấu đã giao cho đơn hàng đang được vận chuyển'
   );
   appAssert(
     order.deliveryInfo.driverId?.toString() === staffId.toString(),
@@ -872,12 +873,45 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
   const prevStatus = order.status;
   const deliveredAt = new Date();
   const update: Record<string, any> = {
-    status: OrderStatus.COMPLETED,
+    status: OrderStatus.DELIVERED,
     'deliveryInfo.deliveredAt': deliveredAt,
   };
 
-  if (order.paymentMethod === PaymentMethod.CASH && !order.payment.paidAt) {
-    update['payment.paidAt'] = deliveredAt;
+  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+    .populate('cusId', 'username fullName email phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
+
+  appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
+
+  createAuditLog({
+    userId: staffId,
+    entityType: AuditEntityType.ORDER,
+    action: AuditLogAction.UPDATE,
+    oldData: { status: prevStatus },
+    newData: { status: OrderStatus.DELIVERED, deliveredAt },
+  }).catch(() => {});
+
+  return updatedOrder;
+};
+
+export const completeOrderInternal = async (orderId: string, actorId?: mongoose.Types.ObjectId) => {
+  const order = await getOrderById(orderId);
+  if (order.status === OrderStatus.COMPLETED) {
+    return order;
+  }
+
+  const prevStatus = order.status;
+  const completedAt = new Date();
+  
+  const update: Record<string, any> = {
+    status: OrderStatus.COMPLETED,
+  };
+
+  if (order.paymentMethod === PaymentMethod.CASH && !order.payment?.paidAt) {
+    update['payment.paidAt'] = completedAt;
     update.paid = true;
   }
 
@@ -903,17 +937,38 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
       .catch((err) => console.error('Failed to award points:', err));
   }
 
-  scheduleAiModelRetrain(`order #${updatedOrder.code} completed (delivery)`);
+  scheduleAiModelRetrain(`order #${updatedOrder.code} completed`);
 
-  createAuditLog({
-    userId: staffId,
-    entityType: AuditEntityType.ORDER,
-    action: AuditLogAction.UPDATE,
-    oldData: { status: prevStatus },
-    newData: { status: OrderStatus.COMPLETED, deliveredAt },
-  }).catch(() => {});
+  if (actorId) {
+    createAuditLog({
+      userId: actorId,
+      entityType: AuditEntityType.ORDER,
+      action: AuditLogAction.UPDATE,
+      oldData: { status: prevStatus },
+      newData: { status: OrderStatus.COMPLETED },
+    }).catch(() => {});
+  } else {
+    createAuditLog({
+      userId: updatedOrder.cusId as any, // fallback to customer if auto-completed
+      entityType: AuditEntityType.ORDER,
+      action: AuditLogAction.UPDATE,
+      oldData: { status: prevStatus },
+      newData: { status: OrderStatus.COMPLETED, note: 'Tự động hoàn thành hệ thống' },
+    }).catch(() => {});
+  }
 
   return updatedOrder;
+};
+
+export const confirmReceipt = async (orderId: string, userId: mongoose.Types.ObjectId) => {
+  const order = await getOrderById(orderId);
+  appAssert(order.status === OrderStatus.DELIVERED, BAD_REQUEST, 'Đơn hàng chưa được giao tới bạn');
+  
+  const rawCusId = order.cusId as any;
+  const cusIdStr = rawCusId?._id ? rawCusId._id.toString() : rawCusId?.toString();
+  appAssert(cusIdStr === userId.toString(), BAD_REQUEST, 'Bạn không sở hữu đơn hàng này');
+
+  return completeOrderInternal(order._id.toString(), userId);
 };
 
 export const getWeeklyRevenue = async () => {

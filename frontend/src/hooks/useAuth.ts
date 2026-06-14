@@ -21,14 +21,20 @@ export const useAuth = () => {
   const hydrate = useAuthStore((s) => s.hydrate);
 
   const isAdmin = role?.toUpperCase() === "ADMIN";
+  const isManager = role?.toUpperCase() === "MANAGER";
   const isStaff = role?.toUpperCase() === "STAFF";
   const isCustomer = role?.toUpperCase() === "CUSTOMER";
+  const storeId = user?.storeId ?? null;
+  const hasAssignedStore = Boolean(storeId);
 
   return {
     user,
+    storeId,
+    hasAssignedStore,
     isAuthenticated,
     role,
     isAdmin,
+    isManager,
     isStaff,
     isCustomer,
     login,

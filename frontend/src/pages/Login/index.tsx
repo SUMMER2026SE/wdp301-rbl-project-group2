@@ -24,6 +24,19 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const getRedirectPath = (role?: string) => {
+    switch (role?.toUpperCase()) {
+      case "ADMIN":
+        return "/admin";
+      case "MANAGER":
+        return "/manager/dashboard";
+      case "STAFF":
+        return "/staff";
+      default:
+        return "/";
+    }
+  };
+
   const handleGoogleLogin = () => {
     if (!(window as any).google) {
       setError("Không thể tải SDK đăng nhập của Google.");
@@ -52,6 +65,7 @@ const LoginPage = () => {
               email: user.email,
               phone: user.phone,
               role: user.role,
+              storeId: user.storeId,
               isActive: user.isActive,
               verifiedAt: user.verifiedAt,
               collectedPoints: user.collectedPoints,
@@ -78,19 +92,19 @@ const LoginPage = () => {
 
             // Redirect
             setTimeout(() => {
-              const normalizedRole = user.role.toUpperCase();
               const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
               if (from && from !== "/profile") {
                 navigate(from, { replace: true });
-              } else if (normalizedRole === "ADMIN") {
-                navigate("/admin");
-              } else if (normalizedRole === "STAFF") {
-                navigate("/staff");
               } else {
-                if (!user.isHealthSetup) {
-                  navigate("/onboarding");
+                const redirectPath = getRedirectPath(user.role);
+                if (redirectPath === "/") {
+                  if (!user.isHealthSetup) {
+                    navigate("/onboarding");
+                  } else {
+                    navigate("/");
+                  }
                 } else {
-                  navigate("/");
+                  navigate(redirectPath);
                 }
               }
             }, 0);
@@ -132,6 +146,7 @@ const LoginPage = () => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        storeId: user.storeId,
         isActive: user.isActive,
         verifiedAt: user.verifiedAt,
         collectedPoints: user.collectedPoints,
@@ -158,20 +173,20 @@ const LoginPage = () => {
 
       // Delay navigation to let Zustand state propagate before route guards evaluate
       setTimeout(() => {
-        const normalizedRole = user.role.toUpperCase();
         const from = (location.state as { from?: { pathname: string } })?.from
           ?.pathname;
         if (from && from !== "/profile") {
           navigate(from, { replace: true });
-        } else if (normalizedRole === "ADMIN") {
-          navigate("/admin");
-        } else if (normalizedRole === "STAFF") {
-          navigate("/staff");
         } else {
-          if (!user.isHealthSetup) {
-            navigate("/onboarding");
+          const redirectPath = getRedirectPath(user.role);
+          if (redirectPath === "/") {
+            if (!user.isHealthSetup) {
+              navigate("/onboarding");
+            } else {
+              navigate("/");
+            }
           } else {
-            navigate("/");
+            navigate(redirectPath);
           }
         }
       }, 0);

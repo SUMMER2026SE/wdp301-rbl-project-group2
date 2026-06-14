@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
 import { IngredientModel } from '@/models/ingredient.model';
+import { StoreModel } from '@/models/store.model';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
@@ -10,7 +11,7 @@ import {
 } from '@/services/shared-topping.service';
 import { evaluateProductHealthRisk } from '@/services/health-risk.service';
 
-const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
+export const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
 
 const PRODUCT_RECIPE_POPULATE = {
   path: 'recipe.ingredientId',
@@ -159,6 +160,7 @@ interface ProductFilters {
   isAvailable?: boolean;
   healthTags?: string[];
   storeId?: string;
+  showAll?: boolean;
 }
 
 const attachHealthRisk = <T extends Record<string, any>>(product: T, preferences?: any): T => {
@@ -218,8 +220,18 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     query.storeId = storeId;
   }
 
-  if (isAvailable !== undefined) {
-    query.isAvailable = isAvailable;
+  // Default: only show available & active products to customers.
+  // Staff/admin pass showAll=true to bypass this filter in management views.
+  if (filters.showAll) {
+    // Staff/admin management: show everything except deleted
+    query.status = { $ne: 'deleted' };
+    if (isAvailable !== undefined) {
+      query.isAvailable = isAvailable;
+    }
+  } else {
+    // Customer view: only show available & active products
+    query.isAvailable = isAvailable !== undefined ? isAvailable : true;
+    query.status = { $nin: ['deleted', 'inactive', 'out_of_stock'] };
   }
   if (healthTags?.length) {
     query.healthTags = { $in: healthTags };
@@ -315,8 +327,25 @@ export const getProductHealthRisk = async (id: string, preferences: any) => {
   return evaluateProductHealthRisk(product, preferences);
 };
 
-export const createProduct = async (data: Partial<IProduct>) => {
+export const createProduct = async (data: Partial<IProduct>, globalCreate?: boolean) => {
   const recipe = await resolveRecipeItems((data as any).recipe ?? []);
+  if (globalCreate) {
+    const stores = await StoreModel.find().lean();
+    if (stores.length > 0) {
+      const productsToCreate = stores.map((store) => ({
+        ...data,
+        recipe,
+        storeId: store._id,
+        imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
+      }));
+      const createdProducts = await ProductModel.insertMany(productsToCreate);
+      const mainProduct = createdProducts.find(
+        (p) => p.storeId.toString() === DEFAULT_PUBLIC_STORE_ID
+      ) || createdProducts[0];
+      return mainProduct;
+    }
+  }
+
   const product = await ProductModel.create({
     ...data,
     recipe,
@@ -327,22 +356,68 @@ export const createProduct = async (data: Partial<IProduct>) => {
   return product;
 };
 
-export const updateProduct = async (id: string, data: Partial<IProduct>) => {
+export const updateProduct = async (id: string, data: Partial<IProduct>, globalUpdate?: boolean) => {
   const recipe = data.recipe ? await resolveRecipeItems((data as any).recipe ?? []) : undefined;
+  
+  const updateFields: any = {
+    ...data,
+    ...(recipe ? { recipe } : {})
+  };
+
+  // Only update imgEmbedding if name, image, or imgEmbedding is explicitly changed
+  if ((data as any).imgEmbedding !== undefined) {
+    updateFields.imgEmbedding = (data as any).imgEmbedding;
+  } else if (data.image !== undefined || data.name !== undefined) {
+    updateFields.imgEmbedding = String(data.image ?? data.name ?? 'product');
+  }
+
+  if (globalUpdate) {
+    const originalProduct = await ProductModel.findById(id).lean();
+    appAssert(originalProduct, NOT_FOUND, 'Product not found');
+
+    const product = await ProductModel.findByIdAndUpdate(
+      id,
+      updateFields,
+      { new: true }
+    );
+    appAssert(product, NOT_FOUND, 'Product not found');
+
+    // Propagate update to all products with the same name (case-insensitive regex to be safe)
+    const nameQuery = {
+      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+    };
+    
+    // Omit storeId from propagation to avoid changing other stores' storeIds
+    const otherUpdates = { ...updateFields };
+    delete otherUpdates.storeId;
+
+    await ProductModel.updateMany(nameQuery, { $set: otherUpdates });
+
+    return product;
+  }
+
   const product = await ProductModel.findByIdAndUpdate(
     id,
-    {
-      ...data,
-      ...(recipe ? { recipe } : {}),
-      imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
-    },
+    updateFields,
     { new: true }
   );
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;
 };
 
-export const deleteProduct = async (id: string) => {
+export const deleteProduct = async (id: string, globalDelete?: boolean) => {
+  if (globalDelete) {
+    const originalProduct = await ProductModel.findById(id).lean();
+    appAssert(originalProduct, NOT_FOUND, 'Product not found');
+
+    // Delete all products with the same name (case-insensitive regex)
+    const nameQuery = {
+      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+    };
+    await ProductModel.deleteMany(nameQuery);
+    return originalProduct;
+  }
+
   const product = await ProductModel.findByIdAndDelete(id);
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;

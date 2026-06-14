@@ -19,6 +19,7 @@ import {
   MessageCircle,
   BellRing
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
 import RejectModal from "@/components/Staff/RejectModal";
@@ -70,6 +71,7 @@ const buildChecklist = (items: Order["items"]): ChecklistItem[] =>
 export default function StaffOrderDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { storeId } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,11 +79,19 @@ export default function StaffOrderDetail() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
+  const handleClose = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/staff/orders");
+    }
+  };
+
   const fetchOrder = useCallback(async () => {
-    if (!id) return;
+    if (!id || !storeId) return;
     try {
       setLoading(true);
-      const res = await orderService.getOrderById(id);
+      const res = await orderService.getStaffOrderById(id, { storeId });
       setOrder(res.data);
       setChecklist(buildChecklist(res.data.items));
     } catch (err: unknown) {
@@ -90,22 +100,37 @@ export default function StaffOrderDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, storeId]);
 
   useEffect(() => {
-    fetchOrder();
+    const timer = setTimeout(() => {
+      fetchOrder();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchOrder]);
 
   const handleUpdateStatus = async (status: Order["status"]) => {
-    if (!order) return;
+    if (!order || !storeId) return;
     try {
       setUpdating(true);
 
-      // Nếu là hành động Nhận giao hàng (Tôi đi giao), gọi endpoint riêng nếu có, hoặc update status
-      if (status === 'shipping' && order.status === 'ready_for_delivery') {
-        await orderService.assignDelivery(order._id);
-      } else {
-        await orderService.updateOrderStatus(order._id, status);
+      switch (status) {
+        case "confirmed":
+          await orderService.staffConfirmOrder(order._id, { storeId });
+          break;
+        case "ready_for_delivery":
+          await orderService.staffMarkOrderReady(order._id, { storeId });
+          break;
+        case "shipping":
+          await orderService.staffAssignDelivery(order._id, { storeId });
+          break;
+        case "completed":
+          await orderService.staffCompleteDelivery(order._id, { storeId });
+          break;
+        default:
+          alert(`Trạng thái "${status}" không được hỗ trợ.`);
+          setUpdating(false);
+          return;
       }
 
       await fetchOrder();
@@ -117,14 +142,14 @@ export default function StaffOrderDetail() {
   };
 
   const handleConfirmReject = async (reason: string) => {
-    if (!order) return;
+    if (!order || !storeId) return;
 
     try {
       setUpdating(true);
-      await orderService.rejectOrder(order._id, reason);
+      await orderService.staffRejectOrder(order._id, { storeId, reason });
       setIsRejectModalOpen(false);
       await fetchOrder();
-    } catch (err) {
+    } catch {
       alert("Không thể từ chối đơn hàng. Vui lòng thử lại!");
     } finally {
       setUpdating(false);
@@ -246,12 +271,17 @@ export default function StaffOrderDetail() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 md:p-8 overflow-hidden animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-[1200px] h-[95vh] md:h-full max-h-[900px] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 overflow-hidden">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-200 cursor-pointer animate-in fade-in"
+        onClick={handleClose}
+      />
+      <div className="relative bg-white w-full max-w-[1200px] h-[95vh] md:h-full max-h-[900px] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 z-10">
 
         {/* Nút Đóng */}
         <button
-          onClick={() => navigate("/staff/orders")}
+          onClick={handleClose}
           className="absolute top-5 right-5 p-2.5 bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-full transition-all z-20 active:scale-95"
         >
           <X className="w-5 h-5" />

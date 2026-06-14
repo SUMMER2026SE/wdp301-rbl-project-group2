@@ -69,6 +69,15 @@ const OrderStatusHistorySchema = new mongoose.Schema(
   {
     status: { type: String, enum: OrderStatus, required: true },
     changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    actorRole: {
+      type: String,
+      enum: ['manager', 'staff', 'admin', 'customer', 'system'],
+    },
+    action: { type: String, trim: true },
+    fromStatus: { type: String, enum: OrderStatus },
+    toStatus: { type: String, enum: OrderStatus },
+    reason: { type: String, trim: true },
+    note: { type: String, trim: true },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -176,6 +185,10 @@ const OrderItemVariationDocSchema = new mongoose.Schema<IOrderItemVariationDoc>(
 
 OrderItemVariationDocSchema.index({ orderItemId: 1 });
 
-export const OrderItemVariationModel = mongoose.model<IOrderItemVariationDoc>('OrderItemVariation', OrderItemVariationDocSchema, 'order_item_variations');
+export const OrderItemVariationModel = mongoose.model<IOrderItemVariationDoc>(
+  'OrderItemVariation',
+  OrderItemVariationDocSchema,
+  'order_item_variations'
+);
 
 export default OrderModel;

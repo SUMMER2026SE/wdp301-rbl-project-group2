@@ -38,6 +38,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
     isCampaignRunning: { type: Boolean, default: false },
     variationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Variation' }],
     tags: { type: [String], default: [] },
+    operationalNote: { type: String, trim: true },
   },
   {
     timestamps: true,

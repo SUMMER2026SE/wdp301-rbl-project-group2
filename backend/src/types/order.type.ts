@@ -10,6 +10,8 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
   REFUNDED = 'refunded',
 
+  DELIVERED = 'delivered',
+
   // Compatibility values (also camelCase)
   PROCESSING = 'processing',
   READY_FOR_DELIVERY = 'ready_for_delivery',
@@ -65,6 +67,12 @@ export interface IDeliveryInfo {
 export interface IOrderStatusHistory {
   status: OrderStatus;
   changedBy: mongoose.Types.ObjectId;
+  actorRole?: 'manager' | 'staff' | 'admin' | 'customer' | 'system';
+  action?: string;
+  fromStatus?: OrderStatus;
+  toStatus?: OrderStatus;
+  reason?: string;
+  note?: string;
   createdAt: Date;
 }
 

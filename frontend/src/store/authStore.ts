@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrated: true, // Already hydrated synchronously above
 
   login: (user) => {
-    disconnectSupportSocket();
+    reconnectSupportSocket();
     const normalizedUser = normalizeUser(user);
     setStoredUser(normalizedUser);
     // Reset location alert state so it shows after login

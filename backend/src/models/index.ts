@@ -23,6 +23,7 @@ import { ConversationModel, MessageModel } from './conversation.model';
 import { VariationModel, VariationOptionModel } from './variation.model';
 import UserVoucherModel from './user-voucher.model';
 
+import StaffRequestModel from './staff-request.model';
 
 export {
   UserModel,
@@ -45,7 +46,7 @@ export {
   SupportMessageModel,
   SupportSettingsModel,
   SettingsModel,
-  
+
   // New DBML models
   UserAllergyModel,
   StoreModel,
@@ -59,4 +60,5 @@ export {
   VariationModel,
   VariationOptionModel,
   UserVoucherModel,
+  StaffRequestModel,
 };

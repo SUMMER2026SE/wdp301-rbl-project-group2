@@ -17,6 +17,8 @@ import type { Order } from "@/services/order.service";
 import { buildVariantChips } from "@/utils/cartVariants";
 import { useAuth } from "@/hooks/useAuth";
 import { OrderSupportChat } from "@/components/shared/OrderSupportChat";
+import toast from "react-hot-toast";
+import { getSupportSocket } from "@/lib/support-socket";
 
 const OrderDetailPage = () => {
   const navigate = useNavigate();
@@ -28,24 +30,61 @@ const OrderDetailPage = () => {
   const { user, isStaff, isAdmin } = useAuth();
   const isStaffView = isStaff || isAdmin;
 
-  useEffect(() => {
-    const fetchOrderDetail = async () => {
-      if (!id) return;
-      try {
-        setLoading(true);
-        const res = await orderService.getOrderById(id);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirmReceipt = async () => {
+    if (!id) return;
+    try {
+      setSubmitting(true);
+      const res = await orderService.confirmReceipt(id);
+      if (res.success) {
         setOrder(res.data);
-      } catch (err: any) {
-        console.error("Failed to fetch order detail:", err);
+        toast.success("Xác nhận đã nhận hàng thành công!");
+      }
+    } catch (err: any) {
+      console.error("Failed to confirm receipt:", err);
+      toast.error(err.response?.data?.message || "Không thể xác nhận nhận hàng");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fetchOrderDetail = async (showLoading = true) => {
+    if (!id) return;
+    try {
+      if (showLoading) setLoading(true);
+      const res = await orderService.getOrderById(id);
+      setOrder(res.data);
+    } catch (err: any) {
+      console.error("Failed to fetch order detail:", err);
+      if (showLoading) {
         setError(
           err.response?.data?.message || "Không thể tải chi tiết đơn hàng",
         );
-      } finally {
-        setLoading(false);
+      }
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrderDetail(true);
+  }, [id]);
+
+  useEffect(() => {
+    const socket = getSupportSocket();
+
+    const handleStatusUpdated = (data: { orderId: string }) => {
+      if (data.orderId === id) {
+        fetchOrderDetail(false);
       }
     };
 
-    fetchOrderDetail();
+    socket.on("order:status_updated", handleStatusUpdated);
+
+    return () => {
+      socket.off("order:status_updated", handleStatusUpdated);
+    };
   }, [id]);
 
   const getImageUrl = (image: any) => {
@@ -69,6 +108,13 @@ const OrderDetailPage = () => {
           color: "text-blue-600",
           bg: "bg-blue-50 dark:bg-blue-900/20",
           icon: <Package className="w-5 h-5" />,
+        };
+      case "delivered":
+        return {
+          label: "Đã giao, chờ xác nhận",
+          color: "text-[#ea580c]",
+          bg: "bg-orange-50 dark:bg-orange-950/20",
+          icon: <Package className="w-5 h-5 animate-pulse" />,
         };
       case "confirmed":
         return {
@@ -137,6 +183,8 @@ const OrderDetailPage = () => {
         return 1;
       case "shipping":
         return 2;
+      case "delivered":
+        return 2.5;
       case "completed":
         return 3;
       default:
@@ -193,6 +241,39 @@ const OrderDetailPage = () => {
             </div>
           </div>
         </div>
+
+        {order.status === "delivered" && !isStaffView && (
+          <div className="mb-6 p-6 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-200 dark:border-orange-500/20 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-start gap-4 text-left">
+              <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-[#ea580c] shrink-0">
+                <span className="material-symbols-outlined text-[28px] animate-bounce">moped</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-white text-lg">Đơn hàng đã được giao tới bạn!</h4>
+                <p className="text-sm text-slate-500 mt-1">
+                  Vui lòng kiểm tra món ăn và nhấn xác nhận. Đơn hàng sẽ tự động hoàn thành sau 30 phút.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleConfirmReceipt}
+              disabled={submitting}
+              className="px-6 py-3 bg-[#ea580c] text-white font-bold text-sm rounded-xl hover:bg-orange-700 active:scale-[0.98] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/30 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50 cursor-pointer"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Xác nhận đã nhận hàng
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -563,7 +644,9 @@ const OrderDetailPage = () => {
                     className={`z-10 size-6 rounded-full flex items-center justify-center ${
                       statusIdx === 3
                         ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
-                        : "bg-gray-100 dark:bg-white/10 text-gray-400"
+                        : order.status === "delivered"
+                          ? "bg-orange-600 text-white ring-4 ring-orange-600/20 animate-pulse"
+                          : "bg-gray-100 dark:bg-white/10 text-gray-400"
                     }`}
                   >
                     {statusIdx === 3 ? (
@@ -579,11 +662,20 @@ const OrderDetailPage = () => {
                   <div>
                     <p
                       className={`text-sm font-bold ${
-                        statusIdx === 3 ? "text-green-600" : "text-gray-400"
+                        statusIdx === 3
+                          ? "text-green-600"
+                          : order.status === "delivered"
+                            ? "text-orange-600"
+                            : "text-gray-400"
                       }`}
                     >
                       Đã giao
                     </p>
+                    {order.status === "delivered" && (
+                      <p className="text-xs text-orange-600/70 font-semibold animate-pulse">
+                        Chờ xác nhận nhận hàng
+                      </p>
+                    )}
                     {statusIdx === 3 && order.updatedAt && (
                       <p className="text-xs text-green-600/70">
                         {new Date(order.updatedAt).toLocaleTimeString("vi-VN", {

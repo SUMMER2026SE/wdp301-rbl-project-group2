@@ -6,6 +6,7 @@ import OrderKanbanCard from "@/components/Staff/OrderKanbanCard";
 import RejectModal from "@/components/Staff/RejectModal";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 
 const POLL_INTERVAL = 10_000; // 10 seconds
 
@@ -17,12 +18,15 @@ export default function StaffOrders() {
   const prevPendingCount = useRef(0);
   const { playNotification } = useNotificationSound();
   const { toast } = useToast();
+  const { storeId } = useAuth();
 
   // ── Fetch ──────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
     try {
-      const res = await orderService.getAllOrders({
+      if (!storeId) return;
+      const res = await orderService.getStaffOrders({
+        storeId,
         status: "pending,confirmed,processing,ready_for_delivery",
       });
       setOrders(res.data);
@@ -31,7 +35,7 @@ export default function StaffOrders() {
     } finally {
       if (showLoader) setLoading(false);
     }
-  }, []);
+  }, [storeId]);
 
   // Initial load
   useEffect(() => {
@@ -101,7 +105,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.confirmOrder(orderId);
+      if (!storeId) return;
+      await orderService.staffConfirmOrder(orderId, { storeId });
       toast("Đã nhận đơn, bắt đầu chế biến!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -125,7 +130,8 @@ export default function StaffOrders() {
     const orderId = rejectTarget._id;
     startActioning(orderId);
     try {
-      await orderService.rejectOrder(orderId, reason);
+      if (!storeId) return;
+      await orderService.staffRejectOrder(orderId, { storeId, reason });
       toast("Đã từ chối đơn hàng.", "info");
       setRejectTarget(null);
       await fetchOrders();
@@ -143,7 +149,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.markOrderReady(orderId);
+      if (!storeId) return;
+      await orderService.staffMarkOrderReady(orderId, { storeId });
       toast("Đơn hàng đã sẵn sàng để giao!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -160,7 +167,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.assignDelivery(orderId);
+      if (!storeId) return;
+      await orderService.staffAssignDelivery(orderId, { storeId });
       toast("Bạn đã nhận giao đơn này!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -242,7 +250,7 @@ export default function StaffOrders() {
             }}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm shadow-rose-600/10 shrink-0 self-end sm:self-auto"
           >
-            Nhắc nhở staff
+            Nhắc nhở
           </button>
         </div>
       )}

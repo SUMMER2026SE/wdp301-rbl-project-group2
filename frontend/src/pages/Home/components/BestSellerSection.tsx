@@ -37,6 +37,7 @@ const BestSellerSection = () => {
           limit: 4,
           page: 1,
           isAvailable: true,
+          ...(selectedStore?._id ? { storeId: selectedStore._id } : {}),
         });
         if (!cancelled) setProducts(res.data.slice(0, 4));
       } catch (err) {
