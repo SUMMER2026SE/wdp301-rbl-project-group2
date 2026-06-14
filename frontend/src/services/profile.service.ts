@@ -37,6 +37,7 @@ export interface MembershipInfo {
   tier: string;
   referralCode: string;
   referredBy?: string | null;
+  redeemedVoucherIds?: string[];
 }
 
 export interface PointTransaction {

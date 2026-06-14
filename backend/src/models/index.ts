@@ -21,6 +21,8 @@ import { IngredientModel, ProductRecipeModel } from './ingredient.model';
 import { CampaignModel, CampaignProductModel } from './campaign.model';
 import { ConversationModel, MessageModel } from './conversation.model';
 import { VariationModel, VariationOptionModel } from './variation.model';
+import UserVoucherModel from './user-voucher.model';
+
 import StaffRequestModel from './staff-request.model';
 
 export {
@@ -57,5 +59,6 @@ export {
   MessageModel,
   VariationModel,
   VariationOptionModel,
+  UserVoucherModel,
   StaffRequestModel,
 };

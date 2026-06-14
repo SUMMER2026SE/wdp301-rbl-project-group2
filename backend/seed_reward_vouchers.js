@@ -33,7 +33,6 @@ const seedRewards = async () => {
         isActive: Boolean,
         isReward: Boolean,
         pointCost: Number,
-        ownerId: mongoose.Schema.Types.ObjectId,
         startAt: Date,
         endAt: Date,
     }), 'vouchers');
@@ -61,7 +60,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 100,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         },
@@ -79,7 +77,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 200,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         },
@@ -97,7 +94,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 400,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         },
@@ -115,7 +111,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 1000,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         },
@@ -133,7 +128,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 2500,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         },
@@ -151,7 +145,6 @@ const seedRewards = async () => {
             isActive: true,
             isReward: true,
             pointCost: 150,
-            ownerId: null,
             startAt: now,
             endAt: nextYear
         }

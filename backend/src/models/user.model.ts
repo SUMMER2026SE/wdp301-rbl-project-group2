@@ -1,6 +1,6 @@
 import { EMAIL_REGEX, INTERNATIONAL_PHONE_REGEX, VIETNAM_PHONE_REGEX } from '@/constants/regex';
 import { IUser } from '@/types';
-import { IAddresses, IHealthProfile, IPreferences, Role, UserStatus } from '@/types/user.type';
+import { IAddresses, IHealthProfile, IPreferences, Role, UserStatus, UserTier } from '@/types/user.type';
 import { compareValue, hashValue } from '@/utils/bcrypt';
 import mongoose from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -72,7 +72,7 @@ const UserSchema = new mongoose.Schema<IUser>(
     role: { 
       type: String, 
       required: true, 
-      enum: Object.values(Role), 
+      enum: [...Object.values(Role), 'ADMIN', 'MANAGER', 'STAFF', 'CUSTOMER'], 
       default: Role.CUSTOMER 
     },
     isHealthSetup: { type: Boolean, default: false },
@@ -89,6 +89,11 @@ const UserSchema = new mongoose.Schema<IUser>(
       type: Number,
       default: 0,
       min: [0, 'Collected points cannot be negative'],
+    },
+    tier: {
+      type: String,
+      enum: Object.values(UserTier),
+      default: UserTier.BRONZE,
     },
     addresses: {
       type: [AddressSchema],

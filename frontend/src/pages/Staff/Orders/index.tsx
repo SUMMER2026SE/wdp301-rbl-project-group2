@@ -181,56 +181,6 @@ export default function StaffOrders() {
     }
   };
 
-  // ── Kanban Column Component ──────────────────────────────────────────────
-  const KanbanColumn = ({
-    title,
-    count,
-    colorTheme,
-    icon: Icon,
-    children,
-  }: {
-    title: string;
-    count: number;
-    colorTheme: "rose" | "blue" | "emerald";
-    icon: any;
-    children: React.ReactNode;
-  }) => {
-    const themeStyles = {
-      rose: "text-rose-600 bg-rose-100 border-rose-200 shadow-rose-500/10",
-      blue: "text-blue-600 bg-blue-100 border-blue-200 shadow-blue-500/10",
-      emerald: "text-emerald-600 bg-emerald-100 border-emerald-200 shadow-emerald-500/10"
-    };
-
-    return (
-      <div className="flex flex-col gap-4 bg-slate-100/50 rounded-[2rem] p-4 border border-slate-100">
-        {/* Column Header */}
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ${themeStyles[colorTheme]}`}>
-              <Icon className="w-4 h-4" />
-            </div>
-            <span className="font-black text-slate-800 tracking-tight uppercase text-sm">
-              {title}
-            </span>
-          </div>
-          <div className="flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white shadow-sm border border-slate-200 text-xs font-black text-slate-700">
-            {count}
-          </div>
-        </div>
-
-        {/* Column Content */}
-        <div className="flex flex-col gap-3 min-h-[300px]">
-          {children}
-          {count === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-slate-200 bg-white/50 rounded-2xl gap-2">
-              <Inbox className="w-8 h-8 text-slate-300" />
-              <p className="text-sm font-medium text-slate-400 text-center">Trống</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────
   if (loading) {
@@ -378,3 +328,54 @@ export default function StaffOrders() {
     </div>
   );
 }
+
+// ── Kanban Column Component ──────────────────────────────────────────────
+const KanbanColumn = ({
+  title,
+  count,
+  colorTheme,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  count: number;
+  colorTheme: "rose" | "blue" | "emerald";
+  icon: any;
+  children: React.ReactNode;
+}) => {
+  const themeStyles = {
+    rose: "text-rose-600 bg-rose-100 border-rose-200 shadow-rose-500/10",
+    blue: "text-blue-600 bg-blue-100 border-blue-200 shadow-blue-500/10",
+    emerald: "text-emerald-600 bg-emerald-100 border-emerald-200 shadow-emerald-500/10"
+  };
+
+  return (
+    <div className="flex flex-col gap-4 bg-slate-100/50 rounded-[2rem] p-4 border border-slate-100">
+      {/* Column Header */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ${themeStyles[colorTheme]}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <span className="font-black text-slate-800 tracking-tight uppercase text-sm">
+            {title}
+          </span>
+        </div>
+        <div className="flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white shadow-sm border border-slate-200 text-xs font-black text-slate-700">
+          {count}
+        </div>
+      </div>
+
+      {/* Column Content */}
+      <div className="flex flex-col gap-3 min-h-[300px]">
+        {children}
+        {count === 0 && (
+          <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-slate-200 bg-white/50 rounded-2xl gap-2">
+            <Inbox className="w-8 h-8 text-slate-300" />
+            <p className="text-sm font-medium text-slate-400 text-center">Trống</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

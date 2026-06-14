@@ -14,4 +14,6 @@ export { IIngredient, IProductRecipe, IUserAllergy } from './ingredient.type';
 export { ICampaign, ICampaignProduct, ICampaignProductItem, CampaignStatus } from './campaign.type';
 export { IConversation, IMessage, MessageType } from './conversation.type';
 export { IVariation, IVariationOption } from './variation.type';
+export { IUserVoucher, UserVoucherStatus } from './user-voucher.type';
+
 
