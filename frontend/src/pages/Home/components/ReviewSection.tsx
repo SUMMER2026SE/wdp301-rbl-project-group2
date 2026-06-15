@@ -1,81 +1,162 @@
-import { Quote, Star, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, MessageSquareText, Quote, RefreshCw, Star, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import reviewService, { type FeaturedReview } from "@/services/review.service";
+
+const REVIEW_LIMIT = 3;
+
+const ReviewSkeleton = () => (
+  <div className="min-h-[310px] animate-pulse rounded-lg border border-gray-100 bg-white p-7">
+    <div className="mb-6 h-5 w-28 rounded bg-gray-200" />
+    <div className="space-y-3">
+      <div className="h-4 rounded bg-gray-100" />
+      <div className="h-4 rounded bg-gray-100" />
+      <div className="h-4 w-3/4 rounded bg-gray-100" />
+    </div>
+    <div className="mt-10 flex items-center gap-3 border-t border-gray-100 pt-5">
+      <div className="h-11 w-11 rounded-full bg-gray-200" />
+      <div className="space-y-2">
+        <div className="h-3 w-24 rounded bg-gray-200" />
+        <div className="h-3 w-32 rounded bg-gray-100" />
+      </div>
+    </div>
+  </div>
+);
 
 const ReviewSection = () => {
-    return (
-        <section className="bg-gradient-to-b from-white via-orange-50 to-white py-24">
-            <div className="max-w-7xl mx-auto px-4 md:px-8">
-                {/* Header Section */}
-                <div className="flex flex-col items-center text-center mb-16">
-                    <span className="text-orange-600 font-bold uppercase tracking-widest text-xs mb-2">Wall of Love</span>
-                    <h2 className="text-4xl font-black text-slate-900 mb-4">Khách hàng nói gì về chúng tôi?</h2>
-                    <div className="w-20 h-1.5 bg-orange-500 rounded-full mb-6"></div>
-                    <p className="text-slate-500 max-w-xl text-lg">
-                        Hương vị được kiểm chứng bởi hơn 10,000 thực khách. Sự hài lòng của bạn là niềm vui của bếp.
-                    </p>
-                </div>
+  const [reviews, setReviews] = useState<FeaturedReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
-                {/* Reviews Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {[
-                        {
-                            user: "Nguyễn Văn A",
-                            role: "Thực khách",
-                            dish: "Burger Phô Mai 2 Tầng",
-                            comment: "Đồ ăn giao đến vẫn còn nóng hổi. Món Burger 2 tầng thực sự rất đẫm sốt, thịt bò mềm ngọt. Chắc chắn sẽ đặt lại!",
-                            rating: 5,
-                            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Annie"
-                        },
-                        {
-                            user: "Trần Thị B",
-                            role: "Văn phòng",
-                            dish: "Cơm Tấm Sườn Bì",
-                            comment: "Mình hay đặt cơm trưa ở đây. Thích nhất là quán dùng hộp giấy thân thiện môi trường. Nước mắm pha rất vừa miệng.",
-                            rating: 5,
-                            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bob"
-                        },
-                        {
-                            user: "Lê C",
-                            role: "Khách quen",
-                            dish: "Trà Đào Cam Sả",
-                            comment: "Giao hàng siêu nhanh, shipper của quán rất lễ phép. Trà uống thanh mát, không bị ngọt gắt như mấy chỗ khác.",
-                            rating: 4,
-                            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Caty"
-                        }
-                    ].map((review, idx) => (
-                        <div key={idx} className="group bg-white p-8 rounded-[2rem] shadow-[0_2px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-300 border border-gray-100 flex flex-col relative overflow-hidden">
+  useEffect(() => {
+    let active = true;
 
-                            {/* Dấu ngoặc kép trang trí */}
-                            <Quote className="absolute top-6 right-8 text-orange-100 w-12 h-12 fill-current transform group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500" />
+    reviewService
+      .getFeaturedReviews(REVIEW_LIMIT)
+      .then((response) => {
+        if (!active) return;
+        setReviews(response.data ?? []);
+        setHasError(false);
+      })
+      .catch((error) => {
+        console.error("Failed to load featured reviews:", error);
+        if (active) setHasError(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-                            {/* Rating Stars */}
-                            <div className="flex items-center gap-1 text-yellow-400 mb-6">
-                                {[...Array(5)].map((_, i) => (
-                                    <Star key={i} className={`w-5 h-5 ${i < review.rating ? 'fill-current' : 'text-gray-200'}`} />
-                                ))}
-                            </div>
+    return () => {
+      active = false;
+    };
+  }, [retryKey]);
 
-                            {/* Comment Content */}
-                            <p className="text-slate-700 text-lg leading-relaxed mb-8 flex-1 relative z-10">
-                                "{review.comment}"
-                            </p>
+  const retry = () => {
+    setLoading(true);
+    setHasError(false);
+    setRetryKey((current) => current + 1);
+  };
 
-                            {/* User Info & Order Detail */}
-                            <div className="flex items-center gap-4 pt-6 border-t border-gray-50">
-                                <img src={review.avatar} alt={review.user} className="w-12 h-12 rounded-full bg-gray-100 border-2 border-white shadow-sm" />
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <h4 className="font-bold text-slate-900">{review.user}</h4>
-                                        <CheckCircle className="w-4 h-4 text-green-500 fill-green-100" />
-                                    </div>
-                                    <p className="text-xs text-slate-400 mt-0.5">Đã dùng: <span className="text-orange-600 font-semibold">{review.dish}</span></p>
-                                </div>
-                            </div>
-                        </div>
+  return (
+    <section className="border-y border-orange-100 bg-orange-50/40 py-20">
+      <div className="mx-auto max-w-7xl px-4 md:px-8">
+        <div className="mb-12 flex flex-col items-center text-center">
+          <span className="mb-3 text-xs font-bold uppercase text-orange-600">Đánh giá gần đây</span>
+          <h2 className="text-3xl font-black text-slate-900 sm:text-4xl">Khách hàng nói gì về món ăn?</h2>
+          <p className="mt-4 max-w-xl text-base text-slate-500">
+            Những chia sẻ mới nhất từ các đơn hàng đã hoàn thành.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {Array.from({ length: REVIEW_LIMIT }).map((_, index) => (
+              <ReviewSkeleton key={index} />
+            ))}
+          </div>
+        ) : hasError ? (
+          <div className="flex min-h-56 flex-col items-center justify-center gap-4 text-center">
+            <MessageSquareText className="h-10 w-10 text-orange-300" />
+            <p className="font-semibold text-slate-700">Chưa thể tải đánh giá lúc này.</p>
+            <button
+              type="button"
+              onClick={retry}
+              className="flex min-h-10 items-center gap-2 rounded-lg border border-orange-300 bg-white px-4 text-sm font-bold text-orange-700 transition-colors hover:bg-orange-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Thử lại
+            </button>
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center">
+            <MessageSquareText className="h-10 w-10 text-orange-300" />
+            <p className="font-bold text-slate-800">Chưa có chia sẻ nổi bật</p>
+            <p className="text-sm text-slate-500">Các đánh giá thật từ khách hàng sẽ xuất hiện tại đây.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {reviews.map((review) => {
+              const customerName = review.isAnonymous
+                ? "Khách hàng ẩn danh"
+                : review.user?.name || review.userId?.username || "Khách hàng";
+              const avatar = review.isAnonymous
+                ? null
+                : review.user?.avatar || review.userId?.avatar;
+
+              return (
+                <article
+                  key={review._id}
+                  className="relative flex min-h-[310px] flex-col overflow-hidden rounded-lg border border-gray-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-lg"
+                >
+                  <Quote className="absolute right-5 top-5 h-11 w-11 fill-orange-50 text-orange-100" />
+
+                  <div className="relative z-10 mb-5 flex items-center gap-1" aria-label={`${review.rating} trên 5 sao`}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`h-5 w-5 ${
+                          star <= review.rating
+                            ? "fill-amber-400 text-amber-400"
+                            : "fill-gray-100 text-gray-200"
+                        }`}
+                      />
                     ))}
-                </div>
-            </div>
-        </section>
-    );
+                  </div>
+
+                  <p className="relative z-10 line-clamp-5 flex-1 text-base font-medium leading-7 text-slate-700">
+                    “{review.comment}”
+                  </p>
+
+                  <div className="mt-6 flex items-center gap-3 border-t border-gray-100 pt-5">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 text-slate-400">
+                      {avatar ? (
+                        <img src={avatar} alt={customerName} className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="truncate text-sm font-bold text-slate-900">{customerName}</h3>
+                        {!review.isAnonymous && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />}
+                      </div>
+                      <Link
+                        to={`/food/${review.productId._id}`}
+                        className="mt-1 block truncate text-xs font-semibold text-orange-600 hover:underline"
+                      >
+                        Đã dùng: {review.productId.name}
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 };
 
 export default ReviewSection;

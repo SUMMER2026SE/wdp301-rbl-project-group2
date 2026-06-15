@@ -1,6 +1,6 @@
 import { CREATED, FORBIDDEN, OK } from '@/constants/http';
 import {
-  getOrderById,
+  getOrderByIdForRequester,
   getOrders,
   getUserOrders,
   placeOrder,
@@ -119,7 +119,7 @@ export const getAllOrdersHandler = catchErrors(async (req, res) => {
  * GET /api/orders/:idOrCode
  */
 export const getOrderDetailHandler = catchErrors(async (req, res) => {
-  const order = await getOrderById(req.params.idOrCode);
+  const order = await getOrderByIdForRequester(req.params.idOrCode, req.userId, req.role);
   return res.success(OK, { data: order });
 });
 

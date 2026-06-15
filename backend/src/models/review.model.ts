@@ -1,4 +1,5 @@
 import { IReview } from '@/types';
+import { REVIEW_FEEDBACK_TAG_VALUES } from '@/types/review.type';
 import mongoose from 'mongoose';
 
 const ReviewSchema = new mongoose.Schema<IReview>(
@@ -7,8 +8,12 @@ const ReviewSchema = new mongoose.Schema<IReview>(
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
     rating: { type: Number, required: true, min: 1, max: 5 },
+    feedbackTags: {
+      type: [{ type: String, enum: REVIEW_FEEDBACK_TAG_VALUES }],
+      default: [],
+    },
     comment: { type: String, default: null },
-    images: { type: [String], default: [] },
+    images: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'File' }], default: [] },
     reply: { type: String, default: null },
     isAnonymous: { type: Boolean, default: false },
   },
@@ -21,9 +26,11 @@ const ReviewSchema = new mongoose.Schema<IReview>(
 ReviewSchema.index({ userId: 1 });
 ReviewSchema.index({ orderId: 1 });
 ReviewSchema.index({ productId: 1 });
+ReviewSchema.index({ createdAt: -1 });
 
 // Compound Indexes
 ReviewSchema.index({ productId: 1, rating: -1 });
+ReviewSchema.index({ userId: 1, orderId: 1, productId: 1 }, { unique: true });
 
 const ReviewModel = mongoose.model<IReview>('Review', ReviewSchema, 'reviews');
 

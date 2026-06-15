@@ -1,64 +1,168 @@
-import ReviewModel from '@/models/review.model';
-import ProductModel from '@/models/product.model';
-import OrderModel from '@/models/order.model';
-import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { IReview } from '@/types';
+import FileModel from '@/models/file.model';
+import OrderModel from '@/models/order.model';
+import ProductModel from '@/models/product.model';
+import ReviewModel from '@/models/review.model';
+import ReviewReactionModel from '@/models/review-reaction.model';
+import UserModel from '@/models/user.model';
+import NotificationModel from '@/models/notification.model';
+import { FileOwnerType } from '@/types/file.type';
+import { OrderStatus } from '@/types/order.type';
+import { NotificationType } from '@/types/notification.type';
+import { ProductStatus } from '@/types/product.type';
+import { ReviewReactionType } from '@/types/review-reaction.type';
+import { moderateReviewComment } from '@/services/ai.service';
+import appAssert from '@/utils/app-assert';
+import { TCreateReviewItem } from '@/validators/review.validator';
 import mongoose from 'mongoose';
+import type { Server } from 'socket.io';
 
-const serializeReview = (review: any) => ({
-  ...review,
-  images: (review.images ?? []).map((image: any) =>
-    typeof image === 'string'
-      ? image
-      : {
-          _id: image._id,
-          secureUrl: image.secure_url,
-        }
-  ),
+const REVIEW_TOXIC_LIMIT = 3;
+const REVIEW_BAN_HOURS = 24;
+
+const emptyReactionSummary = () => ({
+  like: 0,
+  love: 0,
+  haha: 0,
+  wow: 0,
+  sad: 0,
+  angry: 0,
 });
 
-export const createOrderReviews = async (userId: string, orderId: string, reviews: any[]) => {
-  const order = await OrderModel.findOne({ _id: orderId, cusId: userId });
-  appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
-
-  const reviewDocs = [];
-
-  for (const reviewData of reviews) {
-    const { productId, rating, comment, images, isAnonymous } = reviewData;
-
-    // Verify product is in the order
-    const itemInOrder = order.items.find((item: any) => item.productId.toString() === productId);
-    appAssert(itemInOrder, BAD_REQUEST, `Sản phẩm ${productId} không có trong đơn hàng này`);
-
-    // Create or update review (Upsert)
-    const review = await ReviewModel.findOneAndUpdate(
-      { userId, orderId, productId },
-      { 
-        rating, 
-        comment, 
-        images, 
-        isAnonymous 
-      },
-      { new: true, upsert: true }
-    );
-    reviewDocs.push(review);
-
-    // Update product rating and review count
-    await updateProductOverallRating(productId);
+const assignReactionCount = (
+  summary: ReturnType<typeof emptyReactionSummary>,
+  reaction: unknown,
+  count: number
+) => {
+  if (
+    reaction === 'like' ||
+    reaction === 'love' ||
+    reaction === 'haha' ||
+    reaction === 'wow' ||
+    reaction === 'sad' ||
+    reaction === 'angry'
+  ) {
+    summary[reaction] = count;
   }
-
-  return reviewDocs;
 };
 
-export const getOrderReviews = async (orderId: string, userId: string) => {
-  const reviews = await ReviewModel.find({ orderId, userId })
-    .populate('images')
-    .lean();
+const serializeImage = (image: any) => {
+  if (typeof image === 'string') return image;
+
+  return {
+    _id: image._id,
+    secureUrl: image.secureUrl ?? image.secure_url,
+  };
+};
+
+const serializeReview = (review: any) => {
+  const serialized = {
+    ...review,
+    images: (review.images ?? []).map(serializeImage),
+  };
+
+  if (serialized.isAnonymous) {
+    delete serialized.userId;
+  }
+
+  return serialized;
+};
+
+export const createOrderReviews = async (
+  userId: mongoose.Types.ObjectId,
+  orderId: string,
+  reviews: TCreateReviewItem[],
+  io?: Server
+) => {
+  const user = await UserModel.findById(userId).select('reviewModeration').lean();
+  appAssert(user, NOT_FOUND, 'Khong tim thay nguoi dung');
+
+  const bannedUntil = user.reviewModeration?.reviewBannedUntil;
+  appAssert(!bannedUntil || bannedUntil <= new Date(), BAD_REQUEST, 'Tai khoan dang bi tam khoa quyen danh gia');
+
+  if (bannedUntil && bannedUntil <= new Date()) {
+    await UserModel.findByIdAndUpdate(userId, {
+      $set: {
+        'reviewModeration.toxicCount': 0,
+        'reviewModeration.reviewBannedUntil': null,
+      },
+    });
+  }
+
+  const order = await OrderModel.findOne({ _id: orderId, cusId: userId });
+  appAssert(order, NOT_FOUND, 'Khong tim thay don hang');
+  appAssert(order.status === OrderStatus.COMPLETED, BAD_REQUEST, 'Chi co the danh gia don hang da hoan thanh');
+
+  const reviewDocs = [];
+  for (const reviewData of reviews) {
+    const { productId, rating, feedbackTags, comment, images, isAnonymous } = reviewData;
+
+    const itemInOrder = order.items.find((item: any) => item.productId.toString() === productId);
+    appAssert(itemInOrder, BAD_REQUEST, `San pham ${productId} khong co trong don hang nay`);
+
+    if (images.length > 0) {
+      const imageCount = await FileModel.countDocuments({
+        _id: { $in: images },
+        owner_id: userId,
+        owner_type: FileOwnerType.REVIEW,
+      });
+      appAssert(imageCount === images.length, BAD_REQUEST, 'Anh danh gia khong hop le');
+    }
+
+    const review = await ReviewModel.findOneAndUpdate(
+      { userId, orderId, productId },
+      {
+        rating,
+        feedbackTags: rating < 3 ? feedbackTags : [],
+        comment: comment || null,
+        images,
+        isAnonymous,
+      },
+      { new: true, upsert: true }
+    ).populate('images');
+
+    reviewDocs.push(review);
+    await updateProductOverallRating(productId);
+
+    if (review) {
+      void moderateSavedReview({
+        reviewId: review._id,
+        expectedUpdatedAt: review.updatedAt,
+        userId,
+        orderId: order._id,
+        productId,
+        comment,
+        io,
+      });
+    }
+  }
+
+  return {
+    reviews: reviewDocs.map((review) => serializeReview(review?.toObject?.() ?? review)),
+    rejectedReviews: [] as {
+      productId: string;
+      reason: string;
+      category: string;
+      bannedUntil?: Date | null;
+    }[],
+  };
+};
+
+export const getOrderReviews = async (orderId: string, userId: mongoose.Types.ObjectId) => {
+  appAssert(mongoose.isValidObjectId(orderId), BAD_REQUEST, 'Order id khong hop le');
+
+  const reviews = await ReviewModel.find({ orderId, userId }).populate('images').lean();
   return reviews.map(serializeReview);
 };
 
-export const getProductReviews = async (productId: string, page = 1, limit = 10) => {
+export const getProductReviews = async (
+  productId: string,
+  page = 1,
+  limit = 10,
+  userId?: mongoose.Types.ObjectId
+) => {
+  appAssert(mongoose.isValidObjectId(productId), BAD_REQUEST, 'Product id khong hop le');
+
   const skip = (page - 1) * limit;
   const [reviews, total] = await Promise.all([
     ReviewModel.find({ productId })
@@ -71,8 +175,50 @@ export const getProductReviews = async (productId: string, page = 1, limit = 10)
     ReviewModel.countDocuments({ productId }),
   ]);
 
+  const reviewIds = reviews.map((review) => review._id);
+  const [reactionGroups, currentUserReactions] = await Promise.all([
+    reviewIds.length > 0
+      ? ReviewReactionModel.aggregate<{
+          _id: { reviewId: mongoose.Types.ObjectId; reaction: ReviewReactionType };
+          count: number;
+        }>([
+          { $match: { reviewId: { $in: reviewIds } } },
+          {
+            $group: {
+              _id: { reviewId: '$reviewId', reaction: '$reaction' },
+              count: { $sum: 1 },
+            },
+          },
+        ])
+      : [],
+    userId && reviewIds.length > 0
+      ? ReviewReactionModel.find({ reviewId: { $in: reviewIds }, userId })
+          .select('reviewId reaction')
+          .lean()
+      : [],
+  ]);
+
+  const reactionSummaries = new Map<string, ReturnType<typeof emptyReactionSummary>>();
+  for (const group of reactionGroups) {
+    const reviewId = group._id.reviewId.toString();
+    const summary = reactionSummaries.get(reviewId) ?? emptyReactionSummary();
+    assignReactionCount(summary, group._id.reaction, group.count);
+    reactionSummaries.set(reviewId, summary);
+  }
+
+  const currentReactions = new Map(
+    currentUserReactions.map((reaction) => [reaction.reviewId.toString(), reaction.reaction])
+  );
+
   return {
-    reviews: reviews.map(serializeReview),
+    reviews: reviews.map((review) => {
+      const reviewId = review._id.toString();
+      return {
+        ...serializeReview(review),
+        reactions: reactionSummaries.get(reviewId) ?? emptyReactionSummary(),
+        currentUserReaction: currentReactions.get(reviewId) ?? null,
+      };
+    }),
     pagination: {
       page,
       limit,
@@ -82,6 +228,67 @@ export const getProductReviews = async (productId: string, page = 1, limit = 10)
   };
 };
 
+export const setReviewReaction = async (
+  reviewId: string,
+  userId: mongoose.Types.ObjectId,
+  reaction: ReviewReactionType | null
+) => {
+  appAssert(mongoose.isValidObjectId(reviewId), BAD_REQUEST, 'Review id khong hop le');
+  const reviewExists = await ReviewModel.exists({ _id: reviewId });
+  appAssert(reviewExists, NOT_FOUND, 'Khong tim thay danh gia');
+
+  if (reaction) {
+    await ReviewReactionModel.findOneAndUpdate(
+      { reviewId, userId },
+      { $set: { reaction } },
+      { upsert: true, new: true }
+    );
+  } else {
+    await ReviewReactionModel.deleteOne({ reviewId, userId });
+  }
+
+  const groups = await ReviewReactionModel.aggregate<{
+    _id: ReviewReactionType;
+    count: number;
+  }>([
+    { $match: { reviewId: new mongoose.Types.ObjectId(reviewId) } },
+    { $group: { _id: '$reaction', count: { $sum: 1 } } },
+  ]);
+
+  const reactions = emptyReactionSummary();
+  for (const group of groups) {
+    assignReactionCount(reactions, group._id, group.count);
+  }
+
+  return {
+    reviewId,
+    reactions,
+    currentUserReaction: reaction,
+  };
+};
+
+export const getFeaturedReviews = async (limit = 3) => {
+  const reviews = await ReviewModel.find({
+    rating: { $gte: 4 },
+    comment: { $type: 'string', $regex: /\S/ },
+    productId: { $ne: null },
+  })
+    .sort({ createdAt: -1 })
+    .limit(limit * 3)
+    .populate('userId', 'username avatar')
+    .populate({
+      path: 'productId',
+      select: 'name image status',
+      match: { status: ProductStatus.ACTIVE },
+    })
+    .lean();
+
+  return reviews
+    .filter((review) => review.productId)
+    .slice(0, limit)
+    .map(serializeReview);
+};
+
 const updateProductOverallRating = async (productId: string) => {
   const result = await ReviewModel.aggregate([
     { $match: { productId: new mongoose.Types.ObjectId(productId) } },
@@ -89,16 +296,100 @@ const updateProductOverallRating = async (productId: string) => {
       $group: {
         _id: '$productId',
         averageRating: { $avg: '$rating' },
-        reviewCount: { $sum: 1 }
-      }
-    }
+        reviewCount: { $sum: 1 },
+      },
+    },
   ]);
 
   if (result.length > 0) {
     const { averageRating, reviewCount } = result[0];
     await ProductModel.findByIdAndUpdate(productId, {
       rating: Math.round(averageRating * 10) / 10,
-      reviewCount
+      reviewCount,
+    });
+    return;
+  }
+
+  await ProductModel.findByIdAndUpdate(productId, {
+    rating: 0,
+    reviewCount: 0,
+  });
+};
+
+const recordToxicReviewAttempt = async (userId: mongoose.Types.ObjectId) => {
+  const user = await UserModel.findByIdAndUpdate(
+    userId,
+    {
+      $inc: { 'reviewModeration.toxicCount': 1 },
+      $set: { 'reviewModeration.lastToxicAt': new Date() },
+    },
+    { new: true }
+  ).select('reviewModeration');
+
+  const toxicCount = user?.reviewModeration?.toxicCount ?? 1;
+  const reviewBannedUntil =
+    toxicCount >= REVIEW_TOXIC_LIMIT ? new Date(Date.now() + REVIEW_BAN_HOURS * 60 * 60 * 1000) : null;
+
+  if (reviewBannedUntil) {
+    await UserModel.findByIdAndUpdate(userId, {
+      $set: { 'reviewModeration.reviewBannedUntil': reviewBannedUntil },
+    });
+  }
+
+  return {
+    toxicCount,
+    reviewBannedUntil,
+  };
+};
+
+const moderateSavedReview = async ({
+  reviewId,
+  expectedUpdatedAt,
+  userId,
+  orderId,
+  productId,
+  comment,
+  io,
+}: {
+  reviewId: mongoose.Types.ObjectId;
+  expectedUpdatedAt: Date;
+  userId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  productId: string;
+  comment: string;
+  io?: Server;
+}) => {
+  try {
+    const moderation = await moderateReviewComment(comment);
+    if (moderation.action !== 'delete') return;
+
+    const deleted = await ReviewModel.deleteOne({
+      _id: reviewId,
+      updatedAt: expectedUpdatedAt,
+    });
+    if (deleted.deletedCount === 0) return;
+
+    await ReviewReactionModel.deleteMany({ reviewId });
+    await updateProductOverallRating(productId);
+    const violation = await recordToxicReviewAttempt(userId);
+    const bannedMessage = violation.reviewBannedUntil
+      ? ' Ban da bi tam khoa quyen danh gia trong 24 gio.'
+      : '';
+
+    const notification = await NotificationModel.create({
+      userId,
+      orderId,
+      title: 'Danh gia da bi xoa',
+      body: `Danh gia cua ban da bi xoa do vi pham chinh sach noi dung.${bannedMessage}`,
+      type: NotificationType.SYSTEM,
+      isRead: false,
+    });
+
+    io?.to(`user:${userId.toString()}`).emit('notification:new', notification.toObject());
+  } catch (error) {
+    console.error('[ReviewModeration] Background moderation failed', {
+      reviewId: reviewId.toString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

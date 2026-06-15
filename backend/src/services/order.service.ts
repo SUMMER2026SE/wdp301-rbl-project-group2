@@ -1,4 +1,4 @@
-import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignProductModel } from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
@@ -602,6 +602,21 @@ export const getOrderById = async (idOrCode: string) => {
   });
 
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
+  return order;
+};
+
+export const getOrderByIdForRequester = async (
+  idOrCode: string,
+  requesterId: mongoose.Types.ObjectId,
+  requesterRole: Role
+) => {
+  const order = await getOrderById(idOrCode);
+
+  if (requesterRole.toLowerCase() === Role.CUSTOMER) {
+    const customerId = (order.cusId as any)._id ?? order.cusId;
+    appAssert(customerId.toString() === requesterId.toString(), FORBIDDEN, 'Ban khong co quyen xem don hang nay');
+  }
+
   return order;
 };
 
