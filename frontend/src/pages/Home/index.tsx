@@ -3,11 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth"; // Giả định em có hook này quản lý trạng thái đăng nhập
 import { useUserLocation } from "@/hooks/useUserLocation";
 import LocationAlert from "@/components/LocationAlert";
-
-// 1. TẢI NGAY (Above the fold): Component luôn nằm ở đầu trang
 import HeroCarousel from "./components/HeroCarousel";
 
-// 2. LAZY LOAD (Below the fold): Tải ngầm các component bên dưới để web load siêu nhanh
 const CategorySection = React.lazy(
   () => import("./components/CategorySection"),
 );
@@ -28,7 +25,6 @@ const CulinaryStorySection = React.lazy(
 );
 const HistorySection = React.lazy(() => import("./components/HistorySection"));
 
-// Component tạo hiệu ứng khung xương (Skeleton) trong lúc chờ Lazy Load
 const SectionLoader = () => (
   <div className="w-full h-64 bg-slate-100 dark:bg-slate-800/50 animate-pulse rounded-3xl flex flex-col items-center justify-center">
     <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-3"></div>
@@ -39,12 +35,15 @@ const SectionLoader = () => (
 const HomePage = () => {
   const { loading, error, isValid } = useUserLocation();
 
-  // Lấy trạng thái đăng nhập và role từ Global Store/Hook của em
-  const { isAuthenticated, isAdmin, isStaff } = useAuth();
+  const { isAuthenticated, isAdmin, isStaff, isManager } = useAuth();
 
-  // Nếu user đã đăng nhập và có role staff/admin, chuyển thẳng vào dashboard tương ứng
-  if (isAuthenticated && (isAdmin || isStaff)) {
-    return <Navigate to={isAdmin ? "/admin" : "/staff"} replace />;
+  if (isAuthenticated && (isAdmin || isStaff || isManager)) {
+    return (
+      <Navigate
+        to={isAdmin ? "/admin" : isManager ? "/manager" : "/staff"}
+        replace
+      />
+    );
   }
 
   return (
@@ -60,33 +59,22 @@ const HomePage = () => {
             {/* Khu vực xử lý luồng hiển thị bằng Suspense */}
             <Suspense fallback={<SectionLoader />}>
               {isAuthenticated ? (
-                /* ==========================================
-                                   LUỒNG KHÁCH QUEN (LOGGED IN)
-                                   Mục tiêu: Đặt lại nhanh -> AI Sức khỏe -> Khuyến mãi
-                                   ========================================== */
                 <>
                   <FlashSaleSection />
                   <RecommendedSection />
                   <CategorySection />
-
-                  {/* Các phần bổ trợ phía cuối trang */}
                   <BestSellerSection />
                   <VoucherSection />
                   <LoyaltySection />
                   <HistorySection />
                 </>
               ) : (
-                /* ==========================================
-                                   LUỒNG KHÁCH LẠ (GUEST)
-                                   Mục tiêu: Khám phá Menu -> Bán chạy -> Tăng độ Trust
-                                   ========================================== */
                 <>
                   <FlashSaleSection />
                   <CategorySection />
                   <BestSellerSection />
                   <ReviewSection />
 
-                  {/* "Hé lộ" tính năng AI Sức khỏe để kích thích họ tạo tài khoản */}
                   <RecommendedSection />
                   <CulinaryStorySection />
                 </>
