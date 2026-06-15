@@ -162,16 +162,47 @@ Mlocked:           27620 kB
 
 ### 3. Cách khắc phục triệt để (Resolution)
 
-#### Tác động ngay lập tức (Không cần khởi động lại VPS)
+#### A. Giải phóng tài nguyên tạm thời (Áp dụng ngay lập tức)
 Chạy lệnh thiết lập số lượng HugePages tĩnh về `0` để trả lại toàn bộ 2.34 GB RAM bị khóa về bộ nhớ RAM thường khả dụng:
 ```bash
 sudo sysctl -w vm.nr_hugepages=0
+# Hoặc ghi trực tiếp vào giao diện sysfs của Kernel:
+echo 0 | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 ```
-*(Ngay sau khi chạy lệnh này, kiểm tra `free -m` sẽ thấy dung lượng RAM khả dụng lập tức tăng thêm ~2.3 GB, mức RAM sử dụng rớt về ~835MB)*.
+*(Ngay sau khi chạy một trong hai lệnh này, kiểm tra `free -m` sẽ thấy dung lượng RAM khả dụng lập tức tăng thêm ~2.3 GB).*
 
-#### Cấu hình tắt vĩnh viễn (Không bị cấu hình lại khi reboot VPS)
-Thêm cấu hình thiết lập HugePages về 0 vào cuối file `/etc/sysctl.conf`:
+#### B. Cấu hình tắt vĩnh viễn (Không bị khôi phục lại khi reboot VPS)
+
+##### 1. Cấu hình Sysctl
+Ghi cấu hình thiết lập HugePages về 0 vào cuối file `/etc/sysctl.conf`:
 ```bash
 echo "vm.nr_hugepages = 0" | sudo tee -a /etc/sysctl.conf
 ```
-Lệnh này đảm bảo rằng mỗi lần máy chủ khởi động lại, hệ điều hành sẽ tự động giải phóng các trang Hugepages về 0, duy trì tối đa bộ nhớ RAM thường khả dụng cho ứng dụng của bạn.
+Sau đó, chạy lệnh sau để **tải lại và áp dụng ngay lập tức các cấu hình từ file `/etc/sysctl.conf`** vào Kernel mà không cần khởi động lại VPS:
+```bash
+sudo sysctl -p
+```
+
+##### 2. Truy quét các file cấu hình khác (Nếu HugePages vẫn tự động bật lại)
+Trong một số hệ thống, HugePages có thể bị cấu hình đè trong các file cấu hình con thuộc thư mục `/etc/`. Bạn hãy chạy lệnh sau để tìm vị trí:
+```bash
+sudo grep -rn "nr_hugepages" /etc/ 2>/dev/null
+```
+Nếu phát hiện file nào khác cấu hình `vm.nr_hugepages` khác 0, hãy mở file đó và sửa thành `0` hoặc xóa dòng đó đi.
+
+##### 3. Kiểm tra cấu hình khởi động Kernel (GRUB)
+Đôi khi HugePages được cấu hình cứng từ tham số khởi động của Linux (Kernel Boot Parameters). Hãy chạy lệnh sau để kiểm tra:
+```bash
+grep -i "hugepages" /etc/default/grub
+```
+Nếu kết quả hiển thị dòng `GRUB_CMDLINE_LINUX_DEFAULT` hoặc `GRUB_CMDLINE_LINUX` có chứa tham số dạng `hugepages=1171`:
+1. Mở file cấu hình GRUB:
+   ```bash
+   sudo nano /etc/default/grub
+   ```
+2. Xóa bỏ tham số `hugepages=1171` khỏi dòng cấu hình.
+3. Cập nhật lại cấu hình khởi động của GRUB và reboot lại VPS:
+   ```bash
+   sudo update-grub
+   sudo reboot
+   ```
