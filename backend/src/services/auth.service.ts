@@ -1,8 +1,7 @@
-import { APP_ORIGIN, AUTH_REFRESH_TOKEN_TTL_DAYS, GOOGLE_CLIENT_ID } from '@/constants/env';
+import { AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
 import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
 import { RefreshTokenModel, UserModel, OrderModel, ReviewModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
-import { IUser } from '@/types';
 import { VerificationCodeType } from '@/types/verification-code.type';
 import { Role, UserStatus } from '@/types/user.type';
 import appAssert from '@/utils/app-assert';
@@ -16,7 +15,6 @@ import { TLoginParams, TRegisterParams, TResetPasswordParams } from '@/validator
 import { randomBytes, randomUUID } from 'crypto';
 import mongoose from 'mongoose';
 import axios from 'axios';
-
 
 export const createUser = async ({ username, email, password }: TRegisterParams) => {
   return withTransaction(async (session) => {
@@ -66,7 +64,11 @@ export const login = async ({ email, password, userAgent, deviceId }: TLoginPara
     //check exist email
     const user = await UserModel.findOne({ email }).session(session);
     appAssert(user, CONFLICT, 'Thông tin đăng nhập không hợp lệ');
-    appAssert(user.status === 'active', UNAUTHORIZED, 'Tài khoản chưa được kích hoạt. Vui lòng thiết lập mật khẩu từ email mời.');
+    appAssert(
+      user.status === 'active',
+      UNAUTHORIZED,
+      'Tài khoản chưa được kích hoạt. Vui lòng thiết lập mật khẩu từ email mời.'
+    );
 
     //check password
     const isValidatePassword = await user.comparePassword(password);
@@ -76,7 +78,9 @@ export const login = async ({ email, password, userAgent, deviceId }: TLoginPara
     const activeDeviceId = deviceId || randomUUID();
 
     //check old refresh_token then revoke token
-    const oldRefreshToken = await RefreshTokenModel.findOne({ userId: user._id, deviceId: activeDeviceId }).session(session);
+    const oldRefreshToken = await RefreshTokenModel.findOne({ userId: user._id, deviceId: activeDeviceId }).session(
+      session
+    );
     if (oldRefreshToken) {
       oldRefreshToken.revoked = true;
       await oldRefreshToken.save({ session });
@@ -283,7 +287,7 @@ export const resetPassword = async ({ email, code, password }: TResetPasswordPar
   };
 
   if (validCode.type === VerificationCodeType.STAFF_INVITE) {
-    updateData.isActive = true;
+    updateData.status = UserStatus.ACTIVE;
     updateData.verifiedAt = new Date();
   }
 
@@ -433,4 +437,3 @@ export const loginWithGoogle = async ({
     };
   });
 };
-
