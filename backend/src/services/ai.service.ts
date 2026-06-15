@@ -2,10 +2,163 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
 import { GEMINI_API_KEY, GROQ_API_KEY } from '@/constants/env';
 import axios from 'axios';
+import { z } from 'zod';
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 const groq = new Groq({ apiKey: GROQ_API_KEY });
+
+const reviewModerationSchema = z.object({
+  action: z.enum(['allow', 'delete']),
+  toxic: z.boolean(),
+  category: z
+    .enum(['none', 'profanity', 'harassment', 'hate', 'sexual', 'threat', 'spam', 'malicious'])
+    .default('none'),
+  confidence: z.number().min(0).max(1).default(0),
+  reason: z.string().max(200).default(''),
+});
+
+export type ReviewModerationResult = z.infer<typeof reviewModerationSchema>;
+
+const normalizeReviewModerationText = (comment: string) =>
+  comment
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/([a-z0-9])\1{2,}/g, '$1')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const explicitProfanityPattern =
+  /\b(dm|dmm|dcm|dit|djt|dit me|du ma|vl|vcl|vkl|lon|cac|buoi|fuck|shit|bitch|asshole|kill yourself)\b/i;
+const explicitHarassmentPattern =
+  /\b(ngu|oc cho|vo hoc|do rac|rac ruoi|cho chet|con di|thang dien|do dien)\b/i;
+
+const moderateExplicitToxicLanguage = (comment: string): ReviewModerationResult | null => {
+  const normalized = normalizeReviewModerationText(comment);
+
+  if (explicitProfanityPattern.test(normalized)) {
+    return {
+      action: 'delete',
+      toxic: true,
+      category: 'profanity',
+      confidence: 0.98,
+      reason: 'Phat hien ngon ngu tho tuc hoac tieng long xuc pham',
+    };
+  }
+
+  if (explicitHarassmentPattern.test(normalized)) {
+    return {
+      action: 'delete',
+      toxic: true,
+      category: 'harassment',
+      confidence: 0.95,
+      reason: 'Phat hien noi dung cong kich hoac xuc pham',
+    };
+  }
+
+  return null;
+};
+
+const toxicKeywordPattern =
+  /\b(dm|dmm|dit|djt|lon|lồn|cặc|cac|buồi|buoi|đụ|du ma|địt mẹ|đĩ|cho chet|chó chết|fuck|shit|bitch|asshole|kill yourself)\b/i;
+
+const fallbackModerateReviewComment = (comment: string): ReviewModerationResult => {
+  if (toxicKeywordPattern.test(comment)) {
+    return {
+      action: 'delete',
+      toxic: true,
+      category: 'profanity',
+      confidence: 0.8,
+      reason: 'Phat hien ngon ngu tho tuc bang bo loc du phong',
+    };
+  }
+
+  return {
+    action: 'allow',
+    toxic: false,
+    category: 'none',
+    confidence: 0,
+    reason: 'Khong phat hien vi pham bang bo loc du phong',
+  };
+};
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeout: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error('AI moderation timeout')), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+};
+
+export const moderateReviewComment = async (comment?: string | null): Promise<ReviewModerationResult> => {
+  const normalizedComment = comment?.trim();
+  if (!normalizedComment) {
+    return { action: 'allow', toxic: false, category: 'none', confidence: 1, reason: 'Empty comment' };
+  }
+
+  const explicitViolation = moderateExplicitToxicLanguage(normalizedComment);
+  if (explicitViolation) {
+    return explicitViolation;
+  }
+
+  const commentForAi = normalizedComment.slice(0, 1000);
+
+  const prompt = `You are a content moderation classifier for customer food reviews.
+Only inspect the review text. Do not infer anything about the customer.
+Delete only if the text contains toxic intent, profanity, harassment, hate, sexual content, threats, spam, or malicious abuse.
+Allow normal negative feedback about food, delivery, price, or service.
+Vietnamese slang, obfuscated profanity, and elongated insults such as "nguuu", "vl", "vcl", or "dm" are violations.
+
+Review text:
+${JSON.stringify(commentForAi)}
+
+Return JSON only:
+{
+  "action": "allow" | "delete",
+  "toxic": boolean,
+  "category": "none" | "profanity" | "harassment" | "hate" | "sexual" | "threat" | "spam" | "malicious",
+  "confidence": number,
+  "reason": "short Vietnamese reason"
+}`;
+
+  try {
+    const completion = await withTimeout(
+      groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0,
+        response_format: { type: 'json_object' },
+      }),
+      8000
+    );
+
+    const raw = completion.choices[0]?.message?.content ?? '{}';
+    const parsed = reviewModerationSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) throw new Error('Invalid review moderation shape');
+
+    if (parsed.data.action === 'delete' && parsed.data.confidence < 0.65) {
+      return {
+        action: 'allow',
+        toxic: false,
+        category: 'none',
+        confidence: parsed.data.confidence,
+        reason: 'AI confidence below delete threshold',
+      };
+    }
+
+    return parsed.data;
+  } catch {
+    return fallbackModerateReviewComment(normalizedComment);
+  }
+};
 
 // ── Custom AI Microservice ────────────────────────────────────────────────────
 const AI_MICROSERVICE_URL = process.env.AI_MICROSERVICE_URL || 'http://localhost:8001';

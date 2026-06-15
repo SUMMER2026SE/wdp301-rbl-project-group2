@@ -7,6 +7,7 @@ import CartModel, { CartItemModel, CartItemVariationModel } from './cart.model';
 import VoucherModel from './voucher.model';
 import OrderModel, { OrderItemModel, OrderItemVariationModel } from './order.model';
 import ReviewModel from './review.model';
+import ReviewReactionModel from './review-reaction.model';
 import NotificationModel from './notification.model';
 import AuditLogModel from './audit-log.model';
 import PointTransactionModel from './point-transaction.model';
@@ -39,6 +40,7 @@ export {
   OrderItemModel,
   OrderItemVariationModel,
   ReviewModel,
+  ReviewReactionModel,
   NotificationModel,
   AuditLogModel,
   PointTransactionModel,

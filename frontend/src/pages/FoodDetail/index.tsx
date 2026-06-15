@@ -8,13 +8,16 @@ import toast from "react-hot-toast";
 import type { MouseEvent } from "react";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
 import productAPI from "@/services/product.service";
-import reviewService from "@/services/review.service";
+import reviewService, {
+  type Review,
+  type ReviewReactionType,
+} from "@/services/review.service";
 import recommendationService from "@/services/recommendation.service";
 import type { Product, VariantGroup } from "@/types/product";
 import { FoodCard } from "@/components/shared/FoodCard";
 import VariantModal from "@/components/modal/VariantModal";
 import {
-  User, ThumbsUp, MessageSquare, Star, Loader2, Plus, Minus,
+  User, ThumbsUp, Heart, Laugh, Sparkles, Frown, Angry, MessageSquare, Star, Loader2, Plus, Minus,
   Check, ChevronLeft, ShieldCheck, Flame, ShoppingCart, Zap,
   SearchX, AlertTriangle, Info, FileText, Quote, MessageCircle, X
 } from "lucide-react";
@@ -30,6 +33,57 @@ const getImageUrl = (image: any): string => {
 };
 
 const TOPPING_GROUP_NAME = "Topping ăn kèm";
+
+const REVIEW_REACTIONS: Array<{
+  type: ReviewReactionType;
+  label: string;
+  icon: typeof ThumbsUp;
+  colorClass: string;
+  bubbleClass: string;
+}> = [
+  {
+    type: "like",
+    label: "Thích",
+    icon: ThumbsUp,
+    colorClass: "text-blue-600",
+    bubbleClass: "bg-blue-500 text-white",
+  },
+  {
+    type: "love",
+    label: "Yêu thích",
+    icon: Heart,
+    colorClass: "text-rose-600",
+    bubbleClass: "bg-rose-500 text-white",
+  },
+  {
+    type: "haha",
+    label: "Haha",
+    icon: Laugh,
+    colorClass: "text-amber-600",
+    bubbleClass: "bg-amber-400 text-white",
+  },
+  {
+    type: "wow",
+    label: "Wow",
+    icon: Sparkles,
+    colorClass: "text-violet-600",
+    bubbleClass: "bg-violet-500 text-white",
+  },
+  {
+    type: "sad",
+    label: "Buồn",
+    icon: Frown,
+    colorClass: "text-sky-600",
+    bubbleClass: "bg-sky-500 text-white",
+  },
+  {
+    type: "angry",
+    label: "Phẫn nộ",
+    icon: Angry,
+    colorClass: "text-red-600",
+    bubbleClass: "bg-red-500 text-white",
+  },
+];
 
 const normalizeLabel = (value: unknown) =>
   String(value ?? "")
@@ -117,8 +171,13 @@ const FoodDetailPage = () => {
   const healthNotice = product && displayAllergyResult.level !== "safe"
     ? buildHealthNotice(product.name, displayAllergyResult)
     : null;
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
+  const [reactingReviewId, setReactingReviewId] = useState<string | null>(null);
+  const REVIEW_LIMIT = 5;
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({});
 
   // --- Logic ---
@@ -176,11 +235,6 @@ const FoodDetailPage = () => {
           }
         }
 
-        setLoadingReviews(true);
-        const reviewRes = await reviewService.getProductReviews(id);
-        setReviews(reviewRes.data || []);
-        setLoadingReviews(false);
-
         setLoadingSuggested(true);
         if (isAuthenticated) {
           const safeRes = await recommendationService.getSafeFoods();
@@ -201,6 +255,27 @@ const FoodDetailPage = () => {
     };
     fetchProductAndSuggestions();
   }, [id, isAuthenticated]);
+
+  // --- Reviews: fetch độc lập, không block product loading ---
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!id) return;
+      setLoadingReviews(true);
+      setReviews([]);
+      setReviewPage(1);
+      setReviewTotal(0);
+      try {
+        const reviewRes = await reviewService.getProductReviews(id, 1, REVIEW_LIMIT);
+        setReviews(reviewRes.data || []);
+        setReviewTotal(reviewRes.pagination?.total ?? 0);
+      } catch (err) {
+        console.error("Failed to fetch reviews:", err);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+    fetchReviews();
+  }, [id]);
 
   useEffect(() => {
     if (product?.variants) {
@@ -233,6 +308,54 @@ const FoodDetailPage = () => {
 
   const handleIncrease = () => setQuantity((prev) => prev + 1);
   const handleDecrease = () => setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
+
+  const handleLoadMoreReviews = async () => {
+    if (!id || loadingMoreReviews) return;
+    setLoadingMoreReviews(true);
+    try {
+      const nextPage = reviewPage + 1;
+      const res = await reviewService.getProductReviews(id, nextPage, REVIEW_LIMIT);
+      setReviews(prev => [...prev, ...(res.data || [])]);
+      setReviewPage(nextPage);
+      setReviewTotal(res.pagination?.total ?? reviewTotal);
+    } catch (err) {
+      console.error("Failed to load more reviews", err);
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  };
+
+  const handleReviewReaction = async (reviewId: string, reaction: ReviewReactionType) => {
+    if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để bày tỏ cảm xúc với đánh giá.");
+      navigate("/login", { state: { from: { pathname: `/food/${id}` } } });
+      return;
+    }
+
+    const currentReview = reviews.find((review) => review._id === reviewId);
+    const nextReaction = currentReview?.currentUserReaction === reaction ? null : reaction;
+
+    try {
+      setReactingReviewId(reviewId);
+      const response = await reviewService.setReviewReaction(reviewId, nextReaction);
+      setReviews((current) =>
+        current.map((review) =>
+          review._id === reviewId
+            ? {
+                ...review,
+                reactions: response.data.reactions,
+                currentUserReaction: response.data.currentUserReaction,
+              }
+            : review
+        )
+      );
+    } catch (error) {
+      console.error("Failed to react to review:", error);
+      toast.error("Chưa thể cập nhật cảm xúc. Vui lòng thử lại.");
+    } finally {
+      setReactingReviewId(null);
+    }
+  };
 
   // --- [FIXED] Sửa lỗi logic bypass FSS-40 ---
   const handleAddToCart = (e?: MouseEvent<HTMLButtonElement>) => {
@@ -424,7 +547,7 @@ const FoodDetailPage = () => {
                         {Number(product?.rating ?? 0).toFixed(1)}
                       </span>
                       <span className="text-xs text-slate-500 font-medium ml-1">
-                        ({product?.reviewCount || 0}+ đánh giá)
+                        ({product?.reviewCount ?? reviewTotal} đánh giá)
                       </span>
                     </div>
                   </div>
@@ -653,7 +776,7 @@ const FoodDetailPage = () => {
                       ))}
                     </div>
                     <p className="text-sm font-bold text-slate-500 bg-slate-50 py-2 rounded-xl inline-block px-4">
-                      Dựa trên {product?.reviewCount || reviews.length} lượt đánh giá
+                      Dựa trên {product?.reviewCount ?? reviewTotal} lượt đánh giá
                     </p>
                   </div>
                 </div>
@@ -674,9 +797,9 @@ const FoodDetailPage = () => {
                       <p className="text-slate-500 font-medium">Bạn sẽ là người đầu tiên trải nghiệm và chia sẻ cảm nhận chứ?</p>
                     </div>
                   ) : (
-                    reviews.map((review, idx) => (
+                    reviews.map((review) => (
                       <div
-                        key={idx}
+                        key={review._id}
                         className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:border-orange-200 transition-all duration-300 relative overflow-hidden group"
                       >
                         {/* Ngoặc kép trang trí chìm ở góc phải */}
@@ -688,7 +811,7 @@ const FoodDetailPage = () => {
                             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 overflow-hidden border border-slate-200">
                               {review.user?.avatar || review.userId?.avatar ? (
                                 <img
-                                  src={review.user?.avatar || review.userId?.avatar}
+                                  src={review.user?.avatar || review.userId?.avatar || undefined}
                                   alt="Avatar"
                                   className="w-full h-full object-cover"
                                 />
@@ -742,15 +865,109 @@ const FoodDetailPage = () => {
                           </div>
                         )}
 
-                        {/* Tương tác */}
-                        <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-end relative z-10">
-                          <button className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-orange-600 transition-colors">
-                            <ThumbsUp className="w-4 h-4" />
-                            Hữu ích
-                          </button>
+                        {/* Tương tác kiểu Facebook */}
+                        <div
+                          className="group/reactions relative z-20 mt-5 border-t border-slate-100 pt-3"
+                        >
+                          <div
+                            className="invisible absolute bottom-full right-0 mb-2 flex translate-y-2 items-end gap-1 rounded-full border border-slate-200 bg-white px-2 py-1.5 opacity-0 shadow-xl transition-all group-hover/reactions:visible group-hover/reactions:translate-y-0 group-hover/reactions:opacity-100 group-focus-within/reactions:visible group-focus-within/reactions:translate-y-0 group-focus-within/reactions:opacity-100"
+                            role="group"
+                            aria-label="Chọn cảm xúc"
+                          >
+                            {REVIEW_REACTIONS.map(({ type, label, icon: ReactionIcon, bubbleClass }) => (
+                              <button
+                                type="button"
+                                key={type}
+                                onClick={() => handleReviewReaction(review._id, type)}
+                                disabled={reactingReviewId === review._id}
+                                title={label}
+                                aria-label={label}
+                                aria-pressed={review.currentUserReaction === type}
+                                className={`grid h-11 w-11 place-items-center rounded-full transition-transform hover:-translate-y-1 hover:scale-110 focus-visible:-translate-y-1 focus-visible:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-wait disabled:opacity-60 ${bubbleClass}`}
+                              >
+                                <ReactionIcon
+                                  className={`h-5 w-5 ${
+                                    type === "love" || review.currentUserReaction === type ? "fill-current" : ""
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex min-h-10 items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
+                              <div className="flex -space-x-1.5">
+                                {REVIEW_REACTIONS.filter(({ type }) => (review.reactions?.[type] ?? 0) > 0)
+                                  .slice(0, 3)
+                                  .map(({ type, label, icon: ReactionIcon, bubbleClass }) => (
+                                    <span
+                                      key={type}
+                                      title={`${label}: ${review.reactions?.[type] ?? 0}`}
+                                      className={`grid h-6 w-6 place-items-center rounded-full border-2 border-white ${bubbleClass}`}
+                                    >
+                                      <ReactionIcon className={`h-3 w-3 ${type === "love" ? "fill-current" : ""}`} />
+                                    </span>
+                                  ))}
+                              </div>
+                              <span>
+                                {Object.values(review.reactions ?? {}).reduce((total, count) => total + count, 0) || "Chưa có cảm xúc"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center">
+                              {(() => {
+                                const selectedReaction = REVIEW_REACTIONS.find(
+                                  ({ type }) => type === review.currentUserReaction
+                                );
+                                const SelectedIcon = selectedReaction?.icon ?? ThumbsUp;
+
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleReviewReaction(
+                                        review._id,
+                                        review.currentUserReaction ?? "like"
+                                      )
+                                    }
+                                    disabled={reactingReviewId === review._id}
+                                    aria-pressed={Boolean(review.currentUserReaction)}
+                                    className={`flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-wait disabled:opacity-60 ${
+                                      selectedReaction?.colorClass ?? "text-slate-500"
+                                    }`}
+                                  >
+                                    <SelectedIcon
+                                      className={`h-5 w-5 ${
+                                        review.currentUserReaction === "love" ? "fill-current" : ""
+                                      }`}
+                                    />
+                                    {selectedReaction?.label ?? "Thích"}
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))
+                  )}
+
+                  {/* Nút Xem thêm đánh giá */}
+                  {!loadingReviews && reviews.length > 0 && reviews.length < reviewTotal && (
+                    <div className="flex justify-center mt-4">
+                      <button
+                        onClick={handleLoadMoreReviews}
+                        disabled={loadingMoreReviews}
+                        className="flex items-center gap-2 px-8 py-3 rounded-2xl border-2 border-orange-200 text-orange-600 font-bold text-sm hover:bg-orange-50 hover:border-orange-400 active:scale-95 transition-all disabled:opacity-60"
+                      >
+                        {loadingMoreReviews ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : null}
+                        {loadingMoreReviews
+                          ? "Đang tải..."
+                          : `Xem thêm ${Math.min(REVIEW_LIMIT, reviewTotal - reviews.length)} đánh giá (còn ${reviewTotal - reviews.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

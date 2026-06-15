@@ -111,6 +111,14 @@ const UserSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    reviewModeration: {
+      type: {
+        toxicCount: { type: Number, default: 0, min: 0 },
+        reviewBannedUntil: { type: Date, default: null },
+        lastToxicAt: { type: Date, default: null },
+      },
+      default: () => ({ toxicCount: 0, reviewBannedUntil: null, lastToxicAt: null }),
+    },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Store',
