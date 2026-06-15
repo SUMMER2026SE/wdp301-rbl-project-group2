@@ -4,19 +4,20 @@ import authorize from '@/middlewares/authorize';
 import { Role } from '@/types/user.type';
 import {
   approveAdminStaffRequestHandler,
-  createStaffHandler,
+  createManagerHandler,
+  getManagersHandler,
+  updateManagerStatusHandler,
   getAdminStaffRequestDetailHandler,
   getAdminStaffRequestsHandler,
   getCustomersHandler,
   getCustomerDetailHandler,
-  getStaffHandler,
   rejectAdminStaffRequestHandler,
-  updateStaffStatusHandler,
   collectCashHandler,
   getCashControlHandler,
   getCustomerIncidentsHandler,
   getAdminReviewsHandler,
   replyAdminReviewHandler,
+  getAdminStoresHandler,
   getAdminIngredientsHandler,
   getAdminInventoryHandler,
   getAdminShippersHandler,
@@ -26,12 +27,13 @@ import {
 } from '@/controllers/admin.controller';
 
 const adminRoutes = Router();
-
-adminRoutes.post('/staff', authenticate, authorize(Role.ADMIN), createStaffHandler);
-adminRoutes.get('/staff', authenticate, authorize(Role.ADMIN), getStaffHandler);
+adminRoutes.get('/stores', authenticate, authorize(Role.ADMIN), getAdminStoresHandler);
+adminRoutes.get('/managers', authenticate, authorize(Role.ADMIN), getManagersHandler);
+adminRoutes.post('/managers', authenticate, authorize(Role.ADMIN), createManagerHandler);
+adminRoutes.patch('/managers/:id', authenticate, authorize(Role.ADMIN), updateManagerStatusHandler);
 adminRoutes.get('/customers', authenticate, authorize(Role.ADMIN, Role.STAFF), getCustomersHandler);
 adminRoutes.get('/customers/:id', authenticate, authorize(Role.ADMIN, Role.STAFF), getCustomerDetailHandler);
-adminRoutes.patch('/staff/:id', authenticate, authorize(Role.ADMIN), updateStaffStatusHandler);
+// adminRoutes.patch('/staff/:id', authenticate, authorize(Role.ADMIN), updateStaffStatusHandler);
 adminRoutes.get(
   '/customers/:userId/incidents',
   authenticate,

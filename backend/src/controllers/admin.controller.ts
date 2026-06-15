@@ -3,8 +3,10 @@ import { CREATED, OK } from '@/constants/http';
 import { catchErrors } from '@/utils/async-handler';
 import {
   collectCashFromDriver,
-  createStaffByAdmin,
-  updateStaffStatus,
+  createManagerByAdmin,
+  getManagersByAdmin,
+  updateManagerStatus,
+  listAdminStores,
   getCashControl,
   getCustomerCancelledOrders,
   getCustomersWithStats,
@@ -23,25 +25,58 @@ import {
   listAdminStaffRequests,
   rejectStaffRequest,
 } from '@/services/admin-staff-request.service';
-import { createStaffValidator } from '@/validators/admin.validator';
+import { createManagerValidator } from '@/validators/admin.validator';
 import { getUsersByRole } from '@/services/user.service';
 import { Role } from '@/types/user.type';
 import { UserModel } from '@/models';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
 
-export const createStaffHandler = catchErrors(async (req, res) => {
-  const body = createStaffValidator.parse(req.body);
+export const createManagerHandler = catchErrors(async (req, res) => {
+  const body = createManagerValidator.parse(req.body);
 
   const adminId = req.userId!;
-  const staff = await createStaffByAdmin(adminId, body);
+  const manager = await createManagerByAdmin(adminId, body);
 
   return res.success(CREATED, {
-    message: 'Tạo tài khoản staff thành công. Vui lòng kiểm tra email để thiết lập mật khẩu.',
-    data: staff,
+    message: 'Tạo tài khoản manager thành công. Vui lòng kiểm tra email để thiết lập mật khẩu.',
+    data: manager,
   });
 });
 
+export const getManagersHandler = catchErrors(async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+
+  const result = await getManagersByAdmin(page, limit);
+
+  return res.success(OK, {
+    message: 'Lấy danh sách manager thành công',
+    data: result,
+  });
+});
+
+export const updateManagerStatusHandler = catchErrors(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+
+  const adminId = req.userId!;
+  const manager = await updateManagerStatus(adminId, id, isActive);
+
+  return res.success(OK, {
+    message: `Đã ${isActive ? 'kích hoạt' : 'ngưng kích hoạt'} manager thành công`,
+    data: manager,
+  });
+});
+
+export const getAdminStoresHandler = catchErrors(async (_req, res) => {
+  const stores = await listAdminStores();
+
+  return res.success(OK, {
+    message: 'Lấy danh sách cửa hàng thành công',
+    data: stores,
+  });
+});
 export const getCustomersHandler = catchErrors(async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -95,32 +130,6 @@ export const getCustomerIncidentsHandler = catchErrors(async (req, res) => {
     data: result,
   });
 });
-export const getStaffHandler = catchErrors(async (req, res) => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
-
-  const result = await getUsersByRole(Role.STAFF, page, limit);
-
-  return res.success(OK, {
-    message: 'Lấy danh sách nhân viên thành công',
-    data: result,
-  });
-});
-
-export const updateStaffStatusHandler = catchErrors(async (req, res) => {
-  const { id } = req.params;
-  const { isActive } = req.body;
-
-  const adminId = req.userId!;
-  const staff = await updateStaffStatus(adminId, id, isActive);
-
-  return res.success(OK, {
-    message: `Đã ${isActive ? 'kích hoạt' : 'ngưng kích hoạt'} nhân viên thành công`,
-    data: staff,
-  });
-});
-
-// ── Admin: Reviews / Ingredients / Inventory / Delivery / Dispatch ────────────────
 
 export const getAdminReviewsHandler = catchErrors(async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;

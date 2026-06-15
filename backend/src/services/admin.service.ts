@@ -16,10 +16,21 @@ import { generateUsernameFromEmail } from '@/utils/generate-username';
 import { getStaffInviteTemplate } from '@/utils/email-templates';
 import mongoose from 'mongoose';
 import { assignDelivery } from '@/services/order.service';
+import { StoreModel } from '@/models';
 
-export const createStaffByAdmin = async (
+export const createManagerByAdmin = async (
   adminId: mongoose.Types.ObjectId | string,
-  { name, email, phone }: { name: string; email: string; phone?: string }
+  {
+    name,
+    email,
+    phone,
+    storeId,
+  }: {
+    name: string;
+    email: string;
+    phone?: string;
+    storeId: string;
+  }
 ) => {
   return withTransaction(async (session) => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -27,45 +38,61 @@ export const createStaffByAdmin = async (
     const emailExist = await UserModel.exists({ email: normalizedEmail }).session(session);
     appAssert(!emailExist, CONFLICT, 'Tài khoản email đã tồn tại');
 
+    const storeExists = await StoreModel.exists({
+      _id: storeId,
+    }).session(session);
+
+    appAssert(storeExists, NOT_FOUND, 'Không tìm thấy cửa hàng');
+
+    const managerExistsInStore = await UserModel.exists({
+      role: Role.MANAGER,
+      storeId,
+      status: { $ne: UserStatus.DELETED },
+    }).session(session);
+
+    appAssert(!managerExistsInStore, CONFLICT, 'Cửa hàng này đã có quản lí');
+
     const username = await generateUsernameFromEmail(normalizedEmail, session);
 
-    const staff = new UserModel({
+    const manager = new UserModel({
       fullName: name,
       username,
       email: normalizedEmail,
       phone,
-      role: Role.STAFF,
+      role: Role.MANAGER,
+      storeId: new mongoose.Types.ObjectId(storeId),
       passwordHash: randomUUID(),
-      isActive: false,
+
+      status: UserStatus.INACTIVE,
     });
 
-    await staff.save({ session });
+    await manager.save({ session });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     const verificationCode = new VerificationCodeModel({
-      userId: staff._id,
+      userId: manager._id,
       type: VerificationCodeType.STAFF_INVITE,
-      email: staff.email,
+      email: manager.email,
       code,
       expiresAt: oneHourFromNow(),
     });
 
     await verificationCode.save({ session });
 
-    const url = `${APP_ORIGIN}/reset-password?code=${code}&email=${staff.email}&type=invite`;
+    const url = `${APP_ORIGIN}/reset-password?code=${code}&email=${manager.email}&type=invite`;
 
     const { error } = await sendMail({
-      to: staff.email,
+      to: manager.email,
       ...getStaffInviteTemplate(url),
     });
 
     if (error) {
       if (NODE_ENV === 'development') {
-        console.warn('⚠ [DEV] Gửi email mời staff thất bại. URL:', url);
+        console.warn('⚠ [DEV] Gửi email mời manager thất bại. URL:', url);
         console.warn('⚠ [DEV] Lỗi:', (error as Error)?.message);
       } else {
-        appAssert(!error, INTERNAL_SERVER_ERROR, 'Lỗi khi gửi email mời staff thiết lập mật khẩu');
+        appAssert(!error, INTERNAL_SERVER_ERROR, 'Lỗi khi gửi email mời manager thiết lập mật khẩu');
       }
     }
 
@@ -79,12 +106,13 @@ export const createStaffByAdmin = async (
           action: AuditLogAction.CREATE,
           oldData: null,
           newData: {
-            id: staff._id,
-            username: staff.username,
-            email: staff.email,
-            phone: staff.phone,
-            role: staff.role,
-            status: staff.status,
+            id: manager._id,
+            username: manager.username,
+            email: manager.email,
+            phone: manager.phone,
+            role: manager.role,
+            status: manager.status,
+            storeId: manager.storeId,
           },
           createdAt: new Date(),
         },
@@ -92,26 +120,58 @@ export const createStaffByAdmin = async (
       { session }
     );
 
-    return staff.omitPassword();
+    return manager.omitPassword();
   });
 };
 
-export const updateStaffStatus = async (
+export const getManagersByAdmin = async (page = 1, limit = 10) => {
+  const skip = (page - 1) * limit;
+
+  const managers = await UserModel.find({
+    role: Role.MANAGER,
+  })
+    .select('-passwordHash')
+    .populate('storeId', 'name storeName address status isActive')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const total = await UserModel.countDocuments({
+    role: Role.MANAGER,
+  });
+
+  return {
+    managers,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+export const updateManagerStatus = async (
   adminId: mongoose.Types.ObjectId | string,
-  staffId: string,
+  managerId: string,
   isActive: boolean
 ) => {
   return withTransaction(async (session) => {
-    const staff = await UserModel.findOne({ _id: staffId, role: Role.STAFF }).session(session);
-    appAssert(staff, NOT_FOUND, 'Không tìm thấy nhân viên');
+    const manager = await UserModel.findOne({
+      _id: managerId,
+      role: Role.MANAGER,
+    }).session(session);
+
+    appAssert(manager, NOT_FOUND, 'Không tìm thấy quản lí');
 
     const oldData = {
-      id: staff._id,
-      status: staff.status,
+      id: manager._id,
+      status: manager.status,
     };
 
-    staff.status = isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE;
-    await staff.save({ session });
+    manager.status = isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE;
+    await manager.save({ session });
 
     const actorId = typeof adminId === 'string' ? new mongoose.Types.ObjectId(adminId) : adminId;
 
@@ -123,8 +183,8 @@ export const updateStaffStatus = async (
           action: AuditLogAction.UPDATE,
           oldData,
           newData: {
-            id: staff._id,
-            status: staff.status,
+            id: manager._id,
+            status: manager.status,
           },
           createdAt: new Date(),
         },
@@ -132,8 +192,12 @@ export const updateStaffStatus = async (
       { session }
     );
 
-    return staff.omitPassword();
+    return manager.omitPassword();
   });
+};
+
+export const listAdminStores = async () => {
+  return StoreModel.find({}).select('_id name storeName address status isActive').sort({ createdAt: -1 }).lean();
 };
 
 /**
@@ -214,11 +278,7 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 /**
  * Get customers with order statistics (cancellation rate, etc.)
  */
-export const getCustomersWithStats = async (
-  page: number = 1,
-  limit: number = 10,
-  search?: string
-) => {
+export const getCustomersWithStats = async (page: number = 1, limit: number = 10, search?: string) => {
   const skip = (page - 1) * limit;
 
   const matchQuery: any = { role: Role.CUSTOMER };
