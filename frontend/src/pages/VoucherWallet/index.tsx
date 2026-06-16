@@ -263,37 +263,6 @@ const PointsActivity = ({ activities }: { activities: PointTransaction[] }) => {
     );
 };
 
-const Missions = () => {
-    const missions = [
-        { title: "Mời bạn mới", bonus: "+100 pts", progress: 0, total: 1, icon: "person_add" },
-        { title: "Đặt 3 đơn hàng", bonus: "+50 pts", progress: 1, total: 3, icon: "shopping_bag" },
-    ];
-
-    return (
-        <div className="space-y-4">
-            <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">Nhiệm vụ hôm nay</h4>
-            {missions.map((m, i) => (
-                <div key={i} className="bg-white dark:bg-card border border-border rounded-2xl p-4 flex gap-4 items-center group cursor-pointer hover:border-primary/50 transition-all">
-                    <div className="size-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined">{m.icon}</span>
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1.5">
-                            <p className="text-sm font-bold">{m.title}</p>
-                            <span className="text-[10px] font-black text-primary">{m.bonus}</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${(m.progress / m.total) * 100}%` }} />
-                        </div>
-                        <p className="mt-1 text-[10px] text-muted-foreground font-bold">{m.progress}/{m.total} hoàn thành</p>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
-
-
 const InviteModal = ({ isOpen, onClose, code }: { isOpen: boolean; onClose: () => void; code: string }) => {
     if (!isOpen) return null;
 
@@ -678,7 +647,6 @@ export const VoucherWalletContent = () => {
                     <PointsActivity activities={activities} />
                 </div>
                 <div className="space-y-8">
-                    <Missions />
                     <div className="bg-gradient-to-br from-primary/10 to-orange-500/5 p-6 rounded-3xl border border-primary/10">
                         <h4 className="text-sm font-bold mb-4">Mẹo tích điểm</h4>
                         <ul className="space-y-3">

@@ -27,6 +27,14 @@ export const getProductCategoriesHandler = catchErrors(async (req: Request, res:
 export const getAllProductsHandler = catchErrors(async (req: Request, res: Response) => {
     const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, showAll } = req.query;
 
+    const rawHealthTags = req.query.healthTags || req.query['healthTags[]'];
+    let healthTagsParsed: string[] | undefined = undefined;
+    if (typeof rawHealthTags === 'string') {
+        healthTagsParsed = rawHealthTags.split(',').map(t => t.trim()).filter(Boolean);
+    } else if (Array.isArray(rawHealthTags)) {
+        healthTagsParsed = rawHealthTags.map(t => String(t).trim()).filter(Boolean);
+    }
+
     const isShowAllRequested = showAll === 'true' || (showAll as any) === true;
 
     // Only staff/admin/manager can bypass the default availability filter
@@ -58,6 +66,7 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
         limit: limit ? Number(limit) : 12,
         isAvailable: isAvailable === undefined ? undefined : isAvailable === 'true',
         showAll: shouldShowAll,
+        healthTags: healthTagsParsed,
     };
 
     const result = await getAllProducts(filters, user?.preferences);
