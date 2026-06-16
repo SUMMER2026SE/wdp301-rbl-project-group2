@@ -2,8 +2,8 @@
   "name": "chain-restaurant-platform",
   "private": true,
   "scripts": {
-    "dev:be": "PORT=8005 pnpm --filter backend dev",
-    "dev:fe": "VITE_BASE_API=http://localhost:8005/api pnpm --filter fe-foa dev",
+    "dev:be": "cross-env PORT=8005 pnpm --filter backend dev",
+    "dev:fe": "cross-env VITE_BASE_API=http://localhost:8005/api pnpm --filter fe-foa dev",
     "dev:all": "concurrently \"pnpm dev:be\" \"pnpm dev:fe\"",
     "build:be": "pnpm --filter backend build",
     "build:fe": "pnpm --filter fe-foa build",
@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
     "husky": "^9.1.7"
   }
 }

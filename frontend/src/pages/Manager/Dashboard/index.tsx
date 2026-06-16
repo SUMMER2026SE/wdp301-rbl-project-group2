@@ -528,13 +528,7 @@ const ManagerDashboard = () => {
                 </div>
 
                 <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={revenueLineData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ea580c" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#ea580c" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={revenueLineData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: "bold" }} stroke="#94a3b8" />
                     <YAxis tick={{ fontSize: 10, fontWeight: "bold" }} stroke="#ea580c" />
@@ -548,8 +542,8 @@ const ManagerDashboard = () => {
                       }}
                       formatter={(value) => [formatCurrency(Number(value)), "Doanh thu"]}
                     />
-                    <Area type="monotone" dataKey="Doanh thu" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                  </AreaChart>
+                    <Bar dataKey="Doanh thu" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (

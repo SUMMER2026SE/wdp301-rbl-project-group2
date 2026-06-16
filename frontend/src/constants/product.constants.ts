@@ -4,12 +4,12 @@
  */
 
 export const CATEGORIES = [
-  "Món chính",
-  "Khai vị",
-  "Đồ uống",
-  "Tráng miệng",
-  "Đồ ăn nhanh",
-  "Salad",
+  "Cơm Đĩa Truyền Thống",
+  "Giải Khát & Tráng Miệng",
+  "Góc Healthy & Ăn Kiêng",
+  "Gọi Thêm Ăn Kèm",
+  "Trứ Danh Món Nước",
+  "Đặc Sản & Bán Chạy",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
@@ -17,12 +17,12 @@ export type Category = (typeof CATEGORIES)[number];
 /** Category list kèm nhãn hiển thị cho Customer filter */
 export const CUSTOMER_CATEGORY_FILTERS = [
   { id: "all", label: "Tất cả" },
-  { id: "Món chính", label: "Món chính" },
-  { id: "Khai vị", label: "Khai vị" },
-  { id: "Đồ uống", label: "Đồ uống" },
-  { id: "Tráng miệng", label: "Tráng miệng" },
-  { id: "Đồ ăn nhanh", label: "Đồ ăn nhanh" },
-  { id: "Salad", label: "Salad" },
+  { id: "Cơm Đĩa Truyền Thống", label: "Cơm Đĩa Truyền Thống" },
+  { id: "Giải Khát & Tráng Miệng", label: "Giải Khát & Tráng Miệng" },
+  { id: "Góc Healthy & Ăn Kiêng", label: "Góc Healthy & Ăn Kiêng" },
+  { id: "Gọi Thêm Ăn Kèm", label: "Gọi Thêm Ăn Kèm" },
+  { id: "Trứ Danh Món Nước", label: "Trứ Danh Món Nước" },
+  { id: "Đặc Sản & Bán Chạy", label: "Đặc Sản & Bán Chạy" },
 ] as const;
 
 /** Price range presets (đơn vị: VNĐ) */
