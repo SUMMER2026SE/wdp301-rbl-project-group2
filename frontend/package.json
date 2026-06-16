@@ -5,9 +5,9 @@
   "packageManager": "pnpm@9.15.4",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "VITE_BASE_API=http://localhost:8005/api vite",
     "build": "tsc -b && vite build",
-    "start": "vite",
+    "start": "VITE_BASE_API=http://localhost:8005/api vite",
     "lint": "eslint .",
     "preview": "vite preview"
   },

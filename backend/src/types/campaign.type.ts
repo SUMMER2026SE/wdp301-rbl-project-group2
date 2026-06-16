@@ -17,6 +17,7 @@ export interface ICampaign extends mongoose.Document<mongoose.Types.ObjectId> {
   type: string;
   status: CampaignStatus;
   createdBy: mongoose.Types.ObjectId;
+  storeIds?: mongoose.Types.ObjectId[];
   products: ICampaignProductItem[];
   startTime: Date;
   endTime: Date;

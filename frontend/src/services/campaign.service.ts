@@ -9,7 +9,7 @@ export const CampaignStatus = {
 };
 
 export interface CampaignProductItem {
-  productId: string | { _id: string; name: string; price: number; image?: string };
+  productId: string | { _id: string; name: string; price: number; image?: any };
   fixedPrice?: number | null;
   discount?: number | null;
 }

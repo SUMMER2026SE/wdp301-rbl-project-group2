@@ -15,7 +15,8 @@ import {
   Check,
   Ban,
   Tag,
-  Store
+  Store,
+  Pencil,
 } from "lucide-react";
 
 const AdminCampaigns = () => {
@@ -43,6 +44,7 @@ const AdminCampaigns = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
 
   const fetchCampaigns = async () => {
@@ -85,12 +87,18 @@ const AdminCampaigns = () => {
     setShowModal(true);
   };
 
+  const toLocalDatetimeInput = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   const handleOpenEditModal = (c: Campaign) => {
     setEditingCampaign(c);
     setFormName(c.name);
     setFormType(c.type);
-    setStartTime(new Date(c.startTime).toISOString().slice(0, 16));
-    setEndTime(new Date(c.endTime).toISOString().slice(0, 16));
+    setStartTime(toLocalDatetimeInput(c.startTime));
+    setEndTime(toLocalDatetimeInput(c.endTime));
 
     const formattedProducts = c.products.map(p => {
       const pId = typeof p.productId === "string" ? p.productId : (p.productId as any)._id;
@@ -196,7 +204,9 @@ const AdminCampaigns = () => {
   };
 
   const handleDeleteCampaign = async (id: string) => {
+    if (deletingId) return;
     if (!window.confirm("Bạn có chắc chắn muốn xóa chiến dịch này không?")) return;
+    setDeletingId(id);
     try {
       const res = await campaignAPI.deleteCampaign(id);
       if (res.success) {
@@ -205,6 +215,8 @@ const AdminCampaigns = () => {
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Xóa thất bại");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -409,14 +421,15 @@ const AdminCampaigns = () => {
                             className="inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
                             title="Sửa"
                           >
-                            <span className="material-symbols-outlined text-[20px]">edit</span>
+                            <Pencil className="w-4.5 h-4.5" />
                           </button>
                         )}
                         {canModify && (
                           <button
                             type="button"
                             onClick={() => handleDeleteCampaign(c._id)}
-                            className="inline-flex items-center justify-center p-2 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                            disabled={deletingId === c._id}
+                            className="inline-flex items-center justify-center p-2 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Xóa"
                           >
                             <Trash2 className="w-4.5 h-4.5" />

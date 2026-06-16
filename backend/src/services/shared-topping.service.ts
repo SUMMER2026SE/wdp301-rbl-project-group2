@@ -31,11 +31,7 @@ export const attachSharedToppingVariants = async <T extends ProductLike | null |
 
   if (rules.length === 0) return product;
 
-  const storeId = product.storeId;
-  if (!storeId) return product;
-
   const sideDishes = await ProductModel.find({
-    storeId,
     category: SIDE_DISH_CATEGORY,
     isAvailable: { $ne: false },
   })

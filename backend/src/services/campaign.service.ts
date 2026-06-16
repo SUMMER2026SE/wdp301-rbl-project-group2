@@ -89,17 +89,24 @@ export const createCampaign = async (
   return campaign;
 };
 
-export const getCampaigns = async (userRole?: Role) => {
+export const getCampaigns = async (userRole?: Role, activeOnly?: boolean) => {
   const query: Record<string, any> = {};
 
-  // If not Admin/Manager, only list approved active campaigns
+  // If not Admin/Manager, only list approved campaigns
   if (userRole !== Role.ADMIN && userRole !== Role.MANAGER) {
     query.status = CampaignStatus.APPROVED;
+  }
+
+  if (activeOnly) {
+    const now = new Date();
+    query.startTime = { $lte: now };
+    query.endTime = { $gte: now };
   }
 
   return CampaignModel.find(query)
     .sort({ createdAt: -1 })
     .populate('createdBy', 'username email')
+    .populate('products.productId', 'name price image')
     .lean();
 };
 
@@ -172,13 +179,18 @@ export const updateCampaignStatus = async (id: string, status: CampaignStatus) =
   const campaign = await CampaignModel.findById(id);
   appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
 
-  const oldStatus = campaign.status;
+  appAssert(
+    campaign.status === CampaignStatus.PENDING,
+    BAD_REQUEST,
+    'Không thể thay đổi trạng thái chiến dịch đã xử lý'
+  );
+
   campaign.status = status;
   await campaign.save();
 
   await syncCampaignProducts(campaign);
 
-  if (status === CampaignStatus.APPROVED && oldStatus !== CampaignStatus.APPROVED) {
+  if (status === CampaignStatus.APPROVED) {
     notifyCustomersOfCampaign(campaign);
   }
 

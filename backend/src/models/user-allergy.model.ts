@@ -7,7 +7,7 @@ const UserAllergySchema = new mongoose.Schema<IUserAllergy>(
      ingredientIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Ingredient' }],
   },
   {
-    timestamps: { createdAt: true, updatedAt: false },
+    timestamps: true,
   }
 );
 

@@ -238,7 +238,8 @@ const RecommendedSection = () => {
                 id={product._id}
                 name={product.name}
                 image={typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '')}
-                price={product.price}
+                price={product.campaignPrice ?? product.price}
+                originalPrice={product.campaignPrice != null ? product.price : undefined}
                 rating={product.rating}
                 restaurant={product.restaurant}
                 time={product.time}
@@ -252,7 +253,7 @@ const RecommendedSection = () => {
                     productId: product._id,
                     name: product.name,
                     image: typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : ''),
-                    price: product.price,
+                    price: product.campaignPrice ?? product.price,
                     quantity: 1
                   });
                 }}
