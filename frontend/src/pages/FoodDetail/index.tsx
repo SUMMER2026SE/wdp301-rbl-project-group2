@@ -194,7 +194,8 @@ const FoodDetailPage = () => {
     return extra;
   }, [product, selectedVariants]);
 
-  const currentPrice = (product?.price || 0) + extraPrice;
+  const basePrice = (product?.campaignPrice ?? product?.price) || 0;
+  const currentPrice = basePrice + extraPrice;
   const ingredientNames = useMemo(() => {
     if (!product?.recipe?.length) return [];
 
@@ -537,9 +538,16 @@ const FoodDetailPage = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                    <span className="text-3xl font-black text-orange-600">
-                      {currentPrice.toLocaleString("vi-VN")}đ
-                    </span>
+                    <div className="flex flex-col">
+                      {product.campaignPrice != null && (
+                        <span className="text-base text-slate-400 line-through decoration-red-400/50">
+                          {(product.price + extraPrice).toLocaleString("vi-VN")}đ
+                        </span>
+                      )}
+                      <span className="text-3xl font-black text-orange-600">
+                        {currentPrice.toLocaleString("vi-VN")}đ
+                      </span>
+                    </div>
                     <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
                     <div className="flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
                       <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -999,7 +1007,8 @@ const FoodDetailPage = () => {
                       id={suggestedItem._id}
                       name={suggestedItem.name}
                       image={getImageUrl(suggestedItem.image)}
-                      price={suggestedItem.price}
+                      price={suggestedItem.campaignPrice ?? suggestedItem.price}
+                      originalPrice={suggestedItem.campaignPrice != null ? suggestedItem.price : undefined}
                       rating={suggestedItem.rating}
                       restaurant={suggestedItem.restaurant}
                       time={suggestedItem.time}

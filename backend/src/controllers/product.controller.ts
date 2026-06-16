@@ -25,7 +25,7 @@ export const getProductCategoriesHandler = catchErrors(async (req: Request, res:
 
 // GET /api/products
 export const getAllProductsHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, storeId, showAll } = req.query;
+    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, showAll } = req.query;
 
     const isShowAllRequested = showAll === 'true' || (showAll as any) === true;
 
@@ -45,16 +45,7 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
     const isPrivileged = normalizedRole && ['admin', 'staff', 'manager'].includes(normalizedRole);
     const shouldShowAll = isShowAllRequested && isPrivileged;
 
-    const user = req.userId ? await UserModel.findById(req.userId).select('preferences storeId').lean() : null;
-
-    // Default storeId for staff or manager to their own branch if not explicitly provided in query
-    let finalStoreId = storeId as string | undefined;
-    if (normalizedRole === 'admin') {
-        // Admin always views the canonical/default store menu to avoid duplicate items in the list
-        finalStoreId = DEFAULT_PUBLIC_STORE_ID;
-    } else if (!finalStoreId && user && ['staff', 'manager'].includes(normalizedRole) && (user as any).storeId) {
-        finalStoreId = (user as any).storeId.toString();
-    }
+    const user = req.userId ? await UserModel.findById(req.userId).select('preferences').lean() : null;
 
     const filters = {
         category: category as string,
@@ -66,7 +57,6 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
         page: page ? Number(page) : 1,
         limit: limit ? Number(limit) : 12,
         isAvailable: isAvailable === undefined ? undefined : isAvailable === 'true',
-        storeId: finalStoreId,
         showAll: shouldShowAll,
     };
 
@@ -128,23 +118,15 @@ export const updateProductAvailabilityHandler = catchErrors(async (req: Request,
     if (status !== undefined) updates.status = status;
     if (operationalNote !== undefined) updates.operationalNote = operationalNote;
 
-    const user = req.userId ? await UserModel.findById(req.userId).select('role storeId').lean() : null;
+    const user = req.userId ? await UserModel.findById(req.userId).select('role').lean() : null;
     appAssert(user, NOT_FOUND, 'User not found');
 
-    let product;
-    const userRoleNormalized = user.role?.toLowerCase();
-    if (userRoleNormalized === Role.STAFF && user.storeId) {
-        // Staff is restricted to their own store's products
-        product = await ProductModel.findOneAndUpdate(
-            { _id: id, storeId: user.storeId },
-            { $set: updates },
-            { new: true }
-        );
-        appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm hoặc sản phẩm không thuộc chi nhánh của bạn');
-    } else {
-        // Admin (or staff with no storeId) can update any product
-        product = await updateProduct(id, updates as any, userRoleNormalized === Role.ADMIN);
-    }
+    const product = await ProductModel.findByIdAndUpdate(
+        id,
+        { $set: updates },
+        { new: true }
+    );
+    appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
 
     return res.success(OK, { data: product, message: 'Cập nhật trạng thái sản phẩm thành công' });
 });

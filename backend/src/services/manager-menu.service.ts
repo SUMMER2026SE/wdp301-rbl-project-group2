@@ -8,7 +8,7 @@ export const getManagerMenu = async (
   storeId: mongoose.Types.ObjectId,
   query: { category?: string; status?: string } = {}
 ) => {
-  const filter: Record<string, any> = { storeId: storeId };
+  const filter: Record<string, any> = {};
 
   if (query.category) {
     filter.category = query.category;
@@ -31,7 +31,6 @@ export const getManagerProductById = async (storeId: mongoose.Types.ObjectId, pr
     .populate('variationIds');
 
   appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
-  appAssert(product.storeId.toString() === storeId.toString(), NOT_FOUND, 'Sản phẩm không thuộc chi nhánh của manager');
 
   return product;
 };
@@ -71,12 +70,12 @@ export const updateManagerProductAvailability = async (
 
   // Use findOneAndUpdate to bypass full document validation (avoids legacy category name errors)
   const product = await ProductModel.findOneAndUpdate(
-    { _id: productId, storeId: storeId },
+    { _id: productId },
     { $set: updateFields },
     { new: true }
   );
 
-  appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm hoặc sản phẩm không thuộc chi nhánh của manager');
+  appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
 
   return product;
 };

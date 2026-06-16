@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '@/middlewares';
+import { authenticate, authorize, optionalAuthenticate } from '@/middlewares';
 import { Role } from '@/types/user.type';
 import {
   createCampaignHandler,
@@ -13,7 +13,7 @@ import {
 const campaignRoutes = Router();
 
 // GET /api/campaigns - Available to logged-in users or guest (filters differently in controller)
-campaignRoutes.get('/', authenticate, getCampaignsHandler);
+campaignRoutes.get('/', optionalAuthenticate, getCampaignsHandler);
 
 // GET /api/campaigns/:id - Detail view
 campaignRoutes.get('/:id', authenticate, getCampaignByIdHandler);

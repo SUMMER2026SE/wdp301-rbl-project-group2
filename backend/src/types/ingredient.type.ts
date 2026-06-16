@@ -29,5 +29,6 @@ export interface IUserAllergy extends mongoose.Document<mongoose.Types.ObjectId>
   userId: mongoose.Types.ObjectId;
   ingredientIds: mongoose.Types.ObjectId[];
   createdAt: Date;
+  updatedAt: Date;
 }
 

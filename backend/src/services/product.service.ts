@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
 import { IngredientModel } from '@/models/ingredient.model';
 import { StoreModel } from '@/models/store.model';
+import { CampaignModel } from '@/models/campaign.model';
+import { CampaignStatus } from '@/types/campaign.type';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
@@ -200,6 +202,41 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
   return resolved;
 };
 
+async function applyCampaignPricing<T extends { _id: any; price: number }>(
+  products: T[]
+): Promise<(T & { campaignPrice?: number })[]> {
+  if (!products.length) return products;
+  const now = new Date();
+  const campaigns = await CampaignModel.find({
+    status: CampaignStatus.APPROVED,
+    startTime: { $lte: now },
+    endTime: { $gte: now },
+  }).lean();
+  if (!campaigns.length) return products;
+
+  const pricingMap = new Map<string, { discount?: number | null; fixedPrice?: number | null; type: string }>();
+  for (const c of campaigns) {
+    for (const item of c.products) {
+      const pid = item.productId.toString();
+      if (!pricingMap.has(pid)) {
+        pricingMap.set(pid, { discount: item.discount, fixedPrice: item.fixedPrice, type: c.type });
+      }
+    }
+  }
+
+  return products.map((p) => {
+    const rule = pricingMap.get(String(p._id));
+    if (!rule) return p;
+    let campaignPrice: number | undefined;
+    if (rule.type === 'fixed_price' && rule.fixedPrice != null) {
+      campaignPrice = rule.fixedPrice;
+    } else if (rule.discount != null) {
+      campaignPrice = Math.round(p.price * (1 - rule.discount / 100));
+    }
+    return campaignPrice != null ? { ...p, campaignPrice } : p;
+  });
+}
+
 export const getAllProducts = async (filters: ProductFilters, preferences?: any) => {
   const {
     category,
@@ -212,13 +249,9 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     limit = 12,
     isAvailable,
     healthTags,
-    storeId = DEFAULT_PUBLIC_STORE_ID,
-} = filters;
+  } = filters;
 
   const query: any = {};
-  if (storeId && storeId !== 'all') {
-    query.storeId = storeId;
-  }
 
   // Default: only show available & active products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
@@ -295,10 +328,11 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
   const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
 
-  return {
-    products: productsWithRisk,
-    pagination: {
+  const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
 
+  return {
+    products: productsWithCampaign,
+    pagination: {
       page,
       limit,
       total,
@@ -308,9 +342,7 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 };
 
 export const getDistinctCategories = async () => {
-  const categories = await ProductModel.distinct('category', {
-    storeId: DEFAULT_PUBLIC_STORE_ID,
-  });
+  const categories = await ProductModel.distinct('category');
   return categories;
 };
 
@@ -318,7 +350,9 @@ export const getProductById = async (id: string, preferences?: any) => {
   const product = await ProductModel.findById(id).populate(PRODUCT_RECIPE_POPULATE).lean();
   appAssert(product, NOT_FOUND, 'Product not found');
   const productWithToppings = await attachSharedToppingVariants(withRecipeNames(product));
-  return attachHealthRisk(productWithToppings, preferences);
+  const withRisk = attachHealthRisk(productWithToppings, preferences);
+  const [withCampaign] = await applyCampaignPricing([withRisk]);
+  return withCampaign;
 };
 
 export const getProductHealthRisk = async (id: string, preferences: any) => {
@@ -329,27 +363,9 @@ export const getProductHealthRisk = async (id: string, preferences: any) => {
 
 export const createProduct = async (data: Partial<IProduct>, globalCreate?: boolean) => {
   const recipe = await resolveRecipeItems((data as any).recipe ?? []);
-  if (globalCreate) {
-    const stores = await StoreModel.find().lean();
-    if (stores.length > 0) {
-      const productsToCreate = stores.map((store) => ({
-        ...data,
-        recipe,
-        storeId: store._id,
-        imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
-      }));
-      const createdProducts = await ProductModel.insertMany(productsToCreate);
-      const mainProduct = createdProducts.find(
-        (p) => p.storeId.toString() === DEFAULT_PUBLIC_STORE_ID
-      ) || createdProducts[0];
-      return mainProduct;
-    }
-  }
-
   const product = await ProductModel.create({
     ...data,
     recipe,
-    storeId: (data as any).storeId ?? DEFAULT_PUBLIC_STORE_ID,
     imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
   });
 
@@ -371,31 +387,6 @@ export const updateProduct = async (id: string, data: Partial<IProduct>, globalU
     updateFields.imgEmbedding = String(data.image ?? data.name ?? 'product');
   }
 
-  if (globalUpdate) {
-    const originalProduct = await ProductModel.findById(id).lean();
-    appAssert(originalProduct, NOT_FOUND, 'Product not found');
-
-    const product = await ProductModel.findByIdAndUpdate(
-      id,
-      updateFields,
-      { new: true }
-    );
-    appAssert(product, NOT_FOUND, 'Product not found');
-
-    // Propagate update to all products with the same name (case-insensitive regex to be safe)
-    const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-    };
-    
-    // Omit storeId from propagation to avoid changing other stores' storeIds
-    const otherUpdates = { ...updateFields };
-    delete otherUpdates.storeId;
-
-    await ProductModel.updateMany(nameQuery, { $set: otherUpdates });
-
-    return product;
-  }
-
   const product = await ProductModel.findByIdAndUpdate(
     id,
     updateFields,
@@ -406,18 +397,6 @@ export const updateProduct = async (id: string, data: Partial<IProduct>, globalU
 };
 
 export const deleteProduct = async (id: string, globalDelete?: boolean) => {
-  if (globalDelete) {
-    const originalProduct = await ProductModel.findById(id).lean();
-    appAssert(originalProduct, NOT_FOUND, 'Product not found');
-
-    // Delete all products with the same name (case-insensitive regex)
-    const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-    };
-    await ProductModel.deleteMany(nameQuery);
-    return originalProduct;
-  }
-
   const product = await ProductModel.findByIdAndDelete(id);
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;
