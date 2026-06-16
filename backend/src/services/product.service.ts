@@ -212,7 +212,9 @@ async function applyCampaignPricing<T extends { _id: any; price: number }>(
     startTime: { $lte: now },
     endTime: { $gte: now },
   }).lean();
-  if (!campaigns.length) return products;
+  if (!campaigns.length) {
+    return products.map((p) => ({ ...p, isCampaignRunning: false }));
+  }
 
   const pricingMap = new Map<string, { discount?: number | null; fixedPrice?: number | null; type: string }>();
   for (const c of campaigns) {
@@ -226,14 +228,16 @@ async function applyCampaignPricing<T extends { _id: any; price: number }>(
 
   return products.map((p) => {
     const rule = pricingMap.get(String(p._id));
-    if (!rule) return p;
+    if (!rule) return { ...p, isCampaignRunning: false };
     let campaignPrice: number | undefined;
     if (rule.type === 'fixed_price' && rule.fixedPrice != null) {
       campaignPrice = rule.fixedPrice;
     } else if (rule.discount != null) {
       campaignPrice = Math.round(p.price * (1 - rule.discount / 100));
     }
-    return campaignPrice != null ? { ...p, campaignPrice } : p;
+    return campaignPrice != null 
+      ? { ...p, campaignPrice, isCampaignRunning: true } 
+      : { ...p, isCampaignRunning: false };
   });
 }
 
