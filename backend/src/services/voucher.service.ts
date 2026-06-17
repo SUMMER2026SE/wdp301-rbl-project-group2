@@ -72,12 +72,12 @@ export const getAllVouchers = async (filters: {
                 }
             ];
         } else {
+            // No userId — return all non-reward vouchers (admin browsing, unauthenticated, etc.)
             if (isReward === false) {
                 query.isReward = false;
             } else {
                 query.isReward = { $ne: true };
             }
-            query.code = { $in: LEGACY_PUBLIC_VOUCHERS };
         }
     }
 
