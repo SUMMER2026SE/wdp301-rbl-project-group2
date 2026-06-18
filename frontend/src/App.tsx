@@ -56,6 +56,7 @@ import AdminDispatch from "./pages/Admin/Dispatch";
 import AdminIngredients from "./pages/Admin/Ingredients";
 import AdminOperationsLayout from "./pages/Admin/OperationsLayout";
 import AdminCashControl from "./pages/Admin/CashControl";
+import AdminStores from "./pages/Admin/Stores";
 import StaffLayout from "./components/layout/StaffLayout";
 import StaffDashboard from "./pages/Staff/Dashboard";
 import StaffOrders from "./pages/Staff/Orders";
@@ -217,6 +218,7 @@ function App() {
               <Route path="vouchers" element={<AdminVouchers />} />
               <Route path="campaigns" element={<AdminCampaigns />} />
               <Route path="settings" element={<AdminSettings />} />
+              <Route path="stores" element={<AdminStores />} />
               <Route path="ingredients" element={<AdminIngredients />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
