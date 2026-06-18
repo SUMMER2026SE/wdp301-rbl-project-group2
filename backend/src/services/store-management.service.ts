@@ -66,11 +66,7 @@ export const updateStore = async (
 ) => {
   appAssert(mongoose.Types.ObjectId.isValid(storeId), BAD_REQUEST, 'Id cửa hàng không hợp lệ');
 
-  const store = await StoreModel.findByIdAndUpdate(
-    storeId,
-    { $set: data },
-    { new: true, runValidators: true }
-  ).lean();
+  const store = await StoreModel.findByIdAndUpdate(storeId, { $set: data }, { new: true, runValidators: true }).lean();
   appAssert(store, NOT_FOUND, 'Không tìm thấy cửa hàng');
 
   return store;
@@ -79,11 +75,7 @@ export const updateStore = async (
 export const setStoreActive = async (storeId: string, isActive: boolean) => {
   appAssert(mongoose.Types.ObjectId.isValid(storeId), BAD_REQUEST, 'Id cửa hàng không hợp lệ');
 
-  const store = await StoreModel.findByIdAndUpdate(
-    storeId,
-    { $set: { isActive } },
-    { new: true }
-  ).lean();
+  const store = await StoreModel.findByIdAndUpdate(storeId, { $set: { isActive } }, { new: true }).lean();
 
   appAssert(store, NOT_FOUND, 'Không tìm thấy cửa hàng');
 

@@ -87,7 +87,7 @@ export const useProducts = (
     );
 
     try {
-      await productService.updateProduct(product._id, {
+      await productService.updateProductAvailability(product._id, {
         isAvailable: newAvailability,
       });
     } catch (err) {

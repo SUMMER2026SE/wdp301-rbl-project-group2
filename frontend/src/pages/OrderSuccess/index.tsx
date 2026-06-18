@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCart } from "@/hooks/useCart";
 import { Check, Truck, ReceiptText, ArrowRight, Home } from "lucide-react";
+import orderService, { type Order } from "@/services/order.service";
 
 interface OrderSuccessState {
   orderCode?: string;
@@ -15,31 +16,64 @@ const OrderSuccessPage = () => {
   const location = useLocation();
   const { t } = useTranslation(["customer", "common"]);
   const { clearCart } = useCart();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
 
   // Read the order info passed via navigation state or URL query params
   const state = location.state as OrderSuccessState | null;
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
 
-  // Try 'code' (our ORD-XXX) first, then 'orderCode' (numeric from PayOS)
-  const orderCode =
+  // PayOS uses `code=00` for payment status, so never treat it as our order code.
+  const payosOrderCode = searchParams.get("orderCode");
+  const queryOrderCode = searchParams.get("appOrderCode");
+  const orderLookupKey =
+    state?.orderId ||
     state?.orderCode ||
-    searchParams.get("code") ||
-    searchParams.get("orderCode");
-  const totalPrice = state?.totalPrice;
+    queryOrderCode ||
+    payosOrderCode;
+  const displayOrderCode = order?.code || state?.orderCode || queryOrderCode || "";
+  const totalPrice = order?.totalPrice ?? state?.totalPrice;
 
   // Security guard: if someone navigates here directly without placing an order,
   // redirect to home after a brief delay
   useEffect(() => {
-    if (!orderCode) {
+    if (!orderLookupKey) {
       const timer = setTimeout(() => navigate("/", { replace: true }), 100);
       return () => clearTimeout(timer);
     }
-  }, [orderCode, navigate]);
+  }, [orderLookupKey, navigate]);
+
+  useEffect(() => {
+    if (!orderLookupKey) return;
+    if (state?.orderId && state?.orderCode && state?.totalPrice !== undefined) return;
+
+    let ignore = false;
+    setIsLoadingOrder(true);
+
+    orderService
+      .getOrderById(orderLookupKey)
+      .then((response) => {
+        if (!ignore) setOrder(response.data);
+      })
+      .catch(() => {
+        if (!ignore) setOrder(null);
+      })
+      .finally(() => {
+        if (!ignore) setIsLoadingOrder(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [orderLookupKey, state?.orderId, state?.orderCode, state?.totalPrice]);
 
   // Clear cart when we have a valid order code (COD or PayOS returnUrl)
   useEffect(() => {
-    if (orderCode) clearCart();
-  }, [orderCode, clearCart]);
+    if (orderLookupKey) clearCart();
+  }, [orderLookupKey, clearCart]);
 
   // Handle PayOS cancellation redirect
   useEffect(() => {
@@ -47,17 +81,17 @@ const OrderSuccessPage = () => {
       searchParams.get("status") === "CANCELLED" ||
       searchParams.get("cancel") === "true";
 
-    if (isCancelled && orderCode) {
+    if (isCancelled && payosOrderCode) {
       navigate(
-        `/failed?reason=cancel&orderCode=${orderCode}${state?.orderId ? `&orderId=${state.orderId}` : ""}`,
+        `/failed?reason=cancel&orderCode=${payosOrderCode}${state?.orderId ? `&orderId=${state.orderId}` : ""}`,
         {
           replace: true,
         },
       );
     }
-  }, [searchParams, orderCode, navigate]);
+  }, [searchParams, payosOrderCode, navigate, state?.orderId]);
 
-  if (!orderCode) {
+  if (!orderLookupKey) {
     return null; // Will redirect
   }
 
@@ -100,7 +134,7 @@ const OrderSuccessPage = () => {
               Mã đơn hàng của bạn
             </span>
             <span className="font-mono text-2xl font-bold text-orange-600 tracking-wider">
-              #{orderCode.slice(-6)}
+              {isLoadingOrder && !displayOrderCode ? "Đang tải..." : `#${displayOrderCode || "..."}`}
             </span>
           </div>
 
@@ -133,7 +167,7 @@ const OrderSuccessPage = () => {
         <div className="flex flex-col gap-3 w-full">
           <button
             onClick={() => {
-              const targetId = state?.orderId || orderCode;
+              const targetId = order?._id || state?.orderId || orderLookupKey;
               if (targetId) {
                 navigate(`/orders/${targetId}`);
               } else {
