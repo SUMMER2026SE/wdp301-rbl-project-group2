@@ -118,20 +118,57 @@ const AdminStores = () => {
       return;
     }
 
-    const query = `${address}, ${ward}, ${city}, Việt Nam`;
+    // Nominatim prefers hierarchical order: street, ward, city, country
+    // Also accepts structured with street/ward/city params
     setGeoLocating(true);
     try {
+      const params = new URLSearchParams({
+        format: "json",
+        street: address,
+        ward: ward,
+        city: city,
+        country: "Việt Nam",
+        limit: "1",
+      });
+
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
-        { headers: { "Accept-Language": "vi" } }
+        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+        {
+          headers: {
+            "User-Agent": "FoodieDash-Admin/1.0 (admin@foodiedash.vn)",
+            "Accept-Language": "vi",
+          },
+        }
       );
+
+      if (!res.ok) {
+        console.warn("Nominatim non-OK status:", res.status);
+      }
+
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const { lon, lat, display_name } = data[0];
         setCoordsStr(`${lon}, ${lat}`);
         toast.success(`Đã tìm thấy toạ độ: ${display_name?.split(",")[0] || ""}`);
       } else {
-        toast.error("Không tìm thấy toạ độ cho địa chỉ này. Vui lòng nhập tay.");
+        // Fallback: try with concatenated query (more common for OSM)
+        const fallbackQuery = `${address}, ${ward}, ${city}, Việt Nam`;
+        const fbRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1&accept-language=vi`,
+          {
+            headers: {
+              "User-Agent": "FoodieDash-Admin/1.0 (admin@foodiedash.vn)",
+            },
+          }
+        );
+        const fbData = await fbRes.json();
+        if (Array.isArray(fbData) && fbData.length > 0) {
+          const { lon, lat, display_name } = fbData[0];
+          setCoordsStr(`${lon}, ${lat}`);
+          toast.success(`Đã tìm thấy toạ độ: ${display_name?.split(",")[0] || ""}`);
+        } else {
+          toast.error("Không tìm thấy toạ độ cho địa chỉ này. Vui lòng nhập tay.");
+        }
       }
     } catch {
       toast.error("Lỗi kết nối geocoding. Vui lòng nhập toạ độ tay.");
