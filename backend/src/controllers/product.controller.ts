@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { catchErrors } from '@/utils/async-handler';
-import { CREATED, OK, NOT_FOUND, UNAUTHORIZED, FORBIDDEN } from '@/constants/http';
+import { BAD_REQUEST, CREATED, OK, NOT_FOUND, UNAUTHORIZED, FORBIDDEN } from '@/constants/http';
 import {
     createProduct,
     deleteProduct,
@@ -16,6 +16,7 @@ import appAssert from '@/utils/app-assert';
 import { productValidator, updateProductValidator } from '@/validators/product.validator';
 import ProductModel from '@/models/product.model';
 import { Role } from '@/types/user.type';
+import { ProductStatus } from '@/types/product.type';
 
 // GET /api/products/categories
 export const getProductCategoriesHandler = catchErrors(async (req: Request, res: Response) => {
@@ -127,15 +128,36 @@ export const updateProductAvailabilityHandler = catchErrors(async (req: Request,
     if (status !== undefined) updates.status = status;
     if (operationalNote !== undefined) updates.operationalNote = operationalNote;
 
-    const user = req.userId ? await UserModel.findById(req.userId).select('role').lean() : null;
+    if (updates.status !== undefined) {
+        appAssert(
+            [ProductStatus.ACTIVE, ProductStatus.INACTIVE, ProductStatus.OUT_OF_STOCK].includes(updates.status as ProductStatus),
+            BAD_REQUEST,
+            'Trạng thái sản phẩm không hợp lệ'
+        );
+    }
+
+    const user = req.userId ? await UserModel.findById(req.userId).select('role storeId').lean() : null;
     appAssert(user, NOT_FOUND, 'User not found');
 
-    const product = await ProductModel.findByIdAndUpdate(
-        id,
-        { $set: updates },
-        { new: true }
-    );
-    appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
+    let product;
+    const userRoleNormalized = user.role?.toLowerCase();
+    if (userRoleNormalized === Role.STAFF && user.storeId) {
+        // Staff is restricted to their own store's products
+        product = await ProductModel.findOneAndUpdate(
+            { _id: id, storeId: user.storeId },
+            { $set: updates },
+            { new: true }
+        );
+        appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm hoặc sản phẩm không thuộc chi nhánh của bạn');
+    } else {
+        appAssert(userRoleNormalized === Role.ADMIN, FORBIDDEN, 'Bạn không có quyền cập nhật trạng thái sản phẩm');
+        product = await ProductModel.findOneAndUpdate(
+            { _id: id },
+            { $set: updates },
+            { new: true }
+        );
+        appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
+    }
 
     return res.success(OK, { data: product, message: 'Cập nhật trạng thái sản phẩm thành công' });
 });

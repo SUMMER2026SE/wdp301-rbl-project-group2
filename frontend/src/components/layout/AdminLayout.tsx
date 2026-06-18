@@ -191,7 +191,10 @@ const NAV_ITEMS = [
     label: "Cài đặt & Hệ thống",
     href: "/admin/settings",
     icon: "settings",
-    subItems: [{ label: "Cấu hình chung", href: "/admin/settings" }],
+    subItems: [
+      { label: "Cấu hình chung", href: "/admin/settings" },
+      { label: "Quản lý cửa hàng", href: "/admin/stores" },
+    ],
   },
 ];
 

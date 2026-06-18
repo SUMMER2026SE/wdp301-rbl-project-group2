@@ -97,6 +97,12 @@ export interface ManagerStoreSettings {
   isOpen: boolean;
 }
 
+export interface ManagerStoreInfo {
+  name: string;
+  address: string;
+  district: string;
+}
+
 class ManagerDashboardService {
   async getManagerDashboardMetrics(): Promise<{ success: boolean; data: ManagerDashboardMetrics }> {
     const response = await apiClient.get('/manager/dashboard/metrics');
@@ -117,6 +123,13 @@ class ManagerDashboardService {
     data: Pick<ManagerStoreSettings, 'openHours' | 'isOpen'>,
   ): Promise<{ success: boolean; data: ManagerStoreSettings }> {
     const response = await apiClient.put('/manager/settings', data);
+    return response.data;
+  }
+
+  async updateManagerStoreInfo(
+    data: Partial<ManagerStoreInfo>,
+  ): Promise<{ success: boolean; data: any }> {
+    const response = await apiClient.put('/manager/store', data);
     return response.data;
   }
 

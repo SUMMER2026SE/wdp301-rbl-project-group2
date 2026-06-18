@@ -24,6 +24,11 @@ import {
   getAdminActiveDeliveriesHandler,
   getAdminDispatchPendingOrdersHandler,
   assignAdminDispatchOrderHandler,
+  getAdminStoreDetailHandler,
+  createStoreHandler,
+  updateStoreHandler,
+  deactivateStoreHandler,
+  activateStoreHandler,
 } from '@/controllers/admin.controller';
 
 const adminRoutes = Router();
@@ -61,5 +66,13 @@ adminRoutes.get('/staff-requests', authenticate, authorize(Role.ADMIN), getAdmin
 adminRoutes.get('/staff-requests/:id', authenticate, authorize(Role.ADMIN), getAdminStaffRequestDetailHandler);
 adminRoutes.patch('/staff-requests/:id/approve', authenticate, authorize(Role.ADMIN), approveAdminStaffRequestHandler);
 adminRoutes.patch('/staff-requests/:id/reject', authenticate, authorize(Role.ADMIN), rejectAdminStaffRequestHandler);
+
+// ── Admin: store management ────────────────────────────────────
+adminRoutes.get('/stores', authenticate, authorize(Role.ADMIN), getAdminStoresHandler);
+adminRoutes.get('/stores/:id', authenticate, authorize(Role.ADMIN), getAdminStoreDetailHandler);
+adminRoutes.post('/stores', authenticate, authorize(Role.ADMIN), createStoreHandler);
+adminRoutes.put('/stores/:id', authenticate, authorize(Role.ADMIN), updateStoreHandler);
+adminRoutes.patch('/stores/:id/deactivate', authenticate, authorize(Role.ADMIN), deactivateStoreHandler);
+adminRoutes.patch('/stores/:id/activate', authenticate, authorize(Role.ADMIN), activateStoreHandler);
 
 export default adminRoutes;

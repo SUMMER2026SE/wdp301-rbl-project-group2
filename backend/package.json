@@ -14,6 +14,7 @@
     "backfill:recipes": "ts-node -r tsconfig-paths/register src/scripts/backfill-product-recipes.ts",
     "cleanup:unused-ingredients": "ts-node -r tsconfig-paths/register src/scripts/cleanup-unused-ingredients.ts",
     "rename:ingredients": "ts-node -r tsconfig-paths/register src/scripts/rename-ingredients.ts",
+    "seed:staff": "ts-node -r tsconfig-paths/register src/scripts/seed-staff.ts",
     "sync:products": "ts-node -r tsconfig-paths/register src/scripts/sync-products-from-csv.ts"
   },
   "engines": {

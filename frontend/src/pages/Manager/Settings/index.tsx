@@ -1,19 +1,41 @@
 import { useEffect, useState } from "react";
 import { Clock, Loader2, Save, Store, ToggleLeft, ToggleRight } from "lucide-react";
 import toast from "react-hot-toast";
-import managerDashboardService, { type ManagerStoreSettings } from "@/services/manager-dashboard.service";
+import managerDashboardService, { type ManagerStoreSettings, type ManagerStoreInfo } from "@/services/manager-dashboard.service";
+import { getAdminStoreById } from "@/services/store.service";
+import { useAuth } from "@/hooks/useAuth";
 
 const ManagerSettings = () => {
   const [settings, setSettings] = useState<ManagerStoreSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { storeId } = useAuth();
+  const [storeInfo, setStoreInfo] = useState<ManagerStoreInfo | null>(null);
+  const [savingStoreInfo, setSavingStoreInfo] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setLoading(true);
-        const response = await managerDashboardService.getManagerSettings();
-        setSettings(response.data);
+        const [settingsRes] = await Promise.all([
+          managerDashboardService.getManagerSettings(),
+        ]);
+        setSettings(settingsRes.data);
+
+        if (storeId) {
+          try {
+            const storeRes = await getAdminStoreById(storeId);
+            if (storeRes?.success && storeRes.data) {
+              setStoreInfo({
+                name: storeRes.data.name,
+                address: storeRes.data.address,
+                district: storeRes.data.district,
+              });
+            }
+          } catch {
+            // Non-blocking
+          }
+        }
       } catch (error) {
         console.error("Failed to load manager settings:", error);
         toast.error("Không tải được cài đặt chi nhánh");
@@ -23,7 +45,7 @@ const ManagerSettings = () => {
     };
 
     void loadSettings();
-  }, []);
+  }, [storeId]);
 
   const updateField = (field: "open" | "close", value: string) => {
     setSettings((current) =>
@@ -49,6 +71,25 @@ const ManagerSettings = () => {
       toast.error("Không lưu được cài đặt chi nhánh", { id: toastId });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveStoreInfo = async () => {
+    if (!storeInfo) return;
+    setSavingStoreInfo(true);
+    const toastId = toast.loading("Đang lưu thông tin cửa hàng...");
+    try {
+      await managerDashboardService.updateManagerStoreInfo({
+        name: storeInfo.name,
+        address: storeInfo.address,
+        district: storeInfo.district,
+      });
+      toast.success("Đã lưu thông tin cửa hàng", { id: toastId });
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "Không lưu được thông tin cửa hàng";
+      toast.error(msg, { id: toastId });
+    } finally {
+      setSavingStoreInfo(false);
     }
   };
 
@@ -108,6 +149,58 @@ const ManagerSettings = () => {
           </button>
         </section>
       </div>
+
+      {storeInfo && (
+        <section className="rounded-3xl border border-orange-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-slate-950">
+            <Store className="h-5 w-5 text-orange-500" />
+            Thông tin cửa hàng
+          </h2>
+          <p className="mb-5 text-xs font-semibold text-slate-400">Cập nhật tên, địa chỉ và quận/huyện của chi nhánh.</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="block">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400">Tên cửa hàng</span>
+              <input
+                type="text"
+                value={storeInfo.name}
+                onChange={(e) => setStoreInfo((prev) => prev ? { ...prev, name: e.target.value } : prev)}
+                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-orange-400"
+                placeholder="Tên cửa hàng"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400">Địa chỉ</span>
+              <input
+                type="text"
+                value={storeInfo.address}
+                onChange={(e) => setStoreInfo((prev) => prev ? { ...prev, address: e.target.value } : prev)}
+                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-orange-400"
+                placeholder="Số nhà, tên đường"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-400">Quận/Huyện</span>
+              <input
+                type="text"
+                value={storeInfo.district}
+                onChange={(e) => setStoreInfo((prev) => prev ? { ...prev, district: e.target.value } : prev)}
+                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-orange-400"
+                placeholder="Quận/Huyện"
+              />
+            </label>
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button
+              disabled={savingStoreInfo}
+              onClick={() => void saveStoreInfo()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 text-xs font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-60"
+            >
+              {savingStoreInfo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {savingStoreInfo ? "Đang lưu..." : "Lưu thông tin"}
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="flex justify-end">
         <button disabled={saving} onClick={() => void saveSettings()} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 text-xs font-black text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-60">
