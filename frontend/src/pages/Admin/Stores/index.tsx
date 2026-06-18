@@ -15,6 +15,7 @@ import {
   type UpdateStorePayload,
 } from "@/services/store.service";
 import { DELIVERABLE_CITY, DELIVERABLE_WARDS } from "@/utils/shipping";
+import ConfirmModal from "@/components/modal/ConfirmModal";
 
 const OTHER_CITY = "Khác";
 const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
@@ -63,6 +64,11 @@ const AdminStores = () => {
   const [coordsStr, setCoordsStr] = useState("106.6297, 10.8231");
   const [city, setCity] = useState(DELIVERABLE_CITY);
   const [ward, setWard] = useState("");
+
+  // Confirm modal state for activate/deactivate
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<IStore | null>(null);
+  const [togglingActive, setTogglingActive] = useState(false);
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
@@ -187,10 +193,15 @@ const AdminStores = () => {
     }
   };
 
-  const handleToggleActive = async (store: IStore) => {
-    const action = store.isActive ? "vô hiệu hóa" : "kích hoạt";
-    if (!window.confirm(`Bạn có chắc muốn ${action} cửa hàng "${store.name}"?`)) return;
+  const handleRequestToggle = (store: IStore) => {
+    setConfirmTarget(store);
+    setConfirmOpen(true);
+  };
 
+  const handleConfirmToggle = async () => {
+    if (!confirmTarget) return;
+    const store = confirmTarget;
+    setTogglingActive(true);
     try {
       if (store.isActive) {
         await deactivateStore(store._id);
@@ -199,11 +210,20 @@ const AdminStores = () => {
         await activateStore(store._id);
         toast.success(`Đã kích hoạt cửa hàng "${store.name}"`);
       }
+      setConfirmOpen(false);
+      setConfirmTarget(null);
       fetchStores();
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Thao tác thất bại";
       toast.error(msg);
+    } finally {
+      setTogglingActive(false);
     }
+  };
+
+  const handleCancelToggle = () => {
+    setConfirmOpen(false);
+    setConfirmTarget(null);
   };
 
   return (
@@ -349,7 +369,7 @@ const AdminStores = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggleActive(store)}
+                            onClick={() => handleRequestToggle(store)}
                             className={clsx(
                               "p-2 rounded-lg transition-colors",
                               store.isActive
@@ -498,6 +518,20 @@ const AdminStores = () => {
           </div>
         </div>
       </AdminDrawer>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmTarget?.isActive ? "Vô hiệu hóa cửa hàng" : "Kích hoạt cửa hàng"}
+        message={
+          confirmTarget?.isActive
+            ? `Bạn có chắc muốn vô hiệu hóa cửa hàng "${confirmTarget?.name}"? Sau khi vô hiệu hóa, cửa hàng sẽ ngừng hoạt động.`
+            : `Bạn có chắc muốn kích hoạt lại cửa hàng "${confirmTarget?.name}"? Cửa hàng sẽ hoạt động trở lại.`
+        }
+        confirmLabel={confirmTarget?.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
+        isLoading={togglingActive}
+        onConfirm={handleConfirmToggle}
+        onCancel={handleCancelToggle}
+      />
     </div>
   );
 };
