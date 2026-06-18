@@ -63,6 +63,7 @@ const AdminStores = () => {
   const [coordsStr, setCoordsStr] = useState("106.6297, 10.8231");
   const [city, setCity] = useState(DELIVERABLE_CITY);
   const [ward, setWard] = useState("");
+  const [geoLocating, setGeoLocating] = useState(false);
 
   // Confirm modal state for activate/deactivate
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -103,6 +104,40 @@ const AdminStores = () => {
       return [parts[0], parts[1]] as [number, number];
     }
     return null;
+  };
+
+  /** Geocode full address via Nominatim (OpenStreetMap) — free, no API key */
+  const geocodeAddress = async () => {
+    const address = formData.address.trim();
+    if (!address) {
+      toast.error("Vui lòng nhập địa chỉ chi tiết trước");
+      return;
+    }
+    if (!ward) {
+      toast.error("Vui lòng chọn phường/xã trước");
+      return;
+    }
+
+    const query = `${address}, ${ward}, ${city}, Việt Nam`;
+    setGeoLocating(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+        { headers: { "Accept-Language": "vi" } }
+      );
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const { lon, lat, display_name } = data[0];
+        setCoordsStr(`${lon}, ${lat}`);
+        toast.success(`Đã tìm thấy toạ độ: ${display_name?.split(",")[0] || ""}`);
+      } else {
+        toast.error("Không tìm thấy toạ độ cho địa chỉ này. Vui lòng nhập tay.");
+      }
+    } catch {
+      toast.error("Lỗi kết nối geocoding. Vui lòng nhập toạ độ tay.");
+    } finally {
+      setGeoLocating(false);
+    }
   };
 
   const openCreateDrawer = () => {
@@ -612,7 +647,7 @@ const AdminStores = () => {
             <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
               Tọa độ (longitude, latitude)
               <span className="text-[11px] font-medium text-emerald-600 ml-2 normal-case">
-                ⟵ Tự động từ phường/xã đã chọn
+                ⟵ Auto từ phường/xã
               </span>
             </label>
             <div className="flex items-center gap-2">
@@ -625,9 +660,24 @@ const AdminStores = () => {
                 placeholder="106.6297, 10.8231"
               />
             </div>
-            <p className="mt-1 text-xs text-[#9a734c]/70">
-              Định dạng: kinh độ, vĩ độ (VD: 106.6297, 10.8231 cho TP.HCM)
-            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void geocodeAddress()}
+                disabled={geoLocating}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-60"
+              >
+                {geoLocating ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <MapPin size={14} />
+                )}
+                {geoLocating ? "Đang tìm..." : "Tìm toạ độ chính xác"}
+              </button>
+              <p className="text-[11px] text-[#9a734c]/60">
+                Tự động tìm từ địa chỉ chi tiết + phường/xã
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
