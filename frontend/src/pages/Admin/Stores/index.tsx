@@ -303,91 +303,110 @@ const AdminStores = () => {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-[#e7dbcf] rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#f3ede7]/60 border-b border-[#e7dbcf]">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">
-                    Tên cửa hàng
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">
-                    Địa chỉ
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">
-                    Quận/Huyện
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">
-                    Trạng thái
-                  </th>
-                  <th className="text-right px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">
-                    Hành động
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e7dbcf]/60">
-                {stores.map((store) => {
-                  const status = normalizeStoreStatus(store.isActive);
-                  return (
-                    <tr key={store._id} className="hover:bg-[#f3ede7]/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
-                            <Store size={18} />
-                          </div>
-                          <span className="font-bold text-[#1b140d]">{store.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-[#6b5744]">
-                          <MapPin size={14} />
-                          <span className="text-sm">{store.address}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-[#6b5744] text-sm font-medium">
-                        {store.district}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={clsx(
-                            "inline-flex px-2.5 py-1 rounded-full text-xs font-bold border",
-                            getStatusBadge(status)
-                          )}
-                        >
-                          {getStatusLabel(status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditDrawer(store)}
-                            className="p-2 text-[#6b5744] hover:text-[#ee8c2b] hover:bg-orange-50 rounded-lg transition-colors"
-                            title="Chỉnh sửa"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRequestToggle(store)}
-                            className={clsx(
-                              "p-2 rounded-lg transition-colors",
-                              store.isActive
-                                ? "text-red-500 hover:text-red-600 hover:bg-red-50"
-                                : "text-green-500 hover:text-green-600 hover:bg-green-50"
-                            )}
-                            title={store.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-                          >
-                            {store.isActive ? <Ban size={16} /> : <CheckCircle size={16} />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {stores.map((store) => {
+            const status = normalizeStoreStatus(store.isActive);
+            return (
+              <div
+                key={store._id}
+                className="group bg-white rounded-2xl border border-[#e7dbcf] overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+              >
+                {/* Card header — status bar */}
+                <div
+                  className={clsx(
+                    "h-1.5 w-full",
+                    store.isActive ? "bg-emerald-400" : "bg-slate-300"
+                  )}
+                />
+
+                <div className="p-5">
+                  {/* Store name + status badge */}
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={clsx(
+                          "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
+                          store.isActive
+                            ? "bg-orange-100 text-orange-600"
+                            : "bg-slate-100 text-slate-400"
+                        )}
+                      >
+                        <Store size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-base font-black text-[#1b140d] truncate leading-tight">
+                          {store.name}
+                        </h3>
+                      </div>
+                    </div>
+                    <span
+                      className={clsx(
+                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border shrink-0",
+                        getStatusBadge(status)
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          "w-1.5 h-1.5 rounded-full",
+                          store.isActive ? "bg-emerald-500" : "bg-slate-400"
+                        )}
+                      />
+                      {getStatusLabel(status)}
+                    </span>
+                  </div>
+
+                  {/* Address info */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-start gap-2.5">
+                      <MapPin size={15} className="text-[#9a734c]/60 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#6b5744] leading-snug">
+                          {store.address}
+                        </p>
+                        <p className="text-xs font-medium text-[#9a734c]/80 mt-0.5">
+                          {store.district}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions footer */}
+                  <div className="flex items-center justify-between pt-3 border-t border-[#e7dbcf]/60">
+                    <button
+                      type="button"
+                      onClick={() => openEditDrawer(store)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#6b5744] hover:text-[#ee8c2b] hover:bg-orange-50 rounded-lg transition-colors"
+                    >
+                      <Pencil size={14} />
+                      Chỉnh sửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRequestToggle(store)}
+                      className={clsx(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors",
+                        store.isActive
+                          ? "text-red-500 hover:text-red-600 hover:bg-red-50"
+                          : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                      )}
+                    >
+                      {store.isActive ? (
+                        <>
+                          <Ban size={14} />
+                          Vô hiệu
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} />
+                          Kích hoạt
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
