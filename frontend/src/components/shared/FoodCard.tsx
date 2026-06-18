@@ -2,7 +2,6 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Star, Clock, Sparkles, AlertTriangle, Check, Plus } from 'lucide-react';
-import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 // ---- Types ----
 
@@ -31,7 +30,7 @@ export interface FoodCardProps {
         value: number;
         label: string;
     };
-    onAddToCart?: (id: string) => void;
+    onAddToCart?: (id: string, trigger?: HTMLButtonElement | null) => void;
     className?: string;
 }
 
@@ -71,12 +70,7 @@ export function FoodCard({
     const handleAddClick = (e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
         if (!onAddToCart) return;
-        showAddToCartFeedback(
-            e.currentTarget,
-            image,
-            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
-        );
-        onAddToCart(id);
+        onAddToCart(id, e.currentTarget);
     };
 
     const discountPercentage = originalPrice && originalPrice > price

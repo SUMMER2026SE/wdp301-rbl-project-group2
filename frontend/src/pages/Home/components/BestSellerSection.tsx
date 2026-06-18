@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { FoodCard } from "@/components/shared/FoodCard";
-import { useCart } from "@/hooks/useCart";
+import { useSafeCart } from "@/hooks/useSafeCart";
 import { useStoreStore } from "@/store/storeStore";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 // ── Skeleton ─────────────────────────────────────────────
 const BestSellerSkeleton = () => (
@@ -25,7 +26,7 @@ const BestSellerSection = () => {
   const { t } = useTranslation(["customer", "common"]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { addItem } = useCart();
+  const { safeAddItem } = useSafeCart();
   const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
@@ -95,14 +96,25 @@ const BestSellerSection = () => {
                       icon: <Flame className="w-3 h-3" />,
                       className: 'bg-orange-600 text-white'
                   }}
-                  onAddToCart={() => {
-                      addItem({
-                          productId: dish._id,
-                          name: dish.name,
-                          image: typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : ''),
-                          price: dish.campaignPrice ?? dish.price,
-                          quantity: 1
-                      });
+                  onAddToCart={(_, trigger) => {
+                      const image = typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : '');
+                      safeAddItem(
+                          dish,
+                          {
+                              productId: dish._id,
+                              name: dish.name,
+                              image,
+                              price: dish.campaignPrice ?? dish.price,
+                              quantity: 1
+                          },
+                          () => {
+                              showAddToCartFeedback(
+                                  trigger,
+                                  image,
+                                  t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                              );
+                          }
+                      );
                   }}
               />
             ))}

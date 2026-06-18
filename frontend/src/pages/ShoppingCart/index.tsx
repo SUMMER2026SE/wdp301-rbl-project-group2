@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useCart } from "@/hooks/useCart";
+import { useSafeCart } from "@/hooks/useSafeCart";
 import { useAuth } from "@/hooks/useAuth";
 import { MOCK_UPSELL_ITEMS } from "@/constants/mockOrders";
 import { useEffect } from "react";
@@ -27,13 +27,13 @@ const ShoppingCartPage = () => {
     totalPrice,
     updateQuantity,
     removeItem,
-    addItem,
+    safeAddItem,
     orderNote,
     setOrderNote,
     toggleSelectItem,
     toggleSelectAll,
     clearCart,
-  } = useCart();
+  } = useSafeCart();
 
   const [showClearCartModal, setShowClearCartModal] = useState(false);
   const [upsellProducts, setUpsellProducts] = useState<Product[]>([]);
@@ -413,18 +413,19 @@ const ShoppingCartPage = () => {
                       <button
                         type="button"
                         onClick={(e) => {
-                          addItem({
+                          safeAddItem(item, {
                             productId: item._id,
                             name: item.name,
                             image: imageUrl,
                             price: item.price,
                             quantity: 1,
-                          });
+                          }, () => {
                           showAddToCartFeedback(
                             e.currentTarget,
                             imageUrl,
                             t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
                           );
+                          });
                         }}
                         className="bg-orange-50 dark:bg-white/5 p-1.5 rounded-lg text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-90 cursor-pointer"
                       >

@@ -438,7 +438,7 @@ const ProfileSettingsPage = () => {
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8 border-b border-slate-100 pb-6">
             <div>
               <div className="flex items-center gap-2.5 mb-1.5">
-                <h3 className="text-xl font-bold text-slate-900">Hồ sơ Dị ứng AI</h3>
+                <h3 className="text-xl font-bold text-slate-900">Hồ sơ dị ứng</h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 uppercase tracking-wide">
                   Beta
                 </span>
@@ -470,8 +470,8 @@ const ProfileSettingsPage = () => {
           {/* Main Content Grid */}
           <div className="flex flex-col gap-6 xl:gap-8">
 
-            {/* Top Section: Sticky Summary & Actions */}
-            <aside className="sticky top-28 xl:top-32 bg-white z-20 pb-2 flex flex-col xl:flex-row gap-5 items-start">
+            {/* Top Section: Summary & Actions */}
+            <aside className="bg-white pb-2 flex flex-col xl:flex-row gap-5 items-start">
               <div className={`flex-1 w-full rounded-xl border p-5 transition-colors ${isPrefsDirty ? "bg-amber-50/50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="size-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">

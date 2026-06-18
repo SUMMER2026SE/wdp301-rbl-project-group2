@@ -10,8 +10,6 @@ import { userService } from "@/services/profile.service";
 import { useAuthStore } from "@/store/authStore";
 import type { AuthAddress } from "@/store/authStore";
 import { sanitizeAddressesForApi } from "@/utils/address";
-import { AllergyWarningDialog, scanCartForAllergies } from "@/components/shared/AllergyWarningDialog";
-import productAPI from "@/services/product.service";
 import { TicketVoucher } from "@/components/shared/TicketVoucher";
 import paymentService from "@/services/payment.service";
 
@@ -59,12 +57,8 @@ const CheckoutPage = () => {
 
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const userAllergies = user?.preferences?.allergies ?? [];
-  const userDietary = user?.preferences?.dietary ?? [];
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editAddressIndex, setEditAddressIndex] = useState<number | null>(null);
-  const [allergyConflicts, setAllergyConflicts] = useState<any[]>([]);
-  const [showAllergyWarning, setShowAllergyWarning] = useState(false);
   const [suggestedAddress, setSuggestedAddress] = useState<AuthAddress | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -192,7 +186,6 @@ const CheckoutPage = () => {
     }
   }, [addresses.length, effectiveAddress]);
 
-  // FSS-40: Intercept order placement to check for allergies first
   const handleCheckoutSubmit = async () => {
     if (!effectiveAddress) {
       toast("Vui lòng chọn hoặc thêm địa chỉ nhận hàng", "warning");
@@ -219,37 +212,6 @@ const CheckoutPage = () => {
       return;
     }
 
-    if (userAllergies.length === 0 && userDietary.length === 0) {
-      handlePlaceOrder();
-      return;
-    }
-
-    try {
-      // Cart items only have basic info. Fetch full product data for health tags.
-      const fullProductsPromises = cartItems.map(item => productAPI.getProductById(item.productId));
-      const responses = await Promise.all(fullProductsPromises);
-
-      const itemsToScan = responses.map((res, index) => ({
-        product: res.data,
-        quantity: cartItems[index].quantity
-      }));
-
-      const conflicts = scanCartForAllergies(itemsToScan, userAllergies, userDietary);
-      if (conflicts.length > 0) {
-        setAllergyConflicts(conflicts);
-        setShowAllergyWarning(true);
-      } else {
-        handlePlaceOrder();
-      }
-    } catch (error) {
-      console.error("Failed to check allergies", error);
-      // Fallback: proceed with order if allergy check fails
-      handlePlaceOrder();
-    }
-  };
-
-  const handleConfirmAllergyWarning = () => {
-    setShowAllergyWarning(false);
     handlePlaceOrder();
   };
 
@@ -1158,14 +1120,6 @@ const CheckoutPage = () => {
         isFirstAddress={addresses.length === 0}
       />
 
-      {/* FSS-40: Allergy Warning Modal */}
-      {showAllergyWarning && (
-        <AllergyWarningDialog
-          conflicts={allergyConflicts}
-          onConfirm={handleConfirmAllergyWarning}
-          onCancel={() => setShowAllergyWarning(false)}
-        />
-      )}
     </div>
   );
 };
