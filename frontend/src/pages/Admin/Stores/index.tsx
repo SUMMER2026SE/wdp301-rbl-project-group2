@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { clsx } from "clsx";
-import { Store, Plus, Pencil, Ban, CheckCircle, Loader2, MapPin, Navigation } from "lucide-react";
+import { Store, Plus, Pencil, Ban, CheckCircle, Loader2, MapPin, Navigation, LayoutGrid, List } from "lucide-react";
 import { AdminDrawer } from "@/components/shared/AdminDrawer";
 import toast from "react-hot-toast";
 import {
@@ -15,7 +15,6 @@ import {
   type UpdateStorePayload,
 } from "@/services/store.service";
 import { DELIVERABLE_CITY, DELIVERABLE_WARDS } from "@/utils/shipping";
-import ConfirmModal from "@/components/modal/ConfirmModal";
 
 const OTHER_CITY = "Khác";
 const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
@@ -69,6 +68,9 @@ const AdminStores = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<IStore | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
+
+  // View toggle: cards | table
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
@@ -283,6 +285,36 @@ const AdminStores = () => {
             </button>
           ))}
         </div>
+
+        {/* View mode toggle */}
+        <div className="flex border border-[#e7dbcf] rounded-xl overflow-hidden ml-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode("cards")}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold transition-colors",
+              viewMode === "cards"
+                ? "bg-[#ee8c2b] text-white"
+                : "bg-white text-[#9a734c] hover:bg-[#f3ede7]"
+            )}
+            title="Xem dạng thẻ"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("table")}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold transition-colors",
+              viewMode === "table"
+                ? "bg-[#ee8c2b] text-white"
+                : "bg-white text-[#9a734c] hover:bg-[#f3ede7]"
+            )}
+            title="Xem dạng bảng"
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -302,7 +334,8 @@ const AdminStores = () => {
             Nhấn "Thêm cửa hàng" để tạo chi nhánh mới.
           </p>
         </div>
-      ) : (
+      ) : viewMode === "cards" ? (
+        /* ── Card Grid View ── */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {stores.map((store) => {
             const status = normalizeStoreStatus(store.isActive);
@@ -311,16 +344,13 @@ const AdminStores = () => {
                 key={store._id}
                 className="group bg-white rounded-2xl border border-[#e7dbcf] overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
               >
-                {/* Card header — status bar */}
                 <div
                   className={clsx(
                     "h-1.5 w-full",
                     store.isActive ? "bg-emerald-400" : "bg-slate-300"
                   )}
                 />
-
                 <div className="p-5">
-                  {/* Store name + status badge */}
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
@@ -354,8 +384,6 @@ const AdminStores = () => {
                       {getStatusLabel(status)}
                     </span>
                   </div>
-
-                  {/* Address info */}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-start gap-2.5">
                       <MapPin size={15} className="text-[#9a734c]/60 shrink-0 mt-0.5" />
@@ -369,8 +397,6 @@ const AdminStores = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Actions footer */}
                   <div className="flex items-center justify-between pt-3 border-t border-[#e7dbcf]/60">
                     <button
                       type="button"
@@ -407,6 +433,90 @@ const AdminStores = () => {
               </div>
             );
           })}
+        </div>
+      ) : (
+        /* ── Table View ── */
+        <div className="bg-white border border-[#e7dbcf] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#f3ede7]/60 border-b border-[#e7dbcf]">
+                <tr>
+                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">Tên cửa hàng</th>
+                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">Địa chỉ</th>
+                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">Quận/Huyện</th>
+                  <th className="text-left px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">Trạng thái</th>
+                  <th className="text-right px-6 py-4 text-xs font-black uppercase tracking-wider text-[#9a734c]">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e7dbcf]/60">
+                {stores.map((store) => {
+                  const status = normalizeStoreStatus(store.isActive);
+                  return (
+                    <tr key={store._id} className="hover:bg-[#f3ede7]/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={clsx(
+                              "w-9 h-9 rounded-lg flex items-center justify-center",
+                              store.isActive
+                                ? "bg-orange-100 text-orange-600"
+                                : "bg-slate-100 text-slate-400"
+                            )}
+                          >
+                            <Store size={18} />
+                          </div>
+                          <span className="font-bold text-[#1b140d]">{store.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-[#6b5744]">
+                          <MapPin size={14} />
+                          <span className="text-sm">{store.address}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-[#6b5744] text-sm font-medium">{store.district}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border",
+                            getStatusBadge(status)
+                          )}
+                        >
+                          <span className={clsx("w-1.5 h-1.5 rounded-full", store.isActive ? "bg-emerald-500" : "bg-slate-400")} />
+                          {getStatusLabel(status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditDrawer(store)}
+                            className="p-2 text-[#6b5744] hover:text-[#ee8c2b] hover:bg-orange-50 rounded-lg transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRequestToggle(store)}
+                            className={clsx(
+                              "p-2 rounded-lg transition-colors",
+                              store.isActive
+                                ? "text-red-500 hover:text-red-600 hover:bg-red-50"
+                                : "text-green-500 hover:text-green-600 hover:bg-green-50"
+                            )}
+                            title={store.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
+                          >
+                            {store.isActive ? <Ban size={16} /> : <CheckCircle size={16} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -538,19 +648,108 @@ const AdminStores = () => {
         </div>
       </AdminDrawer>
 
-      <ConfirmModal
-        open={confirmOpen}
-        title={confirmTarget?.isActive ? "Vô hiệu hóa cửa hàng" : "Kích hoạt cửa hàng"}
-        message={
-          confirmTarget?.isActive
-            ? `Bạn có chắc muốn vô hiệu hóa cửa hàng "${confirmTarget?.name}"? Sau khi vô hiệu hóa, cửa hàng sẽ ngừng hoạt động.`
-            : `Bạn có chắc muốn kích hoạt lại cửa hàng "${confirmTarget?.name}"? Cửa hàng sẽ hoạt động trở lại.`
-        }
-        confirmLabel={confirmTarget?.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-        isLoading={togglingActive}
-        onConfirm={handleConfirmToggle}
-        onCancel={handleCancelToggle}
-      />
+      {/* Custom Deactivate/Activate Confirm Dialog */}
+      {confirmOpen && confirmTarget && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancelToggle} />
+          {/* Dialog */}
+          <div className="relative z-10 mx-4 w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+            {/* Header with color accent */}
+            <div
+              className={clsx(
+                "px-6 pt-6 pb-5 text-center",
+                confirmTarget.isActive ? "bg-red-50" : "bg-emerald-50"
+              )}
+            >
+              <div
+                className={clsx(
+                  "mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-4",
+                  confirmTarget.isActive
+                    ? "bg-red-100 text-red-500"
+                    : "bg-emerald-100 text-emerald-500"
+                )}
+              >
+                {confirmTarget.isActive ? (
+                  <Ban size={30} />
+                ) : (
+                  <CheckCircle size={30} />
+                )}
+              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                {confirmTarget.isActive ? "Vô hiệu hóa cửa hàng?" : "Kích hoạt cửa hàng?"}
+              </h3>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5">
+              {/* Store info preview */}
+              <div className="flex items-center gap-3 p-4 bg-[#f8f7f6] rounded-2xl mb-4">
+                <div
+                  className={clsx(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                    confirmTarget.isActive
+                      ? "bg-orange-100 text-orange-600"
+                      : "bg-slate-100 text-slate-400"
+                  )}
+                >
+                  <Store size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-[#1b140d] truncate">{confirmTarget.name}</p>
+                  <p className="text-xs font-medium text-[#9a734c] truncate">{confirmTarget.address}</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {confirmTarget.isActive
+                  ? "Cửa hàng này sẽ ngừng hoạt động. Nhân viên thuộc cửa hàng sẽ không thể nhận đơn hàng mới."
+                  : "Cửa hàng này sẽ hoạt động trở lại. Nhân viên thuộc cửa hàng có thể tiếp tục nhận đơn hàng."}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelToggle}
+                disabled={togglingActive}
+                className="flex-1 h-12 rounded-2xl border border-[#e7dbcf] text-sm font-bold text-[#1b140d] hover:bg-[#f3ede7] transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmToggle()}
+                disabled={togglingActive}
+                className={clsx(
+                  "flex-1 h-12 rounded-2xl text-sm font-bold text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2",
+                  confirmTarget.isActive
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-emerald-500 hover:bg-emerald-600"
+                )}
+              >
+                {togglingActive ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : confirmTarget.isActive ? (
+                  <>
+                    <Ban size={16} />
+                    Vô hiệu hóa
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={16} />
+                    Kích hoạt
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
