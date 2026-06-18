@@ -19,6 +19,8 @@ import type { Server } from 'socket.io';
 
 const REVIEW_TOXIC_LIMIT = 3;
 const REVIEW_BAN_HOURS = 24;
+const REVIEW_MODERATION_MIN_DELAY_MS = 50_000;
+const REVIEW_MODERATION_MAX_DELAY_MS = 60_000;
 
 const emptyReactionSummary = () => ({
   like: 0,
@@ -125,7 +127,7 @@ export const createOrderReviews = async (
     await updateProductOverallRating(productId);
 
     if (review) {
-      void moderateSavedReview({
+      scheduleReviewModeration({
         reviewId: review._id,
         expectedUpdatedAt: review.updatedAt,
         userId,
@@ -340,6 +342,26 @@ const recordToxicReviewAttempt = async (userId: mongoose.Types.ObjectId) => {
     toxicCount,
     reviewBannedUntil,
   };
+};
+
+const getReviewModerationDelayMs = () =>
+  REVIEW_MODERATION_MIN_DELAY_MS +
+  Math.floor(Math.random() * (REVIEW_MODERATION_MAX_DELAY_MS - REVIEW_MODERATION_MIN_DELAY_MS + 1));
+
+const scheduleReviewModeration = (payload: {
+  reviewId: mongoose.Types.ObjectId;
+  expectedUpdatedAt: Date;
+  userId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  productId: string;
+  comment: string;
+  io?: Server;
+}) => {
+  const timer = setTimeout(() => {
+    void moderateSavedReview(payload);
+  }, getReviewModerationDelayMs());
+
+  timer.unref?.();
 };
 
 const moderateSavedReview = async ({

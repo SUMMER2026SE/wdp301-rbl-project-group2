@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import { FoodCard } from '@/components/shared/FoodCard';
 import campaignAPI from '@/services/campaign.service';
 import type { Campaign } from '@/services/campaign.service';
-import { useCart } from '@/hooks/useCart';
+import { useSafeCart } from '@/hooks/useSafeCart';
+import type { Product } from '@/types/product';
+import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 const FlashSaleSection: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string }>({
@@ -15,7 +17,7 @@ const FlashSaleSection: React.FC = () => {
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
-  const { addItem } = useCart();
+  const { safeAddItem } = useSafeCart();
 
   // Fetch campaigns and pick first with products
   useEffect(() => {
@@ -86,6 +88,7 @@ const FlashSaleSection: React.FC = () => {
           typeof prod.image === 'string' ? prod.image : prod.image?.secureUrl ?? '';
 
         return {
+          product: prod,
           _id: prod._id,
           name: prod.name,
           image: imageUrl,
@@ -106,6 +109,7 @@ const FlashSaleSection: React.FC = () => {
           originalPrice: number;
           soldCount: number;
           totalStock: number;
+          product: Product;
         } => p !== null
       );
   }, [campaign]);
@@ -189,14 +193,20 @@ const FlashSaleSection: React.FC = () => {
               value: (p.soldCount / p.totalStock) * 100,
               label: `Đã bán ${p.soldCount}`,
             }}
-            onAddToCart={() => {
-              addItem({
-                productId: p._id,
-                name: p.name,
-                image: p.image,
-                price: p.price,
-                quantity: 1,
-              });
+            onAddToCart={(_, trigger) => {
+              safeAddItem(
+                p.product,
+                {
+                  productId: p._id,
+                  name: p.name,
+                  image: p.image,
+                  price: p.price,
+                  quantity: 1,
+                },
+                () => {
+                  showAddToCartFeedback(trigger, p.image, 'Đã thêm sản phẩm vào giỏ hàng!');
+                }
+              );
             }}
           />
         ))}
