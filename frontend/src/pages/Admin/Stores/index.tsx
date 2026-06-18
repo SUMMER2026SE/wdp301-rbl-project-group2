@@ -71,7 +71,7 @@ const AdminStores = () => {
   const [togglingActive, setTogglingActive] = useState(false);
 
   // View toggle: cards | table
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
@@ -683,9 +683,9 @@ const AdminStores = () => {
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
               Tọa độ (longitude, latitude)
-              <span className="text-[11px] font-medium text-emerald-600 ml-2 normal-case">
+              {/* <span className="text-[11px] font-medium text-emerald-600 ml-2 normal-case">
                 ⟵ Auto từ phường/xã
-              </span>
+              </span> */}
             </label>
             <div className="flex items-center gap-2">
               <Navigation size={16} className="text-[#9a734c] shrink-0" />
