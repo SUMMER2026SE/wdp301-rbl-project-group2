@@ -29,6 +29,14 @@ import { Role } from '@/types/user.type';
 import { UserModel } from '@/models';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
+import {
+  listAllStores,
+  getStoreById,
+  createStore,
+  updateStore,
+  setStoreActive,
+} from '@/services/store-management.service';
+import { createStoreSchema, updateStoreSchema } from '@/validators/store.validator';
 
 export const createStaffHandler = catchErrors(async (req, res) => {
   const body = createStaffValidator.parse(req.body);
@@ -201,4 +209,72 @@ export const rejectAdminStaffRequestHandler = catchErrors(async (req, res) => {
   const adminId = new mongoose.Types.ObjectId(req.userId!);
   const request = await rejectStaffRequest(adminId, req.params.id, req.body);
   return res.success(OK, { data: request });
+});
+
+// ── Admin: store management ────────────────────────────────────
+
+export const getAdminStoresHandler = catchErrors(async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const isActive = req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined;
+  const search = req.query.search as string | undefined;
+
+  const result = await listAllStores(page, limit, { isActive, search });
+
+  return res.success(OK, {
+    message: 'Lấy danh sách cửa hàng thành công',
+    data: result.stores,
+    pagination: {
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    },
+  });
+});
+
+export const getAdminStoreDetailHandler = catchErrors(async (req, res) => {
+  const store = await getStoreById(req.params.id);
+
+  return res.success(OK, {
+    message: 'Lấy thông tin cửa hàng thành công',
+    data: store,
+  });
+});
+
+export const createStoreHandler = catchErrors(async (req, res) => {
+  const body = createStoreSchema.parse(req.body);
+  const store = await createStore(body);
+
+  return res.success(CREATED, {
+    message: 'Tạo cửa hàng thành công',
+    data: store,
+  });
+});
+
+export const updateStoreHandler = catchErrors(async (req, res) => {
+  const body = updateStoreSchema.parse(req.body);
+  const store = await updateStore(req.params.id, body);
+
+  return res.success(OK, {
+    message: 'Cập nhật cửa hàng thành công',
+    data: store,
+  });
+});
+
+export const deactivateStoreHandler = catchErrors(async (req, res) => {
+  const store = await setStoreActive(req.params.id, false);
+
+  return res.success(OK, {
+    message: 'Đã vô hiệu hóa cửa hàng',
+    data: store,
+  });
+});
+
+export const activateStoreHandler = catchErrors(async (req, res) => {
+  const store = await setStoreActive(req.params.id, true);
+
+  return res.success(OK, {
+    message: 'Đã kích hoạt cửa hàng',
+    data: store,
+  });
 });
