@@ -14,6 +14,10 @@ import {
   type CreateStorePayload,
   type UpdateStorePayload,
 } from "@/services/store.service";
+import { DELIVERABLE_CITY, DELIVERABLE_WARDS } from "@/utils/shipping";
+
+const OTHER_CITY = "Khác";
+const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
 
 const normalizeStoreStatus = (isActive: boolean): "active" | "inactive" =>
   isActive ? "active" : "inactive";
@@ -57,6 +61,8 @@ const AdminStores = () => {
   const [formData, setFormData] = useState<CreateStorePayload>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coordsStr, setCoordsStr] = useState("106.6297, 10.8231");
+  const [city, setCity] = useState(DELIVERABLE_CITY);
+  const [ward, setWard] = useState("");
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
@@ -96,6 +102,8 @@ const AdminStores = () => {
     setEditingStoreId(null);
     setFormData(EMPTY_FORM);
     setCoordsStr("106.6297, 10.8231");
+    setCity(DELIVERABLE_CITY);
+    setWard("");
     setDrawerOpen(true);
   };
 
@@ -109,6 +117,16 @@ const AdminStores = () => {
       district: store.district,
     });
     setCoordsStr(`${store.location.coordinates[0]}, ${store.location.coordinates[1]}`);
+    // Parse district to extract city + ward (district format: "WardName, City" or just "WardName")
+    const district = store.district || "";
+    const knownCity = CITY_OPTIONS.find((c) => district.endsWith(c));
+    if (knownCity) {
+      setCity(knownCity);
+      setWard(district.slice(0, district.lastIndexOf(knownCity)).replace(/,\s*$/, "").trim());
+    } else {
+      setCity(DELIVERABLE_CITY);
+      setWard(district);
+    }
     setDrawerOpen(true);
   };
 
@@ -121,8 +139,12 @@ const AdminStores = () => {
       toast.error("Vui lòng nhập địa chỉ");
       return;
     }
-    if (!formData.district.trim()) {
-      toast.error("Vui lòng nhập quận/huyện");
+    if (!city.trim() || city === OTHER_CITY) {
+      toast.error("Hiện chỉ hỗ trợ cửa hàng tại Đà Nẵng");
+      return;
+    }
+    if (city === DELIVERABLE_CITY && !ward.trim()) {
+      toast.error("Vui lòng chọn phường/xã");
       return;
     }
 
@@ -132,9 +154,12 @@ const AdminStores = () => {
       return;
     }
 
+    const district = ward ? `${ward}, ${city}` : city;
+
     const payload: CreateStorePayload = {
       ...formData,
       location: { type: "Point", coordinates: coords },
+      district,
     };
 
     setIsSubmitting(true);
@@ -367,7 +392,54 @@ const AdminStores = () => {
           </div>
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
-              Địa chỉ
+              Thành phố *
+            </label>
+            <select
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setWard("");
+              }}
+              className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-white"
+            >
+              <option value="">-- Chọn thành phố --</option>
+              {CITY_OPTIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            {city && city !== DELIVERABLE_CITY && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">block</span>
+                Hiện chỉ hỗ trợ cửa hàng tại khu vực Đà Nẵng
+              </p>
+            )}
+          </div>
+
+          {city === DELIVERABLE_CITY && (
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
+                Phường/Xã *
+              </label>
+              <select
+                value={ward}
+                onChange={(e) => setWard(e.target.value)}
+                className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-white"
+              >
+                <option value="">-- Chọn phường/xã --</option>
+                {DELIVERABLE_WARDS.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
+              Địa chỉ chi tiết (số nhà, tên đường) *
             </label>
             <input
               type="text"
@@ -375,18 +447,6 @@ const AdminStores = () => {
               onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
               className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
               placeholder="Số nhà, tên đường"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
-              Quận/Huyện
-            </label>
-            <input
-              type="text"
-              value={formData.district}
-              onChange={(e) => setFormData((prev) => ({ ...prev, district: e.target.value }))}
-              className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-              placeholder="VD: Quận 1, Quận Bình Thạnh..."
             />
           </div>
           <div>
