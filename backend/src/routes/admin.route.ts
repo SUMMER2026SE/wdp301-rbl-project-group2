@@ -24,7 +24,6 @@ import {
   getAdminActiveDeliveriesHandler,
   getAdminDispatchPendingOrdersHandler,
   assignAdminDispatchOrderHandler,
-  getAdminStoresHandler,
   getAdminStoreDetailHandler,
   createStoreHandler,
   updateStoreHandler,

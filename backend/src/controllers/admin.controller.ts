@@ -77,14 +77,6 @@ export const updateManagerStatusHandler = catchErrors(async (req, res) => {
   });
 });
 
-export const getAdminStoresHandler = catchErrors(async (_req, res) => {
-  const stores = await listAdminStores();
-
-  return res.success(OK, {
-    message: 'Lấy danh sách cửa hàng thành công',
-    data: stores,
-  });
-});
 export const getCustomersHandler = catchErrors(async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
