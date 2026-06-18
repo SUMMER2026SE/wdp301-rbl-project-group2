@@ -23,10 +23,18 @@ export const updateCampaignValidator = z.object({
   products: z.array(campaignProductItemValidator).optional(),
   startTime: z.string().datetime({ message: 'Thời gian bắt đầu không hợp lệ' }).optional(),
   endTime: z.string().datetime({ message: 'Thời gian kết thúc không hợp lệ' }).optional(),
+}).refine(data => {
+  if (data.startTime && data.endTime) {
+    return new Date(data.startTime) < new Date(data.endTime);
+  }
+  return true;
+}, {
+  message: 'Thời gian bắt đầu phải trước thời gian kết thúc',
+  path: ['endTime'],
 });
 
 export const updateCampaignStatusValidator = z.object({
-  status: z.enum(['pending', 'approved', 'rejected'], {
+  status: z.enum(['approved', 'rejected'], {
     message: 'Trạng thái không hợp lệ',
   }),
 });

@@ -19,9 +19,13 @@ RUN pnpm run build
 FROM node:20-alpine
 WORKDIR /app
 
+RUN corepack enable && corepack prepare pnpm@9 --activate
+
 # Cài đặt server 'serve' bằng npm để có sẵn PATH global
 RUN npm install -g serve
 
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
 # Dành cho Next.js (Bỏ comment nếu dùng Next.js)

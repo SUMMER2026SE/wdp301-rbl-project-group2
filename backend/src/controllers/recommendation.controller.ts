@@ -60,7 +60,7 @@ const getStoreFilter = (req: Request): { storeId?: string; filter: { storeId?: s
     const storeId = typeof req.query.storeId === 'string' ? req.query.storeId.trim() : '';
     if (!storeId) return { storeId: undefined, filter: {} };
     appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'storeId không hợp lệ');
-    return { storeId, filter: { storeId } };
+    return { storeId, filter: {} };
 };
 
 /**

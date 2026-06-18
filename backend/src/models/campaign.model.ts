@@ -17,6 +17,7 @@ const CampaignSchema = new mongoose.Schema<ICampaign>(
     type: { type: String, required: true, trim: true },
     status: { type: String, enum: CampaignStatus, default: CampaignStatus.PENDING, required: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    storeIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }], default: [] },
     products: { type: [CampaignProductItemSchema], default: [] },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },

@@ -42,7 +42,6 @@ export interface IProductVariantGroup {
 }
 
 export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
-  storeId: mongoose.Types.ObjectId;
   status: ProductStatus;
   nameEmbedding?: string | null;
   imgEmbedding: string;

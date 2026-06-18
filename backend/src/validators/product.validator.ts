@@ -14,7 +14,6 @@ const variantGroupValidator = z.object({
 });
 
 export const productValidator = z.object({
-  storeId: z.string().length(24, 'Store id is invalid').optional(),
   name: z.string().min(1, 'Dish name is required').trim(),
   description: z.string().min(1, 'Description is required').trim(),
   image: z.string().optional(),

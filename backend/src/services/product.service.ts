@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
 import { IngredientModel } from '@/models/ingredient.model';
 import { StoreModel } from '@/models/store.model';
+import { CampaignModel } from '@/models/campaign.model';
+import { CampaignStatus } from '@/types/campaign.type';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND } from '@/constants/http';
@@ -42,56 +44,55 @@ const withRecipeNames = <T extends Record<string, any>>(product: T): T => {
 };
 
 // ─── Vietnamese Smart Search Synonym Dictionary ───
-// Maps common search terms to related keywords and categories
 const SEARCH_SYNONYMS: Record<string, { keywords: string[]; categories: string[] }> = {
   // Đồ uống
-  'nước': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'coca', 'pepsi', 'bia', 'rượu', 'chanh', 'cam', 'dừa', 'soda', 'matcha', 'latte', 'smoothie'], categories: ['Đồ uống'] },
-  'đồ uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'smoothie', 'latte', 'matcha'], categories: ['Đồ uống'] },
-  'uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa'], categories: ['Đồ uống'] },
-  'trà': { keywords: ['trà', 'tea', 'trà đào', 'trà sữa', 'trà xanh', 'trà oolong', 'trà chanh'], categories: ['Đồ uống'] },
-  'cà phê': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino', 'americano', 'mocha'], categories: ['Đồ uống'] },
-  'cafe': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Đồ uống'] },
-  'coffee': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Đồ uống'] },
-  'sinh tố': { keywords: ['sinh tố', 'smoothie', 'xoài', 'dâu', 'bơ', 'chuối'], categories: ['Đồ uống'] },
+  'nước': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'coca', 'pepsi', 'bia', 'rượu', 'chanh', 'cam', 'dừa', 'soda', 'matcha', 'latte', 'smoothie'], categories: ['Giải Khát & Tráng Miệng'] },
+  'đồ uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'smoothie', 'latte', 'matcha'], categories: ['Giải Khát & Tráng Miệng'] },
+  'uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa'], categories: ['Giải Khát & Tráng Miệng'] },
+  'trà': { keywords: ['trà', 'tea', 'trà đào', 'trà sữa', 'trà xanh', 'trà oolong', 'trà chanh'], categories: ['Giải Khát & Tráng Miệng'] },
+  'cà phê': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino', 'americano', 'mocha'], categories: ['Giải Khát & Tráng Miệng'] },
+  'cafe': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Giải Khát & Tráng Miệng'] },
+  'coffee': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Giải Khát & Tráng Miệng'] },
+  'sinh tố': { keywords: ['sinh tố', 'smoothie', 'xoài', 'dâu', 'bơ', 'chuối'], categories: ['Giải Khát & Tráng Miệng'] },
 
-  // Món chính - Cơm
-  'cơm': { keywords: ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà', 'cơm sườn', 'cơm cuộn'], categories: ['Món chính'] },
-  'bún': { keywords: ['bún', 'bún bò', 'bún riêu', 'bún chả', 'bún thịt'], categories: ['Món chính'] },
-  'phở': { keywords: ['phở', 'phở bò', 'phở gà'], categories: ['Món chính'] },
-  'mì': { keywords: ['mì', 'mỳ', 'mì xào', 'mì quảng', 'spaghetti', 'pasta', 'noodle'], categories: ['Món chính'] },
+  // Món chính - Cơm & Nước
+  'cơm': { keywords: ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà', 'cơm sườn', 'cơm cuộn'], categories: ['Cơm Đĩa Truyền Thống'] },
+  'bún': { keywords: ['bún', 'bún bò', 'bún riêu', 'bún chả', 'bún thịt'], categories: ['Trứ Danh Món Nước'] },
+  'phở': { keywords: ['phở', 'phở bò', 'phở gà'], categories: ['Trứ Danh Món Nước'] },
+  'mì': { keywords: ['mì', 'mỳ', 'mì xào', 'mì quảng', 'spaghetti', 'pasta', 'noodle'], categories: ['Trứ Danh Món Nước'] },
 
   // Thịt
-  'thịt': { keywords: ['thịt', 'sườn', 'bò', 'heo', 'lợn', 'gà', 'vịt', 'nướng', 'kho', 'rim', 'chiên', 'steak', 'burger'], categories: ['Món chính', 'Đồ ăn nhanh'] },
-  'gà': { keywords: ['gà', 'chicken', 'cánh gà', 'đùi gà', 'gà rán', 'gà nướng', 'gà chiên'], categories: ['Món chính', 'Đồ ăn nhanh'] },
-  'bò': { keywords: ['bò', 'beef', 'steak', 'bít tết', 'bò kho', 'bò lúc lắc'], categories: ['Món chính'] },
-  'hải sản': { keywords: ['hải sản', 'tôm', 'cá', 'mực', 'cua', 'ghẹ', 'sò', 'ốc', 'seafood'], categories: ['Món chính', 'Khai vị'] },
-  'cá': { keywords: ['cá', 'cá hồi', 'cá thu', 'cá kho', 'cá chiên', 'fish'], categories: ['Món chính'] },
-  'tôm': { keywords: ['tôm', 'tôm hùm', 'tôm nướng', 'tôm chiên', 'shrimp'], categories: ['Món chính', 'Khai vị'] },
+  'thịt': { keywords: ['thịt', 'sườn', 'bò', 'heo', 'lợn', 'gà', 'vịt', 'nướng', 'kho', 'rim', 'chiên', 'steak', 'burger'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
+  'gà': { keywords: ['gà', 'chicken', 'cánh gà', 'đùi gà', 'gà rán', 'gà nướng', 'gà chiên'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
+  'bò': { keywords: ['bò', 'beef', 'steak', 'bít tết', 'bò kho', 'bò lúc lắc'], categories: ['Cơm Đĩa Truyền Thống'] },
+  'hải sản': { keywords: ['hải sản', 'tôm', 'cá', 'mực', 'cua', 'ghẹ', 'sò', 'ốc', 'seafood'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
+  'cá': { keywords: ['cá', 'cá hồi', 'cá thu', 'cá kho', 'cá chiên', 'fish'], categories: ['Cơm Đĩa Truyền Thống'] },
+  'tôm': { keywords: ['tôm', 'tôm hùm', 'tôm nướng', 'tôm chiên', 'shrimp'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
 
   // Đồ ăn nhanh
-  'đồ ăn nhanh': { keywords: ['burger', 'pizza', 'hotdog', 'gà rán', 'khoai tây', 'sandwich', 'wrap'], categories: ['Đồ ăn nhanh'] },
-  'pizza': { keywords: ['pizza', 'pepperoni', 'margherita', 'hawaiian'], categories: ['Đồ ăn nhanh'] },
-  'burger': { keywords: ['burger', 'hamburger', 'cheeseburger'], categories: ['Đồ ăn nhanh'] },
+  'đồ ăn nhanh': { keywords: ['burger', 'pizza', 'hotdog', 'gà rán', 'khoai tây', 'sandwich', 'wrap'], categories: ['Gọi Thêm Ăn Kèm'] },
+  'pizza': { keywords: ['pizza', 'pepperoni', 'margherita', 'hawaiian'], categories: ['Gọi Thêm Ăn Kèm'] },
+  'burger': { keywords: ['burger', 'hamburger', 'cheeseburger'], categories: ['Gọi Thêm Ăn Kèm'] },
 
   // Tráng miệng
-  'tráng miệng': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'mousse', 'tiramisu', 'yogurt'], categories: ['Tráng miệng'] },
-  'ngọt': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'đường', 'mật ong', 'chocolate'], categories: ['Tráng miệng'] },
-  'bánh': { keywords: ['bánh', 'cake', 'bánh mì', 'bánh ngọt', 'bánh tráng', 'bánh cuốn'], categories: ['Tráng miệng', 'Khai vị', 'Đồ ăn nhanh'] },
-  'kem': { keywords: ['kem', 'ice cream', 'gelato', 'sorbet'], categories: ['Tráng miệng'] },
-  'chè': { keywords: ['chè', 'chè bưởi', 'chè đậu', 'chè thái'], categories: ['Tráng miệng'] },
+  'tráng miệng': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'mousse', 'tiramisu', 'yogurt'], categories: ['Giải Khát & Tráng Miệng'] },
+  'ngọt': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'đường', 'mật ong', 'chocolate'], categories: ['Giải Khát & Tráng Miệng'] },
+  'bánh': { keywords: ['bánh', 'cake', 'bánh mì', 'bánh ngọt', 'bánh tráng', 'bánh cuốn'], categories: ['Giải Khát & Tráng Miệng', 'Gọi Thêm Ăn Kèm'] },
+  'kem': { keywords: ['kem', 'ice cream', 'gelato', 'sorbet'], categories: ['Giải Khát & Tráng Miệng'] },
+  'chè': { keywords: ['chè', 'chè bưởi', 'chè đậu', 'chè thái'], categories: ['Giải Khát & Tráng Miệng'] },
 
   // Khai vị
-  'khai vị': { keywords: ['gỏi', 'salad', 'nem', 'chả giò', 'khoai tây chiên', 'soup', 'súp', 'canh'], categories: ['Khai vị'] },
-  'salad': { keywords: ['salad', 'gỏi', 'rau', 'trộn'], categories: ['Salad', 'Khai vị'] },
-  'gỏi': { keywords: ['gỏi', 'salad', 'trộn', 'nộm'], categories: ['Salad', 'Khai vị'] },
+  'khai vị': { keywords: ['gỏi', 'salad', 'nem', 'chả giò', 'khoai tây chiên', 'soup', 'súp', 'canh'], categories: ['Gọi Thêm Ăn Kèm'] },
+  'salad': { keywords: ['salad', 'gỏi', 'rau', 'trộn'], categories: ['Góc Healthy & Ăn Kiêng', 'Gọi Thêm Ăn Kèm'] },
+  'gỏi': { keywords: ['gỏi', 'salad', 'trộn', 'nộm'], categories: ['Góc Healthy & Ăn Kiêng', 'Gọi Thêm Ăn Kèm'] },
 
   // Chay
   'chay': { keywords: ['chay', 'rau', 'đậu hũ', 'đậu phụ', 'nấm', 'rau củ', 'vegan', 'vegetarian'], categories: [] },
-  'rau': { keywords: ['rau', 'salad', 'rau muống', 'rau cải', 'rau xào', 'luộc'], categories: ['Salad'] },
+  'rau': { keywords: ['rau', 'salad', 'rau muống', 'rau cải', 'rau xào', 'luộc'], categories: ['Góc Healthy & Ăn Kiêng'] },
 
   // Nướng / Chiên
-  'nướng': { keywords: ['nướng', 'bbq', 'barbecue', 'xiên', 'than hoa', 'lò'], categories: ['Món chính'] },
-  'chiên': { keywords: ['chiên', 'rán', 'giòn', 'xù', 'fried'], categories: ['Món chính', 'Đồ ăn nhanh', 'Khai vị'] },
+  'nướng': { keywords: ['nướng', 'bbq', 'barbecue', 'xiên', 'than hoa', 'lò'], categories: ['Cơm Đĩa Truyền Thống'] },
+  'chiên': { keywords: ['chiên', 'rán', 'giòn', 'xù', 'fried'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
 
   // Ăn sáng
   'sáng': { keywords: ['sáng', 'breakfast', 'bánh mì', 'xôi', 'phở', 'bún', 'cháo', 'trứng'], categories: [] },
@@ -105,11 +106,12 @@ function buildSmartSearchQuery(search: string): any {
   const searchLower = search.toLowerCase().trim();
   const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // Base conditions: always search in name, description, and tags
+  // Base conditions: always search in name, description, tags, and healthTags
   const orConditions: any[] = [
     { name: { $regex: escapedSearch, $options: 'i' } },
     { description: { $regex: escapedSearch, $options: 'i' } },
     { tags: { $regex: escapedSearch, $options: 'i' } },
+    { healthTags: { $regex: escapedSearch, $options: 'i' } },
   ];
 
   // Check for synonym matches
@@ -200,6 +202,45 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
   return resolved;
 };
 
+async function applyCampaignPricing<T extends { _id: any; price: number }>(
+  products: T[]
+): Promise<(T & { campaignPrice?: number })[]> {
+  if (!products.length) return products;
+  const now = new Date();
+  const campaigns = await CampaignModel.find({
+    status: CampaignStatus.APPROVED,
+    startTime: { $lte: now },
+    endTime: { $gte: now },
+  }).lean();
+  if (!campaigns.length) {
+    return products.map((p) => ({ ...p, isCampaignRunning: false }));
+  }
+
+  const pricingMap = new Map<string, { discount?: number | null; fixedPrice?: number | null; type: string }>();
+  for (const c of campaigns) {
+    for (const item of c.products) {
+      const pid = item.productId.toString();
+      if (!pricingMap.has(pid)) {
+        pricingMap.set(pid, { discount: item.discount, fixedPrice: item.fixedPrice, type: c.type });
+      }
+    }
+  }
+
+  return products.map((p) => {
+    const rule = pricingMap.get(String(p._id));
+    if (!rule) return { ...p, isCampaignRunning: false };
+    let campaignPrice: number | undefined;
+    if (rule.type === 'fixed_price' && rule.fixedPrice != null) {
+      campaignPrice = rule.fixedPrice;
+    } else if (rule.discount != null) {
+      campaignPrice = Math.round(p.price * (1 - rule.discount / 100));
+    }
+    return campaignPrice != null 
+      ? { ...p, campaignPrice, isCampaignRunning: true } 
+      : { ...p, isCampaignRunning: false };
+  });
+}
+
 export const getAllProducts = async (filters: ProductFilters, preferences?: any) => {
   const {
     category,
@@ -212,13 +253,9 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     limit = 12,
     isAvailable,
     healthTags,
-    storeId = DEFAULT_PUBLIC_STORE_ID,
-} = filters;
+  } = filters;
 
   const query: any = {};
-  if (storeId && storeId !== 'all') {
-    query.storeId = storeId;
-  }
 
   // Default: only show available & active products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
@@ -295,10 +332,11 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
   const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
 
-  return {
-    products: productsWithRisk,
-    pagination: {
+  const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
 
+  return {
+    products: productsWithCampaign,
+    pagination: {
       page,
       limit,
       total,
@@ -308,9 +346,7 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 };
 
 export const getDistinctCategories = async () => {
-  const categories = await ProductModel.distinct('category', {
-    storeId: DEFAULT_PUBLIC_STORE_ID,
-  });
+  const categories = await ProductModel.distinct('category');
   return categories;
 };
 
@@ -318,7 +354,9 @@ export const getProductById = async (id: string, preferences?: any) => {
   const product = await ProductModel.findById(id).populate(PRODUCT_RECIPE_POPULATE).lean();
   appAssert(product, NOT_FOUND, 'Product not found');
   const productWithToppings = await attachSharedToppingVariants(withRecipeNames(product));
-  return attachHealthRisk(productWithToppings, preferences);
+  const withRisk = attachHealthRisk(productWithToppings, preferences);
+  const [withCampaign] = await applyCampaignPricing([withRisk]);
+  return withCampaign;
 };
 
 export const getProductHealthRisk = async (id: string, preferences: any) => {
@@ -329,27 +367,9 @@ export const getProductHealthRisk = async (id: string, preferences: any) => {
 
 export const createProduct = async (data: Partial<IProduct>, globalCreate?: boolean) => {
   const recipe = await resolveRecipeItems((data as any).recipe ?? []);
-  if (globalCreate) {
-    const stores = await StoreModel.find().lean();
-    if (stores.length > 0) {
-      const productsToCreate = stores.map((store) => ({
-        ...data,
-        recipe,
-        storeId: store._id,
-        imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
-      }));
-      const createdProducts = await ProductModel.insertMany(productsToCreate);
-      const mainProduct = createdProducts.find(
-        (p) => p.storeId.toString() === DEFAULT_PUBLIC_STORE_ID
-      ) || createdProducts[0];
-      return mainProduct;
-    }
-  }
-
   const product = await ProductModel.create({
     ...data,
     recipe,
-    storeId: (data as any).storeId ?? DEFAULT_PUBLIC_STORE_ID,
     imgEmbedding: (data as any).imgEmbedding ?? String(data.image ?? data.name ?? 'product'),
   });
 
@@ -371,31 +391,6 @@ export const updateProduct = async (id: string, data: Partial<IProduct>, globalU
     updateFields.imgEmbedding = String(data.image ?? data.name ?? 'product');
   }
 
-  if (globalUpdate) {
-    const originalProduct = await ProductModel.findById(id).lean();
-    appAssert(originalProduct, NOT_FOUND, 'Product not found');
-
-    const product = await ProductModel.findByIdAndUpdate(
-      id,
-      updateFields,
-      { new: true }
-    );
-    appAssert(product, NOT_FOUND, 'Product not found');
-
-    // Propagate update to all products with the same name (case-insensitive regex to be safe)
-    const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-    };
-    
-    // Omit storeId from propagation to avoid changing other stores' storeIds
-    const otherUpdates = { ...updateFields };
-    delete otherUpdates.storeId;
-
-    await ProductModel.updateMany(nameQuery, { $set: otherUpdates });
-
-    return product;
-  }
-
   const product = await ProductModel.findByIdAndUpdate(
     id,
     updateFields,
@@ -406,18 +401,6 @@ export const updateProduct = async (id: string, data: Partial<IProduct>, globalU
 };
 
 export const deleteProduct = async (id: string, globalDelete?: boolean) => {
-  if (globalDelete) {
-    const originalProduct = await ProductModel.findById(id).lean();
-    appAssert(originalProduct, NOT_FOUND, 'Product not found');
-
-    // Delete all products with the same name (case-insensitive regex)
-    const nameQuery = {
-      name: { $regex: new RegExp('^' + originalProduct.name.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-    };
-    await ProductModel.deleteMany(nameQuery);
-    return originalProduct;
-  }
-
   const product = await ProductModel.findByIdAndDelete(id);
   appAssert(product, NOT_FOUND, 'Product not found');
   return product;

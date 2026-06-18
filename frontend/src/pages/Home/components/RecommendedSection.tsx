@@ -6,11 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import recommendationService from "@/services/recommendation.service";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
-import { useCart } from "@/hooks/useCart";
+import { useSafeCart } from "@/hooks/useSafeCart";
 import { useAuthStore } from "@/store/authStore";
 import { FoodCard } from "@/components/shared/FoodCard";
 import { useStoreStore } from "@/store/storeStore";
 import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 
 // Nhãn gợi ý mặc định khi dùng fallback (không có AI)
@@ -58,7 +59,7 @@ const RecommendedSection = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
   const { isAuthenticated } = useAuthStore();
-  const { addItem } = useCart();
+  const { safeAddItem } = useSafeCart();
 
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -238,7 +239,8 @@ const RecommendedSection = () => {
                 id={product._id}
                 name={product.name}
                 image={typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '')}
-                price={product.price}
+                price={product.campaignPrice ?? product.price}
+                originalPrice={product.campaignPrice != null ? product.price : undefined}
                 rating={product.rating}
                 restaurant={product.restaurant}
                 time={product.time}
@@ -247,14 +249,25 @@ const RecommendedSection = () => {
                 allergenInfo={getProductAllergenInfo(product)}
                 variant="horizontal"
                 customBadge={customBadge}
-                onAddToCart={() => {
-                  addItem({
-                    productId: product._id,
-                    name: product.name,
-                    image: typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : ''),
-                    price: product.price,
-                    quantity: 1
-                  });
+                onAddToCart={(_, trigger) => {
+                  const image = typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '');
+                  safeAddItem(
+                    product,
+                    {
+                      productId: product._id,
+                      name: product.name,
+                      image,
+                      price: product.campaignPrice ?? product.price,
+                      quantity: 1
+                    },
+                    () => {
+                      showAddToCartFeedback(
+                        trigger,
+                        image,
+                        t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                      );
+                    }
+                  );
                 }}
               />
             );

@@ -41,4 +41,5 @@ export interface ICartItemVariationDoc extends mongoose.Document<mongoose.Types.
   name: string;
   choice: string;
   extraPrice: number;
+  createdAt: Date;
 }

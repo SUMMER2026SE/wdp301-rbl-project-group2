@@ -53,7 +53,9 @@ const SidebarItem = ({
 
   // Exact match for "/admin" (dashboard), exact match or subpath with slash for other items
   const isPathMatch = (path: string, href: string) =>
-    href === "/admin" ? path === "/admin" : path === href || path.startsWith(href + "/");
+    href === "/admin"
+      ? path === "/admin"
+      : path === href || path.startsWith(href + "/");
 
   const hasActiveChild =
     hasSubItems && subItems.some((sub) => isPathMatch(currentPath, sub.href));
@@ -165,15 +167,14 @@ const NAV_ITEMS = [
     subItems: [
       { label: "Thực đơn", href: "/admin/menu" },
       { label: "Nguyên liệu & AI", href: "/admin/ingredients" },
-      { label: "Kho hàng", href: "/admin/inventory" },
     ],
   },
   {
     label: "Đội ngũ nhân sự",
-    href: "/admin/staff",
+    href: "/admin/manager",
     icon: "group",
     subItems: [
-      { label: "Danh sách nhân sự", href: "/admin/staff" },
+      { label: "Danh sách nhân sự", href: "/admin/manager" },
       { label: "Đề xuất nhân sự", href: "/admin/staff-requests" },
     ],
   },
@@ -210,25 +211,29 @@ const AdminLayout = () => {
   const { user, logout: authLogout } = useAuth();
 
   const userRole = user?.role?.toUpperCase();
-  const filteredNavItems = NAV_ITEMS.map(item => {
+  const filteredNavItems = NAV_ITEMS.map((item) => {
     if (userRole === "MANAGER") {
       if (item.label === "Marketing") {
         return {
           ...item,
-          subItems: item.subItems?.filter(sub => sub.label === "Chiến dịch")
+          subItems: item.subItems?.filter((sub) => sub.label === "Chiến dịch"),
         };
       }
       if (item.label === "Danh mục & AI") {
         return {
           ...item,
-          subItems: item.subItems?.filter(sub => sub.label === "Thực đơn")
+          subItems: item.subItems?.filter((sub) => sub.label === "Thực đơn"),
         };
       }
     }
     return item;
-  }).filter(item => {
+  }).filter((item) => {
     if (userRole === "MANAGER") {
-      return item.label === "Bảng điều khiển" || item.label === "Marketing" || item.label === "Danh mục & AI";
+      return (
+        item.label === "Bảng điều khiển" ||
+        item.label === "Marketing" ||
+        item.label === "Danh mục & AI"
+      );
     }
     return true;
   });

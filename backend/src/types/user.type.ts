@@ -68,6 +68,11 @@ export interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
   referredBy?: mongoose.Types.ObjectId | null;
   storeId?: mongoose.Types.ObjectId | null;
   receiveCampaignNotifications?: boolean;
+  reviewModeration?: {
+    toxicCount: number;
+    reviewBannedUntil?: Date | null;
+    lastToxicAt?: Date | null;
+  };
 
   aiRecommendationsCache?: {
     data?: any;

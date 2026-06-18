@@ -7,6 +7,7 @@ export { ICart, ICartItem, ICartItemVariation, ICartItemDoc, ICartItemVariationD
 export { IOrder, OrderStatus, PaymentMethod, IOrderItem, IOrderItemVariation, IDeliveryAddress, IDeliveryInfo, IOrderItemDoc, IOrderItemVariationDoc } from './order.type';
 export { IVoucher, DiscountType, VoucherCategory } from './voucher.type';
 export { IReview } from './review.type';
+export { IReviewReaction, ReviewReactionType } from './review-reaction.type';
 export { INotification, NotificationType } from './notification.type';
 export { IAuditLog, AuditAction, AuditEntityType, AuditLogAction } from './audit-log.type';
 export { IStore, IStoreSettings } from './store.type';

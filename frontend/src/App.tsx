@@ -47,8 +47,7 @@ import AdminCampaigns from "./pages/Admin/Campaigns";
 import AdminSettings from "./pages/Admin/Settings";
 import AdminCustomers from "./pages/Admin/Customers";
 // import AdminAnalytics from "./pages/Admin/Analytics";
-import AdminInventory from "./pages/Admin/Inventory";
-import AdminStaff from "./pages/Admin/Staff";
+import AdminManager from "./pages/Admin/Manager";
 import AdminStaffRequests from "./pages/Admin/StaffRequests";
 import AdminReviews from "./pages/Admin/Reviews";
 import AdminDelivery from "./pages/Admin/Delivery";
@@ -170,9 +169,15 @@ function App() {
                 <Route path="delivery" element={<StaffDeliveryMode />} />
                 <Route path="menu" element={<StaffMenu />} />
                 <Route path="support" element={<StaffSupportChatPage />} />
-                <Route path="support/settings" element={<StaffSupportSettingsPage />} />
+                <Route
+                  path="support/settings"
+                  element={<StaffSupportSettingsPage />}
+                />
                 <Route path="customers" element={<StaffCustomerProfile />} />
-                <Route path="customers/:id" element={<StaffCustomerProfile />} />
+                <Route
+                  path="customers/:id"
+                  element={<StaffCustomerProfile />}
+                />
                 <Route path="*" element={<Navigate to="/staff" replace />} />
               </Route>
             </Route>
@@ -184,16 +189,25 @@ function App() {
             <Route path="/manager/no-store" element={<ManagerNoStore />} />
             <Route element={<RequireManagerStore />}>
               <Route path="/manager" element={<ManagerLayout />}>
-                <Route index element={<Navigate to="/manager/dashboard" replace />} />
+                <Route
+                  index
+                  element={<Navigate to="/manager/dashboard" replace />}
+                />
                 <Route path="dashboard" element={<ManagerDashboard />} />
                 <Route path="orders" element={<ManagerOrders />} />
                 <Route path="orders/:id" element={<ManagerOrderDetail />} />
                 <Route path="menu" element={<ManagerMenu />} />
                 <Route path="cash" element={<ManagerCash />} />
                 <Route path="staff" element={<ManagerStaff />} />
-                <Route path="staff-requests" element={<ManagerStaffRequests />} />
+                <Route
+                  path="staff-requests"
+                  element={<ManagerStaffRequests />}
+                />
                 <Route path="settings" element={<ManagerSettings />} />
-                <Route path="*" element={<Navigate to="/manager/dashboard" replace />} />
+                <Route
+                  path="*"
+                  element={<Navigate to="/manager/dashboard" replace />}
+                />
               </Route>
             </Route>
           </Route>
@@ -211,8 +225,7 @@ function App() {
               </Route>
               <Route path="menu" element={<AdminMenuManagement />} />
               <Route path="customers" element={<AdminCustomers />} />
-              <Route path="inventory" element={<AdminInventory />} />
-              <Route path="staff" element={<AdminStaff />} />
+              <Route path="manager" element={<AdminManager />} />
               <Route path="staff-requests" element={<AdminStaffRequests />} />
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="vouchers" element={<AdminVouchers />} />

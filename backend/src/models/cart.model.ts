@@ -71,6 +71,7 @@ const CartItemVariationDocSchema = new mongoose.Schema<ICartItemVariationDoc>(
   },
   {
     _id: true,
+    timestamps: { createdAt: true, updatedAt: false },
   }
 );
 

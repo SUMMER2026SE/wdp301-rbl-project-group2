@@ -26,7 +26,15 @@ export const getProductCategoriesHandler = catchErrors(async (req: Request, res:
 
 // GET /api/products
 export const getAllProductsHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, storeId, showAll } = req.query;
+    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, showAll } = req.query;
+
+    const rawHealthTags = req.query.healthTags || req.query['healthTags[]'];
+    let healthTagsParsed: string[] | undefined = undefined;
+    if (typeof rawHealthTags === 'string') {
+        healthTagsParsed = rawHealthTags.split(',').map(t => t.trim()).filter(Boolean);
+    } else if (Array.isArray(rawHealthTags)) {
+        healthTagsParsed = rawHealthTags.map(t => String(t).trim()).filter(Boolean);
+    }
 
     const isShowAllRequested = showAll === 'true' || (showAll as any) === true;
 
@@ -46,16 +54,7 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
     const isPrivileged = normalizedRole && ['admin', 'staff', 'manager'].includes(normalizedRole);
     const shouldShowAll = isShowAllRequested && isPrivileged;
 
-    const user = req.userId ? await UserModel.findById(req.userId).select('preferences storeId').lean() : null;
-
-    // Default storeId for staff or manager to their own branch if not explicitly provided in query
-    let finalStoreId = storeId as string | undefined;
-    if (normalizedRole === 'admin') {
-        // Admin always views the canonical/default store menu to avoid duplicate items in the list
-        finalStoreId = DEFAULT_PUBLIC_STORE_ID;
-    } else if (!finalStoreId && user && ['staff', 'manager'].includes(normalizedRole) && (user as any).storeId) {
-        finalStoreId = (user as any).storeId.toString();
-    }
+    const user = req.userId ? await UserModel.findById(req.userId).select('preferences').lean() : null;
 
     const filters = {
         category: category as string,
@@ -67,8 +66,8 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
         page: page ? Number(page) : 1,
         limit: limit ? Number(limit) : 12,
         isAvailable: isAvailable === undefined ? undefined : isAvailable === 'true',
-        storeId: finalStoreId,
         showAll: shouldShowAll,
+        healthTags: healthTagsParsed,
     };
 
     const result = await getAllProducts(filters, user?.preferences);

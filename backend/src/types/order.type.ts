@@ -97,6 +97,7 @@ export interface IOrder extends mongoose.Document<mongoose.Types.ObjectId> {
 
   paymentMethod: PaymentMethod;
   paid: boolean;
+  paidAt?: Date | null;
 
   deliveryAddress: IDeliveryAddress;
   deliveryInfo: IDeliveryInfo;

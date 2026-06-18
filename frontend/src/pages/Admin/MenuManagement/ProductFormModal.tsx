@@ -287,7 +287,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                   return (
                     <div
-                      key={`${item.ingredientId || item.ingredientName || "new"}-${index}`}
+                      key={`recipe-item-${index}`}
                       className="rounded-xl border border-gray-200 p-3 bg-gray-50/60 space-y-3"
                     >
                       <div className="flex items-center justify-between gap-2">

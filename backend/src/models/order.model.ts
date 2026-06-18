@@ -109,6 +109,7 @@ const OrderSchema = new mongoose.Schema<IOrder>(
 
     paymentMethod: { type: String, required: true, enum: PaymentMethod },
     paid: { type: Boolean, default: false },
+    paidAt: { type: Date, default: null },
 
     deliveryAddress: { type: DeliveryAddressSchema, required: true },
     deliveryInfo: { type: DeliveryInfoSchema, default: () => ({}) },
@@ -143,6 +144,15 @@ OrderSchema.index({ storeId: 1, status: 1 });
 OrderSchema.pre('validate', function (next) {
   if (this.isNew && !this.code) {
     this.code = `ORD-${randomUUID().split('-')[0].toUpperCase()}`;
+  }
+  next();
+});
+
+OrderSchema.pre('save', function (next) {
+  if (this.payment && this.payment.paidAt) {
+    this.paidAt = this.payment.paidAt;
+  } else {
+    this.paidAt = null;
   }
   next();
 });

@@ -5,7 +5,7 @@
   "description": "BE_LMS - MERN + TS Backend",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
+    "dev": "cross-env PORT=8005 ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
     "lint": "eslint .",
@@ -54,6 +54,7 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^20.19.22",
     "@types/nodemailer": "^7.0.5",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.4",
     "globals": "^16.5.0",
     "ts-node": "^10.9.2",

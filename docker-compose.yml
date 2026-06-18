@@ -4,8 +4,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    user: root
     ports:
       - "3000:3000"
+    environment:
+      - VITE_BASE_API=http://localhost:8005/api
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -17,8 +20,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    user: root
     ports:
-      - "8000:8000"
+      - "8005:8005"
+    environment:
+      - PORT=8005
     env_file:
       - ./backend/.env # Chứa MONGODB_URI=mongodb+srv://... (Trỏ tới DB 'my_app_local' trên Atlas)
     volumes:

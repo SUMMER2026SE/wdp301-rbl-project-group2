@@ -50,5 +50,6 @@ jobs:
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             docker-compose -f docker-compose.dev.yml pull
+            docker-compose -f docker-compose.dev.yml down
             docker-compose -f docker-compose.dev.yml up -d
             docker image prune -f

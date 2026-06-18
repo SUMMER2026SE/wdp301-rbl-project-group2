@@ -225,8 +225,15 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       playNotification();
     });
 
+    socket.on("notification:new", (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev.filter((item) => item._id !== notification._id)].slice(0, 50));
+      setUnreadCount((prev) => prev + 1);
+      playNotification();
+    });
+
     return () => {
       socket.off("order:status_updated");
+      socket.off("notification:new");
     };
   }, [isAuthenticated, user?._id, playNotification]);
 

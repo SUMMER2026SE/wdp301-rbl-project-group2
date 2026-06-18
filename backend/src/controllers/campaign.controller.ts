@@ -27,7 +27,9 @@ export const createCampaignHandler = catchErrors(async (req, res) => {
 });
 
 export const getCampaignsHandler = catchErrors(async (req, res) => {
-  const campaigns = await getCampaigns(req.role as Role);
+  const role = req.role as Role | undefined;
+  const activeOnly = role !== Role.ADMIN && role !== Role.MANAGER;
+  const campaigns = await getCampaigns(role, activeOnly);
   return res.success(OK, { data: campaigns });
 });
 

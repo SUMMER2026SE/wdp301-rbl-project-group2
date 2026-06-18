@@ -1,5 +1,5 @@
-import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignProductModel } from '@/models';
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
+import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignModel } from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
@@ -307,22 +307,22 @@ const resolveOrderItems = async (
 
     // Apply active approved campaign discount if available
     let basePrice = product.price;
-    const campaignProduct = await CampaignProductModel.findOne({ productIds: product._id })
-      .populate({
-        path: 'campaignIds',
-        match: {
-          status: CampaignStatus.APPROVED,
-          startTime: { $lte: new Date() },
-          endTime: { $gte: new Date() },
-        },
-      })
-      .session(session);
+    const now = new Date();
+    const activeCampaign = await CampaignModel.findOne({
+      'products.productId': product._id,
+      status: CampaignStatus.APPROVED,
+      startTime: { $lte: now },
+      endTime: { $gte: now },
+    }).session(session).lean();
 
-    if (campaignProduct && campaignProduct.campaignIds && campaignProduct.campaignIds.length > 0) {
-      if (campaignProduct.fixedPrice !== null && campaignProduct.fixedPrice !== undefined) {
-        basePrice = campaignProduct.fixedPrice;
-      } else if (campaignProduct.discount !== null && campaignProduct.discount !== undefined) {
-        basePrice = product.price * (1 - campaignProduct.discount / 100);
+    if (activeCampaign) {
+      const rule = activeCampaign.products.find(
+        (p) => p.productId.toString() === product._id.toString()
+      );
+      if (rule?.fixedPrice != null) {
+        basePrice = rule.fixedPrice;
+      } else if (rule?.discount != null) {
+        basePrice = product.price * (1 - rule.discount / 100);
       }
     }
 
@@ -449,6 +449,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
             method: paymentMethod ?? PaymentMethod.CASH,
             paidAt: null,
           },
+          paidAt: null,
           items: resolvedItems,
           voucherId: voucherObjectId ?? null,
           subTotal,
@@ -602,6 +603,21 @@ export const getOrderById = async (idOrCode: string) => {
   });
 
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
+  return order;
+};
+
+export const getOrderByIdForRequester = async (
+  idOrCode: string,
+  requesterId: mongoose.Types.ObjectId,
+  requesterRole: Role
+) => {
+  const order = await getOrderById(idOrCode);
+
+  if (requesterRole.toLowerCase() === Role.CUSTOMER) {
+    const customerId = (order.cusId as any)._id ?? order.cusId;
+    appAssert(customerId.toString() === requesterId.toString(), FORBIDDEN, 'Ban khong co quyen xem don hang nay');
+  }
+
   return order;
 };
 
@@ -912,6 +928,7 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
 
   if (order.paymentMethod === PaymentMethod.CASH && !order.payment?.paidAt) {
     update['payment.paidAt'] = completedAt;
+    update.paidAt = completedAt;
     update.paid = true;
   }
 

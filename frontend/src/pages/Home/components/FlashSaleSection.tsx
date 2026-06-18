@@ -1,41 +1,55 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Flame, ChevronRight, Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { FoodCard } from '@/components/shared/FoodCard';
-import productAPI from '@/services/product.service';
+import campaignAPI from '@/services/campaign.service';
+import type { Campaign } from '@/services/campaign.service';
+import { useSafeCart } from '@/hooks/useSafeCart';
 import type { Product } from '@/types/product';
-import { useCart } from '@/hooks/useCart';
-import { useStoreStore } from '@/store/storeStore';
+import { showAddToCartFeedback } from '@/utils/flyToCart';
 
 const FlashSaleSection: React.FC = () => {
-  const { t } = useTranslation();
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string }>({
-    hours: '02',
+    hours: '00',
     minutes: '00',
     seconds: '00',
   });
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
-  const { addItem } = useCart();
-  const selectedStore = useStoreStore((s) => s.selectedStore);
+  const { safeAddItem } = useSafeCart();
 
-  // Countdown logic
+  // Fetch campaigns and pick first with products
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59);
+    const fetchCampaigns = async () => {
+      try {
+        const response = await campaignAPI.getCampaigns();
+        const active = response.data.find((c) => c.products.length > 0) ?? null;
+        setCampaign(active);
+      } catch (error) {
+        console.error('Error fetching campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCampaigns();
+  }, []);
 
-      const diff = endOfDay.getTime() - now.getTime();
+  // Countdown to campaign.endTime
+  useEffect(() => {
+    if (!campaign) return;
+    const endTime = new Date(campaign.endTime).getTime();
+
+    const timer = setInterval(() => {
+      const diff = endTime - Date.now();
 
       if (diff <= 0) {
         clearInterval(timer);
+        setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
         return;
       }
 
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff / (1000 * 60)) % 60);
       const seconds = Math.floor((diff / 1000) % 60);
 
@@ -47,39 +61,58 @@ const FlashSaleSection: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [campaign]);
 
-  // Fetch products for flash sale
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await productAPI.getProducts({
-          limit: 4,
-          page: 1,
-          isAvailable: true,
-          ...(selectedStore?._id ? { storeId: selectedStore._id } : {}),
-        });
-        setProducts(response.data);
-      } catch (error) {
-        console.error("Error fetching flash sale products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [selectedStore?._id]);
-
-  // Standardize product data for the card
+  // Map campaign products to displayable items
   const flashSaleProducts = useMemo(() => {
-    return products.map(p => ({
-      ...p,
-      salePrice: p.price * 0.5, // 50% discount for flash sale
-      originalPrice: p.price,
-      soldCount: Math.floor(Math.random() * 50) + 10,
-      totalStock: 100
-    }));
-  }, [products]);
+    if (!campaign) return [];
+
+    return campaign.products
+      .slice(0, 4)
+      .map((item) => {
+        const prod = item.productId;
+        if (typeof prod === 'string') return null;
+
+        const basePrice = prod.price;
+        let salePrice: number;
+
+        if (campaign.type === 'fixed_price' && item.fixedPrice != null) {
+          salePrice = item.fixedPrice;
+        } else if (campaign.type === 'discount' && item.discount != null) {
+          salePrice = Math.round(basePrice * (1 - item.discount / 100));
+        } else {
+          salePrice = basePrice;
+        }
+
+        const imageUrl =
+          typeof prod.image === 'string' ? prod.image : prod.image?.secureUrl ?? '';
+
+        return {
+          product: prod,
+          _id: prod._id,
+          name: prod.name,
+          image: imageUrl,
+          price: salePrice,
+          originalPrice: basePrice,
+          soldCount: Math.floor(Math.random() * 50) + 10,
+          totalStock: 100,
+        };
+      })
+      .filter(
+        (
+          p
+        ): p is {
+          _id: string;
+          name: string;
+          image: string;
+          price: number;
+          originalPrice: number;
+          soldCount: number;
+          totalStock: number;
+          product: Product;
+        } => p !== null
+      );
+  }, [campaign]);
 
   if (loading) {
     return (
@@ -89,17 +122,18 @@ const FlashSaleSection: React.FC = () => {
     );
   }
 
-  if (flashSaleProducts.length === 0) return (
-    <section className="my-12 p-12 bg-white rounded-3xl border border-dashed border-slate-200 text-center">
-      <p className="text-slate-400 font-medium">Hiện chưa có deal chớp nhoáng nào.</p>
-      <Link
-        to="/menu"
-        className="inline-flex items-center gap-2 mt-4 text-orange-600 hover:text-orange-700 font-bold transition-colors"
-      >
-        Khám phá thực đơn ngay <ChevronRight className="w-5 h-5" />
-      </Link>
-    </section>
-  );
+  if (!campaign || flashSaleProducts.length === 0)
+    return (
+      <section className="my-12 p-12 bg-white rounded-3xl border border-dashed border-slate-200 text-center">
+        <p className="text-slate-400 font-medium">Hiện chưa có deal chớp nhoáng nào.</p>
+        <Link
+          to="/menu"
+          className="inline-flex items-center gap-2 mt-4 text-orange-600 hover:text-orange-700 font-bold transition-colors"
+        >
+          Khám phá thực đơn ngay <ChevronRight className="w-5 h-5" />
+        </Link>
+      </section>
+    );
 
   return (
     <section className="my-12 overflow-hidden">
@@ -111,7 +145,7 @@ const FlashSaleSection: React.FC = () => {
           </div>
           <div>
             <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic">
-              Flash Sale <span className="text-red-600">Giá Sốc</span>
+              {campaign.name} <span className="text-red-600">Giá Sốc</span>
             </h2>
             <p className="text-slate-500 font-medium text-sm flex items-center gap-2 mt-1">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -121,15 +155,23 @@ const FlashSaleSection: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4 bg-orange-50 p-2.5 rounded-[2rem] border border-orange-100">
-          <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] px-3 hidden sm:block">Kết thúc trong</span>
+          <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] px-3 hidden sm:block">
+            Kết thúc trong
+          </span>
           <div className="flex items-center gap-2.5">
             {[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((unit, idx) => (
               <React.Fragment key={idx}>
                 <div className="w-12 h-14 bg-orange-100 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-orange-200/50 border-b-4 border-orange-200">
-                  <span className="text-orange-600 text-xl font-black tabular-nums leading-none">{unit}</span>
-                  <span className="text-[8px] text-orange-400 font-bold uppercase mt-1">{idx === 0 ? 'Hrs' : idx === 1 ? 'Min' : 'Sec'}</span>
+                  <span className="text-orange-600 text-xl font-black tabular-nums leading-none">
+                    {unit}
+                  </span>
+                  <span className="text-[8px] text-orange-400 font-bold uppercase mt-1">
+                    {idx === 0 ? 'Hrs' : idx === 1 ? 'Min' : 'Sec'}
+                  </span>
                 </div>
-                {idx < 2 && <span className="text-red-600 font-black text-2xl animate-pulse">:</span>}
+                {idx < 2 && (
+                  <span className="text-red-600 font-black text-2xl animate-pulse">:</span>
+                )}
               </React.Fragment>
             ))}
           </div>
@@ -143,30 +185,32 @@ const FlashSaleSection: React.FC = () => {
             key={p._id}
             id={p._id}
             name={p.name}
-            image={typeof p.image === 'string' ? p.image : p.image?.secureUrl || ''}
-            price={p.salePrice}
+            image={p.image}
+            price={p.price}
             originalPrice={p.originalPrice}
-            rating={p.rating}
-            restaurant={p.restaurant}
-            time={p.time}
+            rating={0}
             progress={{
               value: (p.soldCount / p.totalStock) * 100,
-              label: `Đã bán ${p.soldCount}`
+              label: `Đã bán ${p.soldCount}`,
             }}
-            onAddToCart={() => {
-              addItem({
-                productId: p._id,
-                name: p.name,
-                image: typeof p.image === 'string' ? p.image : p.image?.secureUrl || '',
-                price: p.salePrice,
-                quantity: 1
-              });
+            onAddToCart={(_, trigger) => {
+              safeAddItem(
+                p.product,
+                {
+                  productId: p._id,
+                  name: p.name,
+                  image: p.image,
+                  price: p.price,
+                  quantity: 1,
+                },
+                () => {
+                  showAddToCartFeedback(trigger, p.image, 'Đã thêm sản phẩm vào giỏ hàng!');
+                }
+              );
             }}
           />
         ))}
       </div>
-
-
     </section>
   );
 };

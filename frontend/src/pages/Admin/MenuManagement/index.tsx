@@ -4,7 +4,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useToast, ToastContainer } from "@/hooks/useToast";
 import type { Product } from "@/types/product";
 import ProductFormModal from "./ProductFormModal";
-import { CUSTOMER_CATEGORY_FILTERS } from "@/constants/product.constants";
+import { CUSTOMER_CATEGORY_FILTERS, HEALTH_TAG_OPTIONS } from "@/constants/product.constants";
 import { Pagination } from "@/components/shared/Pagination";
 
 // ─── Constants ───
@@ -66,6 +66,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 const AdminMenuManagement = () => {
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeHealthTags, setActiveHealthTags] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
@@ -73,7 +74,13 @@ const AdminMenuManagement = () => {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeCategory, searchTerm]);
+  }, [activeCategory, searchTerm, activeHealthTags]);
+
+  const toggleHealthTagFilter = (label: string) => {
+    setActiveHealthTags((prev) =>
+      prev.includes(label) ? prev.filter((t) => t !== label) : [...prev, label]
+    );
+  };
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -94,6 +101,7 @@ const AdminMenuManagement = () => {
   };
   if (activeCategory !== "all") filters.category = activeCategory;
   if (searchTerm) filters.search = searchTerm;
+  if (activeHealthTags.length > 0) filters.healthTags = activeHealthTags;
 
   const {
     products,
@@ -268,18 +276,7 @@ const AdminMenuManagement = () => {
       {/* Search + Category chips */}
       <div className="bg-white rounded-xl border border-[#e7dbcf] p-2 mb-6 shadow-sm">
         <div className="flex flex-col md:flex-row gap-2">
-          <div className="relative flex-1 p-2">
-            <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#9a734c]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm món, nguyên liệu hoặc danh mục..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-12 pl-10 pr-4 bg-[#f8f7f6] border border-transparent rounded-lg text-[#1b140d] placeholder:text-[#9a734c] focus:outline-none focus:border-[#ee8c2b]/50 text-sm"
-            />
-          </div>
+
           <div className="flex items-center gap-2 p-2 overflow-x-auto no-scrollbar">
             {CATEGORY_CHIPS.map((chip) => (
               <button
@@ -296,6 +293,43 @@ const AdminMenuManagement = () => {
                 {chip.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Health Tag Filter Chips */}
+        <div className="border-t border-[#e7dbcf]/50 mt-2 pt-2 px-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-[#9a734c] uppercase tracking-wider mr-2">
+            Lọc theo thẻ sức khỏe:
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {HEALTH_TAG_OPTIONS.map((tag) => {
+              const isSelected = activeHealthTags.includes(tag.label);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleHealthTagFilter(tag.label)}
+                  className={clsx(
+                    "px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95",
+                    isSelected
+                      ? tag.color
+                      : "bg-[#f8f7f6] text-gray-500 border-gray-200 hover:border-gray-300"
+                  )}
+                >
+                  {tag.label}
+                  {isSelected && <span className="ml-1">✓</span>}
+                </button>
+              );
+            })}
+            {activeHealthTags.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveHealthTags([])}
+                className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 bg-red-50 hover:bg-red-100/50 rounded-full transition-colors border border-transparent hover:border-red-200"
+              >
+                Xóa lọc thẻ
+              </button>
+            )}
           </div>
         </div>
       </div>

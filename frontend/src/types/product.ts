@@ -30,6 +30,7 @@ export interface Product {
     matchedIngredients: string[];
     message: string;
   };
+  campaignPrice?: number;
   isAvailable: boolean;
   status: "active" | "inactive" | "out_of_stock" | "deleted";
   operationalNote?: string;
