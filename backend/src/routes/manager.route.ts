@@ -26,6 +26,7 @@ import {
   managerRejectOrderHandler,
   updateManagerProductAvailabilityHandler,
   updateManagerSettingsHandler,
+  updateManagerStoreHandler,
 } from '@/controllers/manager.controller';
 import { Role } from '@/types/user.type';
 
@@ -39,6 +40,7 @@ router.get('/cash', getManagerCashOverviewHandler);
 router.patch('/cash/collect', confirmManagerCodCollectionHandler);
 router.get('/settings', getManagerSettingsHandler);
 router.put('/settings', updateManagerSettingsHandler);
+router.put('/store', updateManagerStoreHandler);
 
 router.get('/orders', getManagerOrdersHandler);
 router.get('/orders/:id', getManagerOrderDetailHandler);

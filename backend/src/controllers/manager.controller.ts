@@ -35,6 +35,8 @@ import {
   getManagerSettings,
   updateManagerSettings,
 } from '@/services/manager-dashboard.service';
+import { updateStore } from '@/services/store-management.service';
+import { updateStoreSchema } from '@/validators/store.validator';
 
 const getRequiredManagerIds = (req: any) => {
   appAssert(req.userId, BAD_REQUEST, 'Manager id is required');
@@ -246,4 +248,12 @@ export const cancelManagerStaffRequestHandler: RequestHandler = catchErrors(asyn
   const request = await cancelManagerStaffRequest(storeId, req.params.id);
 
   res.status(200).json({ success: true, data: request });
+});
+
+export const updateManagerStoreHandler: RequestHandler = catchErrors(async (req, res) => {
+  const { storeId } = getRequiredManagerIds(req);
+  const body = updateStoreSchema.parse(req.body);
+  const store = await updateStore(storeId.toString(), body);
+
+  res.status(200).json({ success: true, data: store });
 });
