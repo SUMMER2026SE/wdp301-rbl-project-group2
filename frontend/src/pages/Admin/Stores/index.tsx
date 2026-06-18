@@ -14,7 +14,7 @@ import {
   type CreateStorePayload,
   type UpdateStorePayload,
 } from "@/services/store.service";
-import { DELIVERABLE_CITY, DELIVERABLE_WARDS } from "@/utils/shipping";
+import { DELIVERABLE_CITY, DELIVERABLE_WARDS, WARD_CENTROIDS } from "@/utils/shipping";
 
 const OTHER_CITY = "Khác";
 const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
@@ -573,7 +573,17 @@ const AdminStores = () => {
               </label>
               <select
                 value={ward}
-                onChange={(e) => setWard(e.target.value)}
+                onChange={(e) => {
+                  const selectedWard = e.target.value;
+                  setWard(selectedWard);
+                  // Auto-fill coordinates from WARD_CENTROIDS
+                  if (selectedWard) {
+                    const centroid = WARD_CENTROIDS[selectedWard];
+                    if (centroid) {
+                      setCoordsStr(`${centroid[0]}, ${centroid[1]}`);
+                    }
+                  }
+                }}
                 className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-white"
               >
                 <option value="">-- Chọn phường/xã --</option>
@@ -601,6 +611,9 @@ const AdminStores = () => {
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
               Tọa độ (longitude, latitude)
+              <span className="text-[11px] font-medium text-emerald-600 ml-2 normal-case">
+                ⟵ Tự động từ phường/xã đã chọn
+              </span>
             </label>
             <div className="flex items-center gap-2">
               <Navigation size={16} className="text-[#9a734c] shrink-0" />
