@@ -1,8 +1,7 @@
 import React, { Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth"; // Giả định em có hook này quản lý trạng thái đăng nhập
-import { useUserLocation } from "@/hooks/useUserLocation";
-import LocationAlert from "@/components/LocationAlert";
+
 import HeroCarousel from "./components/HeroCarousel";
 
 const CategorySection = React.lazy(
@@ -33,7 +32,7 @@ const SectionLoader = () => (
 );
 
 const HomePage = () => {
-  const { loading, error, isValid } = useUserLocation();
+
 
   const { isAuthenticated, isAdmin, isStaff, isManager } = useAuth();
 
@@ -48,7 +47,7 @@ const HomePage = () => {
 
   return (
     <>
-      <LocationAlert loading={loading} error={error} isValid={isValid} />
+
 
       <div className="min-h-screen bg-slate-50">
         <main className="flex-1 flex flex-col items-center pb-24">
