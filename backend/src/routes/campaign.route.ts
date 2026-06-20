@@ -8,6 +8,7 @@ import {
   getCampaignsHandler,
   updateCampaignHandler,
   updateCampaignStatusHandler,
+  trackCampaignActivityHandler,
 } from '@/controllers/campaign.controller';
 
 const campaignRoutes = Router();
@@ -15,8 +16,11 @@ const campaignRoutes = Router();
 // GET /api/campaigns - Available to logged-in users or guest (filters differently in controller)
 campaignRoutes.get('/', optionalAuthenticate, getCampaignsHandler);
 
-// GET /api/campaigns/:id - Detail view
-campaignRoutes.get('/:id', authenticate, getCampaignByIdHandler);
+// GET /api/campaigns/:id - Detail view (Public for guests to view landing page)
+campaignRoutes.get('/:id', optionalAuthenticate, getCampaignByIdHandler);
+
+// POST /api/campaigns/:id/track - Track views/clicks
+campaignRoutes.post('/:id/track', optionalAuthenticate, trackCampaignActivityHandler);
 
 // POST /api/campaigns - Create proposal or approved campaign (Admin/Manager only)
 campaignRoutes.post('/', authenticate, authorize(Role.ADMIN, Role.MANAGER), createCampaignHandler);

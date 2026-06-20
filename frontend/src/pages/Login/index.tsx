@@ -37,6 +37,18 @@ const LoginPage = () => {
     }
   };
 
+  const resolveRedirectTarget = (fromState: any): string | null => {
+    if (!fromState) return null;
+    if (typeof fromState === "string") return fromState;
+    if (typeof fromState === "object") {
+      const pathname = fromState.pathname || "";
+      const search = fromState.search || "";
+      const hash = fromState.hash || "";
+      return `${pathname}${search}${hash}`;
+    }
+    return null;
+  };
+
   const handleGoogleLogin = () => {
     if (!(window as any).google) {
       setError("Không thể tải SDK đăng nhập của Google.");
@@ -92,19 +104,20 @@ const LoginPage = () => {
 
             // Redirect
             setTimeout(() => {
-              const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
-              if (from && from !== "/profile") {
-                navigate(from, { replace: true });
+              const fromState = (location.state as any)?.from;
+              const redirectTarget = resolveRedirectTarget(fromState);
+              if (redirectTarget && !redirectTarget.startsWith("/profile")) {
+                navigate(redirectTarget, { replace: true });
               } else {
                 const redirectPath = getRedirectPath(user.role);
                 if (redirectPath === "/") {
                   if (!user.isHealthSetup) {
-                    navigate("/onboarding");
+                    navigate("/onboarding", { replace: true });
                   } else {
-                    navigate("/");
+                    navigate("/", { replace: true });
                   }
                 } else {
-                  navigate(redirectPath);
+                  navigate(redirectPath, { replace: true });
                 }
               }
             }, 0);
@@ -173,20 +186,20 @@ const LoginPage = () => {
 
       // Delay navigation to let Zustand state propagate before route guards evaluate
       setTimeout(() => {
-        const from = (location.state as { from?: { pathname: string } })?.from
-          ?.pathname;
-        if (from && from !== "/profile") {
-          navigate(from, { replace: true });
+        const fromState = (location.state as any)?.from;
+        const redirectTarget = resolveRedirectTarget(fromState);
+        if (redirectTarget && !redirectTarget.startsWith("/profile")) {
+          navigate(redirectTarget, { replace: true });
         } else {
           const redirectPath = getRedirectPath(user.role);
           if (redirectPath === "/") {
             if (!user.isHealthSetup) {
-              navigate("/onboarding");
+              navigate("/onboarding", { replace: true });
             } else {
-              navigate("/");
+              navigate("/", { replace: true });
             }
           } else {
-            navigate(redirectPath);
+            navigate(redirectPath, { replace: true });
           }
         }
       }, 0);

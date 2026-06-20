@@ -147,6 +147,7 @@ export const updateCampaign = async (
   if (params.products !== undefined) campaign.products = params.products as any;
   if (params.startTime !== undefined) campaign.startTime = new Date(params.startTime);
   if (params.endTime !== undefined) campaign.endTime = new Date(params.endTime);
+  if (params.budget !== undefined) campaign.budget = params.budget;
 
   await campaign.save();
   await syncCampaignProducts(campaign);
@@ -194,5 +195,19 @@ export const updateCampaignStatus = async (id: string, status: CampaignStatus) =
     notifyCustomersOfCampaign(campaign);
   }
 
+  return campaign;
+};
+
+export const trackCampaignActivity = async (id: string, action: 'view' | 'click') => {
+  const campaign = await CampaignModel.findById(id);
+  appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
+
+  if (action === 'view') {
+    campaign.views = (campaign.views || 0) + 1;
+  } else if (action === 'click') {
+    campaign.clicks = (campaign.clicks || 0) + 1;
+  }
+
+  await campaign.save();
   return campaign;
 };

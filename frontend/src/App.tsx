@@ -36,6 +36,7 @@ import AboutPage from "./pages/About";
 import BlogDetailPage from "./pages/BlogDetailPage";
 import CustomerMessagesPage from "./pages/Profile/Messages";
 import NotFoundPage from "./pages/NotFound";
+import CampaignProductsPage from "./pages/CampaignProducts";
 import ForbiddenPage from "./pages/Forbidden";
 import MainLayout from "./components/layout/MainLayout";
 import AdminLayout from "./components/layout/AdminLayout";
@@ -112,6 +113,7 @@ function App() {
           <Route path="/vouchers" element={<VouchersPage />} />
           <Route path="/vouchers/:id" element={<VoucherDetailPage />} />
           <Route path="/menu" element={<MenuPage />} />
+          <Route path="/products-campaign/:id" element={<CampaignProductsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/blog" element={<Navigate to="/" replace />} />
           <Route path="/blog/:id" element={<BlogDetailPage />} />
