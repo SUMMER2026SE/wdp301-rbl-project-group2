@@ -8,6 +8,7 @@ import {
   getCampaigns,
   updateCampaign,
   updateCampaignStatus,
+  trackCampaignActivity,
 } from '@/services/campaign.service';
 import { CampaignStatus } from '@/types/campaign.type';
 import {
@@ -60,5 +61,18 @@ export const updateCampaignStatusHandler = catchErrors(async (req, res) => {
   return res.success(OK, {
     data: campaign,
     message: status === 'approved' ? 'Phê duyệt chiến dịch thành công' : 'Từ chối chiến dịch thành công',
+  });
+});
+
+export const trackCampaignActivityHandler = catchErrors(async (req, res) => {
+  const { action } = req.body;
+  if (action !== 'view' && action !== 'click') {
+    return res.status(400).json({ success: false, message: 'Hành động không hợp lệ' });
+  }
+
+  const campaign = await trackCampaignActivity(req.params.id, action);
+  return res.success(OK, {
+    data: campaign,
+    message: 'Ghi nhận lượt tương tác thành công',
   });
 });

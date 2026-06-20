@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import HomeHeader from "@/pages/Home/components/HomeHeader";
 import HomeFooter from "@/pages/Home/components/HomeFooter";
 import { FloatingAIChatbot } from "@/components/shared/FloatingAIChatbot";
@@ -58,6 +58,21 @@ const ScrollToTopButton = () => {
 const MainLayout = () => {
     const { selectedStore } = useStoreStore();
     const [showModal, setShowModal] = useState(false);
+    const { isAuthenticated, role } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (isAuthenticated && role) {
+            const upperRole = role.toUpperCase();
+            if (upperRole === "ADMIN") {
+                navigate("/admin", { replace: true });
+            } else if (upperRole === "MANAGER") {
+                navigate("/manager/dashboard", { replace: true });
+            } else if (upperRole === "STAFF") {
+                navigate("/staff", { replace: true });
+            }
+        }
+    }, [isAuthenticated, role, navigate]);
 
     useEffect(() => {
         if (!selectedStore) {

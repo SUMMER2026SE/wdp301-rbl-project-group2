@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import campaignAPI, { CampaignStatus } from "@/services/campaign.service";
 import type { Campaign } from "@/services/campaign.service";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { useAuth } from "@/hooks/useAuth";
+import orderService from "@/services/order.service";
+import type { Order } from "@/services/order.service";
 import toast from "react-hot-toast";
 import {
   Search,
@@ -17,7 +19,28 @@ import {
   Tag,
   Store,
   Pencil,
+  ChevronDown,
+  Percent,
+  Coins,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Activity,
+  Award,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Area,
+  AreaChart,
+} from "recharts";
+
 
 const AdminCampaigns = () => {
   const { user } = useAuth();
@@ -26,6 +49,7 @@ const AdminCampaigns = () => {
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -43,9 +67,21 @@ const AdminCampaigns = () => {
   }[]>([]);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [formBudget, setFormBudget] = useState<number | string>(0);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
+  const [wasSubmitted, setWasSubmitted] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "running" | "upcoming" | "ended_rejected">("all");
+  const [viewMode, setViewMode] = useState<"list" | "analytics">("list");
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<"week" | "month" | "year">("month");
+  const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
+
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -71,9 +107,21 @@ const AdminCampaigns = () => {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const res = await orderService.getAllOrders({ limit: 1000 });
+      if (res.success) {
+        setOrders(res.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+    }
+  };
+
   useEffect(() => {
     fetchCampaigns();
     fetchMetadata();
+    fetchOrders();
   }, []);
 
   const handleOpenCreateModal = () => {
@@ -83,7 +131,11 @@ const AdminCampaigns = () => {
     setCampaignProducts([]);
     setStartTime("");
     setEndTime("");
+    setFormBudget(0);
     setProductSearch("");
+    setWasSubmitted(false);
+    setShowCalendar(false);
+    setShowTypeDropdown(false);
     setShowModal(true);
   };
 
@@ -93,12 +145,59 @@ const AdminCampaigns = () => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  const formatDateToLocalInput = (date: Date, isEnd: boolean) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const hours = isEnd ? 23 : 0;
+    const minutes = isEnd ? 59 : 0;
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}`;
+  };
+
+  const handleCalendarDayClick = (day: number) => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const clickedDate = new Date(year, month, day);
+
+    if (!startTime || (startTime && endTime)) {
+      // Start selection
+      setStartTime(formatDateToLocalInput(clickedDate, false));
+      setEndTime("");
+    } else {
+      const currentStart = new Date(startTime);
+      if (clickedDate < currentStart) {
+        // Reset start
+        setStartTime(formatDateToLocalInput(clickedDate, false));
+      } else {
+        // Complete range
+        setEndTime(formatDateToLocalInput(clickedDate, true));
+        setShowCalendar(false);
+      }
+    }
+  };
+
+  const getCalendarDays = () => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDayOfWeek = new Date(year, month, 1).getDay();
+
+    const days = [];
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  };
+
   const handleOpenEditModal = (c: Campaign) => {
     setEditingCampaign(c);
     setFormName(c.name);
     setFormType(c.type);
     setStartTime(toLocalDatetimeInput(c.startTime));
     setEndTime(toLocalDatetimeInput(c.endTime));
+    setFormBudget(c.budget || 0);
 
     const formattedProducts = c.products.map(p => {
       const pId = typeof p.productId === "string" ? p.productId : (p.productId as any)._id;
@@ -110,6 +209,9 @@ const AdminCampaigns = () => {
     });
     setCampaignProducts(formattedProducts);
     setProductSearch("");
+    setWasSubmitted(false);
+    setShowCalendar(false);
+    setShowTypeDropdown(false);
     setShowModal(true);
   };
 
@@ -140,6 +242,7 @@ const AdminCampaigns = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setWasSubmitted(true);
     if (!formName.trim()) return toast.error("Vui lòng nhập tên chiến dịch");
     if (!startTime || !endTime) return toast.error("Vui lòng chọn thời gian bắt đầu và kết thúc");
     if (new Date(startTime) >= new Date(endTime)) return toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
@@ -164,7 +267,8 @@ const AdminCampaigns = () => {
         discount: formType === "discount" ? Number(p.discount) : null
       })),
       startTime: new Date(startTime).toISOString(),
-      endTime: new Date(endTime).toISOString()
+      endTime: new Date(endTime).toISOString(),
+      budget: Number(formBudget) || 0
     };
 
     setSubmitting(true);
@@ -270,9 +374,405 @@ const AdminCampaigns = () => {
     }
   };
 
-  const filteredCampaigns = campaigns.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCampaigns = campaigns.filter(c => {
+    const matchesName = c.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const startTimeMs = new Date(c.startTime).getTime();
+    const endTimeMs = new Date(c.endTime).getTime();
+    const now = new Date().getTime();
+
+    let matchesStartDate = true;
+    if (filterStartDate) {
+      const filterStartMs = new Date(filterStartDate).setHours(0, 0, 0, 0);
+      matchesStartDate = startTimeMs >= filterStartMs;
+    }
+
+    let matchesEndDate = true;
+    if (filterEndDate) {
+      const filterEndMs = new Date(filterEndDate).setHours(23, 59, 59, 999);
+      matchesEndDate = endTimeMs <= filterEndMs;
+    }
+
+    let matchesTab = true;
+    if (activeTab === "pending") {
+      matchesTab = c.status === CampaignStatus.PENDING;
+    } else if (activeTab === "running") {
+      matchesTab = c.status === CampaignStatus.APPROVED && now >= startTimeMs && now <= endTimeMs;
+    } else if (activeTab === "upcoming") {
+      matchesTab = c.status === CampaignStatus.APPROVED && now < startTimeMs;
+    } else if (activeTab === "ended_rejected") {
+      matchesTab = c.status === CampaignStatus.REJECTED || (c.status === CampaignStatus.APPROVED && now > endTimeMs);
+    }
+
+    return matchesName && matchesStartDate && matchesEndDate && matchesTab;
+  });
+
+  // Find all product IDs already active in other approved campaigns during the selected form's time range
+  const occupiedProductIds = useMemo(() => {
+    if (!startTime || !endTime) return new Set<string>();
+
+    const formStart = new Date(startTime).getTime();
+    const formEnd = new Date(endTime).getTime();
+
+    if (isNaN(formStart) || isNaN(formEnd) || formStart >= formEnd) {
+      return new Set<string>();
+    }
+
+    const occupied = new Set<string>();
+
+    campaigns.forEach(c => {
+      // Skip current editing campaign to allow editing its own products
+      if (editingCampaign && c._id === editingCampaign._id) return;
+      // Only check approved (active/scheduled) campaigns
+      if (c.status !== CampaignStatus.APPROVED) return;
+
+      const cStart = new Date(c.startTime).getTime();
+      const cEnd = new Date(c.endTime).getTime();
+
+      // Check if dates overlap
+      const isOverlapping = formStart < cEnd && cStart < formEnd;
+      if (isOverlapping) {
+        c.products.forEach(p => {
+          if (!p.productId) return;
+          let pId = "";
+          if (typeof p.productId === "string") {
+            pId = p.productId;
+          } else if (typeof p.productId === "object") {
+            pId = (p.productId as any)._id || (p.productId as any).id;
+          }
+          if (pId) {
+            occupied.add(pId.toString());
+          }
+        });
+      }
+    });
+
+    return occupied;
+  }, [campaigns, startTime, endTime, editingCampaign]);
+
+  // Auto-deselect products if they become occupied due to date changes
+  useEffect(() => {
+    if (occupiedProductIds.size > 0 && campaignProducts.length > 0) {
+      const conflictingProducts = campaignProducts.filter(cp => occupiedProductIds.has(cp.productId));
+      if (conflictingProducts.length > 0) {
+        setCampaignProducts(prev =>
+          prev.filter(cp => !occupiedProductIds.has(cp.productId))
+        );
+        toast.error("Một số món bạn đã chọn bị trùng lịch hoạt động ở chiến dịch khác và đã được tự động bỏ chọn.");
+      }
+    }
+  }, [occupiedProductIds, campaignProducts]);
+
+  const analyticsData = useMemo(() => {
+    // CHÚ Ý: Chỉ tính toán số liệu từ các đơn hàng đã thanh toán thành công (order.payment?.paidAt || order.status === "completed" || order.status === "delivered")
+    const now = new Date();
+    let periodDays = 30;
+    if (analyticsPeriod === "week") periodDays = 7;
+    if (analyticsPeriod === "year") periodDays = 365;
+
+    const startDateLimit = new Date();
+    startDateLimit.setDate(now.getDate() - periodDays);
+
+    const approvedCampaigns = campaigns.filter(c => c.status === CampaignStatus.APPROVED);
+
+    // Lọc ra các đơn hàng đã thanh toán thành công
+    const paidOrders = orders.filter(o => o.payment?.paidAt || o.status === "completed" || o.status === "delivered");
+
+    const campaignStats = approvedCampaigns.map(c => {
+      const isWithinPeriod = new Date(c.startTime) >= startDateLimit;
+
+      const campaignProductsDetails = c.products.map((cp, idx) => {
+        let prodInfo: Product | undefined = undefined;
+        let prodId = "";
+
+        if (typeof cp.productId === "string") {
+          prodId = cp.productId;
+          prodInfo = products.find(p => p._id === cp.productId);
+        } else if (cp.productId && typeof cp.productId === "object") {
+          prodId = (cp.productId as any)._id || (cp.productId as any).id;
+          prodInfo = cp.productId as any;
+        }
+
+        const pName = prodInfo?.name || `Sản phẩm #${idx + 1}`;
+        const pPrice = prodInfo?.price || 85000;
+
+        // Tính toán số lượng và doanh thu thực tế từ orders
+        let pQty = 0;
+        let pSales = 0;
+        let pDiscountVal = 0;
+
+        // Lọc các đơn hàng chứa sản phẩm này và nằm trong khoảng thời gian của chiến dịch
+        paidOrders.forEach(order => {
+          const orderDate = new Date(order.createdAt);
+          const campaignStart = new Date(c.startTime);
+          const campaignEnd = new Date(c.endTime);
+
+          if (orderDate >= campaignStart && orderDate <= campaignEnd) {
+            order.items.forEach(item => {
+              const itemProdId = typeof item.productId === "string" ? item.productId : item.productId?._id;
+              if (itemProdId === prodId) {
+                pQty += item.quantity;
+                pSales += item.subTotal;
+                
+                // Chiết khấu = Giá gốc * số lượng - Giá bán thực tế (subTotal)
+                const originalSubtotal = item.quantity * pPrice;
+                pDiscountVal += Math.max(0, originalSubtotal - item.subTotal);
+              }
+            });
+          }
+        });
+
+        return {
+          id: prodId,
+          name: pName,
+          originalPrice: pPrice,
+          rule: c.type === "discount" ? `-${cp.discount}%` : `${cp.fixedPrice?.toLocaleString("vi-VN")}đ`,
+          qtySold: pQty,
+          sales: pSales,
+          discount: pDiscountVal
+        };
+      });
+
+      const totalCalculatedSales = campaignProductsDetails.reduce((acc, p) => acc + p.sales, 0);
+      const totalCalculatedDiscount = campaignProductsDetails.reduce((acc, p) => acc + p.discount, 0);
+      
+      // Số lượng đơn hàng thực tế chứa ít nhất một sản phẩm của chiến dịch trong thời gian chạy chiến dịch
+      let campaignOrdersCount = 0;
+      paidOrders.forEach(order => {
+        const orderDate = new Date(order.createdAt);
+        const campaignStart = new Date(c.startTime);
+        const campaignEnd = new Date(c.endTime);
+
+        if (orderDate >= campaignStart && orderDate <= campaignEnd) {
+          const hasCampaignProduct = order.items.some(item => {
+            const itemProdId = typeof item.productId === "string" ? item.productId : item.productId?._id;
+            return c.products.some(cp => {
+              const cpProdId = typeof cp.productId === "string" ? cp.productId : cp.productId?._id;
+              return itemProdId === cpProdId;
+            });
+          });
+          if (hasCampaignProduct) {
+            campaignOrdersCount++;
+          }
+        }
+      });
+
+      const baseSales = totalCalculatedSales;
+      const discountAmount = totalCalculatedDiscount;
+      const baseOrders = campaignOrdersCount;
+      const multiplier = discountAmount > 0 ? parseFloat((baseSales / discountAmount).toFixed(1)) : 5.0;
+
+      // Tỷ lệ chuyển đổi = (Số đơn hàng thực tế / Lượt xem) * 100
+      const conversionRate = c.views && c.views > 0 ? ((baseOrders / c.views) * 100).toFixed(1) : "0.0";
+
+      return {
+        id: c._id,
+        name: c.name,
+        startTime: c.startTime,
+        endTime: c.endTime,
+        type: c.type,
+        sales: isWithinPeriod ? baseSales : 0,
+        discount: isWithinPeriod ? discountAmount : 0,
+        orders: isWithinPeriod ? baseOrders : 0,
+        avgDiscount: c.type === "discount"
+          ? c.products.reduce((acc, p) => acc + (p.discount || 10), 0) / (c.products.length || 1)
+          : 15,
+        multiplier,
+        conversionRate,
+        views: c.views || 0,
+        clicks: c.clicks || 0,
+        isWithinPeriod,
+        productsList: campaignProductsDetails
+      };
+    });
+
+    const activePeriodStats = campaignStats.filter(s => s.isWithinPeriod);
+
+    const totalSales = activePeriodStats.reduce((acc, s) => acc + s.sales, 0);
+    const totalDiscounts = activePeriodStats.reduce((acc, s) => acc + s.discount, 0);
+    const totalOrders = activePeriodStats.reduce((acc, s) => acc + s.orders, 0);
+    const totalViews = activePeriodStats.reduce((acc, s) => acc + (s.views || 0), 0);
+
+    const overallMultiplier = totalDiscounts > 0 ? (totalSales / totalDiscounts).toFixed(1) : "5.0";
+    const overallConversion = totalViews > 0
+      ? ((totalOrders / totalViews) * 100).toFixed(1)
+      : "0.0";
+
+    const chartData: any[] = [];
+    if (analyticsPeriod === "week") {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const dayLabel = d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric" });
+        
+        let daySales = 0;
+        let dayDiscount = 0;
+
+        const startOfDay = new Date(d);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(d);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        paidOrders.forEach(order => {
+          const orderDate = new Date(order.createdAt);
+          if (orderDate >= startOfDay && orderDate <= endOfDay) {
+            order.items.forEach(item => {
+              const itemProdId = typeof item.productId === "string" ? item.productId : item.productId?._id;
+              
+              activePeriodStats.forEach(campStat => {
+                const campaign = approvedCampaigns.find(ac => ac._id === campStat.id);
+                if (campaign) {
+                  const campaignStart = new Date(campaign.startTime);
+                  const campaignEnd = new Date(campaign.endTime);
+                  if (orderDate >= campaignStart && orderDate <= campaignEnd) {
+                    const matchedProd = campaign.products.find(cp => {
+                      const cpProdId = typeof cp.productId === "string" ? cp.productId : cp.productId?._id;
+                      return cpProdId === itemProdId;
+                    });
+                    if (matchedProd) {
+                      daySales += item.subTotal;
+                      const prodInfo = products.find(p => p._id === itemProdId);
+                      const originalPrice = prodInfo?.price || 0;
+                      dayDiscount += Math.max(0, (item.quantity * originalPrice) - item.subTotal);
+                    }
+                  }
+                }
+              });
+            });
+          }
+        });
+
+        chartData.push({ name: dayLabel, "Doanh số": daySales, "Chiết khấu": dayDiscount });
+      }
+    } else if (analyticsPeriod === "month") {
+      for (let i = 3; i >= 0; i--) {
+        const weekLabel = `Tuần ${4 - i}`;
+        
+        const startOfWeek = new Date();
+        startOfWeek.setDate(now.getDate() - (i + 1) * 7);
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date();
+        endOfWeek.setDate(now.getDate() - i * 7);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        let weekSales = 0;
+        let weekDiscount = 0;
+
+        paidOrders.forEach(order => {
+          const orderDate = new Date(order.createdAt);
+          if (orderDate >= startOfWeek && orderDate <= endOfWeek) {
+            order.items.forEach(item => {
+              const itemProdId = typeof item.productId === "string" ? item.productId : item.productId?._id;
+              activePeriodStats.forEach(campStat => {
+                const campaign = approvedCampaigns.find(ac => ac._id === campStat.id);
+                if (campaign) {
+                  const campaignStart = new Date(campaign.startTime);
+                  const campaignEnd = new Date(campaign.endTime);
+                  if (orderDate >= campaignStart && orderDate <= campaignEnd) {
+                    const matchedProd = campaign.products.find(cp => {
+                      const cpProdId = typeof cp.productId === "string" ? cp.productId : cp.productId?._id;
+                      return cpProdId === itemProdId;
+                    });
+                    if (matchedProd) {
+                      weekSales += item.subTotal;
+                      const prodInfo = products.find(p => p._id === itemProdId);
+                      const originalPrice = prodInfo?.price || 0;
+                      weekDiscount += Math.max(0, (item.quantity * originalPrice) - item.subTotal);
+                    }
+                  }
+                }
+              });
+            });
+          }
+        });
+
+        chartData.push({ name: weekLabel, "Doanh số": weekSales, "Chiết khấu": weekDiscount });
+      }
+    } else {
+      const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
+      const currentMonthIndex = now.getMonth();
+      for (let i = 11; i >= 0; i--) {
+        const mIdx = (currentMonthIndex - i + 12) % 12;
+        const monthLabel = months[mIdx];
+        
+        const targetYear = now.getFullYear() - (currentMonthIndex - i < 0 ? 1 : 0);
+        const startOfMonth = new Date(targetYear, mIdx, 1, 0, 0, 0, 0);
+        const endOfMonth = new Date(targetYear, mIdx + 1, 0, 23, 59, 59, 999);
+
+        let monthSales = 0;
+        let monthDiscount = 0;
+
+        paidOrders.forEach(order => {
+          const orderDate = new Date(order.createdAt);
+          if (orderDate >= startOfMonth && orderDate <= endOfMonth) {
+            order.items.forEach(item => {
+              const itemProdId = typeof item.productId === "string" ? item.productId : item.productId?._id;
+              activePeriodStats.forEach(campStat => {
+                const campaign = approvedCampaigns.find(ac => ac._id === campStat.id);
+                if (campaign) {
+                  const campaignStart = new Date(campaign.startTime);
+                  const campaignEnd = new Date(campaign.endTime);
+                  if (orderDate >= campaignStart && orderDate <= campaignEnd) {
+                    const matchedProd = campaign.products.find(cp => {
+                      const cpProdId = typeof cp.productId === "string" ? cp.productId : cp.productId?._id;
+                      return cpProdId === itemProdId;
+                    });
+                    if (matchedProd) {
+                      monthSales += item.subTotal;
+                      const prodInfo = products.find(p => p._id === itemProdId);
+                      const originalPrice = prodInfo?.price || 0;
+                      monthDiscount += Math.max(0, (item.quantity * originalPrice) - item.subTotal);
+                    }
+                  }
+                }
+              });
+            });
+          }
+        });
+
+        chartData.push({ name: monthLabel, "Doanh số": monthSales, "Chiết khấu": monthDiscount });
+      }
+    }
+
+    return {
+      campaignStats,
+      activePeriodStats,
+      totalSales,
+      totalDiscounts,
+      totalOrders,
+      overallMultiplier,
+      overallConversion,
+      chartData
+    };
+  }, [campaigns, orders, products, analyticsPeriod]);
+
+  // Real-time frontend validation errors
+  const nameError = !formName.trim() ? "Tên chiến dịch không được để trống" : "";
+  const timeError = !startTime || !endTime
+    ? "Vui lòng chọn thời gian bắt đầu và kết thúc"
+    : new Date(startTime) >= new Date(endTime)
+      ? "Thời gian bắt đầu phải trước thời gian kết thúc"
+      : "";
+  const productCountError = campaignProducts.length === 0 ? "Chiến dịch phải có ít nhất một sản phẩm" : "";
+
+  const getProductError = (cp: { productId: string; discount?: number | null; fixedPrice?: number | null }) => {
+    if (formType === "discount") {
+      if (cp.discount === undefined || cp.discount === null || isNaN(cp.discount)) {
+        return "Yêu cầu nhập % giảm";
+      }
+      if (cp.discount < 0 || cp.discount > 100) {
+        return "Phần trăm giảm từ 0 - 100";
+      }
+    } else if (formType === "fixed_price") {
+      if (cp.fixedPrice === undefined || cp.fixedPrice === null || isNaN(cp.fixedPrice)) {
+        return "Yêu cầu nhập giá";
+      }
+      if (cp.fixedPrice < 0) {
+        return "Giá không được âm";
+      }
+    }
+    return "";
+  };
 
   return (
     <div className="max-w-7xl mx-auto w-full">
@@ -283,173 +783,521 @@ const AdminCampaigns = () => {
             Quản lý chiến dịch khuyến mãi
           </h2>
           <p className="text-[#9a734c] mt-1 text-sm">
-            {isAdmin 
+            {isAdmin
               ? "Tạo mới, phê duyệt hoặc từ chối các đề xuất chiến dịch của quản lý."
               : "Đề xuất các chương trình khuyến mãi và theo dõi trạng thái phê duyệt."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleOpenCreateModal}
-          className="flex items-center justify-center gap-2 h-12 px-6 bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-orange-600/10 transition-all active:scale-[0.98] cursor-pointer"
-        >
-          <Plus className="w-5 h-5" />
-          {isAdmin ? "Tạo chiến dịch" : "Đề xuất chiến dịch"}
-        </button>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Layers className="w-6 h-6" />
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Switcher */}
+          <div className="flex bg-[#f3ede7] rounded-xl p-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "list"
+                ? "bg-orange-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+                }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Danh sách
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("analytics")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "analytics"
+                ? "bg-orange-600 text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+                }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              Báo cáo hiệu quả
+            </button>
           </div>
-          <div>
-            <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Đang hoạt động</p>
-            <p className="text-[#1b140d] text-2xl font-black mt-1">
-              {campaigns.filter(isCampaignActive).length}
-            </p>
-          </div>
-        </div>
 
-        <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-amber-50 text-amber-600 rounded-xl">
-            <Calendar className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Đang chờ duyệt</p>
-            <p className="text-[#1b140d] text-2xl font-black mt-1">
-              {campaigns.filter(c => c.status === CampaignStatus.PENDING).length}
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
-          <div className="p-3.5 bg-gray-50 text-gray-600 rounded-xl">
-            <Tag className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Tổng số chiến dịch</p>
-            <p className="text-[#1b140d] text-2xl font-black mt-1">{campaigns.length}</p>
-          </div>
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="flex items-center justify-center gap-2 h-10 px-5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-orange-600/10 transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            {isAdmin ? "Tạo chiến dịch" : "Đề xuất chiến dịch"}
+          </button>
         </div>
       </div>
+
+      {/* Stats Cards (Only shown in list mode) */}
+      {viewMode === "list" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+            <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Layers className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Đang hoạt động</p>
+              <p className="text-[#1b140d] text-2xl font-black mt-1">
+                {campaigns.filter(isCampaignActive).length}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+            <div className="p-3.5 bg-gray-50 text-gray-600 rounded-xl">
+              <Tag className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Tổng số chiến dịch</p>
+              <p className="text-[#1b140d] text-2xl font-black mt-1">{campaigns.length}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs Filter for Campaign Statuses (Only shown in list mode) */}
+      {viewMode === "list" && (
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-[#e7dbcf] pb-3">
+          {(
+            [
+              { key: "all", label: "Tất cả", count: campaigns.length, highlight: false },
+              {
+                key: "running",
+                label: "Đang diễn ra",
+                count: campaigns.filter(isCampaignActive).length,
+                highlight: false,
+              },
+              {
+                key: "upcoming",
+                label: "Sắp diễn ra",
+                count: campaigns.filter(
+                  (c) =>
+                    c.status === CampaignStatus.APPROVED &&
+                    new Date().getTime() < new Date(c.startTime).getTime()
+                ).length,
+                highlight: false,
+              },
+              {
+                key: "ended_rejected",
+                label: "Hết hạn / Từ chối",
+                count: campaigns.filter(
+                  (c) =>
+                    c.status === CampaignStatus.REJECTED ||
+                    (c.status === CampaignStatus.APPROVED &&
+                      new Date().getTime() > new Date(c.endTime).getTime())
+                ).length,
+                highlight: false,
+              },
+            ] as const
+          ).map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${isActive
+                  ? "bg-orange-50 text-orange-700 shadow-sm border border-orange-200"
+                  : tab.highlight && tab.count > 0
+                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isActive
+                    ? "bg-orange-600 text-white"
+                    : tab.highlight && tab.count > 0
+                      ? "bg-amber-500 text-white"
+                      : "bg-slate-100 text-slate-600"
+                    }`}
+                >
+                  {tab.count}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-orange-600 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Toolbar & List Table */}
-      <div className="bg-white border border-[#e7dbcf] rounded-2xl overflow-hidden shadow-sm">
-        {/* Search */}
-        <div className="p-4 border-b border-[#e7dbcf]">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm tên chiến dịch..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#f3ede7]/50 border-none focus:ring-2 focus:ring-orange-600 focus:bg-white text-sm outline-none transition-all placeholder:text-[#9a734c] text-slate-800"
-            />
+      {viewMode === "list" && (
+        <div className="bg-white border border-[#e7dbcf] rounded-2xl overflow-hidden shadow-sm">
+          {/* Search & Date Filters */}
+          <div className="p-4 border-b border-[#e7dbcf] flex flex-wrap items-center justify-between gap-4">
+            <div className="relative max-w-md flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm tên chiến dịch..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#f3ede7]/50 border-none focus:ring-2 focus:ring-orange-600 focus:bg-white text-sm outline-none transition-all placeholder:text-[#9a734c] text-slate-800"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#9a734c]">Bắt đầu từ:</span>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-[#f3ede7]/50 text-slate-800 border-none text-xs outline-none focus:ring-2 focus:ring-orange-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#9a734c]">Kết thúc trước:</span>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-[#f3ede7]/50 text-slate-800 border-none text-xs outline-none focus:ring-2 focus:ring-orange-600 focus:bg-white"
+                />
+              </div>
+
+              {(filterStartDate || filterEndDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterStartDate("");
+                    setFilterEndDate("");
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#fcfaf8] border-b border-[#e7dbcf]">
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Tên chiến dịch</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Người tạo</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Trạng thái</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Loại ưu đãi</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Thời gian</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e7dbcf]">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">Đang tải dữ liệu...</td>
+                  </tr>
+                ) : filteredCampaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400">Không tìm thấy chiến dịch nào</td>
+                  </tr>
+                ) : filteredCampaigns.map((c) => {
+                  const isCreator = typeof c.createdBy !== "string" && c.createdBy._id === user?._id;
+                  const canModify = isAdmin || (isCreator && c.status === CampaignStatus.PENDING);
+                  const creatorName = typeof c.createdBy === "string" ? "Hệ thống" : (c.createdBy?.username || "Ẩn danh");
+
+                  return (
+                    <tr key={c._id} className="hover:bg-orange-50/5 transition-colors">
+                      <td className="px-6 py-4 font-bold text-slate-800">{c.name}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{creatorName}</td>
+                      <td className="px-6 py-4">{getStatusBadge(c)}</td>
+                      <td className="px-6 py-4 text-sm font-semibold capitalize text-orange-700">
+                        {c.type === "fixed_price" ? "Giá cố định" : "Phần trăm giảm"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500">
+                        <div className="flex flex-col gap-0.5">
+                          <span>Bắt đầu: {new Date(c.startTime).toLocaleString("vi-VN")}</span>
+                          <span>Kết thúc: {new Date(c.endTime).toLocaleString("vi-VN")}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2.5">
+                          {isAdmin && c.status === CampaignStatus.PENDING && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateStatus(c._id, CampaignStatus.APPROVED)}
+                                className="inline-flex items-center justify-center p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                title="Duyệt"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateStatus(c._id, CampaignStatus.REJECTED)}
+                                className="inline-flex items-center justify-center p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                title="Từ chối"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {canModify && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(c)}
+                              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                              title="Sửa"
+                            >
+                              <Pencil className="w-4.5 h-4.5" />
+                            </button>
+                          )}
+                          {canModify && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCampaign(c._id)}
+                              disabled={deletingId === c._id}
+                              className="inline-flex items-center justify-center p-2 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Xóa"
+                            >
+                              <Trash2 className="w-4.5 h-4.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#fcfaf8] border-b border-[#e7dbcf]">
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Tên chiến dịch</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Người tạo</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Trạng thái</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Loại ưu đãi</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">Thời gian</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider text-right">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e7dbcf]">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">Đang tải dữ liệu...</td>
-                </tr>
-              ) : filteredCampaigns.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">Không tìm thấy chiến dịch nào</td>
-                </tr>
-              ) : filteredCampaigns.map((c) => {
-                const isCreator = typeof c.createdBy !== "string" && c.createdBy._id === user?._id;
-                const canModify = isAdmin || (isCreator && c.status === CampaignStatus.PENDING);
-                const creatorName = typeof c.createdBy === "string" ? "Hệ thống" : (c.createdBy?.username || "Ẩn danh");
+      {/* Campaign Performance Analytics Dashboard */}
+      {viewMode === "analytics" && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* Analytics Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-[#e7dbcf] p-4 rounded-2xl shadow-sm">
+            <div>
+              <h4 className="text-base font-bold text-slate-800">Hiệu quả chiến dịch tổng hợp</h4>
+              <p className="text-xs text-slate-400">Xem và phân tích hiệu quả dựa trên doanh số và chiết khấu của các đơn hàng đã thanh toán thành công.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#9a734c]">Khoảng thời gian:</span>
+              <div className="flex bg-[#f3ede7] rounded-xl p-1">
+                {(["week", "month", "year"] as const).map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    onClick={() => setAnalyticsPeriod(period)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${analyticsPeriod === period
+                      ? "bg-orange-600 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-800"
+                      }`}
+                  >
+                    {period === "week" ? "Tuần này" : period === "month" ? "Tháng này" : "Năm nay"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-                return (
-                  <tr key={c._id} className="hover:bg-orange-50/5 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-800">{c.name}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{creatorName}</td>
-                    <td className="px-6 py-4">{getStatusBadge(c)}</td>
-                    <td className="px-6 py-4 text-sm font-semibold capitalize text-orange-700">
-                      {c.type === "fixed_price" ? "Giá cố định" : "Phần trăm giảm"}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      <div className="flex flex-col gap-0.5">
-                        <span>Bắt đầu: {new Date(c.startTime).toLocaleString("vi-VN")}</span>
-                        <span>Kết thúc: {new Date(c.endTime).toLocaleString("vi-VN")}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2.5">
-                        {isAdmin && c.status === CampaignStatus.PENDING && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(c._id, CampaignStatus.APPROVED)}
-                              className="inline-flex items-center justify-center p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
-                              title="Duyệt"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(c._id, CampaignStatus.REJECTED)}
-                              className="inline-flex items-center justify-center p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
-                              title="Từ chối"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        {canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(c)}
-                            className="inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
-                            title="Sửa"
-                          >
-                            <Pencil className="w-4.5 h-4.5" />
-                          </button>
-                        )}
-                        {canModify && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCampaign(c._id)}
-                            disabled={deletingId === c._id}
-                            className="inline-flex items-center justify-center p-2 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Xóa"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+          {/* Analytics KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+              <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider">Doanh thu ước tính</p>
+                <p className="text-[#1b140d] text-2xl font-black mt-1">
+                  {analyticsData.totalSales.toLocaleString("vi-VN")}đ
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+              <div className="p-3.5 bg-orange-50 text-orange-600 rounded-xl">
+                <Percent className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider font-semibold">Chiết khấu đã giảm</p>
+                <p className="text-[#1b140d] text-2xl font-black mt-1">
+                  {analyticsData.totalDiscounts.toLocaleString("vi-VN")}đ
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+              <div className="p-3.5 bg-blue-50 text-blue-600 rounded-xl">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider font-semibold">Tỷ lệ chuyển đổi</p>
+                <p className="text-[#1b140d] text-2xl font-black mt-1">
+                  {analyticsData.overallConversion}%
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
+              <div className="p-3.5 bg-purple-50 text-purple-600 rounded-xl">
+                <Award className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider font-semibold">Tỷ suất Doanh số / Giảm giá</p>
+                <p className="text-[#1b140d] text-2xl font-black mt-1 flex items-baseline gap-1">
+                  <span>{analyticsData.overallMultiplier} lần</span>
+                  <span className="text-xs font-bold text-emerald-600">(Tốt)</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart Section */}
+          <div className="bg-white border border-[#e7dbcf] rounded-2xl p-6 shadow-sm">
+            <h4 className="text-base font-bold text-slate-800 mb-4">Biểu đồ doanh thu vs Chiết khấu chiến dịch</h4>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+                  <Tooltip formatter={(value) => `${Number(value).toLocaleString("vi-VN")}đ`} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="Doanh số" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Chiết khấu" fill="#f97316" opacity={0.6} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Detailed Campaign Success Matrix */}
+          <div className="bg-white border border-[#e7dbcf] rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-[#e7dbcf]">
+              <h4 className="text-base font-bold text-slate-800">Đánh giá cụ thể từng chiến dịch</h4>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#fcfaf8] border-b border-[#e7dbcf]">
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Tên chiến dịch</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Thời gian chạy</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Doanh thu mang lại</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Đã giảm giá</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Đơn hàng áp dụng</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c]">Tỷ lệ chuyển đổi</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] text-right">Mức độ hiệu quả</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-[#e7dbcf]">
+                  {analyticsData.campaignStats.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">Chưa có chiến dịch nào được duyệt để phân tích</td>
+                    </tr>
+                  ) : (
+                    analyticsData.campaignStats.map((stat) => {
+                      let efficiencyBadge = (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Hiệu quả cao
+                        </span>
+                      );
+                      if (stat.multiplier < 3.0) {
+                        efficiencyBadge = (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                            Hiệu quả thấp
+                          </span>
+                        );
+                      } else if (stat.multiplier < 5.0) {
+                        efficiencyBadge = (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            Hiệu quả trung bình
+                          </span>
+                        );
+                      }
+
+                      const isExpanded = expandedCampaignId === stat.id;
+                      return (
+                        <Fragment key={stat.id}>
+                          <tr
+                            onClick={() => setExpandedCampaignId(isExpanded ? null : stat.id)}
+                            className={`hover:bg-orange-50/5 transition-colors cursor-pointer ${isExpanded ? "bg-orange-50/10" : ""}`}
+                          >
+                            <td className="px-6 py-4 font-bold text-slate-800">
+                              <div className="flex items-center gap-2">
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                <span>{stat.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs text-slate-500">
+                              {new Date(stat.startTime).toLocaleDateString("vi-VN")} - {new Date(stat.endTime).toLocaleDateString("vi-VN")}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-slate-800">
+                              {stat.sales.toLocaleString("vi-VN")}đ
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-600">
+                              {stat.discount.toLocaleString("vi-VN")}đ
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-600">
+                              {stat.orders} đơn
+                            </td>
+                            <td className="px-6 py-4 text-xs text-slate-600 font-bold">
+                              <div>{stat.conversionRate}%</div>
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                                {stat.clicks} click / {stat.views} xem
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {efficiencyBadge}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="bg-slate-50/50">
+                              <td colSpan={7} className="px-6 py-4">
+                                <div className="border border-slate-100 rounded-xl bg-white p-4 shadow-inner space-y-3 animate-in slide-in-from-top-1 duration-150">
+                                  <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Chi tiết các món chạy trong chiến dịch:</h5>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                      <thead>
+                                        <tr className="border-b border-slate-100 text-slate-400 font-bold">
+                                          <th className="py-2 pr-4">Tên sản phẩm</th>
+                                          <th className="py-2 px-4">Giá gốc</th>
+                                          <th className="py-2 px-4">Hình thức ưu đãi</th>
+                                          <th className="py-2 px-4 text-center">Đã bán ra</th>
+                                          <th className="py-2 px-4">Doanh thu sản phẩm</th>
+                                          <th className="py-2 pl-4 text-right">Tổng giảm giá</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                                        {stat.productsList.map((p, pIdx) => (
+                                          <tr key={`${p.id}-${pIdx}`}>
+                                            <td className="py-2.5 pr-4 font-bold text-slate-700">{p.name}</td>
+                                            <td className="py-2.5 px-4">{p.originalPrice.toLocaleString("vi-VN")}đ</td>
+                                            <td className="py-2.5 px-4 font-semibold text-orange-600">{p.rule}</td>
+                                            <td className="py-2.5 px-4 text-center font-bold text-slate-800">{p.qtySold}</td>
+                                            <td className="py-2.5 px-4 font-bold text-emerald-600">{p.sales.toLocaleString("vi-VN")}đ</td>
+                                            <td className="py-2.5 pl-4 text-right text-rose-600">{p.discount.toLocaleString("vi-VN")}đ</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Creation/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="absolute inset-0" onClick={() => setShowModal(false)} />
-          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full border border-slate-100 shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh] custom-scrollbar">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full border border-slate-100 shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 overflow-visible max-h-[90vh]">
             <div className="flex justify-between items-center pb-5 border-b border-slate-100 mb-6">
               <h3 className="text-xl font-black text-slate-800">
                 {editingCampaign ? "Cập nhật chiến dịch" : (isAdmin ? "Tạo chiến dịch mới" : "Đề xuất chiến dịch mới")}
@@ -463,198 +1311,403 @@ const AdminCampaigns = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-800">Tên chiến dịch</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-sm"
-                  placeholder="Ví dụ: Khuyến mãi Hè Rực Rỡ"
-                />
-              </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {/* Cột trái: Thông tin chiến dịch */}
+                <div className="space-y-3.5">
+                  {/* Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-800">Tên chiến dịch</label>
+                    <div className="relative">
+                      <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs ${wasSubmitted && nameError ? "border-rose-500 focus:ring-rose-500 bg-rose-50/10" : "border-slate-200"
+                          }`}
+                        placeholder="Ví dụ: Khuyến mãi Hè Rực Rỡ"
+                      />
+                    </div>
+                    <div className="min-h-[16px] mt-0.5">
+                      {wasSubmitted && nameError ? (
+                        <p className="text-[11px] text-rose-500 font-bold">{nameError}</p>
+                      ) : null}
+                    </div>
+                  </div>
 
-              {/* Type */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-800">Loại ưu đãi</label>
-                <select
-                  value={formType}
-                  onChange={(e) => setFormType(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-sm"
-                >
-                  <option value="discount">Phần trăm giảm (%)</option>
-                  <option value="fixed_price">Giá cố định (VND)</option>
-                </select>
-                <p className="text-xs text-[#9a734c] flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5" />
-                  Áp dụng cho sản phẩm đã chọn trên toàn bộ hệ thống cửa hàng.
-                </p>
-              </div>
+                  {/* Budget / Cost */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-800">Chi phí chiến dịch (VND)</label>
+                    <div className="relative">
+                      <Coins className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input
+                        type="number"
+                        min="0"
+                        value={formBudget}
+                        onChange={(e) => setFormBudget(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs"
+                        placeholder="Ví dụ: 500000"
+                      />
+                    </div>
+                    <div className="min-h-[16px] mt-0.5" />
+                  </div>
 
-              {/* Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-800">Thời gian bắt đầu</label>
-                  <input
-                    type="datetime-local"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-800">Thời gian kết thúc</label>
-                  <input
-                    type="datetime-local"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-sm"
-                  />
-                </div>
-              </div>
+                  {/* Type */}
+                  <div className="space-y-1.5 relative">
+                    <label className="text-xs font-bold text-slate-800">Loại ưu đãi</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          {formType === "discount" ? (
+                            <>
+                              <Percent className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Phần trăm giảm (%)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Coins className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Giá cố định (VND)</span>
+                            </>
+                          )}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showTypeDropdown ? "rotate-180" : ""}`} />
+                      </button>
 
-              {/* Products selection */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center border-t border-slate-100 pt-4">
-                  <label className="text-sm font-bold text-slate-800">Danh sách sản phẩm và ưu đãi</label>
-                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full">
-                    Đã chọn {campaignProducts.length} sản phẩm
-                  </span>
-                </div>
-
-                {/* Search within product list */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] w-4 h-4" />
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Tìm sản phẩm theo tên..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs placeholder:text-slate-400"
-                  />
-                </div>
-
-                {/* Tick-list of products */}
-                <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
-                    {(() => {
-                      const visibleProducts = products.filter(p =>
-                        p.name.toLowerCase().includes(productSearch.trim().toLowerCase())
-                      );
-                      if (visibleProducts.length === 0) {
-                        return (
-                          <p className="text-xs text-slate-400 italic text-center py-8">
-                            {products.length === 0 ? "Không có sản phẩm khả dụng" : "Không tìm thấy sản phẩm phù hợp"}
-                          </p>
-                        );
-                      }
-                      return visibleProducts.map(p => {
-                        const rule = campaignProducts.find(cp => cp.productId === p._id);
-                        const isSelected = !!rule;
-                        const finalPrice = rule ? getFinalPrice(p.price, rule) : null;
-                        const isPriceIncreased = finalPrice !== null && finalPrice > p.price;
-                        return (
-                          <div
-                            key={p._id}
-                            className={`flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer ${
-                              isSelected ? "bg-orange-50/60" : "hover:bg-slate-50"
-                            }`}
-                            onClick={() => handleToggleProduct(p._id)}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleProduct(p._id)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-4.5 h-4.5 shrink-0 rounded border-slate-300 accent-orange-600 cursor-pointer"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm truncate ${isSelected ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
-                                {p.name}
-                              </p>
-                              {isSelected && finalPrice !== null ? (
-                                <p className="text-xs flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-slate-400 line-through">{p.price.toLocaleString("vi-VN")}đ</span>
-                                  <span className="text-slate-400">→</span>
-                                  <span className={`font-bold ${isPriceIncreased ? "text-rose-600" : "text-emerald-600"}`}>
-                                    {finalPrice.toLocaleString("vi-VN")}đ
-                                  </span>
-                                  {isPriceIncreased ? (
-                                    <span className="text-rose-500 font-semibold">cao hơn giá gốc!</span>
-                                  ) : (
-                                    p.price > 0 && finalPrice < p.price && (
-                                      <span className="text-emerald-600/80">
-                                        (-{Math.round(((p.price - finalPrice) / p.price) * 100)}%)
-                                      </span>
-                                    )
-                                  )}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-[#9a734c]">{p.price.toLocaleString("vi-VN")}đ</p>
-                              )}
-                            </div>
-
-                            {/* Inline rule input for the selected product */}
-                            {isSelected && (
-                              <div className="w-32 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                {formType === "discount" ? (
-                                  <div className="relative">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={rule.discount ?? ""}
-                                      onChange={(e) => handleProductRuleChange(p._id, "discount", Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-7"
-                                      placeholder="Giảm"
-                                    />
-                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
-                                  </div>
-                                ) : (
-                                  <div className="relative">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={rule.fixedPrice ?? ""}
-                                      onChange={(e) => handleProductRuleChange(p._id, "fixedPrice", Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-xs pr-7"
-                                      placeholder="Giá"
-                                    />
-                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">đ</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                      {showTypeDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setShowTypeDropdown(false)} />
+                          <div className="absolute left-0 right-0 mt-1.5 z-40 bg-white border border-slate-100 rounded-xl shadow-xl py-1 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormType("discount");
+                                setShowTypeDropdown(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${formType === "discount" ? "text-orange-700 font-bold bg-orange-50/30" : "text-slate-700"
+                                }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Percent className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Phần trăm giảm (%)</span>
+                              </span>
+                              {formType === "discount" && <Check className="w-4 h-4 text-orange-600 animate-in zoom-in duration-100" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormType("fixed_price");
+                                setShowTypeDropdown(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${formType === "fixed_price" ? "text-orange-700 font-bold bg-orange-50/30" : "text-slate-700"
+                                }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Coins className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Giá cố định (VND)</span>
+                              </span>
+                              {formType === "fixed_price" && <Check className="w-4 h-4 text-orange-600 animate-in zoom-in duration-100" />}
+                            </button>
                           </div>
-                        );
-                      });
-                    })()}
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#9a734c] flex items-center gap-1">
+                      <Store className="w-3.5 h-3.5" />
+                      Áp dụng cho sản phẩm trên toàn bộ hệ thống.
+                    </p>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-100 relative">
+                    <label className="text-xs font-bold text-slate-800">Thời gian diễn ra chiến dịch</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowCalendar(!showCalendar)}
+                        className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-left text-xs text-slate-800 flex items-center justify-between transition-all ${(wasSubmitted && timeError) || (startTime && endTime && new Date(startTime) >= new Date(endTime)) ? "border-rose-500 ring-rose-200" : "border-slate-200"
+                          }`}
+                      >
+                        <span className="truncate">
+                          {startTime && endTime
+                            ? `${new Date(startTime).toLocaleDateString("vi-VN")} - ${new Date(endTime).toLocaleDateString("vi-VN")}`
+                            : startTime
+                              ? `Từ ${new Date(startTime).toLocaleDateString("vi-VN")} (Chọn ngày kết thúc...)`
+                              : "Chọn khoảng thời gian..."}
+                        </span>
+                        <Calendar className="w-4 h-4 text-[#9a734c] shrink-0" />
+                      </button>
+
+                      {showCalendar && (
+                        <div className="absolute left-0 top-full mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64 select-none animate-in fade-in slide-in-from-top-2 duration-150">
+                          {/* Calendar Header */}
+                          <div className="flex justify-between items-center mb-2">
+                            <button
+                              type="button"
+                              onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() - 1)))}
+                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-600 text-xs font-bold"
+                            >
+                              &lt;
+                            </button>
+                            <span className="text-xs font-bold text-slate-800">
+                              Tháng {calendarMonth.getMonth() + 1}/{calendarMonth.getFullYear()}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() + 1)))}
+                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-600 text-xs font-bold"
+                            >
+                              &gt;
+                            </button>
+                          </div>
+
+                          {/* Weekdays */}
+                          <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                            {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map(w => (
+                              <span key={w} className="text-[10px] font-bold text-slate-400">{w}</span>
+                            ))}
+                          </div>
+
+                          {/* Days Grid */}
+                          <div className="grid grid-cols-7 gap-1">
+                            {getCalendarDays().map((d, idx) => {
+                              if (!d) return <div key={`empty-${idx}`} />;
+
+                              const isStart = startTime && d.toDateString() === new Date(startTime).toDateString();
+                              const isEnd = endTime && d.toDateString() === new Date(endTime).toDateString();
+                              const isInBetween = startTime && endTime && d > new Date(startTime) && d < new Date(endTime);
+
+                              return (
+                                <button
+                                  key={d.toISOString()}
+                                  type="button"
+                                  onClick={() => handleCalendarDayClick(d.getDate())}
+                                  className={`text-[10px] p-1.5 text-center transition-all ${isStart || isEnd
+                                    ? "bg-orange-600 text-white rounded-lg font-bold"
+                                    : isInBetween
+                                      ? "bg-orange-50 text-orange-700"
+                                      : "hover:bg-slate-100 text-slate-700 rounded-lg"
+                                    }`}
+                                >
+                                  {d.getDate()}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-h-[16px]">
+                      {((wasSubmitted && timeError) || (startTime && endTime && new Date(startTime) >= new Date(endTime))) ? (
+                        <p className="text-[11px] text-rose-500 font-bold">
+                          {startTime && endTime && new Date(startTime) >= new Date(endTime)
+                            ? "Thời gian bắt đầu phải trước kết thúc"
+                            : timeError}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
-                {campaignProducts.length === 0 && (
-                  <p className="text-xs text-slate-400 italic">
-                    Tick chọn sản phẩm trong danh sách trên để thêm vào chiến dịch.
-                  </p>
-                )}
+                {/* Cột phải: Chọn sản phẩm */}
+                <div className="space-y-2.5">
+                  <div className="flex flex-col">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-800">Danh sách sản phẩm và ưu đãi</label>
+                      <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">
+                        Đã chọn {campaignProducts.length}
+                      </span>
+                    </div>
+                    <div className="min-h-[16px] mt-0.5">
+                      {wasSubmitted && productCountError ? (
+                        <p className="text-[11px] text-rose-500 font-bold">{productCountError}</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Bulk discount/price applier */}
+                  <div className={`flex items-center justify-between gap-2 bg-[#fcfaf8] p-2 rounded-xl border border-[#e7dbcf] shadow-sm transition-all duration-200 ${campaignProducts.length === 0 ? "opacity-50 pointer-events-none select-none" : ""
+                    }`}>
+                    <span className="text-[10px] font-bold text-slate-700">Áp dụng nhanh tất cả đã chọn:</span>
+                    <div className="relative w-28 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max={formType === "discount" ? "100" : undefined}
+                        disabled={campaignProducts.length === 0}
+                        placeholder={formType === "discount" ? "Nhập %" : "Nhập giá"}
+                        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 text-[11px] pr-6 disabled:bg-slate-100 disabled:text-slate-400"
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") return;
+                          const val = Number(raw);
+                          if (!isNaN(val) && val >= 0) {
+                            setCampaignProducts(prev =>
+                              prev.map(p => ({
+                                ...p,
+                                discount: formType === "discount" ? val : null,
+                                fixedPrice: formType === "fixed_price" ? val : null,
+                              }))
+                            );
+                          }
+                        }}
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                        {formType === "discount" ? "%" : "đ"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search within product list */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] w-3.5 h-3.5" />
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      placeholder="Tìm sản phẩm..."
+                      className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Tick-list of products */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="h-[220px] overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+                      {(() => {
+                        const visibleProducts = products.filter(p =>
+                          p.name.toLowerCase().includes(productSearch.trim().toLowerCase())
+                        );
+                        if (visibleProducts.length === 0) {
+                          return (
+                            <p className="text-xs text-slate-400 italic text-center py-6">
+                              {products.length === 0 ? "Không có sản phẩm" : "Không tìm thấy sản phẩm"}
+                            </p>
+                          );
+                        }
+                        return visibleProducts.map(p => {
+                          const rule = campaignProducts.find(cp => cp.productId === p._id);
+                          const isSelected = !!rule;
+                          const isOccupied = occupiedProductIds.has(p._id);
+                          const finalPrice = rule ? getFinalPrice(p.price, rule) : null;
+                          const isPriceIncreased = finalPrice !== null && finalPrice > p.price;
+                          return (
+                            <div
+                              key={p._id}
+                              className={`flex items-center gap-2 px-3 py-2 transition-colors ${isOccupied
+                                ? "opacity-50 cursor-not-allowed bg-slate-50"
+                                : isSelected
+                                  ? "bg-orange-50/40 cursor-pointer"
+                                  : "hover:bg-slate-50 cursor-pointer"
+                                }`}
+                              onClick={() => !isOccupied && handleToggleProduct(p._id)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                disabled={isOccupied}
+                                onChange={() => !isOccupied && handleToggleProduct(p._id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-4 h-4 shrink-0 rounded border-slate-300 accent-orange-600 cursor-pointer disabled:cursor-not-allowed"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className={`text-xs truncate ${isSelected ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
+                                    {p.name}
+                                  </p>
+                                  {isOccupied && (
+                                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
+                                      Đang chạy lịch này
+                                    </span>
+                                  )}
+                                </div>
+                                {isSelected && finalPrice !== null ? (
+                                  <p className="text-[10px] flex items-center gap-1 flex-wrap leading-tight">
+                                    <span className="text-slate-400 line-through">{p.price.toLocaleString("vi-VN")}đ</span>
+                                    <span className="text-slate-400">→</span>
+                                    <span className={`font-bold ${isPriceIncreased ? "text-rose-600" : "text-emerald-600"}`}>
+                                      {finalPrice.toLocaleString("vi-VN")}đ
+                                    </span>
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-[#9a734c]">{p.price.toLocaleString("vi-VN")}đ</p>
+                                )}
+                              </div>
+
+                              {/* Inline rule input for the selected product */}
+                              {isSelected && (
+                                <div className="w-32 shrink-0 flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
+                                  {formType === "discount" ? (
+                                    <>
+                                      <div className="relative w-full">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          value={rule.discount ?? ""}
+                                          onChange={(e) => handleProductRuleChange(p._id, "discount", Number(e.target.value))}
+                                          className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${getProductError(rule) ? "border-rose-500 focus:ring-rose-500" : "border-slate-200 focus:ring-orange-500"
+                                            }`}
+                                          placeholder="Giảm"
+                                        />
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                                      </div>
+                                      <div className="min-h-[14px] mt-0.5 text-right w-full">
+                                        {getProductError(rule) ? (
+                                          <span className="text-[9px] text-rose-500 font-bold block leading-none">{getProductError(rule)}</span>
+                                        ) : null}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="relative w-full">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={rule.fixedPrice ?? ""}
+                                          onChange={(e) => handleProductRuleChange(p._id, "fixedPrice", Number(e.target.value))}
+                                          className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${getProductError(rule) ? "border-rose-500 focus:ring-rose-500" : "border-slate-200 focus:ring-orange-500"
+                                            }`}
+                                          placeholder="Giá"
+                                        />
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">đ</span>
+                                      </div>
+                                      <div className="min-h-[14px] mt-0.5 text-right w-full">
+                                        {getProductError(rule) ? (
+                                          <span className="text-[9px] text-rose-500 font-bold block leading-none">{getProductError(rule)}</span>
+                                        ) : null}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 justify-end pt-5 border-t border-slate-100">
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 mt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
                   disabled={submitting}
-                  className="px-6 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-8 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-2xl shadow-lg shadow-orange-600/10 transition-all text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-7 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-600/10 transition-all text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submitting ? "Đang xử lý..." : editingCampaign ? "Lưu thay đổi" : (isAdmin ? "Kích hoạt chiến dịch" : "Gửi đề xuất")}
                 </button>

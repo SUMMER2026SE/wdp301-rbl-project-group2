@@ -21,6 +21,9 @@ const CampaignSchema = new mongoose.Schema<ICampaign>(
     products: { type: [CampaignProductItemSchema], default: [] },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
+    budget: { type: Number, default: 0 },
+    views: { type: Number, default: 0 },
+    clicks: { type: Number, default: 0 },
   },
   {
     timestamps: true,
