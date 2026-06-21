@@ -449,14 +449,25 @@ export const VoucherWalletContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 relative bg-white dark:bg-card rounded-[24px] border border-border p-8 shadow-sm overflow-hidden">
                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-10">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Số dư điểm</p>
-                                <h2 className="text-5xl font-black text-foreground tabular-nums">
-                                    {membership?.collectedPoints?.toLocaleString() ?? 0} <span className="text-xl font-medium text-muted-foreground">pts</span>
-                                </h2>
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-10">
+                            <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 w-full sm:w-auto">
+                                <div>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Điểm có thể đổi</p>
+                                    <h2 className="text-4xl font-black text-primary tabular-nums">
+                                        {membership?.collectedPoints?.toLocaleString() ?? 0} <span className="text-sm font-medium text-muted-foreground">pts</span>
+                                    </h2>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để đổi lấy voucher ưu đãi</p>
+                                </div>
+                                <div className="hidden sm:block w-px bg-border h-12 self-center" />
+                                <div>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Tổng điểm tích lũy</p>
+                                    <h2 className="text-4xl font-black text-foreground tabular-nums">
+                                        {(membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0).toLocaleString()} <span className="text-sm font-medium text-muted-foreground">pts</span>
+                                    </h2>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để xét thăng hạng thành viên</p>
+                                </div>
                             </div>
-                            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-full flex items-center gap-2">
+                            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-full flex items-center gap-2 shrink-0 self-start sm:self-center">
                                 <span className="material-symbols-outlined text-green-600 text-base font-bold">verified</span>
                                 <span className="text-green-700 dark:text-green-400 font-bold text-xs uppercase">
                                     Thành viên {membership?.tier || "Bronze"}
@@ -478,12 +489,13 @@ export const VoucherWalletContent = () => {
 
                                 let progress = 100;
                                 let needed = 0;
+                                const accPoints = membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0;
 
                                 if (nextTier) {
                                     const range = nextTier.pts - currentTier.pts;
-                                    const earnedInRange = (membership?.collectedPoints || 0) - currentTier.pts;
+                                    const earnedInRange = accPoints - currentTier.pts;
                                     progress = Math.min(Math.max((earnedInRange / range) * 100, 5), 100);
-                                    needed = nextTier.pts - (membership?.collectedPoints || 0);
+                                    needed = Math.max(0, nextTier.pts - accPoints);
                                 }
 
                                 return (
@@ -640,7 +652,7 @@ export const VoucherWalletContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-12">
                     <TierRoadmap
-                        points={membership?.collectedPoints || 0}
+                        points={membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0}
                         tier={membership?.tier || "Bronze"}
                     />
                     <MembershipPerks tier={membership?.tier || "Bronze"} />

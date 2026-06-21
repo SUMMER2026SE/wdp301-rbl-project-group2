@@ -90,6 +90,11 @@ const UserSchema = new mongoose.Schema<IUser>(
       default: 0,
       min: [0, 'Collected points cannot be negative'],
     },
+    accumulatedPoints: {
+      type: Number,
+      default: 0,
+      min: [0, 'Accumulated points cannot be negative'],
+    },
     tier: {
       type: String,
       enum: Object.values(UserTier),

@@ -1,5 +1,5 @@
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignModel } from '@/models';
+import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignModel, UserVoucherModel } from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
@@ -12,7 +12,7 @@ import { createPaymentLink } from './payos.service';
 import { APP_ORIGIN } from '@/constants/env';
 import { parseOrderNoteForStaff } from './ai.service';
 import { createAuditLog } from './audit-log.service';
-import { AuditEntityType, AuditLogAction, NotificationType, Role } from '@/types';
+import { AuditEntityType, AuditLogAction, NotificationType, Role, UserVoucherStatus } from '@/types';
 import * as membershipService from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
@@ -422,6 +422,13 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       voucherObjectId = voucher._id as mongoose.Types.ObjectId;
 
       await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
+
+      // Update UserVoucher record to USED status so it is marked as used
+      await UserVoucherModel.findOneAndUpdate(
+        { userId, voucherId: voucherObjectId, status: UserVoucherStatus.AVAILABLE },
+        { $set: { status: UserVoucherStatus.USED, usedAt: new Date() } },
+        { session }
+      );
     }
 
     const user = await UserModel.findById(userId).session(session);

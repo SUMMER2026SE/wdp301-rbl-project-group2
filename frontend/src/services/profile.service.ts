@@ -20,6 +20,7 @@ export type UserMeResponse = {
   phone?: string;
   avatar?: string;
   collectedPoints: number;
+  accumulatedPoints: number;
   tier: string;
   referralCode: string;
   referredBy?: string | null;
@@ -34,6 +35,7 @@ export type UserMeResponse = {
 
 export interface MembershipInfo {
   collectedPoints: number;
+  accumulatedPoints: number;
   tier: string;
   referralCode: string;
   referredBy?: string | null;
