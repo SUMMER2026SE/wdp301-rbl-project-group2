@@ -27,6 +27,7 @@ import {
   DollarSign,
   Activity,
   Award,
+  Eye,
 } from "lucide-react";
 import {
   Bar,
@@ -67,7 +68,6 @@ const AdminCampaigns = () => {
   }[]>([]);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [formBudget, setFormBudget] = useState<number | string>(0);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
@@ -81,6 +81,8 @@ const AdminCampaigns = () => {
   const [viewMode, setViewMode] = useState<"list" | "analytics">("list");
   const [analyticsPeriod, setAnalyticsPeriod] = useState<"week" | "month" | "year">("month");
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("all");
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
 
 
   const fetchCampaigns = async () => {
@@ -124,6 +126,18 @@ const AdminCampaigns = () => {
     fetchOrders();
   }, []);
 
+  // Prevent background scrolling when modals are open
+  useEffect(() => {
+    if (showModal || selectedProductDetails) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showModal, selectedProductDetails]);
+
   const handleOpenCreateModal = () => {
     setEditingCampaign(null);
     setFormName("");
@@ -131,7 +145,6 @@ const AdminCampaigns = () => {
     setCampaignProducts([]);
     setStartTime("");
     setEndTime("");
-    setFormBudget(0);
     setProductSearch("");
     setWasSubmitted(false);
     setShowCalendar(false);
@@ -197,7 +210,6 @@ const AdminCampaigns = () => {
     setFormType(c.type);
     setStartTime(toLocalDatetimeInput(c.startTime));
     setEndTime(toLocalDatetimeInput(c.endTime));
-    setFormBudget(c.budget || 0);
 
     const formattedProducts = c.products.map(p => {
       const pId = typeof p.productId === "string" ? p.productId : (p.productId as any)._id;
@@ -246,7 +258,34 @@ const AdminCampaigns = () => {
     if (!formName.trim()) return toast.error("Vui lòng nhập tên chiến dịch");
     if (!startTime || !endTime) return toast.error("Vui lòng chọn thời gian bắt đầu và kết thúc");
     if (new Date(startTime) >= new Date(endTime)) return toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isNewCampaign = !editingCampaign;
+    const isStartTimeModified = editingCampaign && new Date(startTime).getTime() !== new Date(editingCampaign.startTime).getTime();
+    if ((isNewCampaign || isStartTimeModified) && new Date(startTime) < today) {
+      return toast.error("Thời gian bắt đầu phải từ ngày hôm nay trở đi");
+    }
+
     if (campaignProducts.length === 0) return toast.error("Chiến dịch phải có ít nhất một sản phẩm");
+
+    // Check if another campaign has the same name and overlaps in time
+    const formStart = new Date(startTime).getTime();
+    const formEnd = new Date(endTime).getTime();
+    const normalizedFormName = formName.trim().toLowerCase();
+
+    const nameCollision = campaigns.find(c => {
+      if (editingCampaign && c._id === editingCampaign._id) return false;
+      const cStart = new Date(c.startTime).getTime();
+      const cEnd = new Date(c.endTime).getTime();
+      const nameMatches = c.name.trim().toLowerCase() === normalizedFormName;
+      const timeOverlaps = formStart < cEnd && cStart < formEnd;
+      return nameMatches && timeOverlaps;
+    });
+
+    if (nameCollision) {
+      return toast.error("Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này");
+    }
 
     // Check product rules
     for (const p of campaignProducts) {
@@ -267,8 +306,7 @@ const AdminCampaigns = () => {
         discount: formType === "discount" ? Number(p.discount) : null
       })),
       startTime: new Date(startTime).toISOString(),
-      endTime: new Date(endTime).toISOString(),
-      budget: Number(formBudget) || 0
+      endTime: new Date(endTime).toISOString()
     };
 
     setSubmitting(true);
@@ -408,7 +446,7 @@ const AdminCampaigns = () => {
 
   // Find all product IDs already active in other approved campaigns during the selected form's time range
   const occupiedProductIds = useMemo(() => {
-    if (!startTime || !endTime) return new Set<string>();
+    if (!showModal || !startTime || !endTime) return new Set<string>();
 
     const formStart = new Date(startTime).getTime();
     const formEnd = new Date(endTime).getTime();
@@ -447,10 +485,11 @@ const AdminCampaigns = () => {
     });
 
     return occupied;
-  }, [campaigns, startTime, endTime, editingCampaign]);
+  }, [campaigns, startTime, endTime, editingCampaign, showModal]);
 
   // Auto-deselect products if they become occupied due to date changes
   useEffect(() => {
+    if (!showModal) return; // Chỉ kiểm tra khi modal đang mở để tránh race condition khi vừa tạo thành công
     if (occupiedProductIds.size > 0 && campaignProducts.length > 0) {
       const conflictingProducts = campaignProducts.filter(cp => occupiedProductIds.has(cp.productId));
       if (conflictingProducts.length > 0) {
@@ -460,7 +499,7 @@ const AdminCampaigns = () => {
         toast.error("Một số món bạn đã chọn bị trùng lịch hoạt động ở chiến dịch khác và đã được tự động bỏ chọn.");
       }
     }
-  }, [occupiedProductIds, campaignProducts]);
+  }, [occupiedProductIds, campaignProducts, showModal]);
 
   const analyticsData = useMemo(() => {
     // CHÚ Ý: Chỉ tính toán số liệu từ các đơn hàng đã thanh toán thành công (order.payment?.paidAt || order.status === "completed" || order.status === "delivered")
@@ -477,7 +516,9 @@ const AdminCampaigns = () => {
     // Lọc ra các đơn hàng đã thanh toán thành công
     const paidOrders = orders.filter(o => o.payment?.paidAt || o.status === "completed" || o.status === "delivered");
 
-    const campaignStats = approvedCampaigns.map(c => {
+    const campaignStats = approvedCampaigns
+      .filter(c => selectedCampaignId === "all" || c._id === selectedCampaignId)
+      .map(c => {
       const isWithinPeriod = new Date(c.startTime) >= startDateLimit;
 
       const campaignProductsDetails = c.products.map((cp, idx) => {
@@ -559,7 +600,7 @@ const AdminCampaigns = () => {
       const baseSales = totalCalculatedSales;
       const discountAmount = totalCalculatedDiscount;
       const baseOrders = campaignOrdersCount;
-      const multiplier = discountAmount > 0 ? parseFloat((baseSales / discountAmount).toFixed(1)) : 5.0;
+      const multiplier = discountAmount > 0 ? parseFloat((baseSales / discountAmount).toFixed(1)) : 0.0;
 
       // Tỷ lệ chuyển đổi = (Số đơn hàng thực tế / Lượt xem) * 100
       const conversionRate = c.views && c.views > 0 ? ((baseOrders / c.views) * 100).toFixed(1) : "0.0";
@@ -592,7 +633,7 @@ const AdminCampaigns = () => {
     const totalOrders = activePeriodStats.reduce((acc, s) => acc + s.orders, 0);
     const totalViews = activePeriodStats.reduce((acc, s) => acc + (s.views || 0), 0);
 
-    const overallMultiplier = totalDiscounts > 0 ? (totalSales / totalDiscounts).toFixed(1) : "5.0";
+    const overallMultiplier = totalDiscounts > 0 ? (totalSales / totalDiscounts).toFixed(1) : "0.0";
     const overallConversion = totalViews > 0
       ? ((totalOrders / totalViews) * 100).toFixed(1)
       : "0.0";
@@ -648,11 +689,11 @@ const AdminCampaigns = () => {
         const weekLabel = `Tuần ${4 - i}`;
         
         const startOfWeek = new Date();
-        startOfWeek.setDate(now.getDate() - (i + 1) * 7);
+        startOfWeek.setDate(now.getDate() - (i * 7) - 6);
         startOfWeek.setHours(0, 0, 0, 0);
         
         const endOfWeek = new Date();
-        endOfWeek.setDate(now.getDate() - i * 7);
+        endOfWeek.setDate(now.getDate() - (i * 7));
         endOfWeek.setHours(23, 59, 59, 999);
 
         let weekSales = 0;
@@ -744,15 +785,28 @@ const AdminCampaigns = () => {
       overallConversion,
       chartData
     };
-  }, [campaigns, orders, products, analyticsPeriod]);
+  }, [campaigns, orders, products, analyticsPeriod, selectedCampaignId]);
 
   // Real-time frontend validation errors
   const nameError = !formName.trim() ? "Tên chiến dịch không được để trống" : "";
+
+  const isStartTimeInPast = useMemo(() => {
+    if (!startTime) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (editingCampaign && new Date(startTime).getTime() === new Date(editingCampaign.startTime).getTime()) {
+      return false;
+    }
+    return new Date(startTime) < today;
+  }, [startTime, editingCampaign]);
+
   const timeError = !startTime || !endTime
     ? "Vui lòng chọn thời gian bắt đầu và kết thúc"
     : new Date(startTime) >= new Date(endTime)
       ? "Thời gian bắt đầu phải trước thời gian kết thúc"
-      : "";
+      : isStartTimeInPast
+        ? "Thời gian bắt đầu phải từ ngày hôm nay trở đi"
+        : "";
   const productCountError = campaignProducts.length === 0 ? "Chiến dịch phải có ít nhất một sản phẩm" : "";
 
   const getProductError = (cp: { productId: string; discount?: number | null; fixedPrice?: number | null }) => {
@@ -1003,7 +1057,23 @@ const AdminCampaigns = () => {
 
                   return (
                     <tr key={c._id} className="hover:bg-orange-50/5 transition-colors">
-                      <td className="px-6 py-4 font-bold text-slate-800">{c.name}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (c.status === CampaignStatus.APPROVED) {
+                              setViewMode("analytics");
+                              setSelectedCampaignId(c._id);
+                              setExpandedCampaignId(c._id);
+                            } else {
+                              handleOpenEditModal(c);
+                            }
+                          }}
+                          className="text-slate-800 hover:text-orange-600 hover:underline transition-colors text-left font-bold focus:outline-none"
+                        >
+                          {c.name}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{creatorName}</td>
                       <td className="px-6 py-4">{getStatusBadge(c)}</td>
                       <td className="px-6 py-4 text-sm font-semibold capitalize text-orange-700">
@@ -1017,6 +1087,20 @@ const AdminCampaigns = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2.5">
+                          {c.status === CampaignStatus.APPROVED && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewMode("analytics");
+                                setSelectedCampaignId(c._id);
+                                setExpandedCampaignId(c._id);
+                              }}
+                              className="inline-flex items-center justify-center p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                              title="Xem hiệu quả chi tiết"
+                            >
+                              <Eye className="w-4.5 h-4.5" />
+                            </button>
+                          )}
                           {isAdmin && c.status === CampaignStatus.PENDING && (
                             <>
                               <button
@@ -1075,25 +1159,49 @@ const AdminCampaigns = () => {
           {/* Analytics Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-[#e7dbcf] p-4 rounded-2xl shadow-sm">
             <div>
-              <h4 className="text-base font-bold text-slate-800">Hiệu quả chiến dịch tổng hợp</h4>
+              <h4 className="text-base font-bold text-slate-800">
+                {selectedCampaignId === "all"
+                  ? "Hiệu quả chiến dịch tổng hợp"
+                  : `Hiệu quả: ${campaigns.find((c) => c._id === selectedCampaignId)?.name || ""}`}
+              </h4>
               <p className="text-xs text-slate-400">Xem và phân tích hiệu quả dựa trên doanh số và chiết khấu của các đơn hàng đã thanh toán thành công.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#9a734c]">Khoảng thời gian:</span>
-              <div className="flex bg-[#f3ede7] rounded-xl p-1">
-                {(["week", "month", "year"] as const).map((period) => (
-                  <button
-                    key={period}
-                    type="button"
-                    onClick={() => setAnalyticsPeriod(period)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${analyticsPeriod === period
-                      ? "bg-orange-600 text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-800"
-                      }`}
-                  >
-                    {period === "week" ? "Tuần này" : period === "month" ? "Tháng này" : "Năm nay"}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#9a734c]">Chiến dịch:</span>
+                <select
+                  value={selectedCampaignId}
+                  onChange={(e) => setSelectedCampaignId(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-[#f3ede7]/50 text-slate-800 border border-[#e7dbcf] text-xs outline-none focus:ring-2 focus:ring-orange-600 focus:bg-white transition-all font-bold"
+                >
+                  <option value="all">Tất cả chiến dịch</option>
+                  {campaigns
+                    .filter((c) => c.status === CampaignStatus.APPROVED)
+                    .map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#9a734c]">Khoảng thời gian:</span>
+                <div className="flex bg-[#f3ede7] rounded-xl p-1">
+                  {(["week", "month", "year"] as const).map((period) => (
+                    <button
+                      key={period}
+                      type="button"
+                      onClick={() => setAnalyticsPeriod(period)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${analyticsPeriod === period
+                        ? "bg-orange-600 text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-800"
+                        }`}
+                    >
+                      {period === "week" ? "Tuần này" : period === "month" ? "Tháng này" : "Năm nay"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1142,10 +1250,27 @@ const AdminCampaigns = () => {
               </div>
               <div>
                 <p className="text-[#9a734c] text-xs font-medium uppercase tracking-wider font-semibold">Tỷ suất Doanh số / Giảm giá</p>
-                <p className="text-[#1b140d] text-2xl font-black mt-1 flex items-baseline gap-1">
-                  <span>{analyticsData.overallMultiplier} lần</span>
-                  <span className="text-xs font-bold text-emerald-600">(Tốt)</span>
-                </p>
+                {(() => {
+                  const val = Number(analyticsData.overallMultiplier);
+                  let label = "(Tốt)";
+                  let colorClass = "text-emerald-600";
+                  if (analyticsData.totalOrders === 0) {
+                    label = "(Chưa có đơn)";
+                    colorClass = "text-slate-400";
+                  } else if (val < 3.0) {
+                    label = "(Cần cải thiện)";
+                    colorClass = "text-rose-600";
+                  } else if (val < 5.0) {
+                    label = "(Trung bình)";
+                    colorClass = "text-amber-600";
+                  }
+                  return (
+                    <p className="text-[#1b140d] text-2xl font-black mt-1 flex items-baseline gap-1">
+                      <span>{analyticsData.overallMultiplier} lần</span>
+                      <span className={`text-xs font-bold ${colorClass}`}>{label}</span>
+                    </p>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -1198,7 +1323,13 @@ const AdminCampaigns = () => {
                           Hiệu quả cao
                         </span>
                       );
-                      if (stat.multiplier < 3.0) {
+                      if (stat.orders === 0) {
+                        efficiencyBadge = (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                            Chưa có đơn hàng
+                          </span>
+                        );
+                      } else if (stat.multiplier < 3.0) {
                         efficiencyBadge = (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                             Hiệu quả thấp
@@ -1267,7 +1398,22 @@ const AdminCampaigns = () => {
                                       <tbody className="divide-y divide-slate-100 text-slate-600">
                                         {stat.productsList.map((p, pIdx) => (
                                           <tr key={`${p.id}-${pIdx}`}>
-                                            <td className="py-2.5 pr-4 font-bold text-slate-700">{p.name}</td>
+                                            <td className="py-2.5 pr-4 font-bold">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const prod = products.find(pr => pr._id === p.id);
+                                                  if (prod) {
+                                                    setSelectedProductDetails(prod);
+                                                  } else {
+                                                    toast.error("Không tìm thấy thông tin chi tiết sản phẩm");
+                                                  }
+                                                }}
+                                                className="text-slate-700 hover:text-orange-600 hover:underline font-bold text-left focus:outline-none transition-colors"
+                                              >
+                                                {p.name}
+                                              </button>
+                                            </td>
                                             <td className="py-2.5 px-4">{p.originalPrice.toLocaleString("vi-VN")}đ</td>
                                             <td className="py-2.5 px-4 font-semibold text-orange-600">{p.rule}</td>
                                             <td className="py-2.5 px-4 text-center font-bold text-slate-800">{p.qtySold}</td>
@@ -1334,23 +1480,6 @@ const AdminCampaigns = () => {
                         <p className="text-[11px] text-rose-500 font-bold">{nameError}</p>
                       ) : null}
                     </div>
-                  </div>
-
-                  {/* Budget / Cost */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800">Chi phí chiến dịch (VND)</label>
-                    <div className="relative">
-                      <Coins className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                      <input
-                        type="number"
-                        min="0"
-                        value={formBudget}
-                        onChange={(e) => setFormBudget(e.target.value)}
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs"
-                        placeholder="Ví dụ: 500000"
-                      />
-                    </div>
-                    <div className="min-h-[16px] mt-0.5" />
                   </div>
 
                   {/* Type */}
@@ -1616,9 +1745,18 @@ const AdminCampaigns = () => {
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className={`text-xs truncate ${isSelected ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedProductDetails(p);
+                                    }}
+                                    className={`text-xs truncate text-left hover:text-orange-600 hover:underline focus:outline-none transition-colors ${
+                                      isSelected ? "font-bold text-slate-800" : "font-medium text-slate-600"
+                                    }`}
+                                  >
                                     {p.name}
-                                  </p>
+                                  </button>
                                   {isOccupied && (
                                     <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
                                       Đang chạy lịch này
@@ -1713,6 +1851,207 @@ const AdminCampaigns = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product Details View Modal */}
+      {selectedProductDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0" onClick={() => setSelectedProductDetails(null)} />
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full border border-slate-100 shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh] custom-scrollbar">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
+              <h3 className="text-lg font-black text-slate-800">Chi tiết sản phẩm đầy đủ</h3>
+              <button
+                type="button"
+                onClick={() => setSelectedProductDetails(null)}
+                className="p-1 rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Grid Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Column: Media & Core Info */}
+              <div className="space-y-4">
+                {/* Product Image */}
+                <div className="w-full h-48 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 flex items-center justify-center relative">
+                  {selectedProductDetails.image ? (
+                    <img
+                      src={
+                        typeof selectedProductDetails.image === "string"
+                          ? selectedProductDetails.image
+                          : selectedProductDetails.image.secureUrl
+                      }
+                      alt={selectedProductDetails.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-slate-400 text-xs font-semibold">Không có hình ảnh</span>
+                  )}
+                  <span
+                    className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      selectedProductDetails.isAvailable && selectedProductDetails.status === "active"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    {selectedProductDetails.isAvailable && selectedProductDetails.status === "active"
+                      ? "Đang phục vụ"
+                      : "Tạm ngưng"}
+                  </span>
+                </div>
+
+                {/* Name & Restaurant */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tên món & Nhà hàng</span>
+                  <h4 className="text-base font-bold text-slate-800">{selectedProductDetails.name}</h4>
+                  <p className="text-xs text-slate-500 font-semibold flex items-center gap-1">
+                    <Store className="w-3.5 h-3.5 text-orange-600 animate-pulse" />
+                    {selectedProductDetails.restaurant || "Chi nhánh chính"}
+                  </p>
+                </div>
+
+                {/* Price, Preparation Time & Category */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50 flex flex-col justify-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Giá gốc</span>
+                    <span className="text-xs font-black text-slate-800 mt-0.5">
+                      {selectedProductDetails.price.toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50 flex flex-col justify-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Thời gian</span>
+                    <span className="text-xs font-black text-slate-800 mt-0.5">
+                      {selectedProductDetails.time || "15 phút"}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100/50 flex flex-col justify-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Danh mục</span>
+                    <span className="text-xs font-black text-orange-700 mt-0.5 truncate px-1">
+                      {selectedProductDetails.category}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mô tả món ăn</span>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100/50 max-h-24 overflow-y-auto custom-scrollbar">
+                    {selectedProductDetails.description || "Không có mô tả cho sản phẩm này."}
+                  </p>
+                </div>
+
+                {/* Ratings */}
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100/50">
+                  <span className="text-xs font-bold text-slate-700">Đánh giá chung</span>
+                  <span className="text-xs font-black text-amber-500 flex items-center gap-1">
+                    ★ {selectedProductDetails.rating || 5.0} 
+                    <span className="text-[10px] text-slate-400 font-bold">({selectedProductDetails.reviewCount || 0} lượt)</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Column: Recipe, Health, Tags */}
+              <div className="space-y-4">
+                
+                {/* Ingredients/Recipe */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Công thức / Nguyên liệu chính</span>
+                  {selectedProductDetails.recipe && selectedProductDetails.recipe.length > 0 ? (
+                    <div className="bg-slate-50 rounded-xl border border-slate-100/50 p-3 max-h-36 overflow-y-auto custom-scrollbar space-y-2">
+                      {selectedProductDetails.recipe.map((r, idx) => {
+                        const ingName = typeof r.ingredientId === "object" ? r.ingredientId?.name : r.name || "Nguyên liệu";
+                        return (
+                          <div key={idx} className="flex justify-between items-center text-xs border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
+                            <span className="font-semibold text-slate-700">{ingName}</span>
+                            <span className="text-slate-500 font-medium">{r.quantity} {r.unit}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl border border-slate-100/50">
+                      Không có thông tin nguyên liệu cụ thể.
+                    </p>
+                  )}
+                </div>
+
+                {/* Health Warning & Health Tags */}
+                <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100/50">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Thông tin Sức khỏe & Dị ứng</span>
+                  
+                  {/* Warning */}
+                  {selectedProductDetails.healthWarning && (
+                    <p className="text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg border border-rose-100">
+                      ⚠ Cảnh báo: {selectedProductDetails.healthWarning}
+                    </p>
+                  )}
+
+                  {/* Health Tags */}
+                  {selectedProductDetails.healthTags && selectedProductDetails.healthTags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {selectedProductDetails.healthTags.map((tag) => (
+                        <span key={tag} className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">Không có nhãn cảnh báo sức khỏe.</p>
+                  )}
+                </div>
+
+                {/* AI recommendation/Reason */}
+                {selectedProductDetails.aiReason && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Gợi ý từ AI (AI Recommendation)</span>
+                    <p className="text-xs text-indigo-700 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
+                      💡 {selectedProductDetails.aiReason}
+                    </p>
+                  </div>
+                )}
+
+                {/* Operational Note */}
+                {selectedProductDetails.operationalNote && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ghi chú vận hành</span>
+                    <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100/50 italic">
+                      📝 {selectedProductDetails.operationalNote}
+                    </p>
+                  </div>
+                )}
+
+                {/* Product Tags */}
+                {selectedProductDetails.tags && selectedProductDetails.tags.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tags</span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedProductDetails.tags.map((tag) => (
+                        <span key={tag} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Button */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedProductDetails(null)}
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors focus:outline-none cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

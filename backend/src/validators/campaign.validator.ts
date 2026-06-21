@@ -12,10 +12,16 @@ export const createCampaignValidator = z.object({
   products: z.array(campaignProductItemValidator).default([]),
   startTime: z.string().datetime({ message: 'Thời gian bắt đầu không hợp lệ' }),
   endTime: z.string().datetime({ message: 'Thời gian kết thúc không hợp lệ' }),
-  budget: z.number().min(0, 'Ngân sách không được nhỏ hơn 0').default(0).optional(),
 }).refine(data => new Date(data.startTime) < new Date(data.endTime), {
   message: 'Thời gian bắt đầu phải trước thời gian kết thúc',
   path: ['endTime'],
+}).refine(data => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(data.startTime) >= today;
+}, {
+  message: 'Thời gian bắt đầu phải từ ngày hôm nay trở đi',
+  path: ['startTime'],
 });
 
 export const updateCampaignValidator = z.object({
@@ -24,7 +30,6 @@ export const updateCampaignValidator = z.object({
   products: z.array(campaignProductItemValidator).optional(),
   startTime: z.string().datetime({ message: 'Thời gian bắt đầu không hợp lệ' }).optional(),
   endTime: z.string().datetime({ message: 'Thời gian kết thúc không hợp lệ' }).optional(),
-  budget: z.number().min(0, 'Ngân sách không được nhỏ hơn 0').optional(),
 }).refine(data => {
   if (data.startTime && data.endTime) {
     return new Date(data.startTime) < new Date(data.endTime);
@@ -33,6 +38,16 @@ export const updateCampaignValidator = z.object({
 }, {
   message: 'Thời gian bắt đầu phải trước thời gian kết thúc',
   path: ['endTime'],
+}).refine(data => {
+  if (data.startTime) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(data.startTime) >= today;
+  }
+  return true;
+}, {
+  message: 'Thời gian bắt đầu phải từ ngày hôm nay trở đi',
+  path: ['startTime'],
 });
 
 export const updateCampaignStatusValidator = z.object({
