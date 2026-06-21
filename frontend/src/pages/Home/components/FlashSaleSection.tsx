@@ -19,6 +19,9 @@ const FlashSaleSection: React.FC = () => {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const { safeAddItem } = useSafeCart();
+  
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const [hasTrackedView, setHasTrackedView] = useState<Record<string, boolean>>({});
 
   // Fetch campaigns and pick first with products
   useEffect(() => {
@@ -36,7 +39,6 @@ const FlashSaleSection: React.FC = () => {
         setActiveCampaigns(active);
         if (active.length > 0) {
           setSelectedCampaignId(active[0]._id);
-          campaignAPI.trackActivity(active[0]._id, 'view').catch(() => {});
         }
       } catch (error) {
         console.error('Error fetching campaigns:', error);
@@ -50,6 +52,29 @@ const FlashSaleSection: React.FC = () => {
   const campaign = useMemo(() => {
     return activeCampaigns.find((c) => c._id === selectedCampaignId) || null;
   }, [activeCampaigns, selectedCampaignId]);
+
+  // Track campaign view when the section intersects with viewport
+  useEffect(() => {
+    if (!campaign || hasTrackedView[campaign._id]) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          campaignAPI.trackActivity(campaign._id, 'view').catch(() => {});
+          setHasTrackedView((prev) => ({ ...prev, [campaign._id]: true }));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [campaign, hasTrackedView]);
 
   // Countdown to campaign.endTime
   useEffect(() => {
@@ -152,7 +177,7 @@ const FlashSaleSection: React.FC = () => {
     );
 
   return (
-    <section className="my-12 overflow-hidden">
+    <section ref={sectionRef} className="my-12 overflow-hidden">
       {/* Tabs for Multiple Campaigns */}
       {activeCampaigns.length > 1 && (
         <div className="flex flex-wrap gap-2.5 mb-6 bg-slate-50 p-2 rounded-2xl border border-slate-100 max-w-max">
@@ -161,7 +186,6 @@ const FlashSaleSection: React.FC = () => {
               key={c._id}
               onClick={() => {
                 setSelectedCampaignId(c._id);
-                campaignAPI.trackActivity(c._id, 'view').catch(() => {});
               }}
               className={`px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedCampaignId === c._id

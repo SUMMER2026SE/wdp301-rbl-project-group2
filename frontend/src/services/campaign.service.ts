@@ -23,7 +23,6 @@ export interface Campaign {
   products: CampaignProductItem[];
   startTime: string;
   endTime: string;
-  budget?: number;
   views?: number;
   clicks?: number;
   createdAt: string;
@@ -40,7 +39,6 @@ export interface CreateCampaignPayload {
   }[];
   startTime: string;
   endTime: string;
-  budget?: number;
 }
 
 class CampaignAPI {

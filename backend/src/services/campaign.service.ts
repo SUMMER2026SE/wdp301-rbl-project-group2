@@ -71,6 +71,16 @@ export const createCampaign = async (
   userRole: Role,
   params: TCreateCampaignParams
 ) => {
+  const start = new Date(params.startTime);
+  const end = new Date(params.endTime);
+
+  const nameCollision = await CampaignModel.findOne({
+    name: { $regex: new RegExp(`^${params.name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+    startTime: { $lt: end },
+    endTime: { $gt: start }
+  });
+  appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
+
   const status = userRole === Role.ADMIN ? CampaignStatus.APPROVED : CampaignStatus.PENDING;
 
   const campaign = await CampaignModel.create({
@@ -141,13 +151,24 @@ export const updateCampaign = async (
     );
   }
 
+  const start = params.startTime ? new Date(params.startTime) : campaign.startTime;
+  const end = params.endTime ? new Date(params.endTime) : campaign.endTime;
+  const name = params.name !== undefined ? params.name : campaign.name;
+
+  const nameCollision = await CampaignModel.findOne({
+    _id: { $ne: campaign._id },
+    name: { $regex: new RegExp(`^${name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+    startTime: { $lt: end },
+    endTime: { $gt: start }
+  });
+  appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
+
   // Update properties
   if (params.name !== undefined) campaign.name = params.name;
   if (params.type !== undefined) campaign.type = params.type;
   if (params.products !== undefined) campaign.products = params.products as any;
   if (params.startTime !== undefined) campaign.startTime = new Date(params.startTime);
   if (params.endTime !== undefined) campaign.endTime = new Date(params.endTime);
-  if (params.budget !== undefined) campaign.budget = params.budget;
 
   await campaign.save();
   await syncCampaignProducts(campaign);
