@@ -63,6 +63,7 @@ export interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
   verifiedAt?: Date | null;
   status: UserStatus;
   collectedPoints: number;
+  accumulatedPoints: number;
   tier?: UserTier;
   referralCode?: string;
   referredBy?: mongoose.Types.ObjectId | null;
