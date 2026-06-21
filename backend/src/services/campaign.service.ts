@@ -75,7 +75,7 @@ export const createCampaign = async (
   const end = new Date(params.endTime);
 
   const nameCollision = await CampaignModel.findOne({
-    name: { $regex: new RegExp(`^${params.name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+    name: { $regex: new RegExp(`^${params.name.trim().replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
     startTime: { $lt: end },
     endTime: { $gt: start }
   });
@@ -157,7 +157,7 @@ export const updateCampaign = async (
 
   const nameCollision = await CampaignModel.findOne({
     _id: { $ne: campaign._id },
-    name: { $regex: new RegExp(`^${name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+    name: { $regex: new RegExp(`^${name.trim().replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
     startTime: { $lt: end },
     endTime: { $gt: start }
   });
