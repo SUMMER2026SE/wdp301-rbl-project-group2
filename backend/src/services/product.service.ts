@@ -99,12 +99,147 @@ const SEARCH_SYNONYMS: Record<string, { keywords: string[]; categories: string[]
   'ăn sáng': { keywords: ['bánh mì', 'xôi', 'phở', 'bún', 'cháo', 'trứng', 'sandwich'], categories: [] },
 };
 
+const CATEGORY_INTENT_TERMS = new Set([
+  'nuoc',
+  'do uong',
+  'uong',
+  'tra',
+  'ca phe',
+  'cafe',
+  'coffee',
+  'sinh to',
+  'com',
+  'bun',
+  'pho',
+  'mi',
+  'do an nhanh',
+  'pizza',
+  'burger',
+  'trang mieng',
+  'ngot',
+  'banh',
+  'kem',
+  'che',
+  'khai vi',
+  'salad',
+  'goi',
+  'chay',
+  'rau',
+  'nuong',
+  'chien',
+  'sang',
+  'an sang',
+]);
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const VIETNAMESE_CHAR_PATTERNS: Record<string, string> = {
+  a: '[a\u00e0\u00e1\u1ea3\u00e3\u1ea1\u0103\u1eb1\u1eaf\u1eb3\u1eb5\u1eb7\u00e2\u1ea7\u1ea5\u1ea9\u1eab\u1ead]',
+  e: '[e\u00e8\u00e9\u1ebb\u1ebd\u1eb9\u00ea\u1ec1\u1ebf\u1ec3\u1ec5\u1ec7]',
+  i: '[i\u00ec\u00ed\u1ec9\u0129\u1ecb]',
+  o: '[o\u00f2\u00f3\u1ecf\u00f5\u1ecd\u00f4\u1ed3\u1ed1\u1ed5\u1ed7\u1ed9\u01a1\u1edd\u1edb\u1edf\u1ee1\u1ee3]',
+  u: '[u\u00f9\u00fa\u1ee7\u0169\u1ee5\u01b0\u1eeb\u1ee9\u1eed\u1eef\u1ef1]',
+  y: '[y\u1ef3\u00fd\u1ef7\u1ef9\u1ef5]',
+  d: '[d\u0111]',
+};
+
+const buildVietnameseSearchPattern = (value: string) =>
+  normalizeSearchText(value)
+    .split('')
+    .map((char) => {
+      if (/\s/.test(char)) return '\\s+';
+      return VIETNAMESE_CHAR_PATTERNS[char] ?? escapeRegex(char);
+    })
+    .join('');
+
+const normalizeSearchText = (value: unknown) =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .trim();
+
+const getSearchTokens = (search: string) =>
+  normalizeSearchText(search)
+    .split(/\s+/)
+    .filter((token) => token.length >= 2);
+
+const getProductSearchText = (product: Record<string, any>) =>
+  normalizeSearchText(
+    [
+      product.name,
+      product.description,
+      product.category,
+      product.restaurant,
+      ...(Array.isArray(product.tags) ? product.tags : []),
+      ...(Array.isArray(product.healthTags) ? product.healthTags : []),
+      ...(Array.isArray(product.recipe) ? product.recipe.map((item: any) => item?.name ?? item?.ingredientId?.name) : []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+const findSearchSynonym = (search: string) => {
+  const searchLower = search.toLowerCase().trim();
+  const exact = SEARCH_SYNONYMS[searchLower];
+  if (exact) return { key: searchLower, value: exact };
+
+  const normalizedSearch = normalizeSearchText(searchLower);
+  const normalizedEntry = Object.entries(SEARCH_SYNONYMS).find(
+    ([key]) => normalizeSearchText(key) === normalizedSearch
+  );
+  return normalizedEntry ? { key: normalizedEntry[0], value: normalizedEntry[1] } : null;
+};
+
+const getSearchRelevanceScore = (product: Record<string, any>, search: string) => {
+  const normalizedSearch = normalizeSearchText(search);
+  const tokens = getSearchTokens(search);
+  const normalizedName = normalizeSearchText(product.name);
+  const normalizedCategory = normalizeSearchText(product.category);
+  const haystack = getProductSearchText(product);
+  let score = 0;
+
+  if (normalizedName === normalizedSearch) score += 1000;
+  if (normalizedName.includes(normalizedSearch)) score += 700;
+  if (haystack.includes(normalizedSearch)) score += 250;
+  if (tokens.length > 0 && tokens.every((token) => normalizedName.includes(token))) score += 300;
+  if (tokens.length > 0 && tokens.every((token) => haystack.includes(token))) score += 120;
+
+  for (const token of tokens) {
+    if (normalizedName.includes(token)) score += 45;
+    else if (haystack.includes(token)) score += 15;
+  }
+
+  const matchedSynonym = findSearchSynonym(search)?.value;
+  if (matchedSynonym) {
+    for (const keyword of matchedSynonym.keywords) {
+      const normalizedKeyword = normalizeSearchText(keyword);
+      if (normalizedName.includes(normalizedKeyword)) score += 90;
+      else if (haystack.includes(normalizedKeyword)) score += 25;
+    }
+    if (
+      CATEGORY_INTENT_TERMS.has(normalizedSearch) &&
+      matchedSynonym.categories.some((category) => normalizeSearchText(category) === normalizedCategory)
+    ) {
+      score += 160;
+    }
+  }
+
+  score += Math.min(Number(product.reviewCount ?? 0), 50) * 0.5;
+  score += Number(product.rating ?? 0);
+
+  return score;
+};
+
 /**
  * Build a smart search query using synonym mapping + multi-field search
  */
 function buildSmartSearchQuery(search: string): any {
   const searchLower = search.toLowerCase().trim();
-  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const normalizedSearch = normalizeSearchText(search);
+  const escapedSearch = buildVietnameseSearchPattern(search);
+  const isSpecificPhrase = /\s/.test(searchLower);
 
   // Base conditions: always search in name, description, tags, and healthTags
   const orConditions: any[] = [
@@ -114,31 +249,36 @@ function buildSmartSearchQuery(search: string): any {
     { healthTags: { $regex: escapedSearch, $options: 'i' } },
   ];
 
+  if (isSpecificPhrase) {
+    for (const token of searchLower.split(/\s+/).filter((item) => item.length >= 2)) {
+      const escapedToken = buildVietnameseSearchPattern(token);
+      orConditions.push({ name: { $regex: escapedToken, $options: 'i' } });
+      orConditions.push({ tags: { $regex: escapedToken, $options: 'i' } });
+    }
+  }
+
   // Check for synonym matches
-  const matchedSynonym = SEARCH_SYNONYMS[searchLower];
+  const matchedSynonym = findSearchSynonym(searchLower)?.value;
 
   if (matchedSynonym) {
-    // Add category-based search
-    if (matchedSynonym.categories.length > 0) {
+    if (CATEGORY_INTENT_TERMS.has(normalizedSearch) && matchedSynonym.categories.length > 0) {
       orConditions.push({ category: { $in: matchedSynonym.categories } });
     }
 
     // Add keyword-based regex search on name
     for (const keyword of matchedSynonym.keywords) {
       if (keyword.toLowerCase() !== searchLower) {
-        const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedKeyword = buildVietnameseSearchPattern(keyword);
         orConditions.push({ name: { $regex: escapedKeyword, $options: 'i' } });
       }
     }
-  } else {
+  } else if (!isSpecificPhrase) {
     // No exact synonym match — try partial matching on synonym keys
     for (const [key, value] of Object.entries(SEARCH_SYNONYMS)) {
-      if (key.includes(searchLower) || searchLower.includes(key)) {
-        if (value.categories.length > 0) {
-          orConditions.push({ category: { $in: value.categories } });
-        }
+      const normalizedKey = normalizeSearchText(key);
+      if (normalizedKey.includes(normalizedSearch) || normalizedSearch.includes(normalizedKey)) {
         for (const keyword of value.keywords) {
-          const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedKeyword = buildVietnameseSearchPattern(keyword);
           orConditions.push({ name: { $regex: escapedKeyword, $options: 'i' } });
         }
         break; // Only use the first partial match
@@ -318,6 +458,43 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   }
 
   const skip = (page - 1) * limit;
+
+  if (search?.trim()) {
+    const candidateLimit = Math.min(Math.max(skip + limit, 100), 500);
+    const [candidateProducts, total] = await Promise.all([
+      ProductModel.find(query)
+        .populate(PRODUCT_RECIPE_POPULATE)
+        .sort(sortOptions)
+        .limit(candidateLimit)
+        .lean(),
+      ProductModel.countDocuments(query),
+    ]);
+
+    const rankedProducts = candidateProducts
+      .map((product) => withRecipeNames(product))
+      .sort((a, b) => {
+        const scoreDiff = getSearchRelevanceScore(b, search) - getSearchRelevanceScore(a, search);
+        if (scoreDiff !== 0) return scoreDiff;
+        const reviewDiff = Number(b.reviewCount ?? 0) - Number(a.reviewCount ?? 0);
+        if (reviewDiff !== 0) return reviewDiff;
+        return Number(b.rating ?? 0) - Number(a.rating ?? 0);
+      })
+      .slice(skip, skip + limit);
+
+    const productsWithToppings = await attachSharedToppingVariantsToProducts(rankedProducts);
+    const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
+    const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
+
+    return {
+      products: productsWithCampaign,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 
   const [products, total] = await Promise.all([
     ProductModel.find(query)
