@@ -51,8 +51,6 @@ import AdminCustomers from "./pages/Admin/Customers";
 import AdminManager from "./pages/Admin/Manager";
 import AdminStaffRequests from "./pages/Admin/StaffRequests";
 import AdminReviews from "./pages/Admin/Reviews";
-import AdminDelivery from "./pages/Admin/Delivery";
-import AdminDispatch from "./pages/Admin/Dispatch";
 import AdminIngredients from "./pages/Admin/Ingredients";
 import AdminOperationsLayout from "./pages/Admin/OperationsLayout";
 import AdminCashControl from "./pages/Admin/CashControl";
@@ -222,8 +220,6 @@ function App() {
               <Route element={<AdminOperationsLayout />}>
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="cash-control" element={<AdminCashControl />} />
-                <Route path="dispatch" element={<AdminDispatch />} />
-                <Route path="delivery" element={<AdminDelivery />} />
               </Route>
               <Route path="menu" element={<AdminMenuManagement />} />
               <Route path="customers" element={<AdminCustomers />} />
