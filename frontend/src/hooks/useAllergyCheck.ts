@@ -80,7 +80,60 @@ const findConflicts = (product: Product, forbidden: string[]): string[] => {
 const isDietaryKeyword = (diet: unknown, keywords: string[]): boolean =>
   keywords.some((keyword) => fuzzyMatch(keyword, diet));
 
-const toAllergenId = (value: unknown) => normalize(value).replace(/\s+/g, '_');
+const ALLERGEN_ALIASES: Record<string, string[]> = {
+  beef: ['beef', 'bo', 'thit bo'],
+  pork: ['pork', 'heo', 'lon', 'thit heo', 'thit lon', 'suon', 'ba chi', 'cha lua', 'gio', 'nem'],
+  chicken: ['chicken', 'ga', 'thit ga'],
+  fish: ['fish', 'ca', 'cha ca', 'ca hoi', 'ca ngu', 'ca loc', 'ca thu', 'ca basa', 'nuoc mam'],
+  shrimp: ['shrimp', 'tom', 'tom hum', 'tom su', 'tom kho', 'mam tom'],
+  crab: ['crab', 'cua', 'ghe', 'cang cua'],
+  squid: ['squid', 'muc'],
+  shellfish: ['shellfish', 'hai san', 'hai san co vo', 'ngheu', 'so', 'oc', 'hen'],
+  eggs: ['eggs', 'egg', 'trung', 'trung ga', 'trung vit', 'trung cut', 'trung muoi'],
+  dairy: ['dairy', 'milk', 'sua', 'pho mai', 'kem', 'sua chua', 'yogurt', 'bo sua', 'sua dac'],
+  peanuts: ['peanuts', 'peanut', 'dau phong', 'lac', 'bo dau phong'],
+  soy: ['soy', 'dau nanh', 'tuong', 'tofu', 'dau hu'],
+  gluten: ['gluten', 'lua mi', 'banh mi', 'bot mi', 'hoanh thanh', 'ramen'],
+  tree_nuts: ['tree_nuts', 'tree nuts', 'hat cay', 'hanh nhan', 'oc cho', 'hat dieu', 'macca'],
+  sesame: ['sesame', 'me', 'vung', 'dau me'],
+  allium: ['allium', 'hanh', 'hanh la', 'hanh tay', 'toi', 'kieu', 'he'],
+  msg: ['msg', 'bot ngot', 'mi chinh'],
+};
+
+const ALLERGEN_ALIAS_TO_ID = Object.entries(ALLERGEN_ALIASES).reduce<Record<string, string>>(
+  (acc, [id, aliases]) => {
+    acc[normalize(id).replace(/\s+/g, '_')] = id;
+    for (const alias of aliases) {
+      acc[normalize(alias).replace(/\s+/g, '_')] = id;
+    }
+    return acc;
+  },
+  {},
+);
+
+const toAllergenId = (value: unknown) => {
+  const normalized = normalize(value).replace(/\s+/g, '_');
+  return ALLERGEN_ALIAS_TO_ID[normalized] ?? normalized;
+};
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const containsNormalizedPhrase = (text: string, phrase: string) => {
+  const normalizedPhrase = normalize(phrase);
+  if (!normalizedPhrase) return false;
+
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedPhrase)}($|[^a-z0-9])`);
+  return pattern.test(text);
+};
+
+const warningMentionsCurrentAllergy = (warning: string | undefined, allergyIds: Set<string>) => {
+  const normalizedWarning = normalize(warning);
+  if (!normalizedWarning) return false;
+
+  return [...allergyIds].some((id) =>
+    (ALLERGEN_ALIASES[id] ?? [id]).some((alias) => containsNormalizedPhrase(normalizedWarning, alias)),
+  );
+};
 
 export function checkProductAllergies(
   product: Product | null | undefined,
@@ -89,23 +142,28 @@ export function checkProductAllergies(
 ): AllergyCheckResult {
   if (!product) return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 
-  if (product.healthRisk && product.healthRisk.level !== 'safe') {
+  const allergyIds = new Set(userAllergies.map(toAllergenId).filter(Boolean));
+  const hasUserAllergies = allergyIds.size > 0;
+
+  if (hasUserAllergies && product.healthRisk && product.healthRisk.level !== 'safe') {
     const matchedIngredients = Array.isArray(product.healthRisk.matchedIngredients)
       ? product.healthRisk.matchedIngredients.filter(Boolean)
       : [];
     const matchedAllergens = Array.isArray(product.healthRisk.matchedAllergens)
       ? product.healthRisk.matchedAllergens.filter(Boolean)
       : [];
+    const matchesCurrentProfile = matchedAllergens.some((tag) => allergyIds.has(toAllergenId(tag)));
 
-    return {
-      level: product.healthRisk.level,
-      conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
-      warningMessage: product.healthRisk.message ?? '',
-    };
+    if (matchesCurrentProfile) {
+      return {
+        level: product.healthRisk.level,
+        conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
+        warningMessage: product.healthRisk.message ?? '',
+      };
+    }
   }
 
-  const allergyIds = new Set(userAllergies.map(toAllergenId).filter(Boolean));
-  if (allergyIds.size > 0) {
+  if (hasUserAllergies) {
     const conflictIngredients = (product.recipe ?? [])
       .filter((item) => {
         const directTags = item.allergenTags ?? [];
@@ -163,11 +221,11 @@ export function checkProductAllergies(
     }
   }
 
-  if (product.healthWarning?.trim()) {
+  if (hasUserAllergies && warningMentionsCurrentAllergy(product.healthWarning, allergyIds)) {
     return {
       level: 'warning',
       conflictIngredients: [],
-      warningMessage: product.healthWarning,
+      warningMessage: product.healthWarning ?? '',
     };
   }
 
