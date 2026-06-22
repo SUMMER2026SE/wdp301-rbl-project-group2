@@ -1,9 +1,9 @@
 import { AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
-import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
+import { BAD_REQUEST, CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
 import { RefreshTokenModel, UserModel, OrderModel, ReviewModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
 import { VerificationCodeType } from '@/types/verification-code.type';
-import { Role, UserStatus } from '@/types/user.type';
+import { ReferralRewardStatus, Role, UserStatus } from '@/types/user.type';
 import appAssert from '@/utils/app-assert';
 import { hashValue } from '@/utils/bcrypt';
 import { daysFromNow, fifteenMinutesFromNow, fiveMinutesAgo, ONE_DAY_MS, oneHourFromNow } from '@/utils/date';
@@ -16,7 +16,21 @@ import { randomBytes, randomUUID } from 'crypto';
 import mongoose from 'mongoose';
 import axios from 'axios';
 
-export const createUser = async ({ username, email, password }: TRegisterParams) => {
+const resolveReferrerId = async (referralCode: string | undefined, session: mongoose.ClientSession) => {
+  if (!referralCode) return null;
+
+  const referrer = await UserModel.findOne({
+    referralCode: referralCode.trim().toUpperCase(),
+    role: { $in: [Role.CUSTOMER, 'CUSTOMER'] },
+  })
+    .select('_id')
+    .session(session);
+
+  appAssert(referrer, BAD_REQUEST, 'Mã giới thiệu không hợp lệ');
+  return referrer._id;
+};
+
+export const createUser = async ({ username, email, password, referralCode }: TRegisterParams) => {
   return withTransaction(async (session) => {
     //check if email already exists
     const emailExist = await UserModel.exists({ email }).session(session);
@@ -25,11 +39,15 @@ export const createUser = async ({ username, email, password }: TRegisterParams)
     const usernameExist = await UserModel.exists({ username }).session(session);
     appAssert(!usernameExist, CONFLICT, 'Tên đăng nhập đã tồn tại');
 
+    const referrerId = await resolveReferrerId(referralCode, session);
+
     //create user
     const user = new UserModel({
       username,
       email,
       passwordHash: password,
+      referredBy: referrerId,
+      referralRewardStatus: referrerId ? ReferralRewardStatus.PENDING : ReferralRewardStatus.NONE,
     });
 
     await user.save({ session });
@@ -334,10 +352,12 @@ export const loginWithGoogle = async ({
   credential,
   userAgent,
   deviceId,
+  referralCode,
 }: {
   credential: string;
   userAgent?: string;
   deviceId?: string;
+  referralCode?: string;
 }) => {
   return withTransaction(async (session) => {
     let email: string;
@@ -377,6 +397,8 @@ export const loginWithGoogle = async ({
         suffix++;
       }
 
+      const referrerId = await resolveReferrerId(referralCode, session);
+
       user = new UserModel({
         username,
         email,
@@ -386,6 +408,8 @@ export const loginWithGoogle = async ({
         role: Role.CUSTOMER,
         verifiedAt: new Date(),
         status: UserStatus.ACTIVE,
+        referredBy: referrerId,
+        referralRewardStatus: referrerId ? ReferralRewardStatus.PENDING : ReferralRewardStatus.NONE,
       });
 
       await user.save({ session });

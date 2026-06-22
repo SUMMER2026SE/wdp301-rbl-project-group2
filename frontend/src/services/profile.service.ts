@@ -37,6 +37,11 @@ export interface MembershipInfo {
   tier: string;
   referralCode: string;
   referredBy?: string | null;
+  referralRewardStatus?: "none" | "pending" | "processing" | "rewarded" | "rejected";
+  referralQualifiedOrderId?: string | null;
+  referralRewardVoucherId?: string | null;
+  referralRewardedAt?: string | null;
+  referralRejectionReason?: string | null;
   redeemedVoucherIds?: string[];
 }
 
@@ -105,8 +110,10 @@ export const userService = {
     return apiClient.get<ApiResponse<MembershipInfo>>("/users/me/membership");
   },
 
-  getPointTransactions() {
-    return apiClient.get<ApiResponse<PointTransaction[]>>("/users/me/points");
+  getPointTransactions(skip = 0, limit = 20) {
+    return apiClient.get<ApiResponse<PointTransaction[]>>("/users/me/points", {
+      params: { skip, limit },
+    });
   },
 
   claimReferral(code: string) {

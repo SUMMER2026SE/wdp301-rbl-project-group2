@@ -22,7 +22,13 @@ This index is the first file agents should read after `AGENTS.md` for non-trivia
 ## Auto-generated card index
 
 <!-- AUTO-GENERATED:START -->
-_Generated on 2026-06-03 from `.agents/memory` cards._
+_Generated on 2026-06-22 from `.agents/memory` cards._
+
+### Lesson
+
+| Severity | Status | Tags | Applies to | Card |
+|---|---|---|---|---|
+| medium | active | `[referral, membership, points, frontend, legacy-data]` | `[backend, frontend]` | [Lesson: Referral UI must complete both invite and claim flows](lessons/2026-06-22-referral-ui-must-complete-both-invite-and-claim-flows.md) |
 
 ### Pattern
 

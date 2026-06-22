@@ -12,6 +12,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   confirmPassword?: string;
+  referralCode?: string;
 }
 
 /**
@@ -79,6 +80,7 @@ export interface VerifyEmailRequest {
 
 export interface GoogleLoginRequest {
   credential: string;
+  referralCode?: string;
 }
 
 // ---- Service ----

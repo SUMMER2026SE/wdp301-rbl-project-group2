@@ -1,6 +1,6 @@
 import { EMAIL_REGEX, INTERNATIONAL_PHONE_REGEX, VIETNAM_PHONE_REGEX } from '@/constants/regex';
 import { IUser } from '@/types';
-import { IAddresses, IHealthProfile, IPreferences, Role, UserStatus, UserTier } from '@/types/user.type';
+import { IAddresses, IHealthProfile, IPreferences, ReferralRewardStatus, Role, UserStatus, UserTier } from '@/types/user.type';
 import { compareValue, hashValue } from '@/utils/bcrypt';
 import mongoose from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -134,6 +134,29 @@ const UserSchema = new mongoose.Schema<IUser>(
       ref: 'User',
       default: null,
     },
+    referralRewardStatus: {
+      type: String,
+      enum: Object.values(ReferralRewardStatus),
+      default: ReferralRewardStatus.NONE,
+    },
+    referralQualifiedOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order',
+      default: null,
+    },
+    referralRewardVoucherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Voucher',
+      default: null,
+    },
+    referralRewardedAt: {
+      type: Date,
+      default: null,
+    },
+    referralRejectionReason: {
+      type: String,
+      default: null,
+    },
     aiRecommendationsCache: {
       type: {
         data: { type: mongoose.Schema.Types.Mixed }, // Main AI Recommendations
@@ -155,6 +178,7 @@ UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
 UserSchema.index({ storeId: 1 });
+UserSchema.index({ referralRewardStatus: 1 });
 
 // Middleware "pre-validate"
 UserSchema.pre('validate', function (next) {

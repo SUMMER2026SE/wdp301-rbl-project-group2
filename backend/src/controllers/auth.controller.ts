@@ -141,13 +141,14 @@ export const logout = catchErrors(async (req, res) => {
 });
 
 export const loginWithGoogleHandler = catchErrors(async (req, res) => {
-  const { credential, deviceId } = req.body;
+  const { credential, deviceId, referralCode } = req.body;
   appAssert(credential, UNAUTHORIZED, 'Thiếu token xác thực Google');
 
   const { user, refreshToken, accessToken, deviceId: activeDeviceId } = await loginWithGoogle({
     credential,
     userAgent: req.headers['user-agent'],
     deviceId,
+    referralCode,
   });
 
   return setAuthCookies({

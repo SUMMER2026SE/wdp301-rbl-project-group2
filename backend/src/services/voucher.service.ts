@@ -61,7 +61,10 @@ export const getAllVouchers = async (
       }).lean();
       const claimedVoucherIds = userVouchers.map((uv) => uv.voucherId);
 
-      query.$or = [{ _id: { $in: claimedVoucherIds } }, { isReward: { $ne: true } }];
+      query.$or = [
+        { _id: { $in: claimedVoucherIds } },
+        { isReward: { $ne: true }, isPersonal: { $ne: true } },
+      ];
     } else {
       // No userId — return all non-reward vouchers (admin browsing, unauthenticated, etc.)
       if (isReward === false) {

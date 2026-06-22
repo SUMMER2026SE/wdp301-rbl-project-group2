@@ -17,6 +17,7 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
     usedCount: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
     isReward: { type: Boolean, default: false },
+    isPersonal: { type: Boolean, default: false },
     pointCost: { type: Number, default: 0, min: 0 },
     minTier: { type: String, enum: UserTier, default: null },
     startAt: { type: Date, required: true },
