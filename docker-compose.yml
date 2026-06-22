@@ -4,6 +4,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: foodiedash-frontend
     user: root
     ports:
       - "3000:3000"
@@ -20,6 +21,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: foodiedash-backend
     user: root
     ports:
       - "8005:8005"
@@ -30,10 +32,28 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+    depends_on:
+      - redis
     command: pnpm dev
+    networks:
+      - local-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: foodiedash-redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - local-network
 
 networks:
   local-network:
     driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
+
