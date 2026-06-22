@@ -68,23 +68,33 @@ const CampaignProductsPage: React.FC = () => {
     fetchCampaignData();
   }, [id]);
 
+  const isUpcoming = useMemo(() => {
+    if (!campaign) return false;
+    return Date.now() < new Date(campaign.startTime).getTime();
+  }, [campaign]);
+
   // Countdown timer
   useEffect(() => {
     if (!campaign) return;
+    const startTime = new Date(campaign.startTime).getTime();
     const endTime = new Date(campaign.endTime).getTime();
 
     const timer = setInterval(() => {
-      const diff = endTime - Date.now();
+      const now = Date.now();
+      const targetTime = now < startTime ? startTime : endTime;
+      const diff = targetTime - now;
 
       if (diff <= 0) {
         clearInterval(timer);
         setTimeLeft({ hours: '00', minutes: '00', seconds: '00' });
+        // Tự động tải lại trang để chuyển trạng thái sắp diễn ra -> đang diễn ra
+        window.location.reload();
         return;
       }
 
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 100) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
 
       setTimeLeft({
         hours: hours.toString().padStart(2, '0'),
@@ -108,9 +118,9 @@ const CampaignProductsPage: React.FC = () => {
         const basePrice = prod.price;
         let salePrice: number;
 
-        if (campaign.type === 'fixed_price' && item.fixedPrice != null) {
+        if (!isUpcoming && campaign.type === 'fixed_price' && item.fixedPrice != null) {
           salePrice = item.fixedPrice;
-        } else if (campaign.type === 'discount' && item.discount != null) {
+        } else if (!isUpcoming && campaign.type === 'discount' && item.discount != null) {
           salePrice = Math.round(basePrice * (1 - item.discount / 100));
         } else {
           salePrice = basePrice;
@@ -125,12 +135,12 @@ const CampaignProductsPage: React.FC = () => {
           name: prod.name,
           image: imageUrl,
           price: salePrice,
-          originalPrice: basePrice,
+          originalPrice: !isUpcoming && salePrice !== basePrice ? basePrice : undefined,
           soldCount: Math.floor(Math.random() * 40) + 12,
         };
       })
       .filter((p): p is any => p !== null);
-  }, [campaign]);
+  }, [campaign, isUpcoming]);
 
   if (loading) {
     return (
@@ -171,8 +181,10 @@ const CampaignProductsPage: React.FC = () => {
             <span>Quay lại</span>
           </button>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chiến dịch đang chạy</span>
+            <span className={`w-2.5 h-2.5 rounded-full ${isUpcoming ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              {isUpcoming ? 'Chiến dịch sắp diễn ra' : 'Chiến dịch đang chạy'}
+            </span>
           </div>
         </div>
       </div>
@@ -209,19 +221,21 @@ const CampaignProductsPage: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
                 <Flame className="w-4 h-4 fill-white text-white animate-bounce" />
-                <span>Giá siêu rẻ chớp nhoáng</span>
+                <span>{isUpcoming ? 'Sắp diễn ra' : 'Giá siêu rẻ chớp nhoáng'}</span>
               </div>
               <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-none mb-3">
                 {campaign.name}
               </h1>
               <p className="text-white/80 font-medium max-w-lg text-sm md:text-base">
-                Nhận ngay ưu đãi giá hời cho các món ngon bán chạy nhất từ hôm nay! Chương trình tự động áp dụng khi thanh toán.
+                {isUpcoming
+                  ? 'Chương trình ưu đãi chưa bắt đầu. Vui lòng đón xem các sản phẩm sẽ được giảm giá đặc biệt khi chương trình chính thức mở bán!'
+                  : 'Nhận ngay ưu đãi giá hời cho các món ngon bán chạy nhất từ hôm nay! Chương trình tự động áp dụng khi thanh toán.'}
               </p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md border border-white/25 p-5 rounded-2xl flex flex-col items-center shrink-0">
               <span className="text-[10px] font-black text-white/70 uppercase tracking-[0.2em] mb-3">
-                Thời gian còn lại
+                {isUpcoming ? 'Thời gian đến khi mở bán' : 'Thời gian còn lại'}
               </span>
               <div className="flex items-center gap-2">
                 {[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((unit, idx) => (
@@ -269,7 +283,7 @@ const CampaignProductsPage: React.FC = () => {
                 value: (p.soldCount / 100) * 100,
                 label: `Đã bán ${p.soldCount}`,
               }}
-              onAddToCart={(_, trigger) => {
+              onAddToCart={isUpcoming ? undefined : (_, trigger) => {
                 campaignAPI.trackActivity(campaign._id, 'click').catch(() => {});
                 safeAddItem(
                   p.product,
