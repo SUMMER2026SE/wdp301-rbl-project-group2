@@ -5,6 +5,7 @@ import * as membershipService from '@/services/membership.service';
 import appAssert from '@/utils/app-assert';
 import { NOT_FOUND, BAD_REQUEST } from '@/constants/http';
 import { catchErrors } from '@/utils/async-handler';
+import { randomBytes } from 'crypto';
 
 /**
  * Get current user's point transactions
@@ -27,8 +28,16 @@ export const getMyPointsHistoryHandler = catchErrors(async (req: Request, res: R
  */
 export const getMyMembershipHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
-    const user = await UserModel.findById(userId).select('collectedPoints accumulatedPoints tier referralCode referredBy');
+    const user = await UserModel.findById(userId).select(
+        'collectedPoints accumulatedPoints tier referralCode referredBy referralRewardStatus referralQualifiedOrderId referralRewardVoucherId referralRewardedAt referralRejectionReason'
+    );
     appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
+
+    // Backfill referral codes for accounts created before the referral feature.
+    if (!user.referralCode) {
+        user.referralCode = 'FOODIE-' + randomBytes(6).toString('hex').toUpperCase();
+        await user.save();
+    }
 
     // Fetch all redeemed voucher IDs for this user
     const userVouchers = await UserVoucherModel.find({ userId }).select('voucherId').lean();
@@ -71,11 +80,11 @@ export const getMyMembershipHandler = catchErrors(async (req: Request, res: Resp
  */
 export const claimReferralHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
-    const { code } = req.body;
+    const code = req.body?.code;
 
-    appAssert(code, BAD_REQUEST, 'Mã giới thiệu là bắt buộc');
+    appAssert(typeof code === 'string' && code.trim(), BAD_REQUEST, 'Mã giới thiệu là bắt buộc');
 
-    const result = await membershipService.rewardReferral(userId, code);
+    const result = await membershipService.rewardReferral(userId, code.trim());
 
     return res.status(OK).json({ success: true, message: result });
 });

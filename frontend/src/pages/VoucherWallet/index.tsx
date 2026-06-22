@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import voucherService from "@/services/voucher.service";
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import type { Voucher } from "@/types/voucher";
 import type { Product } from "@/types/product";
 import { DiscountType } from "@/types/voucher";
+import { ChevronDown, ChevronUp, Copy, Loader2, Share2, X } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -219,130 +220,370 @@ const MembershipPerks = ({ tier }: { tier: string }) => {
     );
 };
 
-const PointsActivity = ({ activities }: { activities: PointTransaction[] }) => {
+const POINT_HISTORY_PAGE_SIZE = 4;
+
+const PointsActivity = ({
+    activities,
+    loading,
+    loadingMore,
+    hasMore,
+    onLoadMore,
+    onCollapse,
+}: {
+    activities: PointTransaction[];
+    loading: boolean;
+    loadingMore: boolean;
+    hasMore: boolean;
+    onLoadMore: () => void;
+    onCollapse: () => void;
+}) => {
+    const canCollapse = activities.length > POINT_HISTORY_PAGE_SIZE;
+
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
+        <div className="min-w-0 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">history</span>
                     <h4 className="text-lg font-bold">Lịch sử điểm</h4>
                 </div>
-                <button className="text-[10px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest">Xem thêm</button>
+                {activities.length > 0 && (canCollapse || hasMore) && (
+                    <div className="flex items-center gap-1">
+                        {canCollapse && (
+                            <button
+                                type="button"
+                                onClick={onCollapse}
+                                disabled={loadingMore}
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <ChevronUp className="size-4" />
+                                Thu lại
+                            </button>
+                        )}
+                        {hasMore && (
+                            <button
+                                type="button"
+                                onClick={onLoadMore}
+                                disabled={loadingMore}
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {loadingMore ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <ChevronDown className="size-4" />
+                                )}
+                                {loadingMore ? "Đang tải" : "Xem thêm"}
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
-            {activities.length === 0 ? (
-                <div className="bg-card border border-border rounded-[24px] p-8 flex flex-col items-center justify-center text-center space-y-2">
+
+            {loading ? (
+                <div className="grid grid-cols-1 gap-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="h-[74px] animate-pulse rounded-2xl border border-border bg-card" />
+                    ))}
+                </div>
+            ) : activities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center space-y-2 rounded-[24px] border border-border bg-card p-8 text-center">
                     <span className="material-symbols-outlined text-4xl opacity-20">history</span>
                     <p className="text-xs font-bold uppercase tracking-widest opacity-40">Chưa có hoạt động</p>
                 </div>
             ) : (
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
-                    {activities.map((a, i) => (
-                        <div key={i} className="min-w-[260px] bg-card border border-border rounded-2xl p-4 flex gap-4 items-center shrink-0 hover:border-primary/30 transition-all group">
-                            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "bg-green-50 dark:bg-green-950/40 text-green-600" : "bg-orange-50 dark:bg-orange-950/40 text-orange-600"}`}>
-                                <span className="material-symbols-outlined text-lg">
-                                    {a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "add_circle" : "remove_circle"}
-                                </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start gap-2">
-                                    <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{a.description}</p>
-                                    <span className={`text-sm font-black shrink-0 ${a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "text-green-600" : "text-orange-600"}`}>
-                                        {a.amount > 0 ? "+" : ""}{a.amount}
+                <div className="grid min-w-0 grid-cols-1 gap-3">
+                    {activities.map((activity) => {
+                        const isPositive =
+                            activity.type === "earn" ||
+                            activity.type === "referral" ||
+                            activity.type === "bonus";
+
+                        return (
+                            <div
+                                key={activity._id}
+                                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/30 sm:gap-4"
+                            >
+                                <div
+                                    className={
+                                        "flex size-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110 " +
+                                        (isPositive
+                                            ? "bg-green-50 text-green-600 dark:bg-green-950/40"
+                                            : "bg-orange-50 text-orange-600 dark:bg-orange-950/40")
+                                    }
+                                >
+                                    <span className="material-symbols-outlined text-lg">
+                                        {isPositive ? "add_circle" : "remove_circle"}
                                     </span>
                                 </div>
-                                <div className="flex justify-between items-center mt-1">
-                                    <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">{a.type}</p>
-                                    <p className="text-[9px] text-muted-foreground whitespace-nowrap opacity-60 font-bold">{formatDate(a.createdAt)}</p>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex min-w-0 items-start justify-between gap-3">
+                                        <p className="min-w-0 break-words text-sm font-bold leading-snug transition-colors group-hover:text-primary">
+                                            {activity.description}
+                                        </p>
+                                        <span
+                                            className={
+                                                "shrink-0 text-sm font-black " +
+                                                (isPositive ? "text-green-600" : "text-orange-600")
+                                            }
+                                        >
+                                            {activity.amount > 0 ? "+" : ""}
+                                            {activity.amount}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-[9px] font-medium uppercase text-muted-foreground">
+                                            {activity.type}
+                                        </p>
+                                        <p className="whitespace-nowrap text-[9px] font-bold text-muted-foreground opacity-60">
+                                            {formatDate(activity.createdAt)}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
     );
 };
 
-const InviteModal = ({ isOpen, onClose, code }: { isOpen: boolean; onClose: () => void; code: string }) => {
+type InviteModalProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    code: string;
+    canClaim: boolean;
+    referralStatus?: MembershipInfo["referralRewardStatus"];
+    rejectionReason?: string | null;
+    onClaimed: () => Promise<void>;
+};
+
+const InviteModal = ({
+    isOpen,
+    onClose,
+    code,
+    canClaim,
+    referralStatus,
+    rejectionReason,
+    onClaimed,
+}: InviteModalProps) => {
+    const [referralInput, setReferralInput] = useState("");
+    const [claiming, setClaiming] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) setReferralInput("");
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
-    const handleCopyCode = () => {
-        navigator.clipboard.writeText(code);
-        // Could add a toast here
+    const inviteUrl =
+        window.location.origin +
+        "/register?referral=" +
+        encodeURIComponent(code);
+
+    const copyText = async (text: string) => {
+        if (navigator.clipboard) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        textArea.remove();
+
+        if (!copied) throw new Error("Copy command failed");
     };
 
+    const handleCopyInviteLink = async () => {
+        try {
+            await copyText(inviteUrl);
+            toast.success("Đã sao chép link mời");
+        } catch {
+            toast.error("Không thể sao chép link. Vui lòng thử lại");
+        }
+    };
+    const handleClaimReferral = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const normalizedCode = referralInput.trim().toUpperCase();
+
+        if (!normalizedCode) {
+            toast.error("Vui lòng nhập mã giới thiệu");
+            return;
+        }
+
+        try {
+            setClaiming(true);
+            const response = await userService.claimReferral(normalizedCode);
+            await onClaimed();
+            toast.success(response.data.message || "Đã ghi nhận mã giới thiệu");
+            setReferralInput("");
+            onClose();
+        } catch (error: unknown) {
+            const message =
+                typeof error === "object" &&
+                error !== null &&
+                "response" in error &&
+                typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === "string"
+                    ? (error as { response: { data: { message: string } } }).response.data.message
+                    : "Không thể nhập mã giới thiệu";
+            toast.error(message);
+        } finally {
+            setClaiming(false);
+        }
+    };
+
+    const statusContent = {
+        pending: {
+            title: "Đang chờ đơn đầu tiên",
+            description: "Lời mời đã được ghi nhận. Đơn đầu tiên phải hoàn tất và có tổng thanh toán từ 100.000đ.",
+            className: "border-amber-200 bg-amber-50 text-amber-900",
+        },
+        processing: {
+            title: "Đang kiểm tra điều kiện",
+            description: "Hệ thống đang xác minh đơn hàng và điều kiện chống gian lận.",
+            className: "border-amber-200 bg-amber-50 text-amber-900",
+        },
+        rewarded: {
+            title: "Đã trao thưởng giới thiệu",
+            description: "Người mời đã nhận voucher 30.000đ cho đơn từ 150.000đ; người được mời đã nhận 50 điểm.",
+            className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        },
+        rejected: {
+            title: "Lời mời không đủ điều kiện",
+            description:
+                rejectionReason === "minimum_order_not_met"
+                    ? "Đơn đầu tiên hoàn tất chưa đạt 100.000đ."
+                    : "Hệ thống phát hiện điều kiện referral không hợp lệ hoặc có dấu hiệu trùng tài khoản.",
+            className: "border-rose-200 bg-rose-50 text-rose-900",
+        },
+    } as const;
+
+    const currentStatus =
+        referralStatus && referralStatus !== "none"
+            ? statusContent[referralStatus]
+            : null;
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-card w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="relative p-8 text-center space-y-6">
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-modal-title"
+        >
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white shadow-2xl dark:bg-card">
+                <div className="relative space-y-6 p-6 sm:p-8">
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted transition-colors"
+                        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:right-6 sm:top-6"
+                        aria-label="Đóng"
                     >
-                        <span className="material-symbols-outlined text-muted-foreground">close</span>
+                        <X className="size-5" />
                     </button>
 
-                    <div className="inline-flex size-20 bg-orange-100 dark:bg-orange-950/40 text-orange-600 rounded-3xl items-center justify-center mb-2">
-                        <span className="material-symbols-outlined text-4xl">celebration</span>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="text-2xl font-black">Mời bạn bè, Nhận quà!</h3>
-                        <p className="text-sm text-muted-foreground px-4">
-                            Chia sẻ mã giới thiệu của bạn để cả hai cùng nhận được <span className="font-bold text-primary">Voucher 200.000đ</span>
+                    <div className="space-y-3 pr-10">
+                        <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 dark:bg-orange-950/40">
+                            <Share2 className="size-7" />
+                        </div>
+                        <h3 id="invite-modal-title" className="text-2xl font-black">
+                            Mời bạn bè nhận thưởng
+                        </h3>
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                            Gửi link bằng bất kỳ ứng dụng nào. Khi bạn bè đăng ký và hoàn tất đơn đầu tiên từ
+                            <strong className="text-primary"> 100.000đ</strong>, bạn nhận voucher
+                            <strong className="text-primary"> 30.000đ</strong>; họ nhận
+                            <strong className="text-primary"> 50 điểm</strong>.
                         </p>
                     </div>
 
-                    <div className="bg-muted/50 p-6 rounded-2xl border-2 border-dashed border-border group">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Mã của bạn</p>
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-3xl font-black tracking-tighter text-primary">{code}</span>
+                    <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
+                        <label htmlFor="invite-link" className="text-xs font-bold uppercase text-muted-foreground">
+                            Link mời của bạn
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                                id="invite-link"
+                                value={code ? inviteUrl : "Đang tạo link..."}
+                                readOnly
+                                onFocus={(event) => event.currentTarget.select()}
+                                className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm outline-none"
+                            />
                             <button
-                                onClick={handleCopyCode}
-                                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md"
+                                type="button"
+                                onClick={handleCopyInviteLink}
+                                disabled={!code}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                SAO CHÉP
+                                <Copy className="size-4" />
+                                Sao chép link
                             </button>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Mã dự phòng: <strong className="text-foreground">{code || "Đang tạo mã..."}</strong>
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                        {["Facebook", "Zalo", "Messenger"].map((platform) => (
-                            <button key={platform} className="flex flex-col items-center gap-2 p-3 bg-muted/30 rounded-2xl hover:bg-primary/5 transition-colors group">
-                                <span className="material-symbols-outlined text-muted-foreground group-hover:text-primary">share</span>
-                                <span className="text-[10px] font-bold">{platform}</span>
-                            </button>
+                    <ol className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                        {[
+                            ["1", "Gửi link", "Qua bất kỳ ứng dụng nào"],
+                            ["2", "Bạn bè đặt món", "Đơn đầu tiên từ 100.000đ"],
+                            ["3", "Nhận thưởng", "Voucher 30.000đ và 50 điểm"],
+                        ].map(([number, title, description]) => (
+                            <li key={number} className="rounded-xl border border-border p-3">
+                                <span className="font-black text-primary">{number}</span>
+                                <p className="mt-1 font-bold">{title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                            </li>
                         ))}
-                    </div>
+                    </ol>
 
-                    <div className="pt-4 border-t border-border">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                            <span>Cách thức hoạt động</span>
+                    {currentStatus && (
+                        <div className={"rounded-xl border p-4 text-sm " + currentStatus.className}>
+                            <p className="font-bold">{currentStatus.title}</p>
+                            <p className="mt-1 leading-relaxed">{currentStatus.description}</p>
                         </div>
-                        <div className="flex justify-between items-start gap-2">
-                            {[
-                                { i: "1", t: "Gửi mã", s: "Cho bạn bè" },
-                                { i: "2", t: "Bạn đặt", s: "Đơn đầu tiên" },
-                                { i: "3", t: "Nhận quà", s: "Vào ví ngay" },
-                            ].map((step, idx) => (
-                                <div key={idx} className="flex-1 text-center space-y-1">
-                                    <div className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold mx-auto flex items-center justify-center">
-                                        {step.i}
-                                    </div>
-                                    <p className="text-[10px] font-bold">{step.t}</p>
-                                    <p className="text-[8px] text-muted-foreground">{step.s}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    )}
+
+                    {canClaim && (
+                        <form onSubmit={handleClaimReferral} className="space-y-3 border-t border-border pt-5">
+                            <div>
+                                <label htmlFor="referral-code" className="text-sm font-bold">
+                                    Bạn nhận mã trực tiếp thay vì link?
+                                </label>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Nhập trước khi hoàn tất đơn hàng đầu tiên.
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                    id="referral-code"
+                                    value={referralInput}
+                                    onChange={(event) => setReferralInput(event.target.value)}
+                                    placeholder="FOODIE-XXXXXXXX"
+                                    autoComplete="off"
+                                    className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-4 text-sm font-bold uppercase outline-none transition-colors focus:border-primary"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={claiming || !referralInput.trim()}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {claiming && <Loader2 className="size-4 animate-spin" />}
+                                    {claiming ? "Đang ghi nhận" : "Ghi nhận mã"}
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
-
-// ─── Main content (exported for reuse) ───────────────────────────────────────
-
+// Main content (exported for reuse)
 export const VoucherWalletContent = () => {
     const { getUser } = useAuth();
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -353,6 +594,9 @@ export const VoucherWalletContent = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [membership, setMembership] = useState<MembershipInfo | null>(null);
     const [activities, setActivities] = useState<PointTransaction[]>([]);
+    const [activitiesLoading, setActivitiesLoading] = useState(true);
+    const [loadingMoreActivities, setLoadingMoreActivities] = useState(false);
+    const [hasMoreActivities, setHasMoreActivities] = useState(false);
     const [rewardVouchers, setRewardVouchers] = useState<Voucher[]>([]);
     const [rewardLoading, setRewardLoading] = useState(true);
 
@@ -401,15 +645,48 @@ export const VoucherWalletContent = () => {
 
     const fetchMembershipData = useCallback(async () => {
         try {
+            setActivitiesLoading(true);
             const [mRes, pRes] = await Promise.all([
                 userService.getMembership(),
-                userService.getPointTransactions()
+                userService.getPointTransactions(0, POINT_HISTORY_PAGE_SIZE + 1)
             ]);
             setMembership(mRes.data.data);
-            setActivities(pRes.data.data ?? []);
+            const pointHistory = pRes.data.data ?? [];
+            setActivities(pointHistory.slice(0, POINT_HISTORY_PAGE_SIZE));
+            setHasMoreActivities(pointHistory.length > POINT_HISTORY_PAGE_SIZE);
         } catch (err) {
             console.error("Failed to fetch membership info:", err);
+        } finally {
+            setActivitiesLoading(false);
         }
+    }, []);
+
+    const loadMoreActivities = useCallback(async () => {
+        if (loadingMoreActivities || !hasMoreActivities) return;
+
+        try {
+            setLoadingMoreActivities(true);
+            const response = await userService.getPointTransactions(
+                activities.length,
+                POINT_HISTORY_PAGE_SIZE + 1,
+            );
+            const nextPage = response.data.data ?? [];
+            setActivities((current) => [
+                ...current,
+                ...nextPage.slice(0, POINT_HISTORY_PAGE_SIZE),
+            ]);
+            setHasMoreActivities(nextPage.length > POINT_HISTORY_PAGE_SIZE);
+        } catch (err) {
+            console.error("Failed to load more point history:", err);
+            toast.error("Không thể tải thêm lịch sử điểm");
+        } finally {
+            setLoadingMoreActivities(false);
+        }
+    }, [activities.length, hasMoreActivities, loadingMoreActivities]);
+
+    const collapseActivities = useCallback(() => {
+        setActivities((current) => current.slice(0, POINT_HISTORY_PAGE_SIZE));
+        setHasMoreActivities(true);
     }, []);
 
     useEffect(() => {
@@ -535,8 +812,9 @@ export const VoucherWalletContent = () => {
                         <span className="material-symbols-outlined text-4xl mb-4 opacity-80 group-hover:scale-110 transition-transform">celebration</span>
                         <h3 className="text-2xl font-bold leading-tight mb-2">Chia sẻ niềm vui</h3>
                         <p className="text-orange-100 text-sm leading-relaxed mb-6">
-                            Giới thiệu bạn bè và cả hai đều nhận{" "}
-                            <span className="font-bold text-white underline decoration-2 underline-offset-4">voucher 200.000đ</span>
+                            Gửi link mời cho bạn bè. Nhận{" "}
+                            <span className="font-bold text-white underline decoration-2 underline-offset-4">voucher 30.000đ</span>{" "}
+                            khi họ hoàn tất đơn đầu tiên từ 100.000đ.
                         </p>
                     </div>
                     <button
@@ -552,7 +830,11 @@ export const VoucherWalletContent = () => {
             <InviteModal
                 isOpen={showInviteModal}
                 onClose={() => setShowInviteModal(false)}
-                code={membership?.referralCode || "FOODIE"}
+                code={membership?.referralCode || ""}
+                canClaim={!membership?.referredBy && (!membership?.referralRewardStatus || membership.referralRewardStatus === "none")}
+                referralStatus={membership?.referralRewardStatus}
+                rejectionReason={membership?.referralRejectionReason}
+                onClaimed={fetchMembershipData}
             />
 
             {/* Rewards Shop */}
@@ -656,7 +938,14 @@ export const VoucherWalletContent = () => {
                         tier={membership?.tier || "Bronze"}
                     />
                     <MembershipPerks tier={membership?.tier || "Bronze"} />
-                    <PointsActivity activities={activities} />
+                    <PointsActivity
+                        activities={activities}
+                        loading={activitiesLoading}
+                        loadingMore={loadingMoreActivities}
+                        hasMore={hasMoreActivities}
+                        onLoadMore={loadMoreActivities}
+                        onCollapse={collapseActivities}
+                    />
                 </div>
                 <div className="space-y-8">
                     <div className="bg-gradient-to-br from-primary/10 to-orange-500/5 p-6 rounded-3xl border border-primary/10">

@@ -6,6 +6,7 @@ import { OrderStatus } from '@/types/order.type';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 import { createAuditLog } from '@/services/audit-log.service';
 import { createOrderStatusNotification } from '@/services/notification.service';
+import { qualifyReferralFromCompletedOrder } from '@/services/membership.service';
 
 const SENSITIVE_ACTIONS = new Set(['cancel', 'reject', 'move_status_backward', 'reassign_driver', 'manual_complete']);
 
@@ -153,6 +154,11 @@ export const managerOverrideOrderStatus = async (params: {
   });
 
   await order.save();
+
+  if (toStatus === OrderStatus.COMPLETED) {
+    await qualifyReferralFromCompletedOrder(order._id)
+      .catch((err) => console.error('Failed to process referral reward:', err));
+  }
 
   await createOrderStatusNotification({
     userId: (order.cusId as any)._id ? (order.cusId as any)._id : order.cusId,

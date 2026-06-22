@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { clsx } from "clsx";
-import { Store, Plus, Pencil, Ban, CheckCircle, Loader2, MapPin, Navigation, LayoutGrid, List } from "lucide-react";
+import { Store, Plus, Pencil, Ban, CheckCircle, Loader2, MapPin, LayoutGrid, List } from "lucide-react";
 import { AdminDrawer } from "@/components/shared/AdminDrawer";
 import toast from "react-hot-toast";
 import {
@@ -60,10 +60,8 @@ const AdminStores = () => {
   const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateStorePayload>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [coordsStr, setCoordsStr] = useState("106.6297, 10.8231");
   const [city, setCity] = useState(DELIVERABLE_CITY);
   const [ward, setWard] = useState("");
-  const [geoLocating, setGeoLocating] = useState(false);
 
   // Confirm modal state for activate/deactivate
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -98,90 +96,10 @@ const AdminStores = () => {
     fetchStores();
   }, [fetchStores]);
 
-  const parseCoordinates = (raw: string): [number, number] | null => {
-    const parts = raw.split(",").map((s) => parseFloat(s.trim()));
-    if (parts.length === 2 && parts.every((n) => !isNaN(n))) {
-      return [parts[0], parts[1]] as [number, number];
-    }
-    return null;
-  };
-
-  /** Geocode full address via Nominatim (OpenStreetMap) — free, no API key */
-  const geocodeAddress = async () => {
-    const address = formData.address.trim();
-    if (!address) {
-      toast.error("Vui lòng nhập địa chỉ chi tiết trước");
-      return;
-    }
-    if (!ward) {
-      toast.error("Vui lòng chọn phường/xã trước");
-      return;
-    }
-
-    // Nominatim prefers hierarchical order: street, ward, city, country
-    // Also accepts structured with street/ward/city params
-    setGeoLocating(true);
-    try {
-      const params = new URLSearchParams({
-        format: "json",
-        street: address,
-        ward: ward,
-        city: city,
-        country: "Việt Nam",
-        limit: "1",
-      });
-
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-        {
-          headers: {
-            "User-Agent": "FoodieDash-Admin/1.0 (admin@foodiedash.vn)",
-            "Accept-Language": "vi",
-          },
-        }
-      );
-
-      if (!res.ok) {
-        console.warn("Nominatim non-OK status:", res.status);
-      }
-
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const { lon, lat, display_name } = data[0];
-        setCoordsStr(`${lon}, ${lat}`);
-        toast.success(`Đã tìm thấy toạ độ: ${display_name?.split(",")[0] || ""}`);
-      } else {
-        // Fallback: try with concatenated query (more common for OSM)
-        const fallbackQuery = `${address}, ${ward}, ${city}, Việt Nam`;
-        const fbRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackQuery)}&limit=1&accept-language=vi`,
-          {
-            headers: {
-              "User-Agent": "FoodieDash-Admin/1.0 (admin@foodiedash.vn)",
-            },
-          }
-        );
-        const fbData = await fbRes.json();
-        if (Array.isArray(fbData) && fbData.length > 0) {
-          const { lon, lat, display_name } = fbData[0];
-          setCoordsStr(`${lon}, ${lat}`);
-          toast.success(`Đã tìm thấy toạ độ: ${display_name?.split(",")[0] || ""}`);
-        } else {
-          toast.error("Không tìm thấy toạ độ cho địa chỉ này. Vui lòng nhập tay.");
-        }
-      }
-    } catch {
-      toast.error("Lỗi kết nối geocoding. Vui lòng nhập toạ độ tay.");
-    } finally {
-      setGeoLocating(false);
-    }
-  };
-
   const openCreateDrawer = () => {
     setDrawerMode("create");
     setEditingStoreId(null);
     setFormData(EMPTY_FORM);
-    setCoordsStr("106.6297, 10.8231");
     setCity(DELIVERABLE_CITY);
     setWard("");
     setDrawerOpen(true);
@@ -196,7 +114,6 @@ const AdminStores = () => {
       address: store.address,
       district: store.district,
     });
-    setCoordsStr(`${store.location.coordinates[0]}, ${store.location.coordinates[1]}`);
     // Parse district to extract city + ward (district format: "WardName, City" or just "WardName")
     const district = store.district || "";
     const knownCity = CITY_OPTIONS.find((c) => district.endsWith(c));
@@ -228,17 +145,18 @@ const AdminStores = () => {
       return;
     }
 
-    const coords = parseCoordinates(coordsStr);
-    if (!coords) {
-      toast.error("Tọa độ không hợp lệ (định dạng: lng, lat)");
+    const wardCentroid = WARD_CENTROIDS[ward];
+    if (!wardCentroid) {
+      toast.error("Không tìm thấy vị trí của phường/xã đã chọn");
       return;
     }
+    const coordinates: [number, number] = [wardCentroid[0], wardCentroid[1]];
 
     const district = ward ? `${ward}, ${city}` : city;
 
     const payload: CreateStorePayload = {
       ...formData,
-      location: { type: "Point", coordinates: coords },
+      location: { type: "Point", coordinates },
       district,
     };
 
@@ -645,17 +563,7 @@ const AdminStores = () => {
               </label>
               <select
                 value={ward}
-                onChange={(e) => {
-                  const selectedWard = e.target.value;
-                  setWard(selectedWard);
-                  // Auto-fill coordinates from WARD_CENTROIDS
-                  if (selectedWard) {
-                    const centroid = WARD_CENTROIDS[selectedWard];
-                    if (centroid) {
-                      setCoordsStr(`${centroid[0]}, ${centroid[1]}`);
-                    }
-                  }
-                }}
+                onChange={(e) => setWard(e.target.value)}
                 className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 bg-white"
               >
                 <option value="">-- Chọn phường/xã --</option>
@@ -679,42 +587,6 @@ const AdminStores = () => {
               className="w-full rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
               placeholder="Số nhà, tên đường"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-[#9a734c] mb-2">
-              Tọa độ (longitude, latitude)
-              {/* <span className="text-[11px] font-medium text-emerald-600 ml-2 normal-case">
-                ⟵ Auto từ phường/xã
-              </span> */}
-            </label>
-            <div className="flex items-center gap-2">
-              <Navigation size={16} className="text-[#9a734c] shrink-0" />
-              <input
-                type="text"
-                value={coordsStr}
-                onChange={(e) => setCoordsStr(e.target.value)}
-                className="flex-1 rounded-xl border border-[#e7dbcf] px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-                placeholder="106.6297, 10.8231"
-              />
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void geocodeAddress()}
-                disabled={geoLocating}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-60"
-              >
-                {geoLocating ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <MapPin size={14} />
-                )}
-                {geoLocating ? "Đang tìm..." : "Tìm toạ độ chính xác"}
-              </button>
-              <p className="text-[11px] text-[#9a734c]/60">
-                Tự động tìm từ địa chỉ chi tiết + phường/xã
-              </p>
-            </div>
           </div>
 
           <div className="flex gap-3 pt-4">

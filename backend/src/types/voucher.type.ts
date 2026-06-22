@@ -31,6 +31,7 @@ export interface IVoucher extends mongoose.Document<mongoose.Types.ObjectId> {
 
   isActive: boolean;
   isReward?: boolean;
+  isPersonal?: boolean;
   pointCost?: number;
 
   minTier?: UserTier | null;

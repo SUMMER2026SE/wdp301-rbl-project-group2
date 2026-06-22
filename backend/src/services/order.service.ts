@@ -459,7 +459,6 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       voucherObjectId = voucher._id as mongoose.Types.ObjectId;
 
       await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
-
       await UserVoucherModel.findOneAndUpdate(
         {
           userId,
@@ -471,6 +470,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
             status: UserVoucherStatus.USED,
             usedAt: new Date(),
           },
+          $inc: { usageCount: 1 },
         },
         { session }
       );
@@ -732,6 +732,10 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
         .catch((err) => console.error('Failed to award points:', err));
     }
     scheduleAiModelRetrain(`order #${order.code} completed (status update)`);
+
+    await membershipService
+      .qualifyReferralFromCompletedOrder(order._id)
+      .catch((err) => console.error('Failed to process referral reward:', err));
   }
 
   await createOrderStatusNotification({
@@ -972,6 +976,9 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
 export const completeOrderInternal = async (orderId: string, actorId?: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   if (order.status === OrderStatus.COMPLETED) {
+    await membershipService
+      .qualifyReferralFromCompletedOrder(order._id)
+      .catch((err) => console.error('Failed to process referral reward:', err));
     return order;
   }
 
@@ -1011,6 +1018,10 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
   }
 
   scheduleAiModelRetrain(`order #${updatedOrder.code} completed`);
+
+  await membershipService
+    .qualifyReferralFromCompletedOrder(updatedOrder._id)
+    .catch((err) => console.error('Failed to process referral reward:', err));
 
   if (actorId) {
     createAuditLog({

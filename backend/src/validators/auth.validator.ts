@@ -49,6 +49,7 @@ export const registerValidator = z.preprocess(
       username: usernameValidator,
       password: strongPasswordValidator,
       confirmPassword: strongPasswordValidator,
+      referralCode: z.string().trim().toUpperCase().regex(/^FOODIE-[A-F0-9]{8,12}$/, 'Mã giới thiệu không hợp lệ').optional(),
     })
 ).refine((data: any) => data.password === data.confirmPassword, {
   message: 'Mật khẩu không khớp nhau',

@@ -45,6 +45,7 @@ export interface Voucher {
   createdAt: string;
   updatedAt: string;
   isReward?: boolean;
+  isPersonal?: boolean;
   pointCost?: number;
   ownerId?: string | null;
   minTier?: UserTier | string | null;

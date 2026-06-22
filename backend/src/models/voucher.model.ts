@@ -81,6 +81,11 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
       default: false,
     },
 
+    isPersonal: {
+      type: Boolean,
+      default: false,
+    },
+
     pointCost: {
       type: Number,
       default: 0,

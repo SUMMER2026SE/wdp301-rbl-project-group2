@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import VoucherModel from '@/models/voucher.model';
 import UserModel from '@/models/user.model';
-import { UserVoucherModel } from '@/models';
+import { OrderModel, UserVoucherModel } from '@/models';
 import appAssert from '@/utils/app-assert';
 import {
   DiscountType,
@@ -102,6 +102,29 @@ const assertVoucherCanBeUsed = async (voucher: IVoucher, orderAmount: number, op
     appAssert(voucher.usedCount < voucher.usageLimit, BAD_REQUEST, 'Voucher đã hết lượt sử dụng');
   }
 
+  const normalizedUserId = options?.userId?.toString();
+  const hasValidUserId = Boolean(normalizedUserId && mongoose.Types.ObjectId.isValid(normalizedUserId));
+
+  if (voucher.isPersonal || voucher.isReward) {
+    appAssert(hasValidUserId, FORBIDDEN, 'Bạn cần đăng nhập để sử dụng voucher này');
+
+    const ownedVoucher = await UserVoucherModel.exists({
+      userId: new mongoose.Types.ObjectId(normalizedUserId),
+      voucherId: voucher._id,
+      status: UserVoucherStatus.AVAILABLE,
+    });
+    appAssert(ownedVoucher, FORBIDDEN, 'Bạn không sở hữu hoặc đã sử dụng voucher này');
+  }
+
+  if (hasValidUserId) {
+    const usedInOrder = await OrderModel.exists({
+      cusId: new mongoose.Types.ObjectId(normalizedUserId),
+      voucherId: voucher._id,
+      status: { $ne: 'cancelled' },
+    });
+    appAssert(!usedInOrder, BAD_REQUEST, 'Bạn đã sử dụng voucher này rồi');
+  }
+
   if (voucher.minTier) {
     const userTier = await resolveUserTier(options);
 
@@ -164,27 +187,62 @@ export const getAllVouchers = async (
   const page = filters.page || 1;
   const limit = filters.limit || 20;
   const skip = (page - 1) * limit;
-
   const query: Record<string, any> = {};
 
-  if (filters.category) {
-    query.category = filters.category;
+  if (filters.category) query.category = filters.category;
+  if (filters.isActive !== undefined) query.isActive = filters.isActive;
+
+  if (filters.isReward === true) {
+    query.isReward = true;
+  } else {
+    const targetUserId = userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null;
+
+    if (targetUserId) {
+      const user = await UserModel.findById(targetUserId).select('tier').lean();
+      const userTierRank = getTierRank(user?.tier || UserTier.BRONZE);
+      const allowedTiers = Object.values(UserTier).filter((tier) => getTierRank(tier) <= userTierRank);
+      const [ownedVouchers, usedOrders] = await Promise.all([
+        UserVoucherModel.find({
+          userId: new mongoose.Types.ObjectId(targetUserId),
+          status: UserVoucherStatus.AVAILABLE,
+        })
+          .select('voucherId')
+          .lean(),
+        OrderModel.find({
+          cusId: new mongoose.Types.ObjectId(targetUserId),
+          status: { $ne: 'cancelled' },
+          voucherId: { $ne: null },
+        })
+          .select('voucherId')
+          .lean(),
+      ]);
+
+      const ownedVoucherIds = ownedVouchers.map((item) => item.voucherId);
+      const usedVoucherIds = usedOrders.map((order) => order.voucherId).filter(Boolean);
+
+      query.minTier = { $in: [null, ...allowedTiers] };
+      query.$and = [
+        {
+          $or: [
+            { _id: { $in: ownedVoucherIds } },
+            { isReward: { $ne: true }, isPersonal: { $ne: true } },
+          ],
+        },
+      ];
+
+      if (usedVoucherIds.length > 0) {
+        query.$and.push({ _id: { $nin: usedVoucherIds } });
+      }
+    } else {
+      query.isReward = filters.isReward ?? { $ne: true };
+      query.isPersonal = { $ne: true };
+    }
   }
 
-  if (filters.isActive !== undefined) {
-    query.isActive = filters.isActive;
-  }
-
-  if (filters.isReward !== undefined) {
-    query.isReward = filters.isReward;
-  }
-
-  if (filters.ownerId) {
-    query.ownerId = filters.ownerId;
-  }
+  query.endAt = { $gte: new Date() };
 
   const [vouchers, total] = await Promise.all([
-    VoucherModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    VoucherModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     VoucherModel.countDocuments(query),
   ]);
 
@@ -198,7 +256,6 @@ export const getAllVouchers = async (
     },
   };
 };
-
 export const getVoucherById = async (id: string) => {
   appAssert(mongoose.Types.ObjectId.isValid(id), BAD_REQUEST, 'Voucher ID không hợp lệ');
 
