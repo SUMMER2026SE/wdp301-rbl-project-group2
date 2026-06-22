@@ -86,12 +86,12 @@ const ShoppingCartPage = () => {
           campaignAPI.getCampaigns().catch(() => ({ data: [] })),
           selectedStore?._id
             ? productAPI
-                .getProducts({
-                  storeId: selectedStore._id,
-                  limit: 1000,
-                  isAvailable: true,
-                })
-                .catch(() => null)
+              .getProducts({
+                storeId: selectedStore._id,
+                limit: 1000,
+                isAvailable: true,
+              })
+              .catch(() => null)
             : Promise.resolve(null),
         ]);
 
@@ -141,7 +141,7 @@ const ShoppingCartPage = () => {
           const product = res.data;
           const visibleStoreProduct = selectedStore?._id
             ? visibleStoreProductById.get(cartItem.productId) ??
-              visibleStoreProductByKey.get(productAvailabilityKey(product))
+            visibleStoreProductByKey.get(productAvailabilityKey(product))
             : undefined;
           const effectiveProduct = visibleStoreProduct ?? product;
           let price = effectiveProduct.price;
@@ -162,9 +162,9 @@ const ShoppingCartPage = () => {
           const unavailable = selectedStore?._id
             ? !visibleStoreProduct
             : effectiveProduct.isAvailable === false ||
-              ["inactive", "out_of_stock", "deleted"].includes(
-                effectiveProduct.status,
-              );
+            ["inactive", "out_of_stock", "deleted"].includes(
+              effectiveProduct.status,
+            );
 
           availabilityMap[cartItem.productId] = {
             unavailable,
@@ -231,14 +231,14 @@ const ShoppingCartPage = () => {
                   </div>
                   <div className="flex items-center gap-4">
                     {cartItems.some((i) => i.selected === false) && (
-                      <button 
+                      <button
                         onClick={() => toggleSelectAll(true)}
                         className="text-xs text-orange-600 font-bold hover:underline"
                       >
                         Chọn lại tất cả
                       </button>
                     )}
-                    <button 
+                    <button
                       onClick={() => setShowClearCartModal(true)}
                       className="text-xs text-red-500 font-bold hover:underline flex items-center gap-1"
                     >
@@ -272,9 +272,8 @@ const ShoppingCartPage = () => {
                       key={itemKey(item)}
                       onClick={() => toggleSelectItem(itemKey(item))}
                       aria-disabled={isUnavailable}
-                      className={`flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer ${
-                        isUnavailable ? "bg-gray-50/70 dark:bg-white/[0.03]" : ""
-                      }`}
+                      className={`flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer ${isUnavailable ? "bg-gray-50/70 dark:bg-white/[0.03]" : ""
+                        }`}
                     >
                       <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -285,15 +284,13 @@ const ShoppingCartPage = () => {
                         />
                       </div>
                       <div
-                        className={`bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100 ${
-                          isUnavailable ? "grayscale opacity-60" : ""
-                        }`}
+                        className={`bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100 ${isUnavailable ? "grayscale opacity-60" : ""
+                          }`}
                         style={{ backgroundImage: `url("${item.image}")` }}
                       />
                       <div
-                        className={`flex flex-1 flex-col justify-between ${
-                          isUnavailable ? "grayscale" : ""
-                        }`}
+                        className={`flex flex-1 flex-col justify-between ${isUnavailable ? "grayscale" : ""
+                          }`}
                       >
                         <div className="flex justify-between items-start">
                           <div>
@@ -310,83 +307,83 @@ const ShoppingCartPage = () => {
                               {item.size || "Standard"}
                             </p>
 
-                          {(() => {
-                            const chips = buildVariantChips(
-                              (item as any).variations,
-                            );
-                            if (!chips.length) return null;
+                            {(() => {
+                              const chips = buildVariantChips(
+                                (item as any).variations,
+                              );
+                              if (!chips.length) return null;
 
-                            return (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {chips.map((c) => (
-                                  <span
-                                    key={c.key}
-                                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
-                                    title={
-                                      c.extra > 0
-                                        ? `+${c.extra.toLocaleString("vi-VN")}đ`
-                                        : undefined
-                                    }
-                                  >
-                                    {c.text}
-                                    {c.extra > 0 && (
-                                      <span className="text-[#9a734c] font-bold">
-                                        +{c.extra.toLocaleString("vi-VN")}đ
-                                      </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          })()}
+                              return (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {chips.map((c) => (
+                                    <span
+                                      key={c.key}
+                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
+                                      title={
+                                        c.extra > 0
+                                          ? `+${c.extra.toLocaleString("vi-VN")}đ`
+                                          : undefined
+                                      }
+                                    >
+                                      {c.text}
+                                      {c.extra > 0 && (
+                                        <span className="text-[#9a734c] font-bold">
+                                          +{c.extra.toLocaleString("vi-VN")}đ
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-text-main dark:text-white">
+                              {(item.price * item.quantity).toLocaleString("vi-VN")}đ
+                            </p>
+                            {originalPrices[item.productId] !== undefined &&
+                              originalPrices[item.productId] > item.price && (
+                                <p className="text-xs text-gray-400 dark:text-slate-400/70 line-through font-medium">
+                                  {(originalPrices[item.productId] * item.quantity).toLocaleString("vi-VN")}đ
+                                </p>
+                              )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-text-main dark:text-white">
-                            {(item.price * item.quantity).toLocaleString("vi-VN")}đ
-                          </p>
-                          {originalPrices[item.productId] !== undefined &&
-                            originalPrices[item.productId] > item.price && (
-                              <p className="text-xs text-gray-400 dark:text-slate-400/70 line-through font-medium">
-                                {(originalPrices[item.productId] * item.quantity).toLocaleString("vi-VN")}đ
-                              </p>
-                            )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-4 sm:mt-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeItem(itemKey(item));
-                          }}
-                          className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            delete
-                          </span>
-                          {t("common:actions.delete")}
-                        </button>
-                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mt-4 sm:mt-0">
                           <button
-                            onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
-                            disabled={isUnavailable}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeItem(itemKey(item));
+                            }}
+                            className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline"
                           >
-                            -
+                            <span className="material-symbols-outlined text-lg">
+                              delete
+                            </span>
+                            {t("common:actions.delete")}
                           </button>
-                          <span className="text-base font-bold w-8 text-center bg-transparent dark:text-white">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(itemKey(item), item.quantity + 1)}
-                            disabled={isUnavailable}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
-                          >
-                            +
-                          </button>
+                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
+                              disabled={isUnavailable}
+                              className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
+                            >
+                              -
+                            </button>
+                            <span className="text-base font-bold w-8 text-center bg-transparent dark:text-white">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateQuantity(itemKey(item), item.quantity + 1)}
+                              disabled={isUnavailable}
+                              className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
                   );
                 })
               )}
@@ -534,11 +531,11 @@ const ShoppingCartPage = () => {
                             price: item.campaignPrice ?? item.price,
                             quantity: 1,
                           }, () => {
-                          showAddToCartFeedback(
-                            e.currentTarget,
-                            imageUrl,
-                            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
-                          );
+                            showAddToCartFeedback(
+                              e.currentTarget,
+                              imageUrl,
+                              t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                            );
                           });
                         }}
                         className="bg-orange-50 dark:bg-white/5 p-1.5 rounded-lg text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-90 cursor-pointer"
@@ -561,11 +558,11 @@ const ShoppingCartPage = () => {
       {/* Custom Clear Cart Confirmation Modal */}
       {showClearCartModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div 
-            className="absolute inset-0 cursor-pointer" 
+          <div
+            className="absolute inset-0 cursor-pointer"
             onClick={() => setShowClearCartModal(false)}
           />
-          
+
           <div className="bg-white dark:bg-slate-900 rounded-[28px] p-6 max-w-sm w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative z-10 text-center animate-in zoom-in-95 duration-200">
             {/* Warning Icon Container */}
             <div className="mx-auto size-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4 text-red-500 border border-red-100 dark:border-red-900/30">
@@ -573,15 +570,15 @@ const ShoppingCartPage = () => {
                 warning
               </span>
             </div>
-            
+
             <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2">
               Xóa toàn bộ giỏ hàng?
             </h3>
-            
+
             <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-6">
               Hành động này sẽ loại bỏ tất cả các món ăn bạn đã chọn ra khỏi giỏ hàng. Bạn không thể hoàn tác thao tác này.
             </p>
-            
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -590,7 +587,7 @@ const ShoppingCartPage = () => {
               >
                 Hủy bỏ
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => {
