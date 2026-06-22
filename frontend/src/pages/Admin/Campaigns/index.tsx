@@ -522,7 +522,7 @@ const AdminCampaigns = () => {
           return (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-sky-50 text-sky-700 border border-sky-200">
               <span className="size-1.5 rounded-full bg-sky-500" />
-              Đã duyệt / Sắp diễn ra
+              Sắp diễn ra
             </span>
           );
         }
@@ -1140,7 +1140,7 @@ const AdminCampaigns = () => {
               onClick={() => setViewMode("list")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 viewMode === "list"
-                  ? "bg-orange-600 text-white shadow-sm"
+                  ? "bg-[#ee8c2b] text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-800"
               }`}
             >
@@ -1152,7 +1152,7 @@ const AdminCampaigns = () => {
               onClick={() => setViewMode("analytics")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 viewMode === "analytics"
-                  ? "bg-orange-600 text-white shadow-sm"
+                  ? "bg-[#ee8c2b] text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-800"
               }`}
             >
@@ -1164,7 +1164,7 @@ const AdminCampaigns = () => {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="flex items-center justify-center gap-2 h-10 px-5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-orange-600/10 transition-all active:scale-[0.98] cursor-pointer"
+            className="flex items-center justify-center gap-2 h-10 px-5 bg-[#ee8c2b] hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {isAdmin ? "Tạo chiến dịch" : "Đề xuất chiến dịch"}
@@ -1253,7 +1253,7 @@ const AdminCampaigns = () => {
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${
                   isActive
-                    ? "bg-orange-50 text-orange-700 shadow-sm border border-orange-200"
+                    ? "bg-[#ee8c2b]/10 text-[#ee8c2b] shadow-sm border border-[#ee8c2b]/20"
                     : tab.highlight && tab.count > 0
                       ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50"
                       : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
@@ -1263,7 +1263,7 @@ const AdminCampaigns = () => {
                 <span
                   className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                     isActive
-                      ? "bg-orange-600 text-white"
+                      ? "bg-[#ee8c2b] text-white"
                       : tab.highlight && tab.count > 0
                         ? "bg-amber-500 text-white"
                         : "bg-slate-100 text-slate-600"
@@ -1272,7 +1272,7 @@ const AdminCampaigns = () => {
                   {tab.count}
                 </span>
                 {isActive && (
-                  <span className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-orange-600 rounded-full" />
+                  <span className="absolute bottom-[-13px] left-0 right-0 h-0.5 bg-[#ee8c2b] rounded-full" />
                 )}
               </button>
             );
@@ -1345,9 +1345,6 @@ const AdminCampaigns = () => {
                     Tên chiến dịch
                   </th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">
-                    Người tạo
-                  </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">
                     Trạng thái
                   </th>
                   <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider">
@@ -1365,7 +1362,7 @@ const AdminCampaigns = () => {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-6 py-12 text-center text-slate-400"
                     >
                       Đang tải dữ liệu...
@@ -1374,7 +1371,7 @@ const AdminCampaigns = () => {
                 ) : filteredCampaigns.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-6 py-12 text-center text-slate-400"
                     >
                       Không tìm thấy chiến dịch nào
@@ -1388,15 +1385,11 @@ const AdminCampaigns = () => {
                     const canModify =
                       isAdmin ||
                       (isCreator && c.status === CampaignStatus.PENDING);
-                    const creatorName =
-                      typeof c.createdBy === "string"
-                        ? "Hệ thống"
-                        : c.createdBy?.username || "Ẩn danh";
 
                     return (
                       <tr
                         key={c._id}
-                        className="hover:bg-orange-50/5 transition-colors"
+                        className="hover:bg-[#ee8c2b]/5 transition-colors"
                       >
                         <td className="px-6 py-4 font-bold text-slate-800">
                           <button
@@ -1410,16 +1403,13 @@ const AdminCampaigns = () => {
                                 handleOpenEditModal(c);
                               }
                             }}
-                            className="text-slate-800 hover:text-orange-600 hover:underline transition-colors text-left font-bold focus:outline-none"
+                            className="text-slate-800 hover:text-[#ee8c2b] hover:underline transition-colors text-left font-bold focus:outline-none"
                           >
                             {c.name}
                           </button>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
-                          {creatorName}
-                        </td>
                         <td className="px-6 py-4">{getStatusBadge(c)}</td>
-                        <td className="px-6 py-4 text-sm font-semibold capitalize text-orange-700">
+                        <td className="px-6 py-4 text-sm font-semibold capitalize text-[#ee8c2b]">
                           {c.type === "fixed_price"
                             ? "Giá cố định"
                             : "Phần trăm giảm"}
@@ -1446,7 +1436,7 @@ const AdminCampaigns = () => {
                                   setSelectedCampaignId(c._id);
                                   setExpandedCampaignId(c._id);
                                 }}
-                                className="inline-flex items-center justify-center p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                                className="inline-flex items-center justify-center p-2 rounded-lg bg-[#ee8c2b]/10 text-[#ee8c2b] hover:bg-[#ee8c2b]/20 transition-colors"
                                 title="Xem hiệu quả chi tiết"
                               >
                                 <Eye className="w-4.5 h-4.5" />
@@ -1564,7 +1554,7 @@ const AdminCampaigns = () => {
                       onClick={() => setAnalyticsPeriod(period)}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         analyticsPeriod === period
-                          ? "bg-orange-600 text-white shadow-sm"
+                          ? "bg-[#ee8c2b] text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-800"
                       }`}
                     >
@@ -1597,7 +1587,7 @@ const AdminCampaigns = () => {
             </div>
 
             <div className="rounded-2xl p-6 border border-[#e7dbcf] bg-white shadow-sm flex items-center gap-4">
-              <div className="p-3.5 bg-orange-50 text-orange-600 rounded-xl">
+              <div className="p-3.5 bg-[#ee8c2b]/10 text-[#ee8c2b] rounded-xl">
                 <Percent className="w-6 h-6" />
               </div>
               <div>
@@ -1689,13 +1679,13 @@ const AdminCampaigns = () => {
                   <Legend wrapperStyle={{ fontSize: 10 }} />
                   <Bar
                     dataKey="Doanh số"
-                    fill="#ea580c"
+                    fill="#ee8c2b"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
                     dataKey="Chiết khấu"
-                    fill="#f97316"
-                    opacity={0.6}
+                    fill="#9a734c"
+                    opacity={0.7}
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
@@ -1921,7 +1911,7 @@ const AdminCampaigns = () => {
             className="absolute inset-0"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-visible rounded-3xl border border-slate-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 pb-5 pt-6 md:px-8 md:pt-8">
               <h3 className="text-xl font-black text-slate-800">
                 {editingCampaign
@@ -1943,7 +1933,7 @@ const AdminCampaigns = () => {
               onSubmit={handleSubmit}
               className="flex min-h-0 flex-1 flex-col"
             >
-              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5 md:px-8">
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-visible px-6 py-5 md:px-8">
                 <div className="space-y-4">
                   {campaignDraft && (
                     <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
@@ -2234,7 +2224,7 @@ const AdminCampaigns = () => {
                           </button>
 
                           {showCalendar && (
-                            <div className="absolute left-0 top-full mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64 select-none animate-in fade-in slide-in-from-top-2 duration-150">
+                            <div className="absolute left-0 top-full mt-1.5 z-[999] bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64 select-none animate-in fade-in slide-in-from-top-2 duration-150">
                               {/* Calendar Header */}
                               <div className="flex justify-between items-center mb-2">
                                 <button
@@ -2619,7 +2609,7 @@ const AdminCampaigns = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-7 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-600/10 transition-all text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-7 py-2.5 bg-[#ee8c2b] hover:opacity-90 text-white font-bold rounded-xl shadow-sm transition-all text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submitting
                     ? "Đang xử lý..."
