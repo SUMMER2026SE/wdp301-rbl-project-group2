@@ -1121,164 +1121,59 @@ const CheckoutPage = () => {
                       {t("customer:cart.voucherCode")}
                     </label>
 
-                    {/* Vouchers Selection Section */}
-                    <div className="mb-4">
-                      <button
-                        onClick={() => setIsVouchersOpen(!isVouchersOpen)}
-                        className="flex items-center gap-2 font-bold text-text-main dark:text-white text-sm hover:text-orange-600 transition-colors mb-2"
-                      >
-                        Chọn khuyến mãi / Voucher
-                        <span
-                          className="material-symbols-outlined transition-transform duration-200"
-                          style={{
-                            transform: isVouchersOpen
-                              ? "rotate(180deg)"
-                              : "rotate(0deg)",
-                          }}
-                        >
-                          expand_more
-                        </span>
-                      </button>
-
-                      {isVouchersOpen && (
-                        <div className="flex flex-col gap-3 mb-4 pr-1">
-                          {(() => {
-                            if (vouchers.length === 0) {
-                              return (
-                                <p className="text-xs text-gray-500 italic">
-                                  Hiện chưa có voucher
-                                </p>
-                              );
-                            }
-
-                            return vouchers.map((v) => {
-                              const unavailableReason =
-                                getVoucherUnavailableReason(v);
-                              const isUnavailable = Boolean(unavailableReason);
-
-                              return (
-                                <div
-                                  key={v._id}
-                                  onClick={
-                                    isUnavailable
-                                      ? undefined
-                                      : () => handleApplyVoucherCode(v.code)
-                                  }
-                                  aria-disabled={isUnavailable}
-                                  title={unavailableReason || undefined}
-                                  className={
-                                    isUnavailable
-                                      ? "cursor-not-allowed opacity-50 grayscale"
-                                      : "cursor-pointer"
-                                  }
-                                >
-                                  <TicketVoucher
-                                    code={v.code}
-                                    title={v.title}
-                                    discountValue={getVoucherDiscountLabel(v)}
-                                    minOrder={
-                                      v.minOrderValue
-                                        ? `${v.minOrderValue.toLocaleString("vi-VN")}đ`
-                                        : "0đ"
-                                    }
-                                    className={`${
-                                      voucherState.appliedVoucher?._id === v._id
-                                        ? "ring-2 ring-orange-600 scale-[1.02]"
-                                        : isUnavailable
-                                          ? "scale-100"
-                                          : "scale-100 opacity-90 hover:opacity-100"
-                                    } shadow-sm transition-all origin-left pointer-events-none`}
-                                  />
-
-                                  {isUnavailable ? (
-                                    <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-rose-600">
-                                      <span className="material-symbols-outlined text-sm">
-                                        lock
-                                      </span>
-                                      {unavailableReason}
-                                    </p>
-                                  ) : (
-                                    v.minTier && (
-                                      <p className="mt-1 text-[11px] font-semibold text-orange-600">
-                                        Áp dụng từ hạng {getTierLabel(v.minTier)}
-                                      </p>
-                                    )
-                                  )}
-                                </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      )}
-                    </div>
-
                     {voucherState.appliedVoucher ? (
                       /* Applied voucher badge */
-                      <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-green-600 text-lg">
+                      <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-xl px-4 py-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                          <span className="material-symbols-outlined text-green-600">
                             local_offer
                           </span>
-                          <span className="text-sm font-bold text-green-700 dark:text-green-400">
-                            {voucherState.appliedVoucher.code}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-green-700 dark:text-green-400">
+                              {voucherState.appliedVoucher.code}
+                            </span>
+                            <span className="text-[10px] font-bold text-green-600">
+                              Đã giảm: {discount.toLocaleString("vi-VN")}đ
+                            </span>
+                          </div>
                         </div>
-                        <button
-                          onClick={removeVoucher}
-                          className="text-red-500 hover:text-red-700 text-xs font-semibold flex items-center gap-1"
-                        >
-                          <span className="material-symbols-outlined text-sm">
-                            close
-                          </span>
-                          Bỏ
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setIsVouchersOpen(true)}
+                            className="text-xs font-bold text-orange-600 hover:underline"
+                          >
+                            Thay đổi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={removeVoucher}
+                            className="text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center cursor-pointer"
+                            title="Bỏ áp dụng"
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              delete
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      /* Voucher input */
-                      <div className="flex gap-2">
-                        <input
-                          id="voucher-input"
-                          value={voucherState.code}
-                          onChange={(e) => setVoucherCode(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" &&
-                            handleApplyVoucherCode(voucherState.code)
-                          }
-                          className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-zinc-800 focus:border-orange-600 focus:ring-orange-600 text-sm uppercase font-bold px-3 py-2 outline-none"
-                          placeholder={t("customer:cart.voucherCode")}
-                          type="text"
-                          maxLength={20}
-                          disabled={voucherState.isValidating}
-                        />
-                        <button
-                          id="apply-voucher-btn"
-                          onClick={() =>
-                            handleApplyVoucherCode(voucherState.code)
-                          }
-                          disabled={
-                            !voucherState.code.trim() ||
-                            voucherState.isValidating
-                          }
-                          className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                        >
-                          {voucherState.isValidating ? (
-                            <span className="material-symbols-outlined animate-spin text-sm">
-                              progress_activity
-                            </span>
-                          ) : (
-                            t("customer:cart.applyVoucher")
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {voucherState.error && (
-                      <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">
-                          error
+                      /* Button to open popup */
+                      <button
+                        type="button"
+                        onClick={() => setIsVouchersOpen(true)}
+                        className="w-full flex items-center justify-between border-2 border-dashed border-gray-200 dark:border-zinc-800 hover:border-orange-500 rounded-xl px-4 py-3.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-500 transition-all bg-slate-50/50 dark:bg-zinc-800/20 hover:bg-orange-500/[0.02]"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-lg">
+                            confirmation_number
+                          </span>
+                          Chọn khuyến mãi / Voucher
                         </span>
-                        {voucherState.error}
-                      </p>
+                        <span className="material-symbols-outlined text-lg">
+                          chevron_right
+                        </span>
+                      </button>
                     )}
                   </div>
 
@@ -1415,6 +1310,178 @@ const CheckoutPage = () => {
         }
         isFirstAddress={addresses.length === 0}
       />
+
+      {/* Voucher Selection Modal (Popup) */}
+      {isVouchersOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-zinc-800 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-orange-600 text-xl font-bold">
+                  local_offer
+                </span>
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
+                  Chọn Khuyến Mãi / Voucher
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsVouchersOpen(false)}
+                className="p-2 bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto flex flex-col gap-6 scrollbar-thin">
+              {/* Manual Input Section */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Nhập mã khuyến mãi thủ công
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={voucherState.code}
+                    onChange={(e) => setVoucherCode(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" &&
+                      handleApplyVoucherCode(voucherState.code)
+                    }
+                    className="flex-1 rounded-xl border border-gray-200 dark:border-zinc-800 dark:bg-zinc-800 focus:border-orange-600 focus:ring-orange-500 text-sm uppercase font-bold px-4 py-2.5 outline-none text-slate-800 dark:text-slate-100"
+                    placeholder="MÃ GIẢM GIÁ"
+                    type="text"
+                    maxLength={20}
+                    disabled={voucherState.isValidating}
+                  />
+                  <button
+                    onClick={() => {
+                      handleApplyVoucherCode(voucherState.code);
+                    }}
+                    disabled={
+                      !voucherState.code.trim() ||
+                      voucherState.isValidating
+                    }
+                    className="bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                  >
+                    {voucherState.isValidating ? (
+                      <span className="material-symbols-outlined animate-spin text-sm">
+                        progress_activity
+                      </span>
+                    ) : (
+                      "Áp dụng"
+                    )}
+                  </button>
+                </div>
+                {voucherState.error && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">
+                      error
+                    </span>
+                    {voucherState.error}
+                  </p>
+                )}
+              </div>
+
+              {/* List of Vouchers */}
+              <div className="flex flex-col gap-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Voucher sẵn có
+                </p>
+                {(() => {
+                  if (vouchers.length === 0) {
+                    return (
+                      <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 dark:bg-zinc-800/40 rounded-2xl">
+                        Hiện chưa có voucher nào khả dụng
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto pr-1">
+                      {vouchers.map((v) => {
+                        const unavailableReason =
+                          getVoucherUnavailableReason(v);
+                        const isUnavailable = Boolean(unavailableReason);
+                        const isApplied = voucherState.appliedVoucher?._id === v._id;
+
+                        return (
+                          <div
+                            key={v._id}
+                            onClick={
+                              isUnavailable
+                                ? undefined
+                                : () => {
+                                    handleApplyVoucherCode(v.code);
+                                    setIsVouchersOpen(false);
+                                  }
+                            }
+                            aria-disabled={isUnavailable}
+                            title={unavailableReason || undefined}
+                            className={`relative rounded-xl transition-all ${
+                              isUnavailable
+                                ? "cursor-not-allowed opacity-50 grayscale"
+                                : "cursor-pointer hover:scale-[1.01]"
+                            }`}
+                          >
+                            <TicketVoucher
+                              code={v.code}
+                              title={v.title}
+                              discountValue={getVoucherDiscountLabel(v)}
+                              minOrder={
+                                v.minOrderValue
+                                  ? `${v.minOrderValue.toLocaleString("vi-VN")}đ`
+                                  : "0đ"
+                              }
+                              className={`${
+                                isApplied
+                                  ? "ring-2 ring-orange-600"
+                                  : ""
+                              } shadow-sm transition-all pointer-events-none`}
+                            />
+
+                            {isUnavailable ? (
+                              <p className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-rose-600 px-1">
+                                <span className="material-symbols-outlined text-sm">
+                                  lock
+                                </span>
+                                {unavailableReason}
+                              </p>
+                            ) : (
+                              v.minTier && (
+                                <p className="mt-1.5 text-[11px] font-bold text-orange-600 px-1">
+                                  Áp dụng từ hạng {getTierLabel(v.minTier)}
+                                </p>
+                              )
+                            )}
+
+                            {isApplied && (
+                              <span className="absolute top-3 right-3 bg-orange-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow-sm flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">check</span>
+                                Đang dùng
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-zinc-800/40 border-t border-gray-100 dark:border-zinc-800 flex gap-3">
+              <button
+                onClick={() => setIsVouchersOpen(false)}
+                className="flex-1 py-3 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

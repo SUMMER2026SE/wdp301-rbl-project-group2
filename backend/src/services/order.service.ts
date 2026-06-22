@@ -248,7 +248,7 @@ export async function calculateShippingFee(
 
   if (freeDeliveryEnabled && subtotal >= freeDeliveryThreshold) return { fee: 0, blocked: false, distance };
 
-  const fee = Math.round(baseDeliveryFee + feePerKm * distance);
+  const fee = Math.round((baseDeliveryFee + feePerKm * distance) / 2);
   return { fee, blocked: false, distance };
 }
 

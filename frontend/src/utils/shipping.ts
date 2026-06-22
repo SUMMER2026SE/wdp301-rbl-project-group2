@@ -264,6 +264,6 @@ export function calculateShippingFee(
   }
 
   // 4. Calculate dynamic fee based on distance
-  const fee = Math.round(baseDeliveryFee + feePerKm * distance);
+  const fee = Math.round((baseDeliveryFee + feePerKm * distance) / 2);
   return { fee, blocked: false, zone: isInner ? "inner" : "outer", distance };
 }
