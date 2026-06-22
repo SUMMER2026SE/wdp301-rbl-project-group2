@@ -1,7 +1,5 @@
 import { AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
 import { BAD_REQUEST, CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
-import { RefreshTokenModel, UserModel, OrderModel, ReviewModel } from '@/models';
-import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
 import { RefreshTokenModel, UserModel, OrderModel, ReviewModel, PointTransactionModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
 import { VerificationCodeType } from '@/types/verification-code.type';

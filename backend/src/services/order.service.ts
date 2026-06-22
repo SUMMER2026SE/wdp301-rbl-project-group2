@@ -2,7 +2,6 @@ import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignModel, UserVoucherModel } from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
-import { UserVoucherStatus } from '@/types/user-voucher.type';
 import appAssert from '@/utils/app-assert';
 import withTransaction from '@/utils/with-transaction';
 import { validateVoucher } from './voucher.service';

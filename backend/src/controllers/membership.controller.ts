@@ -28,8 +28,9 @@ export const getMyPointsHistoryHandler = catchErrors(async (req: Request, res: R
  */
 export const getMyMembershipHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
-    const user = await UserModel.findById(userId).select('collectedPoints tier referralCode referredBy referralRewardStatus referralQualifiedOrderId referralRewardVoucherId referralRewardedAt referralRejectionReason');
-    const user = await UserModel.findById(userId).select('collectedPoints accumulatedPoints tier referralCode referredBy');
+    const user = await UserModel.findById(userId).select(
+        'collectedPoints accumulatedPoints tier referralCode referredBy referralRewardStatus referralQualifiedOrderId referralRewardVoucherId referralRewardedAt referralRejectionReason'
+    );
     appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
     // Backfill referral codes for accounts created before the referral feature.
