@@ -13,6 +13,7 @@ import voucherService from "@/services/voucher.service";
 import type { Voucher } from "@/types/voucher";
 import type { AuthAddress } from "@/store/authStore";
 import { calculateShippingFee } from "@/utils/shipping";
+import { geocodeAddress } from "@/utils/geocode";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useStoreStore } from "@/store/storeStore";
 
@@ -95,6 +96,28 @@ export const useCheckout = () => {
   // Effective address for order submission (selectedAddress overrides default)
   const effectiveAddress =
     selectedAddress ?? (defaultAddress as PlaceOrderAddress | null);
+
+  // ── Customer coordinates (geocoded from full address) ──────────────────────
+  const [customerCoords, setCustomerCoords] = useState<[number, number] | null>(null);
+
+  // Geocode customer address whenever the effective address changes.
+  // Falls back to ward centroid (inside calculateShippingFee) if geocoding fails.
+  useEffect(() => {
+    if (!effectiveAddress) {
+      setCustomerCoords(null);
+      return;
+    }
+
+    const addr = effectiveAddress;
+    geocodeAddress(
+      addr.detail ?? "",
+      addr.ward ?? "",
+      addr.district ?? "",
+      addr.city ?? "",
+    )
+      .then(setCustomerCoords)
+      .catch(() => setCustomerCoords(null));
+  }, [effectiveAddress?.detail, effectiveAddress?.ward, effectiveAddress?.district, effectiveAddress?.city]);
 
   // ── Payment Method ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] =
@@ -209,9 +232,10 @@ export const useCheckout = () => {
       effectiveAddress.city ?? "",
       subtotal,
       selectedStore?.location?.coordinates,
-      config
+      config,
+      customerCoords ?? undefined,
     );
-  }, [effectiveAddress, subtotal, settings, selectedStore]);
+  }, [effectiveAddress, subtotal, settings, selectedStore, customerCoords]);
 
   const deliveryFee = shippingResult.fee;
   const isDeliverable = !shippingResult.blocked;
@@ -252,7 +276,10 @@ export const useCheckout = () => {
           ? { voucher: voucherState.appliedVoucher._id }
           : {}),
         // Send the selected/default address so BE doesn't need to look it up
-        deliveryAddress: effectiveAddress,
+        deliveryAddress: {
+          ...effectiveAddress,
+          customerCoords: customerCoords ?? undefined,
+        },
         shippingFee: deliveryFee,
         note: orderNote?.trim() || undefined,
       };
@@ -303,6 +330,7 @@ export const useCheckout = () => {
     navigate,
     toast,
     buyNowItem,
+    customerCoords,
   ]);
 
   // ────────────────────────────────────────────────────────────────────────

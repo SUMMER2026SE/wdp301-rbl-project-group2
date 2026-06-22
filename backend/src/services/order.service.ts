@@ -1,5 +1,15 @@
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
-import { CartModel, OrderModel, ProductModel, UserModel, NotificationModel, SettingsModel, ReviewModel, StoreModel, CampaignModel } from '@/models';
+import {
+  CartModel,
+  OrderModel,
+  ProductModel,
+  UserModel,
+  NotificationModel,
+  SettingsModel,
+  ReviewModel,
+  StoreModel,
+  CampaignModel,
+} from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
 import appAssert from '@/utils/app-assert';
@@ -92,71 +102,71 @@ const DEFAULT_FREE_THRESHOLD = 300_000;
 
 const WARD_CENTROIDS: Record<string, [number, number]> = {
   // --- Hải Châu ---
-  'Hải Châu I': [108.2210, 16.0660],
-  'Hải Châu II': [108.2170, 16.0620],
-  'Thạch Thang': [108.2160, 16.0730],
-  'Thanh Bình': [108.2110, 16.0750],
-  'Thuận Phước': [108.2150, 16.0850],
-  'Hòa Thuận Đông': [108.2190, 16.0480],
-  'Hòa Thuận Tây': [108.2030, 16.0460],
-  'Nam Dương': [108.2170, 16.0590],
-  'Phước Ninh': [108.2200, 16.0580],
-  'Bình Hiên': [108.2190, 16.0550],
-  'Bình Thuận': [108.2180, 16.0510],
-  'Hòa Cường Bắc': [108.2180, 16.0370],
-  'Hòa Cường Nam': [108.2190, 16.0260],
-  'Hải Châu': [108.2200, 16.0600],
-  'Hòa Cường': [108.2200, 16.0300],
+  'Hải Châu I': [108.221, 16.066],
+  'Hải Châu II': [108.217, 16.062],
+  'Thạch Thang': [108.216, 16.073],
+  'Thanh Bình': [108.211, 16.075],
+  'Thuận Phước': [108.215, 16.085],
+  'Hòa Thuận Đông': [108.219, 16.048],
+  'Hòa Thuận Tây': [108.203, 16.046],
+  'Nam Dương': [108.217, 16.059],
+  'Phước Ninh': [108.22, 16.058],
+  'Bình Hiên': [108.219, 16.055],
+  'Bình Thuận': [108.218, 16.051],
+  'Hòa Cường Bắc': [108.218, 16.037],
+  'Hòa Cường Nam': [108.219, 16.026],
+  'Hải Châu': [108.22, 16.06],
+  'Hòa Cường': [108.22, 16.03],
 
   // --- Thanh Khê ---
-  'Vĩnh Trung': [108.2110, 16.0600],
-  'Tân Chính': [108.2100, 16.0660],
-  'Thạc Gián': [108.2080, 16.0580],
-  'Chính Gián': [108.2000, 16.0610],
-  'Tam Thuận': [108.2040, 16.0710],
-  'Xuân Hà': [108.1960, 16.0670],
-  'An Khê': [108.1720, 16.0540],
-  'Hòa Khê': [108.1810, 16.0560],
-  'Thanh Khê Đông': [108.1830, 16.0680],
-  'Thanh Khê Tây': [108.1700, 16.0660],
-  'Thanh Khê': [108.1800, 16.0600],
+  'Vĩnh Trung': [108.211, 16.06],
+  'Tân Chính': [108.21, 16.066],
+  'Thạc Gián': [108.208, 16.058],
+  'Chính Gián': [108.2, 16.061],
+  'Tam Thuận': [108.204, 16.071],
+  'Xuân Hà': [108.196, 16.067],
+  'An Khê': [108.172, 16.054],
+  'Hòa Khê': [108.181, 16.056],
+  'Thanh Khê Đông': [108.183, 16.068],
+  'Thanh Khê Tây': [108.17, 16.066],
+  'Thanh Khê': [108.18, 16.06],
 
   // --- Sơn Trà ---
-  'An Hải Bắc': [108.2370, 16.0690],
-  'An Hải Tây': [108.2290, 16.0610],
-  'An Hải Đông': [108.2360, 16.0580],
-  'Phước Mỹ': [108.2430, 16.0590],
-  'Nại Hiên Đông': [108.2340, 16.0880],
-  'Mân Thái': [108.2440, 16.0760],
-  'Thọ Quang': [108.2580, 16.1040],
-  'Sơn Trà': [108.2400, 16.0700],
-  'An Hải': [108.2300, 16.0600],
+  'An Hải Bắc': [108.237, 16.069],
+  'An Hải Tây': [108.229, 16.061],
+  'An Hải Đông': [108.236, 16.058],
+  'Phước Mỹ': [108.243, 16.059],
+  'Nại Hiên Đông': [108.234, 16.088],
+  'Mân Thái': [108.244, 16.076],
+  'Thọ Quang': [108.258, 16.104],
+  'Sơn Trà': [108.24, 16.07],
+  'An Hải': [108.23, 16.06],
 
   // --- Ngũ Hành Sơn ---
-  'Mỹ An': [108.2450, 16.0450],
-  'Khuê Mỹ': [108.2480, 16.0230],
-  'Hòa Hải': [108.2600, 15.9850],
-  'Hòa Quý': [108.2320, 15.9800],
-  'Ngũ Hành Sơn': [108.2500, 16.0100],
+  'Mỹ An': [108.245, 16.045],
+  'Khuê Mỹ': [108.248, 16.023],
+  'Hòa Hải': [108.26, 15.985],
+  'Hòa Quý': [108.232, 15.98],
+  'Ngũ Hành Sơn': [108.25, 16.01],
 
   // --- Cẩm Lệ ---
-  'Khuê Trung': [108.2110, 16.0220],
-  'Hòa Thọ Đông': [108.1990, 16.0140],
-  'Hòa Thọ Tây': [108.1670, 16.0090],
-  'Hòa An': [108.1760, 16.0330],
-  'Hòa Phát': [108.1820, 16.0230],
-  'Hòa Xuân': [108.2180, 15.9920],
-  'Cẩm Lệ': [108.2100, 16.0100],
+  'Khuê Trung': [108.211, 16.022],
+  'Hòa Thọ Đông': [108.199, 16.014],
+  'Hòa Thọ Tây': [108.167, 16.009],
+  'Hòa An': [108.176, 16.033],
+  'Hòa Phát': [108.182, 16.023],
+  'Hòa Xuân': [108.218, 15.992],
+  'Cẩm Lệ': [108.21, 16.01],
 
   // --- Liên Chiểu ---
-  'Hòa Minh': [108.1740, 16.0710],
-  'Hòa Khánh Nam': [108.1480, 16.0600],
-  'Hòa Khánh Bắc': [108.1500, 16.0810],
-  'Hòa Hiệp Nam': [108.1390, 16.0960],
-  'Hòa Hiệp Bắc': [108.1180, 16.1430],
-  'Liên Chiểu': [108.1600, 16.0800],
-  'Hòa Khánh': [108.1500, 16.0800],
-  'Hải Vân': [108.1300, 16.1800],
+  'Hòa Minh': [108.174, 16.071],
+  'Hòa Khánh Nam': [108.148, 16.06],
+  'Hòa Khánh Bắc': [108.15, 16.081],
+  'Hòa Hiệp Nam': [108.139, 16.096],
+  'Hòa Hiệp Bắc': [108.118, 16.143],
+  'Liên Chiểu': [108.16, 16.08],
+  'Hòa Khánh': [108.15, 16.08],
+  'Hải Vân': [108.13, 16.18],
 };
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -165,10 +175,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -187,7 +194,8 @@ export async function calculateShippingFee(
   ward: string,
   city: string,
   subtotal: number,
-  storeId?: string
+  storeId?: string,
+  customerCoords?: [number, number]
 ): Promise<{ fee: number; blocked: boolean; reason?: string; distance?: number }> {
   const normalCity = city.trim();
   const normalWard = ward.trim();
@@ -218,19 +226,21 @@ export async function calculateShippingFee(
     }
   } catch (_) {}
 
-  // Determine distance
+  // Determine distance — use client-provided geocoded coords, fall back to ward centroid
   let distance = isInner ? 2.0 : 5.0; // fallback defaults
   if (storeId) {
     try {
       const store = await StoreModel.findById(storeId).lean();
       if (store && store.location && store.location.coordinates && store.location.coordinates.length === 2) {
-        const wardCentroid = getWardCentroid(normalWard);
-        if (wardCentroid) {
+        const targetCoords =
+          customerCoords && customerCoords.length === 2 ? customerCoords : getWardCentroid(normalWard);
+
+        if (targetCoords) {
           const storeLng = store.location.coordinates[0];
           const storeLat = store.location.coordinates[1];
-          const wardLng = wardCentroid[0];
-          const wardLat = wardCentroid[1];
-          const rawDistance = calculateDistance(storeLat, storeLng, wardLat, wardLng);
+          const targetLng = targetCoords[0];
+          const targetLat = targetCoords[1];
+          const rawDistance = calculateDistance(storeLat, storeLng, targetLat, targetLng);
           // Round to 1 decimal place (e.g. 2.4 km)
           distance = Math.round(rawDistance * 10) / 10;
         }
@@ -276,11 +286,7 @@ const resolveOrderItems = async (
           name: selected.name,
         }).session(session);
 
-        appAssert(
-          variation,
-          BAD_REQUEST,
-          `Biến thể "${selected.name}" không tồn tại trong sản phẩm "${product.name}"`
-        );
+        appAssert(variation, BAD_REQUEST, `Biến thể "${selected.name}" không tồn tại trong sản phẩm "${product.name}"`);
 
         // Find VariationOption under that variation
         const matchedOption = await VariationOptionModel.findOne({
@@ -313,12 +319,12 @@ const resolveOrderItems = async (
       status: CampaignStatus.APPROVED,
       startTime: { $lte: now },
       endTime: { $gte: now },
-    }).session(session).lean();
+    })
+      .session(session)
+      .lean();
 
     if (activeCampaign) {
-      const rule = activeCampaign.products.find(
-        (p) => p.productId.toString() === product._id.toString()
-      );
+      const rule = activeCampaign.products.find((p) => p.productId.toString() === product._id.toString());
       if (rule?.fixedPrice != null) {
         basePrice = rule.fixedPrice;
       } else if (rule?.discount != null) {
@@ -430,8 +436,16 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     const resolvedAddress = deliveryAddress ?? user.addresses.find((a: any) => a.isDefault);
     appAssert(resolvedAddress, BAD_REQUEST, 'Không tìm thấy địa chỉ giao hàng. Vui lòng thêm địa chỉ mặc định.');
 
-    // Recalculate shipping fee server-side for security and consistency
-    const shippingCalc = await calculateShippingFee(resolvedAddress.ward, resolvedAddress.city, subTotal, input.storeId);
+    // Recalculate shipping fee server-side for security and consistency.
+    // Uses client-provided geocoded coordinates so frontend and backend
+    // compute the same distance (falls back to ward centroid if omitted).
+    const shippingCalc = await calculateShippingFee(
+      resolvedAddress.ward,
+      resolvedAddress.city,
+      subTotal,
+      input.storeId,
+      (resolvedAddress as any).customerCoords as [number, number] | undefined
+    );
     appAssert(!shippingCalc.blocked, BAD_REQUEST, shippingCalc.reason || 'Địa chỉ nằm ngoài vùng giao hàng');
     const actualShippingFee = shippingCalc.fee;
 
@@ -443,7 +457,9 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     const [order] = await OrderModel.create(
       [
         {
-          storeId: input.storeId ? new mongoose.Types.ObjectId(input.storeId) : new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          storeId: input.storeId
+            ? new mongoose.Types.ObjectId(input.storeId)
+            : new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
           cusId: userId,
           payment: {
             method: paymentMethod ?? PaymentMethod.CASH,
@@ -546,7 +562,9 @@ export const getUserOrders = async (userId: mongoose.Types.ObjectId) => {
   const reviews = await ReviewModel.find({
     orderId: { $in: orderIds },
     userId,
-  }).select('orderId').lean();
+  })
+    .select('orderId')
+    .lean();
 
   const reviewedOrderIds = new Set(reviews.map((r) => r.orderId.toString()));
 
@@ -730,7 +748,17 @@ export const confirmOrder = async (orderId: string, staffId: mongoose.Types.Obje
 
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     order._id,
-    { $set: { status: OrderStatus.CONFIRMED } },
+    {
+      $set: { status: OrderStatus.CONFIRMED },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.CONFIRMED,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: new Date(),
+        },
+      },
+    },
     { new: true }
   )
     .populate('cusId', 'username fullName email phone')
@@ -809,7 +837,17 @@ export const markOrderReady = async (orderId: string, staffId: mongoose.Types.Ob
   const prevStatus = order.status;
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     order._id,
-    { $set: { status: OrderStatus.READY_FOR_DELIVERY } },
+    {
+      $set: { status: OrderStatus.READY_FOR_DELIVERY },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.READY_FOR_DELIVERY,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: new Date(),
+        },
+      },
+    },
     { new: true }
   )
     .populate('cusId', 'username fullName email phone')
@@ -850,6 +888,14 @@ export const assignDelivery = async (orderId: string, staffId: mongoose.Types.Ob
         status: OrderStatus.SHIPPING,
         'deliveryInfo.driverId': staffId,
         'deliveryInfo.shippedAt': shippedAt,
+      },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.SHIPPING,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: shippedAt,
+        },
       },
     },
     { new: true }
@@ -893,7 +939,21 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
     'deliveryInfo.deliveredAt': deliveredAt,
   };
 
-  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    {
+      $set: update,
+      $push: {
+        statusHistory: {
+          status: OrderStatus.DELIVERED,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: deliveredAt,
+        },
+      },
+    },
+    { new: true }
+  )
     .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
@@ -921,7 +981,7 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
 
   const prevStatus = order.status;
   const completedAt = new Date();
-  
+
   const update: Record<string, any> = {
     status: OrderStatus.COMPLETED,
   };
@@ -932,7 +992,25 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
     update.paid = true;
   }
 
-  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+  const cusIdStr = (order.cusId as any)?._id ? (order.cusId as any)._id.toString() : order.cusId?.toString();
+  const isCustomer = actorId && cusIdStr && actorId.toString() === cusIdStr;
+  const actorRole = actorId ? (isCustomer ? 'customer' : 'staff') : 'system';
+
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    {
+      $set: update,
+      $push: {
+        statusHistory: {
+          status: OrderStatus.COMPLETED,
+          changedBy: actorId || (order.cusId as any)?._id || order.cusId || new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          actorRole,
+          createdAt: completedAt,
+        },
+      },
+    },
+    { new: true }
+  )
     .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
@@ -980,7 +1058,7 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
 export const confirmReceipt = async (orderId: string, userId: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   appAssert(order.status === OrderStatus.DELIVERED, BAD_REQUEST, 'Đơn hàng chưa được giao tới bạn');
-  
+
   const rawCusId = order.cusId as any;
   const cusIdStr = rawCusId?._id ? rawCusId._id.toString() : rawCusId?.toString();
   appAssert(cusIdStr === userId.toString(), BAD_REQUEST, 'Bạn không sở hữu đơn hàng này');

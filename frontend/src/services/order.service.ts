@@ -48,6 +48,9 @@ export interface PlaceOrderAddress {
   ward: string;
   district?: string;
   city: string;
+  /** Geocoded [lng, lat] from the customer's full address, computed on the frontend.
+   * Sent to backend so both sides compute shipping distance from the same coordinates. */
+  customerCoords?: [number, number];
 }
 
 export type PaymentMethod =

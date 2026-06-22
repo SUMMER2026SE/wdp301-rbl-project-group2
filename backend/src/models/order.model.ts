@@ -149,6 +149,18 @@ OrderSchema.pre('validate', function (next) {
 });
 
 OrderSchema.pre('save', function (next) {
+  if (this.isModified('status')) {
+    const hasStatus = this.statusHistory.some((h: any) => h.status === this.status);
+    if (!hasStatus) {
+      this.statusHistory.push({
+        status: this.status,
+        changedBy: this.staffId || this.cusId || new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+        actorRole: this.staffId ? 'staff' : (this.cusId ? 'customer' : 'system'),
+        createdAt: new Date(),
+      } as any);
+    }
+  }
+
   if (this.payment && this.payment.paidAt) {
     this.paidAt = this.payment.paidAt;
   } else {
