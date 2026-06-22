@@ -1,6 +1,8 @@
 import { AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
 import { BAD_REQUEST, CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
 import { RefreshTokenModel, UserModel, OrderModel, ReviewModel } from '@/models';
+import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND, TOO_MANY_REQUESTS, UNAUTHORIZED } from '@/constants/http';
+import { RefreshTokenModel, UserModel, OrderModel, ReviewModel, PointTransactionModel } from '@/models';
 import VerificationCodeModel from '@/models/verification-code.model';
 import { VerificationCodeType } from '@/types/verification-code.type';
 import { ReferralRewardStatus, Role, UserStatus } from '@/types/user.type';
@@ -15,6 +17,8 @@ import { TLoginParams, TRegisterParams, TResetPasswordParams } from '@/validator
 import { randomBytes, randomUUID } from 'crypto';
 import mongoose from 'mongoose';
 import axios from 'axios';
+import { calculateTier } from './membership.service';
+
 
 const resolveReferrerId = async (referralCode: string | undefined, session: mongoose.ClientSession) => {
   if (!referralCode) return null;
@@ -328,14 +332,36 @@ export const getMe = async (userId: mongoose.Types.ObjectId): Promise<any> => {
   const user = await UserModel.findById(userId);
   appAssert(user, NOT_FOUND, 'Không tìm thấy tài khoản người dùng');
 
-  const [ordersCount, reviewsCount] = await Promise.all([
+  const [ordersCount, reviewsCount, totalEarnedResult] = await Promise.all([
     OrderModel.countDocuments({ cusId: userId }),
     ReviewModel.countDocuments({ userId: userId }),
+    PointTransactionModel.aggregate([
+      { $match: { userId, amount: { $gt: 0 } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ])
   ]);
+
+  const accumulatedPoints = totalEarnedResult[0]?.total || user.accumulatedPoints || user.collectedPoints || 0;
+
+  // Synchronize tier and accumulatedPoints if they are outdated
+  const activeTier = calculateTier(accumulatedPoints);
+  let hasChanges = false;
+  if (user.tier !== activeTier) {
+    user.tier = activeTier;
+    hasChanges = true;
+  }
+  if (user.accumulatedPoints !== accumulatedPoints) {
+    user.accumulatedPoints = accumulatedPoints;
+    hasChanges = true;
+  }
+  if (hasChanges) {
+    await user.save();
+  }
 
   const userObj = user.omitPassword();
   return {
     ...userObj,
+    accumulatedPoints,
     ordersCount,
     reviewsCount,
     savedCount: 0,

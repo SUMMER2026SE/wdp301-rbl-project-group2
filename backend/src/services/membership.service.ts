@@ -19,13 +19,14 @@ const TIER_THRESHOLDS = {
 /**
  * Determine tier based on points
  */
-const calculateTier = (points: number): UserTier => {
+export const calculateTier = (points: number): UserTier => {
     if (points >= TIER_THRESHOLDS[UserTier.DIAMOND]) return UserTier.DIAMOND;
     if (points >= TIER_THRESHOLDS[UserTier.PLATINUM]) return UserTier.PLATINUM;
     if (points >= TIER_THRESHOLDS[UserTier.GOLD]) return UserTier.GOLD;
     if (points >= TIER_THRESHOLDS[UserTier.SILVER]) return UserTier.SILVER;
     return UserTier.BRONZE;
 };
+
 
 /**
  * Add points to a user and log the transaction
@@ -42,10 +43,14 @@ export const addPoints = async (
         appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
         // Update user points
+        user.accumulatedPoints = user.accumulatedPoints ?? user.collectedPoints ?? 0;
+        if (amount > 0) {
+            user.accumulatedPoints += amount;
+        }
         user.collectedPoints += amount;
 
         // Update tier if necessary
-        const newTier = calculateTier(user.collectedPoints);
+        const newTier = calculateTier(user.accumulatedPoints);
         if (newTier !== user.tier) {
             user.tier = newTier;
         }

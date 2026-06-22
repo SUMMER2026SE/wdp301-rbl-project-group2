@@ -21,7 +21,6 @@ export interface ICampaign extends mongoose.Document<mongoose.Types.ObjectId> {
   products: ICampaignProductItem[];
   startTime: Date;
   endTime: Date;
-  budget?: number;
   views?: number;
   clicks?: number;
   createdAt: Date;

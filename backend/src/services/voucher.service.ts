@@ -6,7 +6,7 @@ import { NOT_FOUND, BAD_REQUEST, CONFLICT } from '@/constants/http';
 import appAssert from '@/utils/app-assert';
 import { addPoints } from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
-import { UserModel, UserVoucherModel } from '@/models';
+import { UserModel, UserVoucherModel, OrderModel } from '@/models';
 import mongoose from 'mongoose';
 
 const TIER_ORDER = [UserTier.BRONZE, UserTier.SILVER, UserTier.GOLD, UserTier.PLATINUM, UserTier.DIAMOND];
@@ -65,6 +65,18 @@ export const getAllVouchers = async (
         { _id: { $in: claimedVoucherIds } },
         { isReward: { $ne: true }, isPersonal: { $ne: true } },
       ];
+      query.$or = [{ _id: { $in: claimedVoucherIds } }, { isReward: { $ne: true } }];
+
+      // Exclude vouchers already used by the user in non-cancelled orders
+      const usedOrders = await OrderModel.find({
+        cusId: new mongoose.Types.ObjectId(targetUserId),
+        status: { $ne: 'cancelled' },
+      }).select('voucherId').lean();
+      const usedVoucherIds = usedOrders.map((o) => o.voucherId).filter(Boolean);
+
+      if (usedVoucherIds.length > 0) {
+        query._id = { $nin: usedVoucherIds };
+      }
     } else {
       // No userId — return all non-reward vouchers (admin browsing, unauthenticated, etc.)
       if (isReward === false) {
@@ -156,11 +168,6 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
   const isPublic = LEGACY_PUBLIC_VOUCHERS.includes(voucher.code.toUpperCase());
 
   if (!isPublic) {
-    appAssert(
-      !voucher.isReward,
-      BAD_REQUEST,
-      'Voucher này yêu cầu đổi bằng điểm để sử dụng, không thể áp dụng trực tiếp'
-    );
     appAssert(userId, BAD_REQUEST, 'Cần đăng nhập để sử dụng voucher cá nhân này');
 
     const userVoucher = await UserVoucherModel.findOne({
@@ -168,7 +175,26 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
       voucherId: voucher._id,
       status: UserVoucherStatus.AVAILABLE,
     });
-    appAssert(userVoucher, BAD_REQUEST, 'Bạn không sở hữu hoặc đã sử dụng voucher này');
+
+    if (voucher.isReward) {
+      appAssert(
+        userVoucher,
+        BAD_REQUEST,
+        'Voucher này yêu cầu đổi bằng điểm để sử dụng, không thể áp dụng trực tiếp'
+      );
+    } else {
+      appAssert(userVoucher, BAD_REQUEST, 'Bạn không sở hữu hoặc đã sử dụng voucher này');
+    }
+  }
+
+  // Prevent multiple usage of the same voucher by a user
+  if (userId) {
+    const usedInOrder = await OrderModel.exists({
+      cusId: new mongoose.Types.ObjectId(userId),
+      voucherId: voucher._id,
+      status: { $ne: 'cancelled' }
+    });
+    appAssert(!usedInOrder, BAD_REQUEST, 'Bạn đã sử dụng voucher này rồi');
   }
 
   // Check tier restrictions
@@ -186,11 +212,6 @@ export const validateVoucher = async (code: string, orderAmount: number, userId?
 
   // Check if active and not just a template
   appAssert(voucher.isActive, BAD_REQUEST, 'Voucher không còn hoạt động');
-  appAssert(
-    !voucher.isReward,
-    BAD_REQUEST,
-    'Đây là mã dùng để đổi điểm, bạn cần đổi điểm lấy mã cá nhân trước khi sử dụng'
-  );
 
   // Check date validity
   const now = new Date();

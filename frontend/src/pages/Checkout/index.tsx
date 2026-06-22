@@ -898,15 +898,13 @@ const CheckoutPage = () => {
 
                       {isVouchersOpen && (
                         <div className="flex flex-col gap-3 mb-4 pr-1">
-                          {vouchers.length === 0 ? (
-                            <p className="text-xs text-gray-500 italic">Không có voucher khả dụng</p>
-                          ) : (
-                            vouchers.map(v => (
+                          {(() => {
+                            const usableVouchers = vouchers.filter(v => !v.minOrderValue || subtotal >= v.minOrderValue);
+                            if (usableVouchers.length === 0) {
+                              return <p className="text-xs text-gray-500 italic">Không có voucher khả dụng</p>;
+                            }
+                            return usableVouchers.map(v => (
                               <div key={v._id} onClick={() => {
-                                if (v.minOrderValue && subtotal < v.minOrderValue) {
-                                  toast(`Đơn hàng tối thiểu ${v.minOrderValue.toLocaleString("vi-VN")}đ để dùng voucher này`, "error");
-                                  return;
-                                }
                                 setVoucherCode(v.code);
                                 applyVoucher(v.code);
                               }} className="cursor-pointer">
@@ -919,8 +917,8 @@ const CheckoutPage = () => {
                                   className={`${voucherState.appliedVoucher?._id === v._id ? "ring-2 ring-orange-600 scale-[1.02]" : "scale-100 opacity-90 hover:opacity-100"} shadow-sm transition-all origin-left pointer-events-none`}
                                 />
                               </div>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </div>
                       )}
                     </div>

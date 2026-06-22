@@ -42,7 +42,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-//   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
+  //   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
 
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -79,7 +79,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       newParams.delete("search");
       setUrlSearchParams(newParams, { replace: true });
     }
-    
+
     // Clear input after search
     setLocalSearch("");
     setShowMobileSearch(false);
@@ -157,14 +157,14 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     }
   }, [isAuthenticated]);
 
-//   const fetchActiveOrders = useCallback(async () => {
-//     try {
-//       const res = await apiClient.get("/orders/active-count");
-//       setActiveOrdersCount(res.data.data?.count || 0);
-//     } catch (error) {
-//       console.error("Failed to fetch active orders count", error);
-//     }
-//   }, [isAuthenticated]);
+  //   const fetchActiveOrders = useCallback(async () => {
+  //     try {
+  //       const res = await apiClient.get("/orders/active-count");
+  //       setActiveOrdersCount(res.data.data?.count || 0);
+  //     } catch (error) {
+  //       console.error("Failed to fetch active orders count", error);
+  //     }
+  //   }, [isAuthenticated]);
   useEffect(() => {
     if (!isAuthenticated) {
       if (notifications.length > 0) setNotifications([]);
@@ -244,7 +244,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       <div className="bg-[#3c2415] text-white/90 py-1.5 text-[11px] lg:text-xs font-medium z-50">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-1.5">
           <div className="flex items-center gap-4 sm:gap-6">
-            <div 
+            <div
               onClick={() => setIsBranchModalOpen(true)}
               className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer"
             >
@@ -692,12 +692,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
 
               {/* Right: secondary info */}
               <div className="flex items-center gap-5 text-[#6b4c2a]">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="material-symbols-outlined text-orange-500 text-[15px]">
-                    local_shipping
-                  </span>
-                  <span>Miễn phí giao hàng từ 50K</span>
-                </div>
+
                 <div className="h-3.5 w-px bg-orange-200"></div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="material-symbols-outlined text-orange-500 text-[15px]">
@@ -706,7 +701,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   <span>7:00 - 22:00</span>
                 </div>
                 <div className="h-3.5 w-px bg-orange-200"></div>
-                <button 
+                <button
                   onClick={() => setIsBranchModalOpen(true)}
                   className="flex items-center gap-1.5 text-xs hover:text-orange-600 transition-colors cursor-pointer"
                 >
@@ -770,8 +765,8 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       <div
         ref={mobileMenuRef}
         className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-0 pointer-events-none"
           }`}
         aria-hidden={!isMobileMenuOpen}
       >
@@ -942,10 +937,10 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
           </nav>
         </div>
       </div>
-      <BranchSelectorModal 
-        isOpen={isBranchModalOpen} 
-        onClose={() => setIsBranchModalOpen(false)} 
-        isClosable={true} 
+      <BranchSelectorModal
+        isOpen={isBranchModalOpen}
+        onClose={() => setIsBranchModalOpen(false)}
+        isClosable={true}
       />
     </>
   );
