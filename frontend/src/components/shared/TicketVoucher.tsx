@@ -61,7 +61,15 @@ export function TicketVoucher({
                 {/* Decorative circles for punch-hole effect */}
                 <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white dark:bg-[#1a1c1e]" />
                 
-                <span className={`text-2xl font-black text-center leading-none ${isDisabled ? 'text-gray-400' : 'text-white'}`}>
+                <span className={`${
+                    discountValue.length <= 4
+                        ? 'text-2xl'
+                        : discountValue.length <= 8
+                            ? 'text-lg'
+                            : discountValue.length <= 12
+                                ? 'text-sm'
+                                : 'text-[11px] uppercase tracking-tight'
+                } font-black text-center leading-tight ${isDisabled ? 'text-gray-400' : 'text-white'}`}>
                     {discountValue}
                 </span>
                 {minOrder && (
