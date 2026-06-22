@@ -1,136 +1,134 @@
 import { Request, Response } from 'express';
 import {
-    getAllVouchers,
-    getVoucherById,
-    getVoucherByCode,
-    createVoucher,
-    updateVoucher,
-    deleteVoucher,
-    validateVoucher,
-    useVoucher,
+  getAllVouchers,
+  getVoucherById,
+  getVoucherByCode,
+  createVoucher,
+  updateVoucher,
+  deleteVoucher,
+  validateVoucher,
+  useVoucher,
+  redeemRewardVoucher,
 } from '@/services/voucher.service';
 import { VoucherCategory } from '@/types/voucher.type';
 import { catchErrors } from '@/utils/async-handler';
-import { CREATED, OK } from '@/constants/http';
+import { BAD_REQUEST, CREATED, OK } from '@/constants/http';
 import appAssert from '@/utils/app-assert';
-import { BAD_REQUEST } from '@/constants/http';
 
-// GET /api/vouchers
 export const getAllVouchersHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, isActive, isReward, ownerId, page, limit } = req.query;
+  const { category, isActive, isReward, ownerId, page, limit } = req.query;
 
-    const filters = {
-        category: category as VoucherCategory,
-        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
-        isReward: isReward === 'true' ? true : isReward === 'false' ? false : undefined,
-        ownerId: ownerId as string | undefined,
-        page: page ? parseInt(page as string) : undefined,
-        limit: limit ? parseInt(limit as string) : undefined,
-    };
+  const filters = {
+    category: category as VoucherCategory,
+    isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+    isReward: isReward === 'true' ? true : isReward === 'false' ? false : undefined,
+    ownerId: ownerId as string | undefined,
+    page: page ? parseInt(page as string) : undefined,
+    limit: limit ? parseInt(limit as string) : undefined,
+  };
 
-    const result = await getAllVouchers(filters, req.userId?.toString());
+  const result = await getAllVouchers(filters, req.userId?.toString());
 
-    return res.success(OK, {
-        data: result.vouchers,
-        pagination: result.pagination,
-    });
+  return res.success(OK, {
+    data: result.vouchers,
+    pagination: result.pagination,
+  });
 });
 
-// GET /api/vouchers/:id
 export const getVoucherByIdHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const voucher = await getVoucherById(id);
+  const { id } = req.params;
 
-    return res.success(OK, { data: voucher });
+  const voucher = await getVoucherById(id);
+
+  return res.success(OK, {
+    data: voucher,
+  });
 });
 
-// GET /api/vouchers/code/:code
 export const getVoucherByCodeHandler = catchErrors(async (req: Request, res: Response) => {
-    const { code } = req.params;
-    const voucher = await getVoucherByCode(code);
+  const { code } = req.params;
 
-    return res.success(OK, { data: voucher });
+  const voucher = await getVoucherByCode(code);
+
+  return res.success(OK, {
+    data: voucher,
+  });
 });
 
-// POST /api/vouchers
 export const createVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const voucherData = req.body;
-    const voucher = await createVoucher(voucherData);
+  const voucher = await createVoucher(req.body);
 
-    return res.success(CREATED, {
-        data: voucher,
-        message: 'Voucher đã được tạo thành công',
-    });
+  return res.success(CREATED, {
+    data: voucher,
+    message: 'Voucher đã được tạo thành công',
+  });
 });
 
-// PUT /api/vouchers/:id
 export const updateVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const updateData = req.body;
+  const { id } = req.params;
 
-    const voucher = await updateVoucher(id, updateData);
+  const voucher = await updateVoucher(id, req.body);
 
-    return res.success(OK, {
-        data: voucher,
-        message: 'Voucher đã được cập nhật thành công',
-    });
+  return res.success(OK, {
+    data: voucher,
+    message: 'Voucher đã được cập nhật thành công',
+  });
 });
 
-// DELETE /api/vouchers/:id
 export const deleteVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    await deleteVoucher(id);
+  const { id } = req.params;
 
-    return res.success(OK, {
-        message: 'Voucher đã được xóa thành công',
-    });
+  await deleteVoucher(id);
+
+  return res.success(OK, {
+    message: 'Voucher đã được xóa thành công',
+  });
 });
 
-// POST /api/vouchers/validate
 export const validateVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { code, orderAmount, userId: bodyUserId } = req.body;
+  const { code, orderAmount, userId: bodyUserId, userTier, shippingFee, deliveryFee } = req.body;
 
-    appAssert(code && orderAmount, BAD_REQUEST, 'Code và orderAmount là bắt buộc');
+  appAssert(code && orderAmount !== undefined && orderAmount !== null, BAD_REQUEST, 'Code và orderAmount là bắt buộc');
 
-    // Use token userId if available, fallback to request body for compatibility
-    const activeUserId = req.userId || bodyUserId;
+  const activeUserId = req.userId || bodyUserId;
 
-    const result = await validateVoucher(code, orderAmount, activeUserId?.toString());
+  const result = await validateVoucher(code, Number(orderAmount), {
+    userId: activeUserId?.toString(),
+    userTier,
+    shippingFee: Number(shippingFee ?? deliveryFee ?? 0),
+    deliveryFee: Number(deliveryFee ?? shippingFee ?? 0),
+  });
 
-    return res.success(OK, {
-        data: {
-            voucher: result.voucher,
-            discountAmount: result.discountAmount,
-            finalAmount: result.finalAmount,
-        },
-    });
+  return res.success(OK, {
+    data: {
+      voucher: result.voucher,
+      discountAmount: result.discountAmount,
+      finalAmount: result.finalAmount,
+    },
+  });
 });
 
-// POST /api/vouchers/:id/use
 export const useVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const voucher = await useVoucher(id);
+  const { id } = req.params;
 
-    return res.success(OK, {
-        data: voucher,
-        message: 'Voucher đã được sử dụng thành công',
-    });
+  const voucher = await useVoucher(id);
+
+  return res.success(OK, {
+    data: voucher,
+    message: 'Voucher đã được sử dụng thành công',
+  });
 });
 
-import { redeemRewardVoucher } from '@/services/voucher.service';
-
-// POST /api/vouchers/:id/redeem
 export const redeemRewardVoucherHandler = catchErrors(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    // Assuming auth middleware sets req.userId
-    const userId = req.userId;
-    appAssert(userId, BAD_REQUEST, 'Vui lòng đăng nhập để đổi điểm');
+  const { id } = req.params;
+  const userId = req.userId;
 
-    const voucher = await redeemRewardVoucher(id, userId);
+  appAssert(userId, BAD_REQUEST, 'Vui lòng đăng nhập để đổi điểm');
 
-    return res.success(OK, {
-        data: voucher,
-        message: 'Đổi điểm nhận voucher thành công!',
-    });
+  const voucher = await redeemRewardVoucher(id, userId);
+
+  return res.success(OK, {
+    data: voucher,
+    message: 'Đổi điểm nhận voucher thành công!',
+  });
 });
-

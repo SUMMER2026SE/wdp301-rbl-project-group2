@@ -29,6 +29,7 @@ _Generated on 2026-06-22 from `.agents/memory` cards._
 | Severity | Status | Tags | Applies to | Card |
 |---|---|---|---|---|
 | medium | active | `[referral, membership, points, frontend, legacy-data]` | `[backend, frontend]` | [Lesson: Referral UI must complete both invite and claim flows](lessons/2026-06-22-referral-ui-must-complete-both-invite-and-claim-flows.md) |
+| medium | active | `[voucher, checkout, freeship, discount, validation]` | `[backend, frontend]` | [Lesson: Reject zero-value voucher applications before usage](lessons/voucher-zero-value-discount.md) |
 
 ### Pattern
 

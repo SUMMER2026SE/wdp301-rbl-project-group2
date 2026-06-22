@@ -15,6 +15,16 @@ export const DiscountType = {
 
 export type DiscountType = (typeof DiscountType)[keyof typeof DiscountType];
 
+export const UserTier = {
+  BRONZE: "Bronze",
+  SILVER: "Silver",
+  GOLD: "Gold",
+  PLATINUM: "Platinum",
+  DIAMOND: "Diamond",
+} as const;
+
+export type UserTier = (typeof UserTier)[keyof typeof UserTier];
+
 export interface Voucher {
   _id: string;
   code: string;
@@ -38,7 +48,7 @@ export interface Voucher {
   isPersonal?: boolean;
   pointCost?: number;
   ownerId?: string | null;
-  minTier?: string | null;
+  minTier?: UserTier | string | null;
 }
 
 export interface VoucherListResponse {
@@ -61,6 +71,9 @@ export interface ValidateVoucherRequest {
   code: string;
   orderAmount: number;
   userId?: string;
+  userTier?: UserTier | string | null;
+  deliveryFee?: number;
+  shippingFee?: number;
 }
 
 export interface ValidateVoucherResponse {
@@ -80,12 +93,13 @@ export interface CreateVoucherRequest {
   category: VoucherCategory;
   discountType: DiscountType;
   discountValue: number;
-  maxDiscount?: number;
+  maxDiscount?: number | null;
   minOrderValue: number;
   startAt: string;
   endAt: string;
-  usageLimit: number;
+  usageLimit?: number | null;
   conditions: string[];
+  minTier?: UserTier | string | null;
   isActive?: boolean;
   isStackable?: boolean;
 }
