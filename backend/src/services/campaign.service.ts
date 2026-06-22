@@ -5,7 +5,8 @@ import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import { TCreateCampaignParams, TUpdateCampaignParams } from '@/validators/campaign.validator';
 import mongoose from 'mongoose';
-import { sendMail } from '@/utils/send-mail';
+import { emailQueue } from '@/jobs/email-queue';
+import { APP_ORIGIN } from '@/constants/env';
 
 // Helper to notify customers when a campaign is approved/activated
 async function notifyCustomersOfCampaign(campaign: ICampaign) {
@@ -19,28 +20,59 @@ async function notifyCustomersOfCampaign(campaign: ICampaign) {
     if (!customers.length) return;
 
     const subject = `🎉 Chiến dịch ưu đãi mới: ${campaign.name}`;
-    const text = `Xin chào! Cửa hàng vừa ra mắt chiến dịch khuyến mãi "${campaign.name}" mới từ ngày ${new Date(campaign.startTime).toLocaleDateString('vi-VN')} đến ngày ${new Date(campaign.endTime).toLocaleDateString('vi-VN')}. Hãy ghé thăm thực đơn để nhận ngay các ưu đãi đặc biệt nhé!`;
+    const campaignUrl = `${APP_ORIGIN}/products-campaign/${campaign._id}`;
+    const text = `Xin chào! Cửa hàng vừa ra mắt chiến dịch khuyến mãi "${campaign.name}" mới từ ngày ${new Date(campaign.startTime).toLocaleDateString('vi-VN')} đến ngày ${new Date(campaign.endTime).toLocaleDateString('vi-VN')}. Xem chi tiết chiến dịch tại: ${campaignUrl}`;
     const html = `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #f3ede7; border-radius: 12px; max-width: 600px;">
         <h2 style="color: #ea580c;">Khuyến mãi đặc biệt từ FoodieDash! 🎁</h2>
         <p>Xin chào quý khách,</p>
         <p>Chúng tôi xin trân trọng thông báo chiến dịch ưu đãi mới <strong>"${campaign.name}"</strong> chính thức bắt đầu từ ngày <strong>${new Date(campaign.startTime).toLocaleDateString('vi-VN')}</strong> đến ngày <strong>${new Date(campaign.endTime).toLocaleDateString('vi-VN')}</strong>.</p>
         <p>Nhanh tay truy cập FoodieDash để chọn mua các sản phẩm yêu thích với mức giá ưu đãi cực sốc!</p>
+        <div style="margin: 24px 0;">
+          <a href="${campaignUrl}" style="background-color: #ea580c; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Xem chi tiết chiến dịch</a>
+        </div>
         <hr style="border: 0; border-top: 1px solid #e7dbcf; margin: 20px 0;" />
         <p style="font-size: 11px; color: #9a734c;">Nếu bạn không muốn nhận các email thông báo này nữa, vui lòng thay đổi cấu hình trong trang cài đặt tài khoản của bạn.</p>
       </div>
     `;
 
-    // Send emails asynchronously
-    for (const customer of customers) {
-      if (customer.email) {
-        sendMail({
-          to: customer.email,
+    const now = Date.now();
+    const startTimeMs = new Date(campaign.startTime).getTime();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    let delayMs = 0;
+    if (startTimeMs - now > sevenDaysMs) {
+      // Trì hoãn gửi mail cho đến thời điểm cách ngày bắt đầu đúng 7 ngày
+      delayMs = (startTimeMs - sevenDaysMs) - now;
+    }
+
+    // Thay thế vòng lặp cũ bằng việc đẩy jobs vào hàng đợi BullMQ
+    const jobs = customers
+      .filter(customer => customer.email)
+      .map(customer => ({
+        name: `campaign-notify-${campaign._id}-${customer._id}`,
+        data: {
+          email: customer.email,
           subject,
           text,
           html,
-        }).catch((err) => console.error(`Failed to send campaign email to ${customer.email}:`, err));
-      }
+        },
+        opts: {
+          delay: delayMs,          // Cấu hình trì hoãn gửi nếu chiến dịch bắt đầu sau hơn 7 ngày
+          attempts: 3,             // Tự động thử lại tối đa 3 lần nếu lỗi
+          backoff: {
+            type: 'exponential',   // Chờ giãn cách tăng dần (exponential backoff)
+            delay: 5000,           // Lần đầu thử lại sau 5s, lần hai 10s...
+          },
+          removeOnComplete: true,  // Tự động xóa lịch sử job khi gửi thành công
+          removeOnFail: 1000,      // Giữ lại tối đa 1000 jobs lỗi để debug
+        }
+      }));
+
+    // Đẩy hàng loạt (Bulk insert) vào Redis để đạt hiệu năng tối ưu nhất
+    if (jobs.length > 0) {
+      await emailQueue.addBulk(jobs);
+      console.log(`[Queue] Đã đẩy thành công ${jobs.length} email chiến dịch vào hàng đợi.`);
     }
   } catch (error) {
     console.error('Failed to notify customers of new campaign:', error);
