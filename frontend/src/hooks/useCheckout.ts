@@ -10,7 +10,7 @@ import type {
   PlaceOrderAddress,
 } from "@/services/order.service";
 import voucherService from "@/services/voucher.service";
-import type { Voucher } from "@/types/voucher";
+import { VoucherCategory, type Voucher } from "@/types/voucher";
 import type { AuthAddress } from "@/store/authStore";
 import { calculateShippingFee } from "@/utils/shipping";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -29,6 +29,18 @@ export interface VoucherState {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+const getUserId = (user: any) => {
+  return user?._id || user?.id || user?.userId || null;
+};
+
+const getUserTier = (user: any) => {
+  return user?.tier || user?.userTier || user?.rank || user?.memberTier || null;
+};
+
+// ────────────────────────────────────────────────────────────────────────────
 // Hook
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -36,17 +48,25 @@ export interface VoucherState {
  * useCheckout — encapsulates all business logic for the checkout flow.
  *
  * Responsibilities:
- *  - Reads cart items from cartStore (localStorage-backed Zustand)
+ *  - Reads cart items from cartStore
  *  - Reads user addresses from authStore
  *  - Manages selected address state
- *  - Manages voucher validation (live, with BE round-trip)
- *  - Manages payment method selection
- *  - Handles order submission → clear cart → navigate to success
+ *  - Manages voucher validation with BE
+ *  - Sends deliveryFee/shippingFee so freeship voucher discounts real shipping fee
+ *  - Sends userTier so BE can validate tier-based voucher
+ *  - Handles order submission
  */
 export const useCheckout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { items: storeCartItems, totalPrice: storeTotalPrice, clearCart, orderNote } = useCart();
+
+  const {
+    items: storeCartItems,
+    totalPrice: storeTotalPrice,
+    clearCart,
+    orderNote,
+  } = useCart();
+
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings, fetchSettings } = useSettingsStore();
@@ -57,14 +77,9 @@ export const useCheckout = () => {
   }, [fetchSettings]);
 
   // Ref to signal that order has been placed successfully.
-  // Using a ref (not state) so it survives the finally-block reset of isSubmitting
-  // without triggering additional re-renders that could re-run the cart-empty guard.
   const orderPlacedRef = useRef(false);
 
-  // Guard against false-positive redirect on page refresh:
-  // Zustand (localStorage) needs one render cycle to hydrate cartStore.
-  // isHydrating stays true until after the first render, so the cart-empty
-  // guard in CheckoutPage won't fire before the cart is actually loaded.
+  // Guard against false-positive redirect on page refresh.
   const [isHydrating, setIsHydrating] = useState(true);
   useEffect(() => {
     setIsHydrating(false);
@@ -74,7 +89,12 @@ export const useCheckout = () => {
 
   const cartItems = buyNowItem ? [buyNowItem] : storeCartItems;
   const totalPrice = buyNowItem
-    ? ((buyNowItem.price + (buyNowItem.extras?.reduce((s: number, e: { price: number }) => s + e.price, 0) || 0)) * buyNowItem.quantity)
+    ? (buyNowItem.price +
+        (buyNowItem.extras?.reduce(
+          (sum: number, extra: { price: number }) => sum + extra.price,
+          0,
+        ) || 0)) *
+      buyNowItem.quantity
     : storeTotalPrice;
 
   // ── Address ───────────────────────────────────────────────────────────────
@@ -83,24 +103,57 @@ export const useCheckout = () => {
     [user],
   );
 
-  // Find the default address; if none marked default, use first one
   const defaultAddress = useMemo(
-    () => addresses.find((a: any) => a.isDefault) ?? addresses[0] ?? null,
+    () =>
+      addresses.find((address: any) => address.isDefault) ??
+      addresses[0] ??
+      null,
     [addresses],
   );
 
   const [selectedAddress, setSelectedAddress] =
     useState<PlaceOrderAddress | null>(null);
 
-  // Effective address for order submission (selectedAddress overrides default)
   const effectiveAddress =
     selectedAddress ?? (defaultAddress as PlaceOrderAddress | null);
 
   // ── Payment Method ────────────────────────────────────────────────────────
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentMethod>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
-  // ── Voucher ───────────────────────────────────────────────────────────────
+  // ── Pricing Base ──────────────────────────────────────────────────────────
+
+  const subtotal = totalPrice;
+
+  const shippingResult = useMemo(() => {
+    if (!effectiveAddress) {
+      return {
+        fee: 0,
+        blocked: false,
+      };
+    }
+
+    const config = settings
+      ? {
+          baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
+          feePerKm: parseFloat(settings.feePerKm) || 5000,
+          freeDeliveryEnabled: settings.freeDeliveryEnabled,
+          freeDeliveryThreshold:
+            parseFloat(settings.freeDeliveryThreshold) || 300000,
+        }
+      : undefined;
+
+    return calculateShippingFee(
+      effectiveAddress.ward ?? "",
+      effectiveAddress.city ?? "",
+      subtotal,
+      selectedStore?.location?.coordinates,
+      config,
+    );
+  }, [effectiveAddress, subtotal, settings, selectedStore]);
+
+  const deliveryFee = shippingResult.fee;
+  const isDeliverable = !shippingResult.blocked;
+
   const [voucherState, setVoucherState] = useState<VoucherState>({
     code: "",
     isValidating: false,
@@ -111,11 +164,13 @@ export const useCheckout = () => {
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
 
-  // ─── Fetch Active Vouchers ───
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        const res = await voucherService.getVouchers({ isActive: true });
+        const res = await voucherService.getVouchers({
+          isActive: true,
+        });
+
         if (res.success && res.data) {
           setVouchers(res.data);
         }
@@ -130,52 +185,95 @@ export const useCheckout = () => {
     setVoucherState((prev) => ({
       ...prev,
       code: code.toUpperCase(),
-      // Reset applied state when user changes code
       appliedVoucher: null,
       discountAmount: 0,
       error: null,
     }));
   }, []);
 
-  const applyVoucher = useCallback(async (manualCode?: string) => {
-    const code = (manualCode || voucherState.code).trim();
-    if (!code) return;
+  const applyVoucher = useCallback(
+    async (manualCode?: string) => {
+      const code = (manualCode || voucherState.code).trim();
 
-    setVoucherState((prev) => ({ ...prev, isValidating: true, error: null, code: code.toUpperCase() }));
+      if (!code) return;
 
-    try {
-      const res = await voucherService.validateVoucher({
-        code,
-        orderAmount: totalPrice,
-      });
+      const selectedVoucher = vouchers.find(
+        (voucher) => voucher.code.toUpperCase() === code.toUpperCase(),
+      );
 
-      if (res.data) {
+      if (selectedVoucher?.category === VoucherCategory.FREESHIP) {
+        const message = !effectiveAddress
+          ? "Vui lòng chọn địa chỉ giao hàng trước khi dùng voucher freeship"
+          : deliveryFee <= 0
+            ? "Đơn hàng này đã được miễn phí vận chuyển"
+            : null;
+
+        if (message) {
+          setVoucherState((prev) => ({
+            ...prev,
+            code: code.toUpperCase(),
+            isValidating: false,
+            appliedVoucher: null,
+            discountAmount: 0,
+            error: message,
+          }));
+          toast(message, "error");
+          return;
+        }
+      }
+
+      setVoucherState((prev) => ({
+        ...prev,
+        code: code.toUpperCase(),
+        isValidating: true,
+        error: null,
+      }));
+
+      try {
+        const res = await voucherService.validateVoucher({
+          code,
+          orderAmount: subtotal,
+          userId: getUserId(user),
+          userTier: getUserTier(user),
+          deliveryFee,
+          shippingFee: deliveryFee,
+        });
+
+        if (res.data) {
+          setVoucherState((prev) => ({
+            ...prev,
+            code: code.toUpperCase(),
+            isValidating: false,
+            appliedVoucher: res.data!.voucher,
+            discountAmount: res.data!.discountAmount,
+            error: null,
+          }));
+
+          toast(
+            `Áp dụng voucher thành công! Giảm ${res.data.discountAmount.toLocaleString(
+              "vi-VN",
+            )}đ`,
+            "success",
+          );
+        }
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ??
+          "Voucher không hợp lệ hoặc đã hết hạn";
+
         setVoucherState((prev) => ({
           ...prev,
           isValidating: false,
-          appliedVoucher: res.data!.voucher,
-          discountAmount: res.data!.discountAmount,
-          error: null,
-          code: code.toUpperCase(),
+          appliedVoucher: null,
+          discountAmount: 0,
+          error: message,
         }));
-        toast(
-          `Áp dụng voucher thành công! Giảm ${res.data.discountAmount.toLocaleString("vi-VN")}đ`,
-          "success",
-        );
+
+        toast(message, "error");
       }
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? "Voucher không hợp lệ hoặc đã hết hạn";
-      setVoucherState((prev) => ({
-        ...prev,
-        isValidating: false,
-        appliedVoucher: null,
-        discountAmount: 0,
-        error: message,
-      }));
-      toast(message, "error");
-    }
-  }, [voucherState.code, totalPrice, toast]);
+    },
+    [voucherState.code, vouchers, effectiveAddress, subtotal, deliveryFee, user, toast],
+  );
 
   const removeVoucher = useCallback(() => {
     setVoucherState({
@@ -187,35 +285,60 @@ export const useCheckout = () => {
     });
   }, []);
 
-  // ── Pricing ───────────────────────────────────────────────────────────────
-  const subtotal = totalPrice;
+  useEffect(() => {
+    const appliedCode = voucherState.appliedVoucher?.code;
+
+    if (!appliedCode) return;
+
+    let cancelled = false;
+
+    const revalidateAppliedVoucher = async () => {
+      try {
+        const res = await voucherService.validateVoucher({
+          code: appliedCode,
+          orderAmount: subtotal,
+          userId: getUserId(user),
+          userTier: getUserTier(user),
+          deliveryFee,
+          shippingFee: deliveryFee,
+        });
+
+        if (cancelled || !res.data) return;
+
+        setVoucherState((prev) => ({
+          ...prev,
+          appliedVoucher: res.data!.voucher,
+          discountAmount: res.data!.discountAmount,
+          error: null,
+        }));
+      } catch (err: any) {
+        if (cancelled) return;
+
+        const message =
+          err?.response?.data?.message ??
+          "Voucher không còn phù hợp với đơn hàng hiện tại";
+
+        setVoucherState((prev) => ({
+          ...prev,
+          appliedVoucher: null,
+          discountAmount: 0,
+          error: message,
+        }));
+
+        toast(message, "warning");
+      }
+    };
+
+    revalidateAppliedVoucher();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [voucherState.appliedVoucher?.code, subtotal, deliveryFee, user, toast]);
+
   const discount = voucherState.discountAmount;
 
-  // Dynamic shipping fee based on selected address zone
-  const shippingResult = useMemo(() => {
-    if (!effectiveAddress) {
-      return { fee: 0, blocked: false };
-    }
-
-    const config = settings ? {
-      baseDeliveryFee: parseFloat(settings.baseDeliveryFee) || 15000,
-      feePerKm: parseFloat(settings.feePerKm) || 5000,
-      freeDeliveryEnabled: settings.freeDeliveryEnabled,
-      freeDeliveryThreshold: parseFloat(settings.freeDeliveryThreshold) || 300000,
-    } : undefined;
-
-    return calculateShippingFee(
-      effectiveAddress.ward ?? "",
-      effectiveAddress.city ?? "",
-      subtotal,
-      selectedStore?.location?.coordinates,
-      config
-    );
-  }, [effectiveAddress, subtotal, settings, selectedStore]);
-
-  const deliveryFee = shippingResult.fee;
-  const isDeliverable = !shippingResult.blocked;
-  const total = Math.max(0, subtotal - discount + deliveryFee);
+  const total = Math.max(0, subtotal + deliveryFee - discount);
 
   // ── Submission ────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -223,16 +346,19 @@ export const useCheckout = () => {
   const handlePlaceOrder = useCallback(async () => {
     if (isSubmitting) return;
 
-    // Guard: cart must not be empty
     if (cartItems.length === 0) {
       toast("Giỏ hàng của bạn đang trống", "warning");
       navigate("/menu");
       return;
     }
 
-    // Guard: must have delivery address
     if (!effectiveAddress) {
       toast("Vui lòng thêm địa chỉ giao hàng trước khi đặt hàng", "warning");
+      return;
+    }
+
+    if (!isDeliverable) {
+      toast("Địa chỉ này hiện chưa hỗ trợ giao hàng", "warning");
       return;
     }
 
@@ -241,52 +367,53 @@ export const useCheckout = () => {
     try {
       const payload = {
         storeId: selectedStore?._id,
+
         items: cartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           variations: item.variations ?? [],
         })),
         paymentMethod,
-        // Only send voucher._id if one is applied (must be 24-char ObjectId)
         ...(voucherState.appliedVoucher
-          ? { voucher: voucherState.appliedVoucher._id }
+          ? {
+              voucher: voucherState.appliedVoucher.code,
+              voucherCode: voucherState.appliedVoucher.code,
+              voucherId: voucherState.appliedVoucher._id,
+            }
           : {}),
-        // Send the selected/default address so BE doesn't need to look it up
+
         deliveryAddress: effectiveAddress,
         shippingFee: deliveryFee,
+        deliveryFee,
         note: orderNote?.trim() || undefined,
       };
 
       const response = await orderService.placeOrder(payload);
       const order = response.data;
 
-      // If there's a checkoutUrl (PayOS), redirect to it
       if (order.checkoutUrl) {
         window.location.href = order.checkoutUrl;
         return;
       }
 
-      // Mark order as placed BEFORE clearing cart so the Checkout guard
-      // (cartItems.length === 0) knows NOT to redirect to /menu.
       orderPlacedRef.current = true;
 
-      // Clear FE cart (only for normal cart checkout, not buy-now)
       if (!buyNowItem) {
         clearCart();
       }
 
-      // Navigate to success page, passing the order code via navigation state
       navigate("/success", {
         state: {
           orderCode: order.code,
           orderId: order._id,
           totalPrice: order.totalPrice,
         },
-        replace: true, // Prevent back-navigation to checkout
+        replace: true,
       });
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? "Đặt hàng thất bại. Vui lòng thử lại.";
+
       toast(message, "error");
     } finally {
       setIsSubmitting(false);
@@ -295,17 +422,20 @@ export const useCheckout = () => {
     isSubmitting,
     cartItems,
     effectiveAddress,
+    isDeliverable,
     paymentMethod,
     voucherState.appliedVoucher,
     deliveryFee,
     orderNote,
+    selectedStore,
     clearCart,
     navigate,
     toast,
     buyNowItem,
   ]);
 
-  // ────────────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────
+
   return {
     // Cart
     cartItems,
@@ -333,11 +463,9 @@ export const useCheckout = () => {
     shippingResult,
     settings,
     selectedStore,
-    // Submit
     isSubmitting,
     handlePlaceOrder,
     orderPlacedRef,
-    // Hydration guard
     isHydrating,
   };
 };

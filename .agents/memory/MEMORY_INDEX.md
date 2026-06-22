@@ -22,7 +22,13 @@ This index is the first file agents should read after `AGENTS.md` for non-trivia
 ## Auto-generated card index
 
 <!-- AUTO-GENERATED:START -->
-_Generated on 2026-06-03 from `.agents/memory` cards._
+_Generated on 2026-06-22 from `.agents/memory` cards._
+
+### Lesson
+
+| Severity | Status | Tags | Applies to | Card |
+|---|---|---|---|---|
+| medium | active | `[voucher, checkout, freeship, discount, validation]` | `[backend, frontend]` | [Lesson: Reject zero-value voucher applications before usage](lessons/voucher-zero-value-discount.md) |
 
 ### Pattern
 
