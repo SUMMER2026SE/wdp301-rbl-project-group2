@@ -23,7 +23,6 @@
     "operations": {
         "title": "Operations & Logistics",
         "orders": "Orders",
-        "dispatch": "Dispatch Center",
         "shifts": "Work Shifts",
         "assignDriver": "Assign Driver",
         "cashReconciliation": "Cash Reconciliation"

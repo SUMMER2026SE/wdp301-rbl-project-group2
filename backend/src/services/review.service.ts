@@ -395,14 +395,14 @@ const moderateSavedReview = async ({
     await updateProductOverallRating(productId);
     const violation = await recordToxicReviewAttempt(userId);
     const bannedMessage = violation.reviewBannedUntil
-      ? ' Ban da bi tam khoa quyen danh gia trong 24 gio.'
+      ? ' Bạn đã bị tạm khóa quyền đánh giá trong 24 giờ.'
       : '';
 
     const notification = await NotificationModel.create({
       userId,
       orderId,
-      title: 'Danh gia da bi xoa',
-      body: `Danh gia cua ban da bi xoa do vi pham chinh sach noi dung.${bannedMessage}`,
+      title: 'Đánh giá đã bị xóa',
+      body: `Đánh giá của bạn đã bị xóa do vi phạm chính sách nội dung.${bannedMessage}`,
       type: NotificationType.SYSTEM,
       isRead: false,
     });

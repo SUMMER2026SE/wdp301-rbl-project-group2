@@ -106,12 +106,12 @@ export function FoodCard({
                                     {customBadge.icon || <Sparkles className="w-3 h-3" />}
                                     {customBadge.text}
                                 </div>
-                            ) : (
+                            ) : rating > 0 ? (
                                 <div className="flex items-center gap-1 text-xs font-bold text-slate-700">
                                     <Star className="w-3 h-3 text-orange-500 fill-orange-500" />
-                                    {(rating ?? 0).toFixed(1)}
+                                    {(rating).toFixed(1)}
                                 </div>
-                            )}
+                            ) : null}
                             {!customBadge && time && (
                                 <div className="text-[10px] text-slate-400 flex items-center gap-0.5">
                                     <Clock className="w-3 h-3" />
@@ -207,10 +207,12 @@ export function FoodCard({
 
                 {/* Rating & Time Overlay */}
                 <div className="absolute bottom-3 inset-x-3 flex justify-between items-center">
-                    <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] font-bold">
-                        <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
-                        {(rating ?? 0).toFixed(1)}
-                    </div>
+                    {rating > 0 && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] font-bold">
+                            <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+                            {(rating).toFixed(1)}
+                        </div>
+                    )}
                     {time && (
                         <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[10px] font-bold">
                             <Clock className="w-3 h-3 text-orange-400" />
@@ -268,11 +270,10 @@ export function FoodCard({
                         <button
                             type="button"
                             onClick={handleAddClick}
-                            className="h-10 px-4 rounded-full bg-orange-600 text-white flex items-center gap-1.5 hover:bg-orange-700 shadow-lg shadow-orange-600/20 active:scale-95 transition-all group/btn cursor-pointer"
+                            className="w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center hover:bg-orange-700 shadow-lg shadow-orange-600/20 active:scale-95 transition-all group/btn cursor-pointer shrink-0"
                             aria-label={t('customer:foodCard.addToCart')}
                         >
-                            <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform duration-300" />
-                            <span className="text-sm font-bold">{t('customer:foodCard.addToCart', 'Thêm')}</span>
+                            <Plus className="w-5 h-5 group-hover/btn:rotate-90 transition-transform duration-300" />
                         </button>
                     )}
                 </div>

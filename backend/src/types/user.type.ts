@@ -22,6 +22,13 @@ export enum UserTier {
   DIAMOND = 'Diamond',
 }
 
+export enum ReferralRewardStatus {
+  NONE = 'none',
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  REWARDED = 'rewarded',
+  REJECTED = 'rejected',
+}
 export interface IAddresses {
   _id?: mongoose.Types.ObjectId;
   label: string;
@@ -63,9 +70,15 @@ export interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
   verifiedAt?: Date | null;
   status: UserStatus;
   collectedPoints: number;
+  accumulatedPoints: number;
   tier?: UserTier;
   referralCode?: string;
   referredBy?: mongoose.Types.ObjectId | null;
+  referralRewardStatus: ReferralRewardStatus;
+  referralQualifiedOrderId?: mongoose.Types.ObjectId | null;
+  referralRewardVoucherId?: mongoose.Types.ObjectId | null;
+  referralRewardedAt?: Date | null;
+  referralRejectionReason?: string | null;
   storeId?: mongoose.Types.ObjectId | null;
   receiveCampaignNotifications?: boolean;
   reviewModeration?: {

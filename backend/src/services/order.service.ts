@@ -9,6 +9,7 @@ import {
   ReviewModel,
   StoreModel,
   CampaignModel,
+  UserVoucherModel,
 } from '@/models';
 import { CampaignStatus } from '@/types/campaign.type';
 import { DiscountType } from '@/types/voucher.type';
@@ -22,7 +23,7 @@ import { createPaymentLink } from './payos.service';
 import { APP_ORIGIN } from '@/constants/env';
 import { parseOrderNoteForStaff } from './ai.service';
 import { createAuditLog } from './audit-log.service';
-import { AuditEntityType, AuditLogAction, NotificationType, Role } from '@/types';
+import { AuditEntityType, AuditLogAction, NotificationType, Role, UserVoucherStatus } from '@/types';
 import * as membershipService from './membership.service';
 import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
@@ -194,8 +195,7 @@ export async function calculateShippingFee(
   ward: string,
   city: string,
   subtotal: number,
-  storeId?: string,
-  customerCoords?: [number, number]
+  storeId?: string
 ): Promise<{ fee: number; blocked: boolean; reason?: string; distance?: number }> {
   const normalCity = city.trim();
   const normalWard = ward.trim();
@@ -226,21 +226,19 @@ export async function calculateShippingFee(
     }
   } catch (_) {}
 
-  // Determine distance — use client-provided geocoded coords, fall back to ward centroid
+  // Determine distance from server-owned store data and the supported ward centroid.
   let distance = isInner ? 2.0 : 5.0; // fallback defaults
   if (storeId) {
     try {
       const store = await StoreModel.findById(storeId).lean();
       if (store && store.location && store.location.coordinates && store.location.coordinates.length === 2) {
-        const targetCoords =
-          customerCoords && customerCoords.length === 2 ? customerCoords : getWardCentroid(normalWard);
-
-        if (targetCoords) {
+        const wardCentroid = getWardCentroid(normalWard);
+        if (wardCentroid) {
           const storeLng = store.location.coordinates[0];
           const storeLat = store.location.coordinates[1];
-          const targetLng = targetCoords[0];
-          const targetLat = targetCoords[1];
-          const rawDistance = calculateDistance(storeLat, storeLng, targetLat, targetLng);
+          const wardLng = wardCentroid[0];
+          const wardLat = wardCentroid[1];
+          const rawDistance = calculateDistance(storeLat, storeLng, wardLat, wardLng);
           // Round to 1 decimal place (e.g. 2.4 km)
           distance = Math.round(rawDistance * 10) / 10;
         }
@@ -250,7 +248,7 @@ export async function calculateShippingFee(
 
   if (freeDeliveryEnabled && subtotal >= freeDeliveryThreshold) return { fee: 0, blocked: false, distance };
 
-  const fee = Math.round(baseDeliveryFee + feePerKm * distance);
+  const fee = Math.round((baseDeliveryFee + feePerKm * distance) / 2);
   return { fee, blocked: false, distance };
 }
 
@@ -405,51 +403,79 @@ async function checkOrderHealthConflicts(
 }
 
 export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceOrderValidator) => {
-  const { voucher: voucherId, paymentMethod, items, deliveryAddress, shippingFee, returnUrl, cancelUrl } = input;
+  const { voucher: voucherInput, paymentMethod, items, deliveryAddress, returnUrl, cancelUrl } = input;
 
   return withTransaction(async (session) => {
     const { resolvedItems, subTotal } = await resolveOrderItems(items, session);
-
-    let actualDiscount = 0;
-    let voucherObjectId: mongoose.Types.ObjectId | undefined;
-
-    if (voucherId) {
-      const { voucher, discountAmount } = await validateVoucher(
-        await (async () => {
-          const v = await mongoose.model('Voucher').findById(voucherId).session(session);
-          appAssert(v, NOT_FOUND, 'Không tìm thấy voucher');
-          return v.code as string;
-        })(),
-        subTotal,
-        userId.toString()
-      );
-
-      actualDiscount = discountAmount;
-      voucherObjectId = voucher._id as mongoose.Types.ObjectId;
-
-      await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
-    }
 
     const user = await UserModel.findById(userId).session(session);
     appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');
 
     const resolvedAddress = deliveryAddress ?? user.addresses.find((a: any) => a.isDefault);
+
     appAssert(resolvedAddress, BAD_REQUEST, 'Không tìm thấy địa chỉ giao hàng. Vui lòng thêm địa chỉ mặc định.');
 
-    // Recalculate shipping fee server-side for security and consistency.
-    // Uses client-provided geocoded coordinates so frontend and backend
-    // compute the same distance (falls back to ward centroid if omitted).
+    /**
+     * Recalculate shipping server-side before voucher validation so FREESHIP
+     * discounts use the authoritative fee.
+     */
     const shippingCalc = await calculateShippingFee(
       resolvedAddress.ward,
       resolvedAddress.city,
       subTotal,
-      input.storeId,
-      (resolvedAddress as any).customerCoords as [number, number] | undefined
+      input.storeId
     );
     appAssert(!shippingCalc.blocked, BAD_REQUEST, shippingCalc.reason || 'Địa chỉ nằm ngoài vùng giao hàng');
+
     const actualShippingFee = shippingCalc.fee;
 
-    const totalPrice = Math.max(0, subTotal - actualDiscount + actualShippingFee);
+    let actualDiscount = 0;
+    let voucherObjectId: mongoose.Types.ObjectId | undefined;
+
+    if (voucherInput) {
+      let voucherCode = String(voucherInput);
+
+      /**
+       * Hỗ trợ cả 2 case:
+       * - FE gửi voucherId
+       * - FE gửi voucher code
+       */
+      if (mongoose.Types.ObjectId.isValid(String(voucherInput))) {
+        const foundVoucher = await mongoose.model('Voucher').findById(voucherInput).session(session);
+
+        appAssert(foundVoucher, NOT_FOUND, 'Không tìm thấy voucher');
+
+        voucherCode = foundVoucher.code as string;
+      }
+
+      const { voucher, discountAmount } = await validateVoucher(voucherCode, subTotal, {
+        userId: userId.toString(),
+        shippingFee: actualShippingFee,
+        deliveryFee: actualShippingFee,
+      });
+
+      actualDiscount = discountAmount;
+      voucherObjectId = voucher._id as mongoose.Types.ObjectId;
+
+      await mongoose.model('Voucher').findByIdAndUpdate(voucherObjectId, { $inc: { usedCount: 1 } }, { session });
+      await UserVoucherModel.findOneAndUpdate(
+        {
+          userId,
+          voucherId: voucherObjectId,
+          status: UserVoucherStatus.AVAILABLE,
+        },
+        {
+          $set: {
+            status: UserVoucherStatus.USED,
+            usedAt: new Date(),
+          },
+          $inc: { usageCount: 1 },
+        },
+        { session }
+      );
+    }
+
+    const totalPrice = Math.max(0, subTotal + actualShippingFee - actualDiscount);
 
     const rawNote = input.note?.trim() || undefined;
     const staffNoteItems = rawNote ? await parseOrderNoteForStaff(rawNote) : [];
@@ -470,6 +496,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
           voucherId: voucherObjectId ?? null,
           subTotal,
           shippingFee: actualShippingFee,
+          discountAmount: actualDiscount,
           totalPrice,
           note: rawNote,
           staffNoteItems,
@@ -498,7 +525,12 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       { session }
     );
 
-    let allergyWarnings: { productName: string; conflictIngredients: string[]; level: string }[] = [];
+    let allergyWarnings: {
+      productName: string;
+      conflictIngredients: string[];
+      level: string;
+    }[] = [];
+
     try {
       allergyWarnings = await checkOrderHealthConflicts(resolvedItems, user.preferences, session);
       if (allergyWarnings.length > 0) {
@@ -510,7 +542,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
 
     if (paymentMethod === PaymentMethod.BANK_TRANSFER) {
       console.log('💳 Handling PayOS payment for order:', order.code);
-      // Generate a collision-resistant numeric order code by adding a 3-digit random suffix
+
       const numericOrderCode = Date.now() * 1000 + Math.floor(Math.random() * 1000);
       console.log('🔢 Generated collision-resistant numeric order code:', numericOrderCode);
 
@@ -543,7 +575,11 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     }
 
     console.log('✅ COD order placed successfully');
-    return { ...order.toObject(), allergyWarnings };
+
+    return {
+      ...order.toObject(),
+      allergyWarnings,
+    };
   });
 };
 
@@ -694,6 +730,10 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
         .catch((err) => console.error('Failed to award points:', err));
     }
     scheduleAiModelRetrain(`order #${order.code} completed (status update)`);
+
+    await membershipService
+      .qualifyReferralFromCompletedOrder(order._id)
+      .catch((err) => console.error('Failed to process referral reward:', err));
   }
 
   await createOrderStatusNotification({
@@ -976,6 +1016,9 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
 export const completeOrderInternal = async (orderId: string, actorId?: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   if (order.status === OrderStatus.COMPLETED) {
+    await membershipService
+      .qualifyReferralFromCompletedOrder(order._id)
+      .catch((err) => console.error('Failed to process referral reward:', err));
     return order;
   }
 
@@ -1033,6 +1076,10 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
   }
 
   scheduleAiModelRetrain(`order #${updatedOrder.code} completed`);
+
+  await membershipService
+    .qualifyReferralFromCompletedOrder(updatedOrder._id)
+    .catch((err) => console.error('Failed to process referral reward:', err));
 
   if (actorId) {
     createAuditLog({

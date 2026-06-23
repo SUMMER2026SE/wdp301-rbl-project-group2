@@ -334,65 +334,91 @@ const OrderDetailPage = () => {
                 <h3 className="font-bold text-lg">Món ăn đã đặt</h3>
               </div>
               <div className="divide-y divide-gray-50 dark:divide-white/5">
-                {order.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-20 h-20 rounded-2xl bg-gray-100 bg-cover bg-center shrink-0 border border-gray-100 dark:border-white/10"
-                        style={{
-                          backgroundImage: `url("${getImageUrl((item.productId as any)?.image)}")`,
-                        }}
-                      />
-                      <div>
-                        <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
-                          {(item.productId as any)?.name ||
-                            "Sản phẩm không còn tồn tại"}
-                        </h4>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded-md">
-                            Số lượng: {item.quantity}
-                          </span>
+                {order.items.map((item, idx) => {
+                  const productId = typeof item.productId === "string"
+                    ? item.productId
+                    : (item.productId as any)?._id;
+
+                  const isAvailable = !!productId;
+
+                  const itemContent = (
+                    <>
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-20 h-20 rounded-2xl bg-gray-100 bg-cover bg-center shrink-0 border border-gray-100 dark:border-white/10"
+                          style={{
+                            backgroundImage: `url("${getImageUrl((item.productId as any)?.image)}")`,
+                          }}
+                        />
+                        <div>
+                          <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
+                            {(item.productId as any)?.name ||
+                              "Sản phẩm không còn tồn tại"}
+                          </h4>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded-md">
+                              Số lượng: {item.quantity}
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const chips = buildVariantChips(
+                              (item as any).variations,
+                            );
+                            if (!chips.length) return null;
+
+                            return (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {chips.map((c) => (
+                                  <span
+                                    key={c.key}
+                                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
+                                    title={
+                                      c.extra > 0
+                                        ? `+${c.extra.toLocaleString("vi-VN")}đ`
+                                        : undefined
+                                    }
+                                  >
+                                    {c.text}
+                                    {c.extra > 0 && (
+                                      <span className="text-[#9a734c] font-bold">
+                                        +{c.extra.toLocaleString("vi-VN")}đ
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
-
-                        {(() => {
-                          const chips = buildVariantChips(
-                            (item as any).variations,
-                          );
-                          if (!chips.length) return null;
-
-                          return (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {chips.map((c) => (
-                                <span
-                                  key={c.key}
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
-                                  title={
-                                    c.extra > 0
-                                      ? `+${c.extra.toLocaleString("vi-VN")}đ`
-                                      : undefined
-                                  }
-                                >
-                                  {c.text}
-                                  {c.extra > 0 && (
-                                    <span className="text-[#9a734c] font-bold">
-                                      +{c.extra.toLocaleString("vi-VN")}đ
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
                       </div>
+                      <p className="font-black text-lg text-gray-900 dark:text-white">
+                        {item.subTotal.toLocaleString("vi-VN")}đ
+                      </p>
+                    </>
+                  );
+
+                  if (isAvailable) {
+                    return (
+                      <Link
+                        key={idx}
+                        to={`/food/${productId}`}
+                        className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors cursor-pointer no-underline"
+                      >
+                        {itemContent}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors"
+                    >
+                      {itemContent}
                     </div>
-                    <p className="font-black text-lg text-gray-900 dark:text-white">
-                      {item.subTotal.toLocaleString("vi-VN")}đ
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

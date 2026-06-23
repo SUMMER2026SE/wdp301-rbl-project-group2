@@ -23,6 +23,8 @@ export interface Campaign {
   products: CampaignProductItem[];
   startTime: string;
   endTime: string;
+  views?: number;
+  clicks?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +69,11 @@ class CampaignAPI {
 
   async updateStatus(id: string, status: CampaignStatus): Promise<{ success: boolean; data: Campaign; message: string }> {
     const response = await apiClient.patch(`/campaigns/${id}/status`, { status });
+    return response.data;
+  }
+
+  async trackActivity(id: string, action: "view" | "click"): Promise<{ success: boolean; data: Campaign }> {
+    const response = await apiClient.post(`/campaigns/${id}/track`, { action });
     return response.data;
   }
 }
