@@ -9,19 +9,23 @@ import type {
   UserTier,
 } from "@/types/voucher";
 
+export interface VoucherListParams {
+  category?: VoucherCategory;
+  isActive?: boolean;
+  isReward?: boolean;
+  ownerId?: string | null;
+  minTier?: UserTier | string | null;
+  includeExpired?: boolean;
+  adminView?: boolean;
+  page?: number;
+  limit?: number;
+}
+
 class VoucherAPI {
   private baseURL = "/vouchers";
 
   // Get all vouchers with filters
-  async getVouchers(params?: {
-    category?: VoucherCategory;
-    isActive?: boolean;
-    isReward?: boolean;
-    ownerId?: string | null;
-    minTier?: UserTier | string | null;
-    page?: number;
-    limit?: number;
-  }): Promise<VoucherListResponse> {
+  async getVouchers(params?: VoucherListParams): Promise<VoucherListResponse> {
     const response = await apiClient.get<VoucherListResponse>(this.baseURL, {
       params,
     });
