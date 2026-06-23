@@ -100,9 +100,11 @@ export const useProductForm = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(
     mode === "edit" && product
-      ? product.image && typeof product.image === "object"
-        ? product.image.secureUrl
-        : ""
+      ? typeof product.image === "string"
+        ? product.image
+        : product.image && typeof product.image === "object"
+          ? product.image.secureUrl
+          : ""
       : "",
   );
 
@@ -116,9 +118,11 @@ export const useProductForm = ({
       if (mode === "edit" && product) {
         setFormData(productToFormData(product));
         setImagePreview(
-          product.image && typeof product.image === "object"
-            ? product.image.secureUrl
-            : "",
+          typeof product.image === "string"
+            ? product.image
+            : product.image && typeof product.image === "object"
+              ? product.image.secureUrl
+              : "",
         );
         setImageFile(null);
         setError("");
@@ -226,10 +230,10 @@ export const useProductForm = ({
           })),
         };
 
-        // Nếu có ảnh mới → upload trước, lấy MongoDB ObjectId gán vào payload
+        // Nếu có ảnh mới → upload trước, lấy secureUrl gán vào payload
         if (imageFile) {
           const uploadRes = await productService.uploadImage(imageFile);
-          payload.image = uploadRes._id;
+          payload.image = uploadRes.secureUrl;
         }
 
         if (mode === "add") {
