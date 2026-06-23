@@ -179,20 +179,30 @@ export const getAllVouchers = async (
     isActive?: boolean;
     isReward?: boolean;
     ownerId?: string;
+    includeExpired?: boolean;
+    adminView?: boolean;
     page?: number;
     limit?: number;
   } = {},
   userId?: string
 ) => {
-  const page = filters.page || 1;
-  const limit = filters.limit || 20;
+  const page = Math.max(1, Number(filters.page) || 1);
+  const limit = Math.max(1, Number(filters.limit) || 20);
   const skip = (page - 1) * limit;
   const query: Record<string, any> = {};
 
   if (filters.category) query.category = filters.category;
   if (filters.isActive !== undefined) query.isActive = filters.isActive;
 
-  if (filters.isReward === true) {
+  if (filters.adminView) {
+    if (filters.isReward !== undefined) {
+      query.isReward = filters.isReward;
+    }
+
+    if (filters.ownerId && mongoose.Types.ObjectId.isValid(filters.ownerId)) {
+      query.ownerId = new mongoose.Types.ObjectId(filters.ownerId);
+    }
+  } else if (filters.isReward === true) {
     query.isReward = true;
   } else {
     const targetUserId = userId && mongoose.Types.ObjectId.isValid(userId) ? userId : null;
@@ -201,6 +211,7 @@ export const getAllVouchers = async (
       const user = await UserModel.findById(targetUserId).select('tier').lean();
       const userTierRank = getTierRank(user?.tier || UserTier.BRONZE);
       const allowedTiers = Object.values(UserTier).filter((tier) => getTierRank(tier) <= userTierRank);
+
       const [ownedVouchers, usedOrders] = await Promise.all([
         UserVoucherModel.find({
           userId: new mongoose.Types.ObjectId(targetUserId),
@@ -208,6 +219,7 @@ export const getAllVouchers = async (
         })
           .select('voucherId')
           .lean(),
+
         OrderModel.find({
           cusId: new mongoose.Types.ObjectId(targetUserId),
           status: { $ne: 'cancelled' },
@@ -223,10 +235,7 @@ export const getAllVouchers = async (
       query.minTier = { $in: [null, ...allowedTiers] };
       query.$and = [
         {
-          $or: [
-            { _id: { $in: ownedVoucherIds } },
-            { isReward: { $ne: true }, isPersonal: { $ne: true } },
-          ],
+          $or: [{ _id: { $in: ownedVoucherIds } }, { isReward: { $ne: true }, isPersonal: { $ne: true } }],
         },
       ];
 
@@ -239,7 +248,9 @@ export const getAllVouchers = async (
     }
   }
 
-  query.endAt = { $gte: new Date() };
+  if (!filters.includeExpired) {
+    query.endAt = { $gte: new Date() };
+  }
 
   const [vouchers, total] = await Promise.all([
     VoucherModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -256,6 +267,7 @@ export const getAllVouchers = async (
     },
   };
 };
+
 export const getVoucherById = async (id: string) => {
   appAssert(mongoose.Types.ObjectId.isValid(id), BAD_REQUEST, 'Voucher ID không hợp lệ');
 
@@ -382,11 +394,7 @@ export const validateVoucher = async (
     const isFreeshipVoucher = voucher.category === VoucherCategory.FREESHIP;
     const shippingFee = getNumber(normalizedOptions.shippingFee ?? normalizedOptions.deliveryFee, 0);
 
-    appAssert(
-      !(isFreeshipVoucher && shippingFee <= 0),
-      BAD_REQUEST,
-      'Đơn hàng này đã được miễn phí vận chuyển'
-    );
+    appAssert(!(isFreeshipVoucher && shippingFee <= 0), BAD_REQUEST, 'Đơn hàng này đã được miễn phí vận chuyển');
     appAssert(
       getNumber(voucher.discountValue) > 0 && voucher.discountType !== DiscountType.NONE,
       BAD_REQUEST,

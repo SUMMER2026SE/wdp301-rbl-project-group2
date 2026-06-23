@@ -16,18 +16,23 @@ import { BAD_REQUEST, CREATED, OK } from '@/constants/http';
 import appAssert from '@/utils/app-assert';
 
 export const getAllVouchersHandler = catchErrors(async (req: Request, res: Response) => {
-  const { category, isActive, isReward, ownerId, page, limit } = req.query;
+  const { category, isActive, isReward, ownerId, includeExpired, adminView, page, limit } = req.query;
+
+  const role = (req as any).role;
+  const isAdminView = adminView === 'true' && ['admin', 'manager'].includes(String(role));
 
   const filters = {
     category: category as VoucherCategory,
     isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     isReward: isReward === 'true' ? true : isReward === 'false' ? false : undefined,
     ownerId: ownerId as string | undefined,
+    includeExpired: includeExpired === 'true',
+    adminView: isAdminView,
     page: page ? parseInt(page as string) : undefined,
     limit: limit ? parseInt(limit as string) : undefined,
   };
 
-  const result = await getAllVouchers(filters, req.userId?.toString());
+  const result = await getAllVouchers(filters, isAdminView ? undefined : req.userId?.toString());
 
   return res.success(OK, {
     data: result.vouchers,
