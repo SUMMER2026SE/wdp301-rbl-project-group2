@@ -25,14 +25,18 @@ const RequireAuth = () => {
         if (!isAuthenticated && !hasWarnedRef.current) {
             hasWarnedRef.current = true;
             toast('Bạn cần đăng nhập để tiếp tục.', 'warning');
+        }
+    }, [isAuthenticated, toast]);
 
+    useEffect(() => {
+        if (!isAuthenticated) {
             const timer = setTimeout(() => {
                 setShouldRedirect(true);
             }, 2000);
 
             return () => clearTimeout(timer);
         }
-    }, [isAuthenticated, toast]);
+    }, [isAuthenticated]);
 
     if (isAuthenticated) {
         return <Outlet />;

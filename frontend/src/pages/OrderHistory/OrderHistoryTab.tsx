@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   CheckCircle,
   AlertTriangle,
@@ -274,22 +274,42 @@ const OrderHistoryTabContent = () => {
             const variantChips = buildVariantChips((firstItem as any)?.variations);
             const moreItemsCount = order.items.length - 1;
 
+            const firstProductId = firstItem
+              ? (typeof firstItem.productId === "string"
+                ? firstItem.productId
+                : (firstItem.productId as any)?._id)
+              : null;
+
             return (
               <div
                 key={order._id}
                 className="flex flex-col sm:flex-row items-stretch rounded-[1.5rem] bg-white shadow-sm hover:shadow-xl border border-slate-200 transition-all overflow-hidden group"
               >
                 {/* Product Image */}
-                <div
-                  className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden"
-                >
-                  <img
-                    src={getImageUrl((firstItem.productId as any)?.image)}
-                    alt="Food"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
-                </div>
+                {firstProductId ? (
+                  <Link
+                    to={`/food/${firstProductId}`}
+                    className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden block"
+                  >
+                    <img
+                      src={getImageUrl((firstItem.productId as any)?.image)}
+                      alt="Food"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden"
+                  >
+                    <img
+                      src={getImageUrl((firstItem.productId as any)?.image)}
+                      alt="Food"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+                  </div>
+                )}
 
                 {/* Content */}
                 <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
@@ -298,7 +318,13 @@ const OrderHistoryTabContent = () => {
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="min-w-0">
                       <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1.5 leading-tight group-hover:text-orange-600 transition-colors">
-                        {(firstItem as any).productId?.name || "Sản phẩm"}
+                        {firstProductId ? (
+                          <Link to={`/food/${firstProductId}`} className="hover:underline">
+                            {(firstItem as any).productId?.name || "Sản phẩm"}
+                          </Link>
+                        ) : (
+                          (firstItem as any).productId?.name || "Sản phẩm"
+                        )}
                       </h3>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">

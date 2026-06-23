@@ -15,7 +15,6 @@ const ROUTE_LABELS: Record<string, string> = {
   admin: "Admin",
   operations: "Vận hành",
   orders: "Đơn hàng",
-  dispatch: "Điều phối",
   shifts: "Ca làm việc",
   catalog: "Menu & AI",
   products: "Sản phẩm",

@@ -195,20 +195,18 @@ const getWardCentroid = (wardName: string): [number, number] | null => {
 
 /**
  * Calculate shipping fee based on address and dynamic config from Store Settings.
- * @param ward                - value from `address.ward`
- * @param city                - value from `address.city`
- * @param subtotal            - cart subtotal in VND
- * @param storeCoordinates    - Coordinates [lng, lat] of the selected store branch
- * @param config              - fee configuration from Store Settings API (optional, falls back to defaults)
- * @param customerCoordinates - Geocoded [lng, lat] of the customer's full address (optional, falls back to ward centroid)
+ * @param ward             - value from `address.ward`
+ * @param city             - value from `address.city`
+ * @param subtotal         - cart subtotal in VND
+ * @param storeCoordinates - Coordinates [lng, lat] of the selected store branch
+ * @param config           - fee configuration from Store Settings API (optional, falls back to defaults)
  */
 export function calculateShippingFee(
   ward: string,
   city: string,
   subtotal: number,
   storeCoordinates?: number[],
-  config: ShippingConfig = DEFAULT_SHIPPING_CONFIG,
-  customerCoordinates?: [number, number],
+  config: ShippingConfig = DEFAULT_SHIPPING_CONFIG
 ): ShippingResult {
   const normalCity = city.trim();
   const normalWard = ward.trim();
@@ -248,17 +246,13 @@ export function calculateShippingFee(
   // Determine distance
   let distance = isInner ? 2.0 : 5.0; // fallback defaults
   if (storeCoordinates && storeCoordinates.length === 2) {
-    // Prefer geocoded customer address, fall back to ward centroid
-    const targetCoords = (customerCoordinates && customerCoordinates.length === 2)
-      ? customerCoordinates
-      : getWardCentroid(normalWard);
-
-    if (targetCoords) {
+    const wardCentroid = getWardCentroid(normalWard);
+    if (wardCentroid) {
       const storeLng = storeCoordinates[0];
       const storeLat = storeCoordinates[1];
-      const targetLng = targetCoords[0];
-      const targetLat = targetCoords[1];
-      const rawDistance = calculateDistance(storeLat, storeLng, targetLat, targetLng);
+      const wardLng = wardCentroid[0];
+      const wardLat = wardCentroid[1];
+      const rawDistance = calculateDistance(storeLat, storeLng, wardLat, wardLng);
       // Round to 1 decimal place (e.g. 2.4 km)
       distance = Math.round(rawDistance * 10) / 10;
     }
@@ -270,6 +264,6 @@ export function calculateShippingFee(
   }
 
   // 4. Calculate dynamic fee based on distance
-  const fee = Math.round(baseDeliveryFee + feePerKm * distance);
+  const fee = Math.round((baseDeliveryFee + feePerKm * distance) / 2);
   return { fee, blocked: false, zone: isInner ? "inner" : "outer", distance };
 }

@@ -14,6 +14,8 @@ import { SupportConversationModel, OrderModel, UserModel } from '@/models';
 import cron from 'node-cron';
 import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
+import { startEmailWorker } from '@/jobs/email-queue';
+
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
@@ -190,4 +192,8 @@ cron.schedule('* * * * *', async () => {
 server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await connectToDatabase();
+  
+  // Khởi chạy hàng đợi gửi mail chạy ngầm
+  startEmailWorker();
+  console.log('[Queue] BullMQ Email Worker đã sẵn sàng nhận nhiệm vụ.');
 });

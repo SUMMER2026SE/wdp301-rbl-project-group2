@@ -385,7 +385,9 @@ const MenuPage = () => {
                   {t("customer:menu.noResults", "Không tìm thấy món ăn")}
                 </h3>
                 <p className="text-slate-500 mt-2 max-w-sm mx-auto font-medium">
-                  Rất tiếc, không có món ăn nào phù hợp với bộ lọc hiện tại. Thử tìm với từ khóa khác nhé!
+                  {debouncedSearch.trim()
+                    ? `Không có món ăn nào có tên khớp với “${debouncedSearch.trim()}”.`
+                    : "Không có món ăn nào phù hợp với bộ lọc hiện tại."}
                 </p>
                 <Button
                   onClick={clearFilters}

@@ -11,7 +11,6 @@ export const deliveryAddressValidator = z.object({
   ward: z.string().min(1, 'Phường/Xã không được để trống'),
   district: z.string().min(1, 'Quận/Huyện không được để trống').optional(),
   city: z.string().min(1, 'Thành phố không được để trống'),
-  customerCoords: z.tuple([z.number(), z.number()]).optional(),
 });
 
 export const orderItemVariationValidator = z.object({

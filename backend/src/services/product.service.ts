@@ -43,112 +43,7 @@ const withRecipeNames = <T extends Record<string, any>>(product: T): T => {
   };
 };
 
-// ─── Vietnamese Smart Search Synonym Dictionary ───
-const SEARCH_SYNONYMS: Record<string, { keywords: string[]; categories: string[] }> = {
-  // Đồ uống
-  'nước': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'coca', 'pepsi', 'bia', 'rượu', 'chanh', 'cam', 'dừa', 'soda', 'matcha', 'latte', 'smoothie'], categories: ['Giải Khát & Tráng Miệng'] },
-  'đồ uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa', 'smoothie', 'latte', 'matcha'], categories: ['Giải Khát & Tráng Miệng'] },
-  'uống': { keywords: ['nước', 'trà', 'cà phê', 'sinh tố', 'nước ép', 'sữa'], categories: ['Giải Khát & Tráng Miệng'] },
-  'trà': { keywords: ['trà', 'tea', 'trà đào', 'trà sữa', 'trà xanh', 'trà oolong', 'trà chanh'], categories: ['Giải Khát & Tráng Miệng'] },
-  'cà phê': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino', 'americano', 'mocha'], categories: ['Giải Khát & Tráng Miệng'] },
-  'cafe': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Giải Khát & Tráng Miệng'] },
-  'coffee': { keywords: ['cà phê', 'coffee', 'latte', 'espresso', 'cappuccino'], categories: ['Giải Khát & Tráng Miệng'] },
-  'sinh tố': { keywords: ['sinh tố', 'smoothie', 'xoài', 'dâu', 'bơ', 'chuối'], categories: ['Giải Khát & Tráng Miệng'] },
-
-  // Món chính - Cơm & Nước
-  'cơm': { keywords: ['cơm', 'cơm tấm', 'cơm chiên', 'cơm rang', 'cơm gà', 'cơm sườn', 'cơm cuộn'], categories: ['Cơm Đĩa Truyền Thống'] },
-  'bún': { keywords: ['bún', 'bún bò', 'bún riêu', 'bún chả', 'bún thịt'], categories: ['Trứ Danh Món Nước'] },
-  'phở': { keywords: ['phở', 'phở bò', 'phở gà'], categories: ['Trứ Danh Món Nước'] },
-  'mì': { keywords: ['mì', 'mỳ', 'mì xào', 'mì quảng', 'spaghetti', 'pasta', 'noodle'], categories: ['Trứ Danh Món Nước'] },
-
-  // Thịt
-  'thịt': { keywords: ['thịt', 'sườn', 'bò', 'heo', 'lợn', 'gà', 'vịt', 'nướng', 'kho', 'rim', 'chiên', 'steak', 'burger'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
-  'gà': { keywords: ['gà', 'chicken', 'cánh gà', 'đùi gà', 'gà rán', 'gà nướng', 'gà chiên'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
-  'bò': { keywords: ['bò', 'beef', 'steak', 'bít tết', 'bò kho', 'bò lúc lắc'], categories: ['Cơm Đĩa Truyền Thống'] },
-  'hải sản': { keywords: ['hải sản', 'tôm', 'cá', 'mực', 'cua', 'ghẹ', 'sò', 'ốc', 'seafood'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
-  'cá': { keywords: ['cá', 'cá hồi', 'cá thu', 'cá kho', 'cá chiên', 'fish'], categories: ['Cơm Đĩa Truyền Thống'] },
-  'tôm': { keywords: ['tôm', 'tôm hùm', 'tôm nướng', 'tôm chiên', 'shrimp'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
-
-  // Đồ ăn nhanh
-  'đồ ăn nhanh': { keywords: ['burger', 'pizza', 'hotdog', 'gà rán', 'khoai tây', 'sandwich', 'wrap'], categories: ['Gọi Thêm Ăn Kèm'] },
-  'pizza': { keywords: ['pizza', 'pepperoni', 'margherita', 'hawaiian'], categories: ['Gọi Thêm Ăn Kèm'] },
-  'burger': { keywords: ['burger', 'hamburger', 'cheeseburger'], categories: ['Gọi Thêm Ăn Kèm'] },
-
-  // Tráng miệng
-  'tráng miệng': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'mousse', 'tiramisu', 'yogurt'], categories: ['Giải Khát & Tráng Miệng'] },
-  'ngọt': { keywords: ['kem', 'bánh', 'chè', 'pudding', 'flan', 'đường', 'mật ong', 'chocolate'], categories: ['Giải Khát & Tráng Miệng'] },
-  'bánh': { keywords: ['bánh', 'cake', 'bánh mì', 'bánh ngọt', 'bánh tráng', 'bánh cuốn'], categories: ['Giải Khát & Tráng Miệng', 'Gọi Thêm Ăn Kèm'] },
-  'kem': { keywords: ['kem', 'ice cream', 'gelato', 'sorbet'], categories: ['Giải Khát & Tráng Miệng'] },
-  'chè': { keywords: ['chè', 'chè bưởi', 'chè đậu', 'chè thái'], categories: ['Giải Khát & Tráng Miệng'] },
-
-  // Khai vị
-  'khai vị': { keywords: ['gỏi', 'salad', 'nem', 'chả giò', 'khoai tây chiên', 'soup', 'súp', 'canh'], categories: ['Gọi Thêm Ăn Kèm'] },
-  'salad': { keywords: ['salad', 'gỏi', 'rau', 'trộn'], categories: ['Góc Healthy & Ăn Kiêng', 'Gọi Thêm Ăn Kèm'] },
-  'gỏi': { keywords: ['gỏi', 'salad', 'trộn', 'nộm'], categories: ['Góc Healthy & Ăn Kiêng', 'Gọi Thêm Ăn Kèm'] },
-
-  // Chay
-  'chay': { keywords: ['chay', 'rau', 'đậu hũ', 'đậu phụ', 'nấm', 'rau củ', 'vegan', 'vegetarian'], categories: [] },
-  'rau': { keywords: ['rau', 'salad', 'rau muống', 'rau cải', 'rau xào', 'luộc'], categories: ['Góc Healthy & Ăn Kiêng'] },
-
-  // Nướng / Chiên
-  'nướng': { keywords: ['nướng', 'bbq', 'barbecue', 'xiên', 'than hoa', 'lò'], categories: ['Cơm Đĩa Truyền Thống'] },
-  'chiên': { keywords: ['chiên', 'rán', 'giòn', 'xù', 'fried'], categories: ['Cơm Đĩa Truyền Thống', 'Gọi Thêm Ăn Kèm'] },
-
-  // Ăn sáng
-  'sáng': { keywords: ['sáng', 'breakfast', 'bánh mì', 'xôi', 'phở', 'bún', 'cháo', 'trứng'], categories: [] },
-  'ăn sáng': { keywords: ['bánh mì', 'xôi', 'phở', 'bún', 'cháo', 'trứng', 'sandwich'], categories: [] },
-};
-
-/**
- * Build a smart search query using synonym mapping + multi-field search
- */
-function buildSmartSearchQuery(search: string): any {
-  const searchLower = search.toLowerCase().trim();
-  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  // Base conditions: always search in name, description, tags, and healthTags
-  const orConditions: any[] = [
-    { name: { $regex: escapedSearch, $options: 'i' } },
-    { description: { $regex: escapedSearch, $options: 'i' } },
-    { tags: { $regex: escapedSearch, $options: 'i' } },
-    { healthTags: { $regex: escapedSearch, $options: 'i' } },
-  ];
-
-  // Check for synonym matches
-  const matchedSynonym = SEARCH_SYNONYMS[searchLower];
-
-  if (matchedSynonym) {
-    // Add category-based search
-    if (matchedSynonym.categories.length > 0) {
-      orConditions.push({ category: { $in: matchedSynonym.categories } });
-    }
-
-    // Add keyword-based regex search on name
-    for (const keyword of matchedSynonym.keywords) {
-      if (keyword.toLowerCase() !== searchLower) {
-        const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        orConditions.push({ name: { $regex: escapedKeyword, $options: 'i' } });
-      }
-    }
-  } else {
-    // No exact synonym match — try partial matching on synonym keys
-    for (const [key, value] of Object.entries(SEARCH_SYNONYMS)) {
-      if (key.includes(searchLower) || searchLower.includes(key)) {
-        if (value.categories.length > 0) {
-          orConditions.push({ category: { $in: value.categories } });
-        }
-        for (const keyword of value.keywords) {
-          const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          orConditions.push({ name: { $regex: escapedKeyword, $options: 'i' } });
-        }
-        break; // Only use the first partial match
-      }
-    }
-  }
-
-  return { $or: orConditions };
-}
-
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 interface ProductFilters {
   category?: string;
@@ -288,14 +183,9 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     query.rating = { $gte: minRating };
   }
 
-  if (search) {
-    const smartSearchQuery = buildSmartSearchQuery(search);
-    if (smartSearchQuery) {
-      // Merge smart search conditions with existing query
-      if (smartSearchQuery.$or) {
-        query.$or = smartSearchQuery.$or;
-      }
-    }
+  const literalSearch = search?.trim();
+  if (literalSearch) {
+    query.name = { $regex: escapeRegex(literalSearch), $options: 'i' };
   }
 
   let sortOptions: any = {};

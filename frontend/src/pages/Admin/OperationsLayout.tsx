@@ -4,8 +4,6 @@ import { cn } from "@/lib/utils";
 const TABS = [
     { label: "Đơn hàng", href: "/admin/orders" },
     { label: "Công nợ Staff", href: "/admin/cash-control" },
-    { label: "Điều phối", href: "/admin/dispatch" },
-    { label: "Lịch trình", href: "/admin/delivery" },
 ];
 
 const AdminOperationsLayout = () => {

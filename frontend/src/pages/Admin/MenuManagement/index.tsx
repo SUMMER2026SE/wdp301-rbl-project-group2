@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { clsx } from "clsx";
+import { ChefHat, ImageOff, LayoutGrid, List, Plus, Search, X } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useToast, ToastContainer } from "@/hooks/useToast";
-import type { Product } from "@/types/product";
+import type { Product, ProductFilters } from "@/types/product";
 import ProductFormModal from "./ProductFormModal";
 import { CUSTOMER_CATEGORY_FILTERS, HEALTH_TAG_OPTIONS } from "@/constants/product.constants";
 import { Pagination } from "@/components/shared/Pagination";
@@ -94,7 +95,7 @@ const AdminMenuManagement = () => {
   const { toasts, toast, dismiss } = useToast();
 
   // Build filters từ state — hook tự fetch lại khi filters thay đổi
-  const filters: Record<string, any> = {
+  const filters: ProductFilters = {
     page: currentPage,
     limit: pageSize,
     showAll: true,
@@ -168,13 +169,15 @@ const AdminMenuManagement = () => {
   // ── Render helpers ──
 
   const renderImage = (item: Product) => {
-    const imgSrc =
-      typeof item.image === "object" ? item.image?.secureUrl : null;
+    const imgSrc = typeof item.image === "string"
+      ? item.image.trim()
+      : item.image?.secureUrl?.trim();
     if (imgSrc) {
       return (
         <img
           src={imgSrc}
-          alt={item.name}
+          alt={`Ảnh món ${item.name}`}
+          loading="lazy"
           className="w-full h-full object-cover"
         />
       );
@@ -202,68 +205,41 @@ const AdminMenuManagement = () => {
 
   return (
     <div className="max-w-7xl mx-auto w-full p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight text-[#1b140d]">
-            Quản lý thực đơn
-          </h2>
-          <p className="text-[#9a734c] mt-1">
-            Quản lý món ăn, cập nhật giá và trạng thái phục vụ.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block mr-2">
-            <p className="text-xl font-bold text-[#ee8c2b]">
-              {pagination?.total || 0}
-            </p>
-            <p className="text-xs uppercase tracking-widest text-[#9a734c] font-bold">
-              Tổng món
+      {/* Hero */}
+      <section className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b140d] via-[#6d3518] to-[#d87c24] px-6 py-8 text-white shadow-xl shadow-orange-950/20 md:px-8">
+        <div className="absolute -right-16 -top-24 size-64 rounded-full bg-amber-300/35 blur-3xl" />
+        <div className="absolute -bottom-28 left-1/3 size-64 rounded-full bg-orange-400/20 blur-3xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-orange-200">
+              <ChefHat className="size-4" aria-hidden="true" />
+              Bếp Ăn Ngon
+            </div>
+            <h2 className="text-3xl font-black tracking-tight md:text-4xl">Thực đơn hấp dẫn từ ánh nhìn</h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/70 md:text-base">
+              Quản lý hình ảnh, giá bán và trạng thái phục vụ trong một không gian trực quan hơn.
             </p>
           </div>
-          {/* View toggle */}
-          <div className="flex bg-white rounded-lg border border-[#e7dbcf] p-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={clsx(
-                "p-2 rounded-md transition-colors",
-                viewMode === "table"
-                  ? "bg-[#ee8c2b]/10 text-[#ee8c2b]"
-                  : "text-[#9a734c] hover:bg-[#f3ede7]",
-              )}
-              title="Xem bảng"
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                table_chart
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("card")}
-              className={clsx(
-                "p-2 rounded-md transition-colors",
-                viewMode === "card"
-                  ? "bg-[#ee8c2b]/10 text-[#ee8c2b]"
-                  : "text-[#9a734c] hover:bg-[#f3ede7]",
-              )}
-              title="Xem thẻ"
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                grid_view
-              </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-orange-100/30 bg-white/15 px-5 py-3 shadow-inner shadow-white/5 backdrop-blur-sm">
+              <p className="text-2xl font-black text-orange-300">{pagination?.total || 0}</p>
+              <p className="text-xs font-semibold text-white/60">Tổng món ăn</p>
+            </div>
+            <div className="flex rounded-xl border border-white/15 bg-white/10 p-1 backdrop-blur-sm">
+              <button type="button" onClick={() => setViewMode("card")} className={clsx("flex size-11 items-center justify-center rounded-lg transition-colors", viewMode === "card" ? "bg-white text-[#ee8c2b]" : "text-white/70 hover:bg-white/10")} title="Xem dạng thẻ" aria-label="Xem dạng thẻ">
+                <LayoutGrid className="size-5" aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => setViewMode("table")} className={clsx("flex size-11 items-center justify-center rounded-lg transition-colors", viewMode === "table" ? "bg-white text-[#ee8c2b]" : "text-white/70 hover:bg-white/10")} title="Xem dạng bảng" aria-label="Xem dạng bảng">
+                <List className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <button type="button" onClick={openAddModal} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#ee8c2b] px-6 text-sm font-black text-white shadow-lg shadow-black/20 transition-all hover:bg-[#d87c24] active:scale-[0.98]">
+              <Plus className="size-5" aria-hidden="true" />
+              Thêm món mới
             </button>
           </div>
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#ee8c2b] hover:bg-[#d87c24] text-white text-sm font-bold rounded-lg shadow-sm transition-all"
-          >
-            <span className="material-symbols-outlined text-xl">add</span>
-            Thêm món mới
-          </button>
         </div>
-      </div>
+      </section>
 
       {/* Error banner */}
       {error && (
@@ -274,20 +250,28 @@ const AdminMenuManagement = () => {
       )}
 
       {/* Search + Category chips */}
-      <div className="bg-white rounded-xl border border-[#e7dbcf] p-2 mb-6 shadow-sm">
+      <div className="mb-6 rounded-2xl border border-orange-200/70 bg-gradient-to-br from-white via-[#fffaf4] to-orange-50/70 p-4 shadow-[0_12px_35px_rgba(139,77,27,0.08)]">
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-[#9a734c]" aria-hidden="true" />
+          <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm món theo tên..." className="h-12 w-full rounded-xl border border-orange-200 bg-white pl-12 pr-11 text-sm font-medium text-[#1b140d] shadow-sm outline-none transition focus:border-[#ee8c2b] focus:ring-4 focus:ring-[#ee8c2b]/15" />
+          {searchTerm && (
+            <button type="button" onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#9a734c] hover:bg-[#f3ede7]" aria-label="Xóa nội dung tìm kiếm">
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
         <div className="flex flex-col md:flex-row gap-2">
-
-          <div className="flex items-center gap-2 p-2 overflow-x-auto no-scrollbar">
+          <div className="custom-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
             {CATEGORY_CHIPS.map((chip) => (
               <button
                 key={chip.id}
                 type="button"
                 onClick={() => setActiveCategory(chip.id)}
                 className={clsx(
-                  "shrink-0 h-10 px-5 rounded-lg font-medium text-sm transition-colors",
+                  "shrink-0 h-10 px-5 rounded-full border font-bold text-sm transition-all active:scale-[0.98]",
                   activeCategory === chip.id
-                    ? "bg-[#ee8c2b] text-white"
-                    : "bg-[#f8f7f6] text-[#1b140d] hover:bg-[#ee8c2b]/10",
+                    ? "border-[#ee8c2b] bg-gradient-to-r from-[#ee8c2b] to-[#d87c24] text-white shadow-md shadow-orange-600/20"
+                    : "border-orange-100 bg-white/90 text-[#5a4632] hover:border-orange-300 hover:bg-orange-50 hover:text-[#d87c24]",
                 )}
               >
                 {chip.label}
@@ -366,11 +350,11 @@ const AdminMenuManagement = () => {
         </div>
       ) : viewMode === "table" ? (
         /* ─── TABLE VIEW ─── */
-        <div className="bg-white border border-[#e7dbcf] rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-orange-200/80 bg-white shadow-[0_14px_40px_rgba(139,77,27,0.09)]">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#fcfaf8] border-b border-[#e7dbcf]">
+                <tr className="border-b border-orange-200 bg-gradient-to-r from-orange-100/90 via-amber-50 to-[#fffaf4]">
                   <th className="py-4 px-6 text-xs font-bold text-[#9a734c] uppercase tracking-wider w-20">
                     Ảnh
                   </th>
@@ -391,14 +375,17 @@ const AdminMenuManagement = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e7dbcf]">
+              <tbody className="divide-y divide-orange-100">
                 {products.map((item) => (
                   <tr
                     key={item._id}
-                    className="hover:bg-[#fcfaf8] transition-colors"
+                    className={clsx(
+                      "border-l-4 transition-all hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50/40",
+                      item.isAvailable ? "border-l-emerald-400" : "border-l-amber-400 bg-amber-50/20",
+                    )}
                   >
                     <td className="py-4 px-6">
-                      <div className="h-12 w-12 rounded-lg bg-[#f3ede7] flex items-center justify-center overflow-hidden">
+                      <div className="h-16 w-20 rounded-xl bg-[#f3ede7] flex items-center justify-center overflow-hidden border-2 border-white shadow-md ring-1 ring-orange-100">
                         {renderImage(item) || (
                           <span className="material-symbols-outlined text-[#9a734c] text-[20px]">
                             restaurant
@@ -447,12 +434,12 @@ const AdminMenuManagement = () => {
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+                      <span className="inline-flex items-center rounded-full border border-orange-200 bg-gradient-to-r from-orange-100 to-amber-50 px-3 py-1.5 text-xs font-bold text-orange-800">
                         {item.category}
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <p className="text-sm font-bold text-[#1b140d]">
+                      <p className="inline-flex rounded-xl bg-orange-50 px-3 py-2 text-base font-black text-[#d36f1c]">
                         {item.price.toLocaleString("vi-VN")}₫
                       </p>
                     </td>
@@ -464,8 +451,8 @@ const AdminMenuManagement = () => {
                           onChange={() => handleToggleAvailability(item)}
                           className="sr-only peer"
                         />
-                        <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ee8c2b]" />
-                        <span className="ml-3 text-xs font-medium text-[#9a734c] peer-checked:text-[#ee8c2b]">
+                        <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
+                        <span className="ml-3 text-xs font-medium text-[#9a734c] peer-checked:text-emerald-700">
                           {item.isAvailable ? "Đang bán" : "Tạm ngừng"}
                         </span>
                       </label>
@@ -475,7 +462,7 @@ const AdminMenuManagement = () => {
                         <button
                           type="button"
                           onClick={() => openEditModal(item)}
-                          className="p-2 text-[#9a734c] hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-[#9a734c] hover:text-[#d87c24] hover:bg-orange-100 rounded-lg transition-colors"
                           title="Chỉnh sửa"
                         >
                           <span className="material-symbols-outlined text-xl">
@@ -502,29 +489,23 @@ const AdminMenuManagement = () => {
         </div>
       ) : (
         /* ─── CARD VIEW ─── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {products.map((item) => (
             <div
               key={item._id}
               className={clsx(
-                "flex flex-col bg-white rounded-xl overflow-hidden border border-[#e7dbcf] hover:shadow-xl transition-all duration-300",
-                !item.isAvailable && "opacity-60",
+                "group flex flex-col overflow-hidden rounded-3xl border border-[#e7dbcf] bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-950/10",
+                !item.isAvailable && "bg-[#fcfaf8]",
               )}
             >
-              <div className="relative w-full aspect-4/3 overflow-hidden bg-[#f3ede7]">
-                {typeof item.image === "object" && item.image?.secureUrl ? (
-                  <img
-                    src={item.image.secureUrl}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#9a734c] text-5xl">
-                      restaurant
-                    </span>
+              <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#f3ede7]">
+                {renderImage(item) || (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#fff8ef] to-[#efe0cf] text-[#b88b62]">
+                    <ImageOff className="size-9" aria-hidden="true" />
+                    <span className="mt-2 text-xs font-bold">Chưa có ảnh món</span>
                   </div>
                 )}
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
                 <div className="absolute top-3 left-3">
                   <span
                     className={clsx(
@@ -583,6 +564,10 @@ const AdminMenuManagement = () => {
                       {item.rating}
                     </span>
                   </div>
+                </div>
+                <div className="mb-4 rounded-2xl bg-[#fcfaf8] p-3 text-xs leading-5 text-[#7d6249]">
+                  <span className="mr-1 font-black text-[#5a4632]">Thành phần:</span>
+                  {getRecipeIngredientsText(item)}
                 </div>
                 <div className="mt-auto pt-4 border-t border-[#e7dbcf] flex items-center gap-2">
                   <button

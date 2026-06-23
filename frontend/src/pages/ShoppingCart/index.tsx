@@ -39,6 +39,7 @@ const ShoppingCartPage = () => {
   const [upsellProducts, setUpsellProducts] = useState<Product[]>([]);
   const [loadingUpsell, setLoadingUpsell] = useState(true);
   const selectedStore = useStoreStore((s) => s.selectedStore);
+  const [originalPrices, setOriginalPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchUpsellProducts = async () => {
@@ -90,10 +91,12 @@ const ShoppingCartPage = () => {
         }
 
         const priceMap: Record<string, number> = {};
+        const origPriceMap: Record<string, number> = {};
         productsRes.forEach((res) => {
           if (!res || !res.success || !res.data) return;
           const product = res.data;
           let price = product.price;
+          origPriceMap[product._id] = product.price;
 
           const rule = campaignRuleMap[product._id];
           if (rule) {
@@ -106,6 +109,7 @@ const ShoppingCartPage = () => {
           priceMap[product._id] = price;
         });
 
+        setOriginalPrices(origPriceMap);
         useCartStore.getState().updateItemPrices(priceMap);
       } catch (err) {
         console.error("Failed to sync cart prices with active campaigns:", err);
@@ -254,10 +258,17 @@ const ShoppingCartPage = () => {
                             );
                           })()}
                         </div>
-                        <p className="text-lg font-bold text-text-main dark:text-white">
-                          {(item.price * item.quantity).toLocaleString("vi-VN")}
-                          đ
-                        </p>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-text-main dark:text-white">
+                            {(item.price * item.quantity).toLocaleString("vi-VN")}đ
+                          </p>
+                          {originalPrices[item.productId] !== undefined &&
+                            originalPrices[item.productId] > item.price && (
+                              <p className="text-xs text-gray-400 dark:text-slate-400/70 line-through font-medium">
+                                {(originalPrices[item.productId] * item.quantity).toLocaleString("vi-VN")}đ
+                              </p>
+                            )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between mt-4 sm:mt-0">
                         <button
@@ -397,7 +408,8 @@ const ShoppingCartPage = () => {
                 return (
                   <div
                     key={item._id}
-                    className="bg-white dark:bg-white/5 p-4 rounded-xl border border-gray-100 dark:border-white/10 group hover:border-orange-500 transition-all shadow-sm hover:shadow-md"
+                    onClick={() => navigate(`/food/${item._id}`)}
+                    className="bg-white dark:bg-white/5 p-4 rounded-xl border border-gray-100 dark:border-white/10 group hover:border-orange-500 transition-all shadow-sm hover:shadow-md cursor-pointer"
                   >
                     <div
                       className="bg-center bg-no-repeat aspect-video bg-cover rounded-lg mb-3"
@@ -407,17 +419,25 @@ const ShoppingCartPage = () => {
                       {item.name}
                     </p>
                     <div className="flex justify-between items-center mt-2">
-                      <span className="text-orange-600 font-bold text-sm">
-                        {item.price.toLocaleString("vi-VN")}đ
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-orange-600 font-bold text-sm">
+                          {(item.campaignPrice ?? item.price).toLocaleString("vi-VN")}đ
+                        </span>
+                        {item.campaignPrice != null && (
+                          <span className="text-xs text-gray-400 dark:text-slate-400/70 line-through">
+                            {item.price.toLocaleString("vi-VN")}đ
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={(e) => {
+                          e.stopPropagation();
                           safeAddItem(item, {
                             productId: item._id,
                             name: item.name,
                             image: imageUrl,
-                            price: item.price,
+                            price: item.campaignPrice ?? item.price,
                             quantity: 1,
                           }, () => {
                           showAddToCartFeedback(

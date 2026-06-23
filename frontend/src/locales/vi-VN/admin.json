@@ -24,7 +24,6 @@
     "operations": {
         "title": "Vận hành & Giao nhận",
         "orders": "Đơn hàng",
-        "dispatch": "Điều phối giao hàng",
         "shifts": "Ca làm việc",
         "assignDriver": "Gán tài xế",
         "cashReconciliation": "Đối soát tiền mặt"
