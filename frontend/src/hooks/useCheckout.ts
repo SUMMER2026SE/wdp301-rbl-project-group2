@@ -381,7 +381,6 @@ export const useCheckout = () => {
               voucherId: voucherState.appliedVoucher._id,
             }
           : {}),
-
         deliveryAddress: effectiveAddress,
         shippingFee: deliveryFee,
         deliveryFee,

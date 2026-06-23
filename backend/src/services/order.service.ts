@@ -226,7 +226,7 @@ export async function calculateShippingFee(
     }
   } catch (_) {}
 
-  // Determine distance
+  // Determine distance from server-owned store data and the supported ward centroid.
   let distance = isInner ? 2.0 : 5.0; // fallback defaults
   if (storeId) {
     try {
@@ -416,8 +416,8 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     appAssert(resolvedAddress, BAD_REQUEST, 'Không tìm thấy địa chỉ giao hàng. Vui lòng thêm địa chỉ mặc định.');
 
     /**
-     * Phải tính phí ship trước.
-     * Vì voucher FREESHIP cần actualShippingFee để giảm đúng tiền ship.
+     * Recalculate shipping server-side before voucher validation so FREESHIP
+     * discounts use the authoritative fee.
      */
     const shippingCalc = await calculateShippingFee(
       resolvedAddress.ward,
@@ -425,7 +425,6 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
       subTotal,
       input.storeId
     );
-
     appAssert(!shippingCalc.blocked, BAD_REQUEST, shippingCalc.reason || 'Địa chỉ nằm ngoài vùng giao hàng');
 
     const actualShippingFee = shippingCalc.fee;
@@ -487,7 +486,6 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
           storeId: input.storeId
             ? new mongoose.Types.ObjectId(input.storeId)
             : new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
-
           cusId: userId,
           payment: {
             method: paymentMethod ?? PaymentMethod.CASH,
@@ -790,7 +788,17 @@ export const confirmOrder = async (orderId: string, staffId: mongoose.Types.Obje
 
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     order._id,
-    { $set: { status: OrderStatus.CONFIRMED } },
+    {
+      $set: { status: OrderStatus.CONFIRMED },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.CONFIRMED,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: new Date(),
+        },
+      },
+    },
     { new: true }
   )
     .populate('cusId', 'username fullName email phone')
@@ -869,7 +877,17 @@ export const markOrderReady = async (orderId: string, staffId: mongoose.Types.Ob
   const prevStatus = order.status;
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     order._id,
-    { $set: { status: OrderStatus.READY_FOR_DELIVERY } },
+    {
+      $set: { status: OrderStatus.READY_FOR_DELIVERY },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.READY_FOR_DELIVERY,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: new Date(),
+        },
+      },
+    },
     { new: true }
   )
     .populate('cusId', 'username fullName email phone')
@@ -910,6 +928,14 @@ export const assignDelivery = async (orderId: string, staffId: mongoose.Types.Ob
         status: OrderStatus.SHIPPING,
         'deliveryInfo.driverId': staffId,
         'deliveryInfo.shippedAt': shippedAt,
+      },
+      $push: {
+        statusHistory: {
+          status: OrderStatus.SHIPPING,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: shippedAt,
+        },
       },
     },
     { new: true }
@@ -953,7 +979,21 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
     'deliveryInfo.deliveredAt': deliveredAt,
   };
 
-  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    {
+      $set: update,
+      $push: {
+        statusHistory: {
+          status: OrderStatus.DELIVERED,
+          changedBy: staffId,
+          actorRole: 'staff',
+          createdAt: deliveredAt,
+        },
+      },
+    },
+    { new: true }
+  )
     .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',
@@ -995,7 +1035,25 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
     update.paid = true;
   }
 
-  const updatedOrder = await OrderModel.findByIdAndUpdate(order._id, { $set: update }, { new: true })
+  const cusIdStr = (order.cusId as any)?._id ? (order.cusId as any)._id.toString() : order.cusId?.toString();
+  const isCustomer = actorId && cusIdStr && actorId.toString() === cusIdStr;
+  const actorRole = actorId ? (isCustomer ? 'customer' : 'staff') : 'system';
+
+  const updatedOrder = await OrderModel.findByIdAndUpdate(
+    order._id,
+    {
+      $set: update,
+      $push: {
+        statusHistory: {
+          status: OrderStatus.COMPLETED,
+          changedBy: actorId || (order.cusId as any)?._id || order.cusId || new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          actorRole,
+          createdAt: completedAt,
+        },
+      },
+    },
+    { new: true }
+  )
     .populate('cusId', 'username fullName email phone')
     .populate({
       path: 'items.productId',

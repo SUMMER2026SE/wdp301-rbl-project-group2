@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { type Order } from '@/services/order.service';
 
 // ---- Types ----
 
@@ -7,6 +8,7 @@ export type OrderStep = 'pending' | 'confirmed' | 'preparing' | 'delivering' | '
 
 export interface OrderTimelineProps {
     currentStep: OrderStep;
+    order?: Order;
     className?: string;
 }
 
@@ -21,11 +23,69 @@ const STEPS: { key: OrderStep; icon: string }[] = [
     { key: 'completed', icon: 'task_alt' },
 ];
 
+// ---- Helpers ----
+
+const formatTime = (dateInput: string | Date | null | undefined) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const timeStr = d.toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+    const dateStr = d.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+    return `${timeStr} - ${dateStr}`;
+};
+
+const getMilestoneTimes = (order?: Order) => {
+    const times: Record<OrderStep, string | Date | null> = {
+        pending: null,
+        confirmed: null,
+        preparing: null,
+        delivering: null,
+        delivered: null,
+        completed: null,
+    };
+
+    if (!order) return times;
+
+    times.pending = order.createdAt;
+
+    if (order.statusHistory && Array.isArray(order.statusHistory)) {
+        for (const history of order.statusHistory) {
+            const status = history.status;
+            const timestamp = history.createdAt;
+            if (timestamp) {
+                if (status === 'confirmed') times.confirmed = timestamp;
+                if (status === 'processing' || status === 'preparing') times.preparing = timestamp;
+                if (status === 'shipping' || status === 'delivering') times.delivering = timestamp;
+                if (status === 'delivered') times.delivered = timestamp;
+                if (status === 'completed') times.completed = timestamp;
+            }
+        }
+    }
+
+    // Fallbacks
+    if (!times.confirmed && order.payment?.paidAt) times.confirmed = order.payment.paidAt;
+    if (!times.delivering && order.deliveryInfo?.shippedAt) times.delivering = order.deliveryInfo.shippedAt;
+    if (!times.delivered && order.deliveryInfo?.deliveredAt) times.delivered = order.deliveryInfo.deliveredAt;
+    if (!times.completed && order.status === 'completed') times.completed = order.updatedAt;
+    if (order.status === 'delivered' && !times.delivered) times.delivered = order.updatedAt;
+    if (order.status === 'confirmed' && !times.confirmed) times.confirmed = order.updatedAt;
+
+    return times;
+};
+
 // ---- Component ----
 
-export function OrderTimeline({ currentStep, className }: OrderTimelineProps) {
+export function OrderTimeline({ currentStep, order, className }: OrderTimelineProps) {
     const { t } = useTranslation('customer');
     const currentIndex = STEPS.findIndex((s) => s.key === currentStep);
+    const milestoneTimes = getMilestoneTimes(order);
 
     return (
         <div className={cn('flex flex-col gap-0', className)}>
@@ -33,6 +93,7 @@ export function OrderTimeline({ currentStep, className }: OrderTimelineProps) {
                 const isCompleted = index < currentIndex;
                 const isActive = index === currentIndex;
                 const isUpcoming = index > currentIndex;
+                const stepTime = milestoneTimes[step.key];
 
                 return (
                     <div key={step.key} className="flex items-stretch gap-4">
@@ -78,9 +139,14 @@ export function OrderTimeline({ currentStep, className }: OrderTimelineProps) {
                             )}>
                                 {t(`tracking.status.${step.key}`)}
                             </p>
+                            {stepTime && (
+                                <p className="text-xs text-muted-foreground/80 mt-1 font-medium">
+                                    {formatTime(stepTime)}
+                                </p>
+                            )}
                             {isActive && (
                                 <p className={cn(
-                                    "text-xs mt-0.5 animate-pulse",
+                                    "text-xs mt-1 animate-pulse",
                                     step.key === 'delivered' ? "text-orange-600 dark:text-orange-400 font-semibold" : "text-muted-foreground"
                                 )}>
                                     {step.key === 'delivered'

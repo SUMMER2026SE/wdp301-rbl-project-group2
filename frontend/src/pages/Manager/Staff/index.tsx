@@ -87,10 +87,11 @@ const ManagerStaff = () => {
         reason: deactivateReason,
         note: deactivateNote || undefined,
       });
-      toast.success(`Đã gửi đề xuất xử lý nhân viên ${selectedStaff.fullName || selectedStaff.username}`);
+      toast.success(`Đã tạm khóa tài khoản và gửi đề xuất xử lý nhân viên ${selectedStaff.fullName || selectedStaff.username}`);
       setSelectedStaff(null);
       setDeactivateReason("");
       setDeactivateNote("");
+      void fetchStaff();
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data
@@ -333,7 +334,7 @@ const ManagerStaff = () => {
                     className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-50 transition-all hover:scale-105 active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Đề xuất xử lý
+                    Tạm khóa tài khoản
                   </button>
                 )}
               </div>
@@ -396,7 +397,7 @@ const ManagerStaff = () => {
                           className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-black text-rose-600 hover:bg-rose-50 transition-all hover:scale-105 active:scale-95"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          Đề xuất xử lý
+                          Tạm khóa tài khoản
                         </button>
                       )}
                     </td>
@@ -484,7 +485,7 @@ const ManagerStaff = () => {
             <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-100/50 p-4">
               <AlertTriangle className="mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600 animate-bounce" />
               <p className="text-xs font-bold leading-5 text-amber-800">
-                Lưu ý: Đề xuất sẽ được gửi lên Admin để phê duyệt. Tài khoản nhân viên sẽ chỉ bị ngưng hoạt động/khoá sau khi có sự xác nhận từ phía Admin.
+                Lưu ý: Tài khoản nhân viên sẽ bị tạm ngưng hoạt động/khóa ngay lập tức. Đề xuất xử lý chính thức sẽ được tự động gửi lên Admin để phê duyệt.
               </p>
             </div>
 
@@ -504,7 +505,7 @@ const ManagerStaff = () => {
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-6 py-3 text-sm font-black text-white hover:bg-rose-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {saving ? "Đang gửi..." : "Gửi yêu cầu"}
+                {saving ? "Đang xử lý..." : "Khóa & Đề xuất"}
               </button>
             </div>
           </div>

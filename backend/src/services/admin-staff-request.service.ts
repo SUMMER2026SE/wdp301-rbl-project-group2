@@ -9,7 +9,7 @@ import VerificationCodeModel from '@/models/verification-code.model';
 import { Role, UserStatus } from '@/types/user.type';
 import { StaffRequestStatus, StaffRequestType } from '@/types/staff-request.type';
 import { VerificationCodeType } from '@/types/verification-code.type';
-import { createAuditLog, auditUserCreated, auditUserDisabled } from '@/services/audit-log.service';
+import { createAuditLog, auditUserCreated, auditUserDisabled, auditUserEnabled } from '@/services/audit-log.service';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 import { oneHourFromNow } from '@/utils/date';
 import { getStaffInviteTemplate } from '@/utils/email-templates';
@@ -155,6 +155,26 @@ export const rejectStaffRequest = async (
   request.reviewedAt = new Date();
   request.adminNote = payload.adminNote.trim();
   await request.save();
+
+  // Solution 1: Revert staff status to active if a deactivation request is rejected by Admin
+  if (request.type === StaffRequestType.DEACTIVATE_STAFF && request.targetStaffId) {
+    const staff = await UserModel.findOne({
+      _id: request.targetStaffId,
+      role: Role.STAFF,
+      storeId: request.storeId,
+    });
+    if (staff) {
+      const oldData = { status: staff.status };
+      staff.status = UserStatus.ACTIVE;
+      await staff.save();
+      await auditUserEnabled(adminId, oldData, {
+        userId: staff._id,
+        status: staff.status,
+        staffRequestId: request._id,
+        note: 'Mở khóa tài khoản do Admin từ chối đề xuất',
+      });
+    }
+  }
 
   await createAuditLog({
     userId: adminId,
