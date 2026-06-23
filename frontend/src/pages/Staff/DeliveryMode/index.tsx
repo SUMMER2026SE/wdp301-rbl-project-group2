@@ -15,6 +15,7 @@ import {
 import orderService, { type Order } from "@/services/order.service";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
+import { getSupportSocket } from "@/lib/support-socket";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function isCodPayment(method: string | undefined): boolean {
@@ -343,6 +344,22 @@ export default function StaffDeliveryMode() {
             fetchDeliveries(true);
         }, 0);
         return () => clearTimeout(timer);
+    }, [fetchDeliveries]);
+
+    useEffect(() => {
+        const socket = getSupportSocket();
+
+        const handleStatusUpdated = (data: { orderId: string; status: string }) => {
+            console.log("[StaffDeliveryMode] Realtime order status update received:", data);
+            // Refresh delivery list if we get an update
+            void fetchDeliveries();
+        };
+
+        socket.on("order:status_updated", handleStatusUpdated);
+
+        return () => {
+            socket.off("order:status_updated", handleStatusUpdated);
+        };
     }, [fetchDeliveries]);
 
     const handleCompleteDelivery = async (orderId: string) => {

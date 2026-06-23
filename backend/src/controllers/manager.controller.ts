@@ -163,6 +163,21 @@ export const managerAssignDeliveryHandler: RequestHandler = catchErrors(async (r
     note: req.body.note,
   });
 
+  const io = req.app.get('io');
+  if (io) {
+    const roomName = `user:${req.body.driverId}`;
+    const activeSockets = io.sockets.adapter.rooms.get(roomName);
+    const count = activeSockets ? activeSockets.size : 0;
+    console.log(`[Socket] Manager assigned driver. Emitting order:status_updated to room "${roomName}". Sockets connected in room: ${count}`);
+
+    io.to(roomName).emit('order:status_updated', {
+      orderId: order._id,
+      code: order.code,
+      status: order.status,
+      message: `Bạn đã được gán giao đơn hàng #${order.code}.`,
+    });
+  }
+
   res.status(200).json({ success: true, data: order });
 });
 
