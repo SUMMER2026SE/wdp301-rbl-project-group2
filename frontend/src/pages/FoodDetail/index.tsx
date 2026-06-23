@@ -131,7 +131,7 @@ const FoodDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
-  const { safeAddItem } = useSafeCart(); // Chỉ dùng safeAddItem để kích hoạt FSS-40
+  const { addItem } = useSafeCart();
   const { isAuthenticated } = useAuth();
   const { openChat } = useSupportChatStore();
 
@@ -358,7 +358,8 @@ const FoodDetailPage = () => {
     }
   };
 
-  // --- [FIXED] Sửa lỗi logic bypass FSS-40 ---
+  // Trang chi tiết đã hiển thị đầy đủ cảnh báo dị ứng trước khu vực thao tác.
+  // Vì vậy thêm từ đây đi thẳng vào giỏ để không yêu cầu xác nhận hai lần.
   const handleAddToCart = (e?: MouseEvent<HTMLButtonElement>) => {
     if (!product) return;
 
@@ -386,14 +387,12 @@ const FoodDetailPage = () => {
       variations,
     };
 
-    // Phải dùng safeAddItem để kích hoạt luồng cảnh báo dị ứng
-    safeAddItem(product, itemData, () => {
-      showAddToCartFeedback(
-        e?.currentTarget,
-        getImageUrl(product.image),
-        t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
-      );
-    });
+    addItem(itemData);
+    showAddToCartFeedback(
+      e?.currentTarget,
+      getImageUrl(product.image),
+      t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
+    );
   };
 
   const handleBuyNow = () => {
@@ -562,7 +561,9 @@ const FoodDetailPage = () => {
                 </div>
 
                 {/* AI Healthy Badge */}
-                {product.healthTags && product.healthTags.length > 0 && (
+                {displayAllergyResult.level === "safe" &&
+                  product.healthTags &&
+                  product.healthTags.length > 0 && (
                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[1.5rem] p-5 mb-8 flex items-start gap-4">
                     <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
                       <ShieldCheck className="w-6 h-6" />
@@ -1034,23 +1035,18 @@ const FoodDetailPage = () => {
         toastError={(msg) => toast.error(msg)}
         onConfirm={({ variations, unitPrice }) => {
           if (!product) return;
-          safeAddItem(
-            product,
-            {
-              productId: product._id,
-              name: product.name,
-              image: typeof product.image === "object" ? product.image.secureUrl : product.image,
-              price: unitPrice,
-              quantity,
-              variations,
-            },
-            () => {
-              showAddToCartFeedback(
-                null,
-                getImageUrl(product.image),
-                t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
-              );
-            }
+          addItem({
+            productId: product._id,
+            name: product.name,
+            image: typeof product.image === "object" ? product.image.secureUrl : product.image,
+            price: unitPrice,
+            quantity,
+            variations,
+          });
+          showAddToCartFeedback(
+            null,
+            getImageUrl(product.image),
+            t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
           );
         }}
       />

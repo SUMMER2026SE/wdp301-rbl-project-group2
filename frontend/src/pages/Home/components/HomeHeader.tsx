@@ -19,6 +19,25 @@ interface HomeHeaderProps {
   onSearchChange?: (query: string) => void;
 }
 
+const getNotificationDisplayText = (notification: Notification) => {
+  if (notification.title !== "Danh gia da bi xoa") {
+    return { title: notification.title, body: notification.body };
+  }
+
+  return {
+    title: "Đánh giá đã bị xóa",
+    body: notification.body
+      .replace(
+        "Danh gia cua ban da bi xoa do vi pham chinh sach noi dung.",
+        "Đánh giá của bạn đã bị xóa do vi phạm chính sách nội dung.",
+      )
+      .replace(
+        "Ban da bi tam khoa quyen danh gia trong 24 gio.",
+        "Bạn đã bị tạm khóa quyền đánh giá trong 24 giờ.",
+      ),
+  };
+};
+
 const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const navigate = useNavigate();
   const { t } = useTranslation(["common", "customer"]);
@@ -413,8 +432,11 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                             Chưa có thông báo nào.
                           </div>
                         ) : (
-                          notifications.map((noti) => (
-                            <button
+                          notifications.map((noti) => {
+                            const displayText = getNotificationDisplayText(noti);
+
+                            return (
+                              <button
                               key={noti._id}
                               onClick={async () => {
                                 try {
@@ -447,7 +469,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-sm font-bold text-gray-900 line-clamp-1">
-                                      {noti.title}
+                                      {displayText.title}
                                     </p>
 
                                     {!noti.isRead && (
@@ -456,7 +478,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                   </div>
 
                                   <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                    {noti.body}
+                                    {displayText.body}
                                   </p>
 
                                   <p className="text-[11px] text-gray-400 mt-2">
@@ -466,8 +488,9 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                   </p>
                                 </div>
                               </div>
-                            </button>
-                          ))
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     </div>
