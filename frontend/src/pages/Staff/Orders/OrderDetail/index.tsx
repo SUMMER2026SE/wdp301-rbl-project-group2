@@ -19,6 +19,7 @@ import {
   MessageCircle,
   BellRing
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
 import RejectModal from "@/components/Staff/RejectModal";
@@ -56,11 +57,11 @@ const getStatusTheme = (status: string) => {
 const buildChecklist = (items: Order["items"]): ChecklistItem[] =>
   items.flatMap((item) => {
     const base: ChecklistItem = {
-      label: `Chuẩn bị ${typeof item.product_id === 'object' ? item.product_id.name : "món ăn"} (x${item.quantity})`,
+      label: `Chuẩn bị ${typeof item.productId === 'object' ? item.productId.name : "món ăn"} (x${item.quantity})`,
       done: false,
     };
     const extras: ChecklistItem[] = (item.variations || []).map((v) => ({
-      label: `${v.name}: ${v.choice} — ${typeof item.product_id === 'object' ? item.product_id.name : ""}`,
+      label: `${v.name}: ${v.choice} — ${typeof item.productId === 'object' ? item.productId.name : ""}`,
       done: false,
     }));
     return [base, ...extras];
@@ -70,6 +71,7 @@ const buildChecklist = (items: Order["items"]): ChecklistItem[] =>
 export default function StaffOrderDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { storeId } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,11 +79,19 @@ export default function StaffOrderDetail() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
+  const handleClose = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/staff/orders");
+    }
+  };
+
   const fetchOrder = useCallback(async () => {
-    if (!id) return;
+    if (!id || !storeId) return;
     try {
       setLoading(true);
-      const res = await orderService.getOrderById(id);
+      const res = await orderService.getStaffOrderById(id, { storeId });
       setOrder(res.data);
       setChecklist(buildChecklist(res.data.items));
     } catch (err: unknown) {
@@ -90,22 +100,37 @@ export default function StaffOrderDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, storeId]);
 
   useEffect(() => {
-    fetchOrder();
+    const timer = setTimeout(() => {
+      fetchOrder();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchOrder]);
 
   const handleUpdateStatus = async (status: Order["status"]) => {
-    if (!order) return;
+    if (!order || !storeId) return;
     try {
       setUpdating(true);
 
-      // Nếu là hành động Nhận giao hàng (Tôi đi giao), gọi endpoint riêng nếu có, hoặc update status
-      if (status === 'shipping' && order.status === 'ready_for_delivery') {
-        await orderService.assignDelivery(order._id);
-      } else {
-        await orderService.updateOrderStatus(order._id, status);
+      switch (status) {
+        case "confirmed":
+          await orderService.staffConfirmOrder(order._id, { storeId });
+          break;
+        case "ready_for_delivery":
+          await orderService.staffMarkOrderReady(order._id, { storeId });
+          break;
+        case "shipping":
+          await orderService.staffAssignDelivery(order._id, { storeId });
+          break;
+        case "completed":
+          await orderService.staffCompleteDelivery(order._id, { storeId });
+          break;
+        default:
+          alert(`Trạng thái "${status}" không được hỗ trợ.`);
+          setUpdating(false);
+          return;
       }
 
       await fetchOrder();
@@ -117,14 +142,14 @@ export default function StaffOrderDetail() {
   };
 
   const handleConfirmReject = async (reason: string) => {
-    if (!order) return;
- 
+    if (!order || !storeId) return;
+
     try {
       setUpdating(true);
-      await orderService.rejectOrder(order._id, reason);
+      await orderService.staffRejectOrder(order._id, { storeId, reason });
       setIsRejectModalOpen(false);
       await fetchOrder();
-    } catch (err) {
+    } catch {
       alert("Không thể từ chối đơn hàng. Vui lòng thử lại!");
     } finally {
       setUpdating(false);
@@ -246,12 +271,17 @@ export default function StaffOrderDetail() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 md:p-8 overflow-hidden animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-[1200px] h-[95vh] md:h-full max-h-[900px] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 overflow-hidden">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-200 cursor-pointer animate-in fade-in"
+        onClick={handleClose}
+      />
+      <div className="relative bg-white w-full max-w-[1200px] h-[95vh] md:h-full max-h-[900px] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 z-10">
 
         {/* Nút Đóng */}
         <button
-          onClick={() => navigate("/staff/orders")}
+          onClick={handleClose}
           className="absolute top-5 right-5 p-2.5 bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-full transition-all z-20 active:scale-95"
         >
           <X className="w-5 h-5" />
@@ -300,8 +330,8 @@ export default function StaffOrderDetail() {
               </div>
               <div className="divide-y divide-slate-100">
                 {order.items.map((item, idx) => {
-                  const product = typeof item.product_id === 'object' ? item.product_id : null;
-                  const imageUrl = typeof product?.image === 'string' ? product.image : (product?.image as { secure_url: string })?.secure_url;
+                  const product = typeof item.productId === 'object' ? item.productId : null;
+                  const imageUrl = typeof product?.image === 'string' ? product.image : (product?.image as { secureUrl: string })?.secureUrl;
 
                   return (
                     <div key={idx} className="p-5 flex items-center gap-4 hover:bg-slate-50/50 transition-colors">
@@ -321,7 +351,7 @@ export default function StaffOrderDetail() {
                         <p className="font-black text-slate-900 text-lg">x{item.quantity}</p>
                       </div>
                       <div className="text-right pl-4 min-w-[100px]">
-                        <p className="font-black text-slate-900 text-lg">{item.sub_total.toLocaleString("vi-VN")}đ</p>
+                        <p className="font-black text-slate-900 text-lg">{(item.subTotal || 0).toLocaleString("vi-VN")}đ</p>
                       </div>
                     </div>
                   );
@@ -337,15 +367,15 @@ export default function StaffOrderDetail() {
                   <User className="w-4 h-4 text-orange-500" />
                   <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Khách hàng</h3>
                 </div>
-                <p className="font-bold text-slate-900 text-lg">{typeof order.user_id === 'object' ? order.user_id.username : "Khách hàng"}</p>
-                <p className="text-orange-600 font-bold mb-4">{typeof order.user_id === 'object' ? order.user_id.phone : order.delivery_address.phone}</p>
+                <p className="font-bold text-slate-900 text-lg">{typeof order.cusId === 'object' ? (order.cusId.fullName || order.cusId.username) : "Khách hàng"}</p>
+                <p className="text-orange-600 font-bold mb-4">{typeof order.cusId === 'object' ? order.cusId.phone : order.deliveryAddress?.phone || "Chưa có SĐT"}</p>
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex gap-3">
                   <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
                   <div>
                     <p className="text-sm font-bold text-slate-800 mb-0.5">Địa chỉ giao</p>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      {order.delivery_address.detail}, {order.delivery_address.ward}, {order.delivery_address.district}
+                      {order.deliveryAddress?.detail ? `${order.deliveryAddress.detail}, ${order.deliveryAddress.ward}, ${order.deliveryAddress.city}` : "Chưa cập nhật địa chỉ giao hàng"}
                     </p>
                   </div>
                 </div>
@@ -366,11 +396,11 @@ export default function StaffOrderDetail() {
                 <div className="space-y-3 mb-4 flex-1">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 font-medium">Tạm tính</span>
-                    <span className="text-slate-900 font-bold">{order.sub_total.toLocaleString("vi-VN")}đ</span>
+                    <span className="text-slate-900 font-bold">{(order.subTotal || 0).toLocaleString("vi-VN")}đ</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 font-medium">Phí giao hàng</span>
-                    <span className="text-slate-900 font-bold">{order.shipping_fee.toLocaleString("vi-VN")}đ</span>
+                    <span className="text-slate-900 font-bold">{(order.shippingFee || 0).toLocaleString("vi-VN")}đ</span>
                   </div>
                   {order.voucher && (
                     <div className="flex justify-between text-sm text-emerald-600 font-bold">
@@ -384,13 +414,13 @@ export default function StaffOrderDetail() {
                   <div className="flex justify-between items-end mb-2">
                     <span className="font-black text-slate-500">TỔNG CỘNG</span>
                     <span className="text-3xl font-black text-orange-600 tracking-tight">
-                      {order.total_price.toLocaleString("vi-VN")}đ
+                      {(order.totalPrice || 0).toLocaleString("vi-VN")}đ
                     </span>
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md uppercase">
-                      {order.payment.method === 'cash_on_delivery' ? 'Thanh toán COD' : 'Chuyển khoản'}
-                      ({order.payment.paid_at ? 'Đã thu tiền' : 'Chưa thu tiền'})
+                      {order.payment?.method === 'cash' ? 'Thanh toán COD' : 'Chuyển khoản'}
+                      ({order.payment?.paidAt ? 'Đã thu tiền' : 'Chưa thu tiền'})
                     </span>
                   </div>
                 </div>
@@ -436,8 +466,8 @@ export default function StaffOrderDetail() {
                   return (
                     <div key={idx} className={`relative pl-14 transition-opacity ${isFuture ? 'opacity-40' : 'opacity-100'}`}>
                       <div className={`absolute left-0 top-0 w-10 h-10 rounded-full border-2 flex items-center justify-center z-10 bg-white transition-all ${isPast ? 'border-emerald-500 text-emerald-500 bg-emerald-50' :
-                          isCurrent ? 'border-orange-500 text-orange-500 shadow-[0_0_0_6px_rgba(249,115,22,0.1)]' :
-                            'border-slate-200 text-slate-400'
+                        isCurrent ? 'border-orange-500 text-orange-500 shadow-[0_0_0_6px_rgba(249,115,22,0.1)]' :
+                          'border-slate-200 text-slate-400'
                         }`}>
                         <Icon className="w-4 h-4" />
                       </div>

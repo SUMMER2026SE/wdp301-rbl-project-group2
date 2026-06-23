@@ -4,11 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { Shield, ShieldCheck, ShieldAlert, Star, Plus, Loader2, ArrowLeft, Sparkles } from "lucide-react";
 import recommendationService from "@/services/recommendation.service";
 import type { Product } from "@/types/product";
+import { useStoreStore } from "@/store/storeStore";
+import { getAllergenLabel } from "@/constants/allergenCatalog";
 
 // ── Helpers ──────────────────────────────────────────────
 const getImageUrl = (image: Product["image"]): string => {
   if (!image) return "";
-  if (typeof image === "object" && image.secure_url) return image.secure_url;
+  if (typeof image === "object" && image.secureUrl) return image.secureUrl;
   if (typeof image === "string") return image;
   return "";
 };
@@ -19,7 +21,7 @@ interface SafeFoodsData {
   filters: {
     allergies: string[];
     dietary: string[];
-    health_goals: string[];
+    healthGoals: string[];
   };
   stats: {
     total: number;
@@ -43,6 +45,7 @@ const SafeFoodSkeleton = () => (
 // ── Main Component ───────────────────────────────────────
 const SafeAlternativesPage = () => {
   const navigate = useNavigate();
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   const [data, setData] = useState<SafeFoodsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,7 @@ const SafeAlternativesPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await recommendationService.getSafeFoods();
+        const res = await recommendationService.getSafeFoods({ storeId: selectedStore?._id, refresh: true });
         if (!cancelled) {
           setData({
             products: res.data.data,
@@ -76,12 +79,12 @@ const SafeAlternativesPage = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedStore?._id]);
 
   const allFilters = [
-    ...(data?.filters.allergies || []).map((a) => ({ label: `Không ${a}`, type: "allergy" as const })),
+    ...(data?.filters.allergies || []).map((a) => ({ label: `Không ${getAllergenLabel(a).toLowerCase()}`, type: "allergy" as const })),
     ...(data?.filters.dietary || []).map((d) => ({ label: d, type: "dietary" as const })),
-    ...(data?.filters.health_goals || []).map((g) => ({ label: g, type: "goal" as const })),
+    ...(data?.filters.healthGoals || []).map((g) => ({ label: g, type: "goal" as const })),
   ];
 
   return (

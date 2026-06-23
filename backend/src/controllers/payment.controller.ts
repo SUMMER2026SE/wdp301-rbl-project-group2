@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { OK } from '@/constants/http';
 import { verifyWebhookData } from '@/services/payos.service';
 import { cancelPayosPayment, confirmPayment } from '@/services/order.service';
@@ -21,8 +21,8 @@ export const payosWebhookHandler = catchErrors(async (req: Request, res: Respons
 
         // Notify user via socket so the mobile app can instantly close the checkout Modal
         const io = req.app.get('io');
-        if (io && order && order.user_id) {
-            io.to(`user:${order.user_id}`).emit('order:status_updated', {
+        if (io && order && order.cusId) {
+            io.to(`user:${order.cusId}`).emit('order:status_updated', {
                 orderId: order._id,
                 code: order.code,
                 status: order.status,

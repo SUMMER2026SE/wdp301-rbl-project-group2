@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { History, Plus, Loader2 } from "lucide-react";
 import orderService, { type Order } from "@/services/order.service";
-import { useCart } from "@/hooks/useCart";
-import { useToast } from "@/hooks/useToast";
+import { useTranslation } from "react-i18next";
+import { useSafeCart } from "@/hooks/useSafeCart";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
+import productAPI from "@/services/product.service";
 
 const formatRelativeTime = (isoDate: string) => {
   const created = new Date(isoDate);
@@ -20,14 +22,14 @@ const formatRelativeTime = (isoDate: string) => {
 const getImageUrl = (image: any): string => {
   if (!image) return "";
   if (typeof image === "string") return image;
-  return image.secure_url || image.url || "";
+  return image.secureUrl || image.url || "";
 };
 
 const HistorySection: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const { addItem } = useCart();
-  const { toast } = useToast();
+  const { t } = useTranslation(["customer"]);
+  const { addItem, safeAddItem } = useSafeCart();
 
   useEffect(() => {
     const fetchRecentOrders = async () => {
@@ -66,7 +68,7 @@ const HistorySection: React.FC = () => {
 
     completedOrders.forEach((order) => {
       order.items.forEach((item) => {
-        const product: any = item.product_id;
+        const product: any = item.productId;
         const productId =
           typeof product === "string" ? product : product?._id;
         if (!productId) return;
@@ -75,8 +77,8 @@ const HistorySection: React.FC = () => {
           typeof product?.price === "number"
             ? product.price
             : item.quantity > 0
-              ? item.sub_total / item.quantity
-              : item.sub_total;
+              ? item.subTotal / item.quantity
+              : item.subTotal;
 
         const existing = productMap.get(productId);
         if (!existing) {
@@ -170,18 +172,33 @@ const HistorySection: React.FC = () => {
                   </p>
                   <button
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      addItem({
+                      const cartItem = {
                         productId: item.productId,
                         name: item.name,
                         image: item.image,
                         price: item.price,
                         quantity: 1,
-                      });
-                      toast("Đã thêm món vào giỏ hàng!", "success");
+                      };
+                      const showFeedback = () => {
+                        showAddToCartFeedback(
+                        e.currentTarget,
+                        item.image,
+                        t("customer:foodCard.addedToCart", "Đã thêm sản phẩm vào giỏ hàng!"),
+                        );
+                      };
+
+                      try {
+                        const response = await productAPI.getProductById(item.productId);
+                        safeAddItem(response.data, cartItem, showFeedback);
+                      } catch (error) {
+                        console.error("Failed to load product for allergy check:", error);
+                        addItem(cartItem);
+                        showFeedback();
+                      }
                     }}
-                    className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors"
+                    className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors cursor-pointer"
                     aria-label="Đặt lại món ăn này"
                   >
                     <Plus className="w-4 h-4" />

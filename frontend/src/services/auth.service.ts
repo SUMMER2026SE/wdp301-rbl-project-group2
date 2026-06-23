@@ -11,32 +11,42 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  confirm_password?: string;
+  confirmPassword?: string;
+  referralCode?: string;
 }
 
 /**
  * BE user object shape (after omitPassword).
- * Role is UPPERCASE enum from BE: 'ADMIN' | 'STAFF' | 'CUSTOMER'
+ * Role is normalized by FE auth store: 'ADMIN' | 'MANAGER' | 'STAFF' | 'CUSTOMER'.
  */
 export interface BEUser {
   _id: string;
   username: string;
+  fullName?: string;
   email: string;
   phone?: string;
-  role: "ADMIN" | "STAFF" | "CUSTOMER";
+  preferences?: {
+    dietary: string[];
+    allergies: string[];
+    healthGoals: string[];
+    isHealthSetup?: boolean;
+  };
+  isHealthSetup?: boolean;
+  role: "ADMIN" | "MANAGER" | "STAFF" | "CUSTOMER";
+  storeId?: string | null;
   isActive: boolean;
-  verified_at: string | null;
+  verifiedAt: string | null;
   addresses: Array<{
     label: string;
-    receiver_name: string;
+    receiverName: string;
     phone: string;
     detail: string;
     ward: string;
-    district: string;
+    district?: string;
     city: string;
     isDefault: boolean;
   }>;
-  collected_points: number;
+  collectedPoints: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,7 +70,7 @@ export interface ResetPasswordRequest {
   email: string;
   code: string;
   password: string;
-  confirm_password: string;
+  confirmPassword: string;
 }
 
 export interface VerifyEmailRequest {
@@ -70,6 +80,7 @@ export interface VerifyEmailRequest {
 
 export interface GoogleLoginRequest {
   credential: string;
+  referralCode?: string;
 }
 
 // ---- Service ----

@@ -54,7 +54,10 @@
         "checkout": "Checkout",
         "removeItem": "Remove item",
         "continueShopping": "Continue shopping",
-        "youMayLike": "You may also like"
+        "youMayLike": "You may also like",
+        "previewTitle": "Your cart",
+        "moreItems": "+{{count}} more items",
+        "viewCart": "View cart"
     },
     "checkout": {
         "title": "Checkout",
@@ -99,6 +102,7 @@
             "confirmed": "Confirmed",
             "preparing": "Preparing",
             "delivering": "Delivering",
+            "delivered": "Delivered (Pending Confirmation)",
             "completed": "Completed",
             "cancelled": "Cancelled"
         },
@@ -216,6 +220,7 @@
     },
     "foodCard": {
         "addToCart": "Add to cart",
+        "addedToCart": "Product added to cart!",
         "allergyWarning": "Contains allergens!",
         "caution": "Use caution"
     },

@@ -2,9 +2,9 @@ import mongoose from 'mongoose';
 import { UserModel } from '@/models';
 import { IUser } from '@/types';
 import { Role } from '@/types/user.type';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, CONFLICT, NOT_FOUND } from '@/constants/http';
-import withTransaction from '@/utils/withTransaction';
+import withTransaction from '@/utils/with-transaction';
 import { auditUserUpdated } from '@/services/audit-log.service';
 import { TUpdateMeParams } from '@/validators/auth.validator';
 import { compareValue } from '@/utils/bcrypt';
@@ -13,7 +13,7 @@ export const getUsersByRole = async (role: Role, page: number = 1, limit: number
   const skip = (page - 1) * limit;
 
   const [users, total] = await Promise.all([
-    UserModel.find({ role }).select('-password_hash').skip(skip).limit(limit).lean(),
+    UserModel.find({ role }).select('-passwordHash').skip(skip).limit(limit).lean(),
     UserModel.countDocuments({ role }),
   ]);
 
@@ -50,16 +50,19 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
 
     const oldData = user.omitPassword();
 
-    const update: Partial<Record<keyof TUpdateMeParams | 'aiRecommendationsCache', any>> = {};
+    const update: Partial<Record<keyof TUpdateMeParams | 'aiRecommendationsCache' | 'isHealthSetup', any>> = {};
     if (payload.username !== undefined) update.username = payload.username;
+    if (payload.fullName !== undefined) update.fullName = payload.fullName;
     if (payload.phone !== undefined) update.phone = payload.phone;
+    if (payload.receiveCampaignNotifications !== undefined) update.receiveCampaignNotifications = payload.receiveCampaignNotifications;
     if (payload.addresses !== undefined) update.addresses = normalizeDefaultAddress(payload.addresses);
     if (payload.preferences !== undefined) {
       update.preferences = {
         dietary: payload.preferences.dietary ?? (user.preferences?.dietary ?? []),
         allergies: payload.preferences.allergies ?? (user.preferences?.allergies ?? []),
-        health_goals: payload.preferences.health_goals ?? (user.preferences?.health_goals ?? []),
+        healthGoals: (payload.preferences as any).healthGoals ?? (user.preferences?.healthGoals ?? []),
       };
+      update.isHealthSetup = true;
       // Invalidate AI cache whenever health profile/preferences changes!
       update.aiRecommendationsCache = null;
     }
@@ -75,7 +78,7 @@ export const updateMe = (userId: mongoose.Types.ObjectId, payload: TUpdateMePara
 
     await auditUserUpdated(userId, oldData as any, newData as any, { session });
 
-    return newData as Omit<IUser, 'password_hash'>;
+    return newData as Omit<IUser, 'passwordHash'>;
   });
 
 export const changePassword = async (
@@ -86,10 +89,13 @@ export const changePassword = async (
   const user = await UserModel.findById(userId);
   appAssert(user, NOT_FOUND, 'Không tìm thấy tài khoản');
 
-  const isMatch = await compareValue(currentPassword, user.password_hash);
+  const isMatch = await compareValue(currentPassword, user.passwordHash);
   appAssert(isMatch, BAD_REQUEST, 'Mật khẩu hiện tại không đúng');
 
+  const isSameAsOld = await compareValue(newPassword, user.passwordHash);
+  appAssert(!isSameAsOld, BAD_REQUEST, 'Mật khẩu mới không được trùng với mật khẩu cũ');
+
   // Gán plain text — pre-save hook sẽ tự động hash trước khi lưu
-  user.password_hash = newPassword;
+  user.passwordHash = newPassword;
   await user.save();
 };

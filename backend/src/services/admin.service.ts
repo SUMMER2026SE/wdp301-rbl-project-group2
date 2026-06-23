@@ -1,25 +1,36 @@
 import { APP_ORIGIN, NODE_ENV } from '@/constants/env';
 import { CONFLICT, INTERNAL_SERVER_ERROR, NOT_FOUND } from '@/constants/http';
-import { OrderModel, UserModel, ProductModel, ReviewModel } from '@/models';
-import VerificationCodeModel from '@/models/verificationCode.model';
-import { Role } from '@/types/user.type';
+import { OrderModel, UserModel, ProductModel, ReviewModel, IngredientModel } from '@/models';
+import VerificationCodeModel from '@/models/verification-code.model';
+import { Role, UserStatus } from '@/types/user.type';
 import { OrderStatus, PaymentMethod } from '@/types/order.type';
-import { VerificationCodeType } from '@/types/verificationCode.type';
-import appAssert from '@/utils/appAssert';
+import { VerificationCodeType } from '@/types/verification-code.type';
+import appAssert from '@/utils/app-assert';
 import { oneHourFromNow } from '@/utils/date';
-import { sendMail } from '@/utils/sendMail';
-import withTransaction from '@/utils/withTransaction';
+import { sendMail } from '@/utils/send-mail';
+import withTransaction from '@/utils/with-transaction';
 import { randomUUID } from 'crypto';
 import AuditLogModel from '@/models/audit-log.model';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
-import { generateUsernameFromEmail } from '@/utils/generateUsername';
-import { getStaffInviteTemplate } from '@/utils/emailTemplates';
+import { generateUsernameFromEmail } from '@/utils/generate-username';
+import { getStaffInviteTemplate } from '@/utils/email-templates';
 import mongoose from 'mongoose';
 import { assignDelivery } from '@/services/order.service';
+import { StoreModel } from '@/models';
 
-export const createStaffByAdmin = async (
+export const createManagerByAdmin = async (
   adminId: mongoose.Types.ObjectId | string,
-  { name, email, phone }: { name: string; email: string; phone?: string }
+  {
+    name,
+    email,
+    phone,
+    storeId,
+  }: {
+    name: string;
+    email: string;
+    phone?: string;
+    storeId: string;
+  }
 ) => {
   return withTransaction(async (session) => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -27,45 +38,61 @@ export const createStaffByAdmin = async (
     const emailExist = await UserModel.exists({ email: normalizedEmail }).session(session);
     appAssert(!emailExist, CONFLICT, 'Tài khoản email đã tồn tại');
 
+    const storeExists = await StoreModel.exists({
+      _id: storeId,
+    }).session(session);
+
+    appAssert(storeExists, NOT_FOUND, 'Không tìm thấy cửa hàng');
+
+    const managerExistsInStore = await UserModel.exists({
+      role: Role.MANAGER,
+      storeId,
+      status: { $ne: UserStatus.DELETED },
+    }).session(session);
+
+    appAssert(!managerExistsInStore, CONFLICT, 'Cửa hàng này đã có quản lí');
+
     const username = await generateUsernameFromEmail(normalizedEmail, session);
 
-    const staff = new UserModel({
+    const manager = new UserModel({
       fullName: name,
       username,
       email: normalizedEmail,
       phone,
-      role: Role.STAFF,
-      password_hash: randomUUID(),
-      isActive: false,
+      role: Role.MANAGER,
+      storeId: new mongoose.Types.ObjectId(storeId),
+      passwordHash: randomUUID(),
+
+      status: UserStatus.INACTIVE,
     });
 
-    await staff.save({ session });
+    await manager.save({ session });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     const verificationCode = new VerificationCodeModel({
-      user_id: staff._id,
+      userId: manager._id,
       type: VerificationCodeType.STAFF_INVITE,
-      email: staff.email,
+      email: manager.email,
       code,
-      expires_at: oneHourFromNow(),
+      expiresAt: oneHourFromNow(),
     });
 
     await verificationCode.save({ session });
 
-    const url = `${APP_ORIGIN}/reset-password?code=${code}&email=${staff.email}&type=invite`;
+    const url = `${APP_ORIGIN}/reset-password?code=${code}&email=${manager.email}&type=invite`;
 
     const { error } = await sendMail({
-      to: staff.email,
+      to: manager.email,
       ...getStaffInviteTemplate(url),
     });
 
     if (error) {
       if (NODE_ENV === 'development') {
-        console.warn('⚠ [DEV] Gửi email mời staff thất bại. URL:', url);
+        console.warn('⚠ [DEV] Gửi email mời manager thất bại. URL:', url);
         console.warn('⚠ [DEV] Lỗi:', (error as Error)?.message);
       } else {
-        appAssert(!error, INTERNAL_SERVER_ERROR, 'Lỗi khi gửi email mời staff thiết lập mật khẩu');
+        appAssert(!error, INTERNAL_SERVER_ERROR, 'Lỗi khi gửi email mời manager thiết lập mật khẩu');
       }
     }
 
@@ -74,66 +101,103 @@ export const createStaffByAdmin = async (
     await AuditLogModel.create(
       [
         {
-          user_id: actorId,
-          entity_type: AuditEntityType.USER,
+          userId: actorId,
+          entityType: AuditEntityType.USER,
           action: AuditLogAction.CREATE,
-          old_data: null,
-          new_data: {
-            id: staff._id,
-            username: staff.username,
-            email: staff.email,
-            phone: staff.phone,
-            role: staff.role,
-            isActive: staff.isActive,
+          oldData: null,
+          newData: {
+            id: manager._id,
+            username: manager.username,
+            email: manager.email,
+            phone: manager.phone,
+            role: manager.role,
+            status: manager.status,
+            storeId: manager.storeId,
           },
-          created_at: new Date(),
+          createdAt: new Date(),
         },
       ],
       { session }
     );
 
-    return staff.omitPassword();
+    return manager.omitPassword();
   });
 };
 
-export const updateStaffStatus = async (
+export const getManagersByAdmin = async (page = 1, limit = 10) => {
+  const skip = (page - 1) * limit;
+
+  const managers = await UserModel.find({
+    role: Role.MANAGER,
+  })
+    .select('-passwordHash')
+    .populate('storeId', 'name storeName address status isActive')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const total = await UserModel.countDocuments({
+    role: Role.MANAGER,
+  });
+
+  return {
+    managers,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+export const updateManagerStatus = async (
   adminId: mongoose.Types.ObjectId | string,
-  staffId: string,
+  managerId: string,
   isActive: boolean
 ) => {
   return withTransaction(async (session) => {
-    const staff = await UserModel.findOne({ _id: staffId, role: Role.STAFF }).session(session);
-    appAssert(staff, NOT_FOUND, 'Không tìm thấy nhân viên');
+    const manager = await UserModel.findOne({
+      _id: managerId,
+      role: Role.MANAGER,
+    }).session(session);
+
+    appAssert(manager, NOT_FOUND, 'Không tìm thấy quản lí');
 
     const oldData = {
-      id: staff._id,
-      isActive: staff.isActive,
+      id: manager._id,
+      status: manager.status,
     };
 
-    staff.isActive = isActive;
-    await staff.save({ session });
+    manager.status = isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE;
+    await manager.save({ session });
 
     const actorId = typeof adminId === 'string' ? new mongoose.Types.ObjectId(adminId) : adminId;
 
     await AuditLogModel.create(
       [
         {
-          user_id: actorId,
-          entity_type: AuditEntityType.USER,
+          userId: actorId,
+          entityType: AuditEntityType.USER,
           action: AuditLogAction.UPDATE,
-          old_data: oldData,
-          new_data: {
-            id: staff._id,
-            isActive: staff.isActive,
+          oldData,
+          newData: {
+            id: manager._id,
+            status: manager.status,
           },
-          created_at: new Date(),
+          createdAt: new Date(),
         },
       ],
       { session }
     );
 
-    return staff.omitPassword();
+    return manager.omitPassword();
   });
+};
+
+export const listAdminStores = async () => {
+  return StoreModel.find({}).select('_id name storeName address status isActive').sort({ createdAt: -1 }).lean();
 };
 
 /**
@@ -145,16 +209,16 @@ export const getCashControl = async () => {
       $match: {
         status: OrderStatus.COMPLETED,
         'payment.method': PaymentMethod.CASH_ON_DELIVERY,
-        'payment.cash_collected_at': null,
-        'delivery_info.driver_id': { $ne: null },
+        'payment.cashCollectedAt': null,
+        'deliveryInfo.driverId': { $ne: null },
       },
     },
     {
       $group: {
-        _id: '$delivery_info.driver_id',
-        total_amount: { $sum: '$total_price' },
-        order_count: { $sum: 1 },
-        order_ids: { $push: '$_id' },
+        _id: '$deliveryInfo.driverId',
+        totalAmount: { $sum: '$totalPrice' },
+        orderCount: { $sum: 1 },
+        orderIds: { $push: '$_id' },
       },
     },
     {
@@ -171,11 +235,11 @@ export const getCashControl = async () => {
     {
       $project: {
         _id: 1,
-        total_amount: 1,
-        order_count: 1,
-        order_ids: 1,
-        driver_name: '$driver.username',
-        driver_email: '$driver.email',
+        totalAmount: 1,
+        orderCount: 1,
+        orderIds: 1,
+        driverName: '$driver.username',
+        driverEmail: '$driver.email',
       },
     },
   ]);
@@ -192,15 +256,15 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 
   const result = await OrderModel.updateMany(
     {
-      'delivery_info.driver_id': new mongoose.Types.ObjectId(driverId),
+      'deliveryInfo.driverId': new mongoose.Types.ObjectId(driverId),
       status: OrderStatus.COMPLETED,
       'payment.method': PaymentMethod.CASH_ON_DELIVERY,
-      'payment.cash_collected_at': null,
+      'payment.cashCollectedAt': null,
     },
     {
       $set: {
-        'payment.cash_collected_at': new Date(),
-        'payment.cash_collected_by': new mongoose.Types.ObjectId(adminId),
+        'payment.cashCollectedAt': new Date(),
+        'payment.cashCollectedBy': new mongoose.Types.ObjectId(adminId),
       },
     }
   );
@@ -214,11 +278,23 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 /**
  * Get customers with order statistics (cancellation rate, etc.)
  */
-export const getCustomersWithStats = async (page: number = 1, limit: number = 10) => {
+export const getCustomersWithStats = async (page: number = 1, limit: number = 10, search?: string) => {
   const skip = (page - 1) * limit;
 
+  const matchQuery: any = { role: Role.CUSTOMER };
+
+  if (search && search.trim() !== '') {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    matchQuery.$or = [
+      { fullName: { $regex: escapedSearch, $options: 'i' } },
+      { email: { $regex: escapedSearch, $options: 'i' } },
+      { phone: { $regex: escapedSearch, $options: 'i' } },
+      { username: { $regex: escapedSearch, $options: 'i' } },
+    ];
+  }
+
   const users = await UserModel.aggregate([
-    { $match: { role: Role.CUSTOMER } },
+    { $match: matchQuery },
     { $sort: { createdAt: -1 } },
     { $skip: skip },
     { $limit: limit },
@@ -226,14 +302,14 @@ export const getCustomersWithStats = async (page: number = 1, limit: number = 10
       $lookup: {
         from: 'orders',
         localField: '_id',
-        foreignField: 'user_id',
+        foreignField: 'cusId',
         as: 'orders',
       },
     },
     {
       $addFields: {
-        total_orders: { $size: '$orders' },
-        cancelled_orders: {
+        totalOrders: { $size: '$orders' },
+        cancelledOrders: {
           $size: {
             $filter: {
               input: '$orders',
@@ -242,7 +318,7 @@ export const getCustomersWithStats = async (page: number = 1, limit: number = 10
             },
           },
         },
-        cancellation_rate: {
+        cancellationRate: {
           $cond: [
             { $gt: [{ $size: '$orders' }, 0] },
             {
@@ -271,13 +347,13 @@ export const getCustomersWithStats = async (page: number = 1, limit: number = 10
     },
     {
       $project: {
-        password_hash: 0,
+        passwordHash: 0,
         orders: 0,
       },
     },
   ]);
 
-  const total = await UserModel.countDocuments({ role: Role.CUSTOMER });
+  const total = await UserModel.countDocuments(matchQuery);
 
   return {
     users,
@@ -293,7 +369,7 @@ export const getCustomersWithStats = async (page: number = 1, limit: number = 10
  */
 export const getCustomerCancelledOrders = async (userId: string) => {
   return await OrderModel.find({
-    user_id: new mongoose.Types.ObjectId(userId),
+    cusId: new mongoose.Types.ObjectId(userId),
     status: OrderStatus.CANCELLED,
   })
     .sort({ createdAt: -1 })
@@ -301,8 +377,7 @@ export const getCustomerCancelledOrders = async (userId: string) => {
 };
 
 /**
- * Admin: list all reviews + hasResponse based on existing reply (parent_reply).
- * Since FE mock needs dishName/customerName/date/time/status, we adapt Review schema.
+ * Admin: list all reviews + hasResponse based on existing reply.
  */
 export const listAdminReviews = async (page: number = 1, limit: number = 20) => {
   const safePage = Math.max(1, page);
@@ -314,32 +389,25 @@ export const listAdminReviews = async (page: number = 1, limit: number = 20) => 
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
-      .populate('user_id', 'username avatar')
-      .populate('product_id', 'name')
-      .select('user_id product_id rating comment images parent_reply createdAt')
+      .populate('userId', 'username avatar')
+      .populate('productId', 'name')
+      .select('userId productId rating comment images reply createdAt')
       .lean(),
     ReviewModel.countDocuments({}),
   ]);
-
-  const reviewIds = reviews.map((r: any) => r._id);
-  const replies = await ReviewModel.find({ parent_reply: { $in: reviewIds } })
-    .select('parent_reply')
-    .lean();
-
-  const repliesByParent = new Set(replies.map((r: any) => String(r.parent_reply)));
 
   const formatted = reviews.map((r: any) => {
     const dt = new Date(r.createdAt);
     const date = dt.toISOString().slice(0, 10); // YYYY-MM-DD
     const time = dt.toISOString().slice(11, 16); // HH:mm
-    const hasResponse = repliesByParent.has(String(r._id));
+    const hasResponse = !!r.reply;
     const status = r.rating != null && Number(r.rating) <= 2 ? 'flagged' : 'published';
 
     return {
       id: String(r._id),
-      customerName: r.user_id?.username || 'Unknown',
-      avatar: r.user_id?.avatar ?? null,
-      dishName: r.product_id?.name || 'Unknown dish',
+      customerName: r.userId?.username || 'Unknown',
+      avatar: r.userId?.avatar ?? null,
+      dishName: r.productId?.name || 'Unknown dish',
       rating: r.rating ?? 0,
       comment: r.comment || '',
       date,
@@ -359,29 +427,18 @@ export const listAdminReviews = async (page: number = 1, limit: number = 20) => 
 };
 
 /**
- * Admin reply to a review (create/update reply review).
+ * Admin reply to a review.
  */
 export const replyAdminReview = async (adminId: mongoose.Types.ObjectId, reviewId: string, comment: string) => {
-  const parentReview = await ReviewModel.findById(reviewId).select('_id user_id order_id product_id').lean();
-
+  const parentReview = await ReviewModel.findById(reviewId).select('_id userId orderId productId').lean();
   appAssert(parentReview, 404, 'Không tìm thấy đánh giá');
 
-  // Upsert reply for admin (one reply per review per admin)
-  const reply = await ReviewModel.findOneAndUpdate(
+  const reply = await ReviewModel.findByIdAndUpdate(
+    reviewId,
     {
-      parent_reply: new mongoose.Types.ObjectId(reviewId),
-      user_id: adminId,
+      reply: comment,
     },
-    {
-      user_id: adminId,
-      order_id: parentReview.order_id,
-      product_id: parentReview.product_id,
-      rating: null,
-      comment,
-      parent_reply: parentReview._id,
-      isAnonymous: false,
-    },
-    { new: true, upsert: true }
+    { new: true }
   );
 
   return reply;
@@ -389,30 +446,27 @@ export const replyAdminReview = async (adminId: mongoose.Types.ObjectId, reviewI
 
 /**
  * Derived ingredients: unique recipe names from products.
- * Allergens/dietary are not stored in BE right now, so we return empty arrays.
  */
 export const listAdminIngredients = async () => {
+  const ingredients = await IngredientModel.find().lean();
   const products = await ProductModel.find({}, { recipe: 1 }).lean();
 
-  const map = new Map<string, { name: string; usedInProducts: number }>();
-  const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '-');
-
+  const mapCount = new Map<string, number>();
   for (const p of products) {
-    const recipeNames = (p.recipe || []).map((r: any) => String(r.name || '').trim()).filter(Boolean);
-    const uniq = new Set(recipeNames);
-    for (const name of uniq) {
-      const key = normalize(name);
-      const prev = map.get(key);
-      map.set(key, { name, usedInProducts: (prev?.usedInProducts || 0) + 1 });
+    const uniqIds = new Set((p.recipe || []).map((r: any) => String(r.ingredientId || '')));
+    for (const id of uniqIds) {
+      if (id) {
+        mapCount.set(id, (mapCount.get(id) ?? 0) + 1);
+      }
     }
   }
 
-  const items = Array.from(map.entries()).map(([key, v]) => ({
-    id: `ing-${key}`,
-    name: v.name,
-    allergens: [] as string[],
+  const items = ingredients.map((ing: any) => ({
+    id: ing._id.toString(),
+    name: ing.name,
+    allergens: ing.allergenTags || [],
     dietary: [] as string[],
-    usedInProducts: v.usedInProducts,
+    usedInProducts: mapCount.get(ing._id.toString()) ?? 0,
   }));
 
   items.sort((a: any, b: any) => a.name.localeCompare(b.name));
@@ -440,23 +494,22 @@ export const listAdminInventory = async () => {
 };
 
 /**
- * Admin shippers: STAFF users + compute current orders from order delivery_info.
- * Note: rating/zone may be derived as basic placeholders due to missing schema.
+ * Admin shippers: STAFF users + compute current orders from order deliveryInfo.
  */
 export const listAdminShippers = async () => {
   const staff = await UserModel.find({ role: Role.STAFF }).select('_id username phone isActive').lean();
   const staffIds = staff.map((s: any) => s._id);
 
   const orders = await OrderModel.find({
-    'delivery_info.driver_id': { $in: staffIds },
+    'deliveryInfo.driverId': { $in: staffIds },
     status: { $in: [OrderStatus.READY_FOR_DELIVERY, OrderStatus.SHIPPING, OrderStatus.COMPLETED] },
   })
-    .select('delivery_info.driver_id status delivery_info.shipped_at delivery_info.delivered_at delivery_address')
+    .select('deliveryInfo.driverId status deliveryInfo.shippedAt deliveryInfo.deliveredAt deliveryAddress')
     .lean();
 
   const ordersByDriver = new Map<string, any[]>();
   for (const o of orders) {
-    const id = String(o.delivery_info.driver_id);
+    const id = String(o.deliveryInfo.driverId);
     const arr = ordersByDriver.get(id) || [];
     arr.push(o);
     ordersByDriver.set(id, arr);
@@ -478,8 +531,8 @@ export const listAdminShippers = async () => {
     // average delivery time in minutes
     const times = completed
       .map((o) => {
-        if (!o.delivery_info?.shipped_at || !o.delivery_info?.delivered_at) return null;
-        const ms = new Date(o.delivery_info.delivered_at).getTime() - new Date(o.delivery_info.shipped_at).getTime();
+        if (!o.deliveryInfo?.shippedAt || !o.deliveryInfo?.deliveredAt) return null;
+        const ms = new Date(o.deliveryInfo.deliveredAt).getTime() - new Date(o.deliveryInfo.shippedAt).getTime();
         if (!Number.isFinite(ms) || ms < 0) return null;
         return ms / 60000;
       })
@@ -488,22 +541,14 @@ export const listAdminShippers = async () => {
     const avgTime = times.length ? times.reduce((a, b) => a + (b as number), 0) / times.length : null;
     avgTimeByDriver.set(id, avgTime ?? 0);
 
-    // most common district
+    // most common delivery ward
     const districtCount: Record<string, number> = {};
     for (const o of assigned) {
-      const district = String(o.delivery_address?.district || '').trim();
+      const district = String(o.deliveryAddress?.ward || '').trim();
       if (!district) continue;
       districtCount[district] = (districtCount[district] || 0) + 1;
     }
     zonesByDriver.set(id, districtCount);
-
-    const zone = Object.entries(districtCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-
-    const status = !s.isActive ? 'offline' : currentOrders > 0 ? 'busy' : 'active';
-
-    // FE expects: status 'active' | 'busy' | 'offline'
-    // rating/zone/avgTime can be placeholders
-    (zonesByDriver as any).set(id, districtCount);
   }
 
   const result = staff.map((s: any) => {
@@ -538,21 +583,20 @@ export const listAdminShippers = async () => {
 
 /**
  * Active deliveries list for FE mock replacement.
- * We map order status to FE delivery status: pending/picking_up/delivering.
  */
 export const listAdminActiveDeliveries = async () => {
   const orders = await OrderModel.find({
     status: { $in: [OrderStatus.READY_FOR_DELIVERY, OrderStatus.SHIPPING] },
   })
     .sort({ createdAt: -1 })
-    .populate('user_id', 'username')
-    .populate('delivery_info.driver_id', 'username phone isActive')
+    .populate('cusId', 'username fullName')
+    .populate('deliveryInfo.driverId', 'username phone isActive')
     .select(
-      'code status createdAt delivery_info.driver_id delivery_info.shipped_at delivery_info.delivered_at delivery_address user_id'
+      'code status createdAt deliveryInfo.driverId deliveryInfo.shippedAt deliveryInfo.deliveredAt deliveryAddress cusId'
     );
 
   return orders.map((o: any) => {
-    const driver = o.delivery_info?.driver_id;
+    const driver = o.deliveryInfo?.driverId;
     const status = o.status === OrderStatus.READY_FOR_DELIVERY ? (driver ? 'picking_up' : 'pending') : 'delivering';
 
     const progress = status === 'pending' ? 10 : status === 'picking_up' ? 30 : 75;
@@ -560,12 +604,12 @@ export const listAdminActiveDeliveries = async () => {
     return {
       id: String(o._id),
       shipper: driver?.username || 'Chưa nhận',
-      customer: o.user_id?.username || 'Unknown',
-      address: `${o.delivery_address?.detail || ''}${o.delivery_address?.district ? `, ${o.delivery_address.district}` : ''}`,
+      customer: o.cusId?.fullName || o.cusId?.username || 'Unknown',
+      address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
       status,
       estimatedTime:
-        o.delivery_info?.delivered_at && o.delivery_info?.shipped_at
-          ? `${Math.max(0, Math.round((new Date(o.delivery_info.delivered_at).getTime() - new Date(o.delivery_info.shipped_at).getTime()) / 60000))} phút`
+        o.deliveryInfo?.deliveredAt && o.deliveryInfo?.shippedAt
+          ? `${Math.max(0, Math.round((new Date(o.deliveryInfo.deliveredAt).getTime() - new Date(o.deliveryInfo.shippedAt).getTime()) / 60000))} phút`
           : '—',
       progress,
     };
@@ -579,11 +623,11 @@ export const listAdminDispatchPendingOrders = async () => {
   const now = Date.now();
   const orders = await OrderModel.find({
     status: OrderStatus.READY_FOR_DELIVERY,
-    'delivery_info.driver_id': null,
+    'deliveryInfo.driverId': null,
   })
     .sort({ createdAt: -1 })
-    .populate('user_id', 'username')
-    .select('code createdAt total_price status items delivery_address user_id');
+    .populate('cusId', 'username fullName')
+    .select('code createdAt totalPrice status items deliveryAddress cusId');
 
   const formatRelative = (createdAt: Date) => {
     const diffMs = now - new Date(createdAt).getTime();
@@ -597,10 +641,10 @@ export const listAdminDispatchPendingOrders = async () => {
   return orders.map((o: any) => ({
     id: String(o._id),
     orderNumber: o.code,
-    customer: o.user_id?.username || 'Unknown',
-    address: `${o.delivery_address?.detail || ''}${o.delivery_address?.district ? `, ${o.delivery_address.district}` : ''}`,
+    customer: o.cusId?.fullName || o.cusId?.username || 'Unknown',
+    address: `${o.deliveryAddress?.detail || ''}${o.deliveryAddress?.ward ? `, ${o.deliveryAddress.ward}` : ''}`,
     items: Array.isArray(o.items) ? o.items.length : 0,
-    total: o.total_price || 0,
+    total: o.totalPrice || 0,
     time: formatRelative(o.createdAt),
   }));
 };

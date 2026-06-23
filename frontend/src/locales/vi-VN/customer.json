@@ -2,7 +2,7 @@
     "home": {
         "hero": "Đặt món ngon, giao tận nơi",
         "heroSub": "Thực đơn đa dạng, giao hàng siêu tốc",
-        "aiSuggestion": "AI Gợi ý cho bạn",
+        "aiSuggestion": "Gợi ý cho bạn",
         "featuredCategories": "Danh mục nổi bật",
         "trending": "Món đang Hot",
         "newItems": "Món mới",
@@ -54,7 +54,10 @@
         "checkout": "Thanh toán",
         "removeItem": "Xoá sản phẩm",
         "continueShopping": "Tiếp tục mua",
-        "youMayLike": "Có thể bạn sẽ thích"
+        "youMayLike": "Có thể bạn sẽ thích",
+        "previewTitle": "Giỏ hàng của bạn",
+        "moreItems": "+{{count}} món khác",
+        "viewCart": "Xem giỏ hàng"
     },
     "checkout": {
         "title": "Thanh toán",
@@ -99,6 +102,7 @@
             "confirmed": "Đã xác nhận",
             "preparing": "Đang chuẩn bị",
             "delivering": "Đang giao",
+            "delivered": "Đã giao (Chờ xác nhận)",
             "completed": "Hoàn thành",
             "cancelled": "Đã huỷ"
         },
@@ -216,6 +220,7 @@
     },
     "foodCard": {
         "addToCart": "Thêm vào giỏ",
+        "addedToCart": "Đã thêm sản phẩm vào giỏ hàng!",
         "allergyWarning": "Chứa chất gây dị ứng!",
         "caution": "Cần lưu ý"
     },

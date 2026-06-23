@@ -1,23 +1,26 @@
 import { OK } from '@/constants/http';
 import { IUser } from '@/types';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { updateMe, changePassword } from '@/services/user.service';
-import { updateMeValidator } from '@/validators/auth.validator';
+import { updateMeValidator, strongPasswordValidator } from '@/validators/auth.validator';
 import { z } from 'zod';
 
 const changePasswordValidator = z.object({
   currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
-  newPassword: z.string().min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự'),
+  newPassword: strongPasswordValidator,
+}).refine((data) => data.newPassword !== data.currentPassword, {
+  message: 'Mật khẩu mới không được trùng với mật khẩu cũ',
+  path: ['newPassword'],
 });
-import { uploadBuffer, deleteFile } from "@/utils/uploadFile";
-import User from '@/models/users.model';
+import { uploadBuffer, deleteFile } from "@/utils/upload-file";
+import User from '@/models/user.model';
 
 export const updateMeHandler = catchErrors(async (req, res) => {
   const params = updateMeValidator.parse(req.body);
 
   const user = await updateMe(req.userId, params);
 
-  return res.success<Omit<IUser, 'password_hash'>>(OK, {
+  return res.success<Omit<IUser, 'passwordHash'>>(OK, {
     data: user,
     message: 'Cập nhật hồ sơ thành công',
   });
@@ -39,9 +42,9 @@ export const updateMyAvatarHandler = catchErrors(async (req, res) => {
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-  if (user.avatar_public_id) {
+  if (user.avatarPublicId) {
     try {
-      await deleteFile(user.avatar_public_id, "image");
+      await deleteFile(user.avatarPublicId, "image");
     } catch {}
   }
 
@@ -53,9 +56,9 @@ export const updateMyAvatarHandler = catchErrors(async (req, res) => {
   });
 
   user.avatar = uploaded.secure_url;
-  user.avatar_public_id = uploaded.public_id;
+  user.avatarPublicId = uploaded.public_id;
   await user.save();
-  return res.success<Omit<IUser, "password_hash">>(OK, {
+  return res.success<Omit<IUser, "passwordHash">>(OK, {
     data: user.toObject?.() ?? user,
     message: "Cập nhật avatar thành công",
   });

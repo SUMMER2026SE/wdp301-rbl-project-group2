@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import staffSupportChatService, {
     type StaffConversationSummary,
     type SupportMessage,
 } from '@/services/support-chat-staff.service';
 import { useSupportRealtime } from '@/hooks/useSupportRealtime';
+import { getSupportSocket } from '@/lib/support-socket';
 
-export function useStaffSupportChat() {
+export function useStaffSupportChat(storeId?: string) {
     const [conversations, setConversations] = useState<StaffConversationSummary[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -14,10 +15,14 @@ export function useStaffSupportChat() {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchConversations = async () => {
+    const fetchConversations = useCallback(async () => {
+        if (!storeId) {
+            setConversations([]);
+            return;
+        }
         try {
             setLoadingConversations(true);
-            const res = await staffSupportChatService.listConversations();
+            const res = await staffSupportChatService.listConversations({ storeId });
             setConversations(res.data.conversations);
             if (!selectedConversationId && res.data.conversations.length > 0) {
                 setSelectedConversationId(res.data.conversations[0].id);
@@ -28,11 +33,25 @@ export function useStaffSupportChat() {
         } finally {
             setLoadingConversations(false);
         }
-    };
+    }, [storeId, selectedConversationId]);
 
     useEffect(() => {
         void fetchConversations();
-    }, []);
+    }, [fetchConversations]);
+
+    useEffect(() => {
+        const socket = getSupportSocket();
+        
+        const handleInboxUpdated = (data: any) => {
+            console.debug('[SupportChat] Inbox updated:', data);
+            void fetchConversations();
+        };
+
+        socket.on('support:inbox_updated', handleInboxUpdated);
+        return () => {
+            socket.off('support:inbox_updated', handleInboxUpdated);
+        };
+    }, [fetchConversations]);
 
     useEffect(() => {
         const loadMessages = async () => {
@@ -61,14 +80,14 @@ export function useStaffSupportChat() {
         });
     });
 
-    const sendMessage = async (content: string, image_url?: string) => {
-        if (!selectedConversationId || (!content.trim() && !image_url)) return;
+    const sendMessage = async (content: string, imageUrl?: string) => {
+        if (!selectedConversationId || (!content.trim() && !imageUrl)) return;
         try {
             setSending(true);
             setError(null);
             const res = await staffSupportChatService.sendMessage(selectedConversationId, {
                 content: content.trim(),
-                image_url
+                imageUrl
             });
             // Optimistically add the sent message for the sender.
             // The socket handler deduplicates by `id`, so no double if socket also delivers it.

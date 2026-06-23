@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import authenticate from '@/middlewares/authenticate';
+import authorize from '@/middlewares/authorize';
+import { Role } from '@/types';
 import {
     createOrGetConversation,
     getMessages,
@@ -22,15 +24,15 @@ supportChatRoutes.post('/conversations', createOrGetConversation);
 supportChatRoutes.get('/conversations/:id/messages', getMessages);
 supportChatRoutes.post('/conversations/:id/messages', sendMessage);
 supportChatRoutes.patch('/conversations/:id/read', markAsRead);
-supportChatRoutes.patch('/conversations/:id/close', closeConversation);
+supportChatRoutes.patch('/conversations/:id/close', authorize(Role.STAFF, Role.ADMIN), closeConversation);
 supportChatRoutes.get('/conversations', listUserConversations);
 
 // Settings
-supportChatRoutes.get('/settings', getSupportSettings);
-supportChatRoutes.post('/settings', updateSupportSettings);
+supportChatRoutes.get('/settings', authorize(Role.STAFF, Role.ADMIN), getSupportSettings);
+supportChatRoutes.post('/settings', authorize(Role.STAFF, Role.ADMIN), updateSupportSettings);
 
-// Staff only (check role trong controller)
-supportChatRoutes.get('/staff/conversations', listStaffConversations);
+// Staff only
+supportChatRoutes.get('/staff/conversations', authorize(Role.STAFF, Role.ADMIN), listStaffConversations);
 
 export default supportChatRoutes;
 

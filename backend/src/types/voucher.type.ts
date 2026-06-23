@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
+import { UserTier } from './user.type';
 
 export enum DiscountType {
-  NONE = 'none',
   PERCENTAGE = 'percentage',
   FIXED_AMOUNT = 'fixed_amount',
+  NONE = 'none',
 }
 
 export enum VoucherCategory {
@@ -13,31 +14,44 @@ export enum VoucherCategory {
   SPECIAL = 'special',
 }
 
-export default interface IVoucher extends mongoose.Document<mongoose.Types.ObjectId> {
-  // Basic Info
+export interface IVoucher extends mongoose.Document<mongoose.Types.ObjectId> {
   code: string;
   title: string;
   description: string;
+
   category: VoucherCategory;
+  discountType: DiscountType;
+  discountValue: number;
 
-  // Discount Details
-  discount_type: DiscountType;
-  discount_value: number;
-  max_discount_amount: number | null;
-  min_order_amount: number;
+  maxDiscount?: number | null;
+  minOrderValue: number;
 
-  // Validity Period
-  start_date: Date;
-  end_date: Date;
+  usageLimit?: number | null;
+  usedCount: number;
 
-  // Usage Limits
-  usage_limit_per_user: number; // Số lần tối đa 1 user có thể dùng
-  total_usage_limit: number | null; // Tổng số lần sử dụng toàn hệ thống (null = không giới hạn)
-  current_usage_count: number; // Số lần đã được sử dụng
+  isActive: boolean;
+  isReward?: boolean;
+  isPersonal?: boolean;
+  pointCost?: number;
 
-  conditions: string[]; 
+  minTier?: UserTier | null;
 
-  // Status
-  is_active: boolean; // Voucher có đang hoạt động không
-  is_stackable: boolean; // Có thể dùng chung với voucher khác không
+  startAt: Date;
+  endAt: Date;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ValidateVoucherOptions {
+  userId?: string | mongoose.Types.ObjectId | null;
+  userTier?: UserTier | string | null;
+  shippingFee?: number;
+  deliveryFee?: number;
+}
+
+export interface ValidateVoucherResult {
+  voucher: IVoucher;
+  discountAmount: number;
+  finalAmount: number;
 }

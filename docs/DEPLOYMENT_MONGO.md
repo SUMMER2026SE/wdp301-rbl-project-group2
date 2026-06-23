@@ -28,6 +28,13 @@ Kiến trúc này tách biệt cơ sở dữ liệu (đẩy lên đám mây Mong
  +------------------+
 ```
 
+### Kiến trúc Triển khai VPS (Separated Environments & Dockge)
+Để đảm bảo an toàn, không giẫm chân lên nhau và tương thích với giao diện quản lý **Dockge**, mã nguồn trên VPS được chia làm **3 cụm dự án (Stacks) hoàn toàn độc lập**, chạy chung trên một mạng lưới ảo `web-network`:
+1. **`nginx-proxy`:** Chỉ chạy duy nhất Nginx và Certbot, đứng ngoài cùng làm cửa ngõ (Reverse Proxy) chuyển hướng traffic.
+2. **`anngon-dev`:** Chỉ chạy mã nguồn nhánh Develop.
+3. **`anngon-prod`:** Chỉ chạy mã nguồn nhánh Main.
+Tất cả được quản lý tập trung thông qua giao diện web của Dockge.
+
 > [!CAUTION]
 > **CẢNH BÁO AN TOÀN QUAN TRỌNG KHI DÙNG CHUNG DB DEV & PROD:**
 > Việc môi trường Dev và Prod kết nối chung vào database `my_app_prod` mang lại lợi thế là dữ liệu ở môi trường Dev luôn đồng nhất 100% với Prod (giúp dễ dàng debug lỗi phát sinh trên dữ liệu thực tế).
@@ -205,8 +212,26 @@ server {
         internal;
     }
 
-    location /api { proxy_pass http://be-prod:5000; }
-    location / { proxy_pass http://fe-prod:3000; }
+    # Giải quyết IP động khi recreate container
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    set $backend_prod http://be-prod:5000;
+    set $frontend_prod http://fe-prod:3000;
+
+    location /api {
+        proxy_pass $backend_prod;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass $frontend_prod;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 
 # --- 3. CẤU HÌNH HTTPS CHO DEVELOPMENT (dev.anngon.site) ---
@@ -225,8 +250,26 @@ server {
         internal;
     }
 
-    location /api { proxy_pass http://be-dev:5000; }
-    location / { proxy_pass http://fe-dev:3000; }
+    # Giải quyết IP động khi recreate container
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    set $backend_dev http://be-dev:5000;
+    set $frontend_dev http://fe-dev:3000;
+
+    location /api {
+        proxy_pass $backend_dev;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass $frontend_dev;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
 
@@ -343,6 +386,7 @@ services:
       - "443:443"
     restart: always
     volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     networks: [web-network]
@@ -478,7 +522,56 @@ nano .env.prod  # Điền MONGODB_URI trỏ tới DB 'my_app_prod' trên Atlas
 
 1. **Trên máy cá nhân:** Chạy `ssh-keygen -t rsa -b 4096`.
 2. **VPS Server:** Đưa khóa công khai (Public Key) vào `~/.ssh/authorized_keys`.
+   - **Lưu ý:** Nếu VPS mới hoàn toàn và chưa có thư mục `.ssh` hay file này, hãy chạy các lệnh sau để tạo đúng chuẩn bảo mật:
+     ```bash
+     mkdir -p ~/.ssh
+     chmod 700 ~/.ssh
+     touch ~/.ssh/authorized_keys
+     chmod 600 ~/.ssh/authorized_keys
+     ```
+   - Sau đó gõ `nano ~/.ssh/authorized_keys` và dán khóa công khai (Public Key) vào.
 3. **GitHub:** Copy khóa bí mật (Private Key) và tạo Secret `VPS_SSH_KEY` trong repo GitHub Settings.
+
+### Bước 3.5: Cấu hình SSH Key & Phím tắt (SSH Config) cho các thành viên trong nhóm
+
+Để cho phép các thành viên khác trong nhóm truy cập vào VPS một cách dễ dàng và an toàn (không cần nhập mật khẩu hoặc nhớ địa chỉ IP/cổng dài dòng):
+
+#### 1. Đối với Thành viên (Thao tác trên Máy cá nhân):
+* **Tạo cặp khóa mới** (tự động đặt tên để tránh ghi đè khóa mặc định khác):
+  ```bash
+  ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa_anngon -C "member_email@example.com"
+  ```
+* **Copy khóa công khai (Public Key)** để gửi cho Admin:
+  ```bash
+  cat ~/.ssh/id_rsa_anngon.pub
+  ```
+* **Cấu hình phím tắt đăng nhập** bằng cách mở file `~/.ssh/config` trên máy cá nhân:
+  ```bash
+  nano ~/.ssh/config
+  ```
+  Thêm đoạn cấu hình sau:
+  ```config
+  Host anngon
+      HostName 161.248.147.99
+      User anngon
+      LocalForward 5001 127.0.0.1:5001
+      IdentityFile ~/.ssh/id_rsa_anngon
+  ```
+  Cấp quyền bảo mật cho file config:
+  ```bash
+  chmod 600 ~/.ssh/config
+  ```
+
+#### 2. Đối với Admin (Thao tác trên VPS):
+* Đăng nhập vào VPS, mở file cấu hình xác thực:
+  ```bash
+  nano ~/.ssh/authorized_keys
+  ```
+* Di chuyển xuống cuối file, tạo một dòng trống mới và **dán (paste) Public Key của thành viên** vào đây, sau đó lưu lại.
+* Từ bây giờ, thành viên đó chỉ cần mở Terminal gõ lệnh sau để truy cập VPS và tự động chuyển tiếp cổng kết nối Dockge:
+  ```bash
+  ssh anngon
+  ```
 
 ### Bước 4: Khởi chạy Nginx lấy chứng chỉ SSL lần đầu
 
@@ -795,6 +888,12 @@ Dưới đây là tổng hợp các lệnh hữu ích để bạn giám sát, v�
   docker exec -it anngon-website_be-dev_1 sh
   ```
 
+- **Nạp lại cấu hình Nginx không gây gián đoạn (Reload Nginx):**
+  ```bash
+  # Chạy lệnh reload bên trong container Nginx để nạp cấu hình default.conf mới (Zero downtime)
+  docker compose -f /home/anngon/nginx-proxy/docker-compose.yml exec nginx nginx -s reload
+  ```
+
 ### 2. Quản lý Tài nguyên VPS (Giám sát Phần cứng)
 
 - **Xem dung lượng ổ đĩa (Rất quan trọng - Docker hay gây đầy ổ cứng):**
@@ -844,5 +943,80 @@ Dưới đây là tổng hợp các lệnh hữu ích để bạn giám sát, v�
   tail -n 50 /var/log/auth.log
   ```
 
+---
 
+## 14. Quản lý Hệ thống bằng Giao diện Dockge
 
+Để loại bỏ sự phức tạp khi gõ lệnh trên Terminal VPS, hệ thống này được khuyến nghị tích hợp với **Dockge** – một bảng điều khiển Web UI cực kỳ mạnh mẽ chuyên dành cho Docker Compose.
+
+### Tính năng nổi bật của Dockge
+- Hiển thị trực quan toàn bộ 3 Stack của bạn: `nginx-proxy`, `anngon-dev`, `anngon-prod`.
+- **Đọc Logs (nhật ký hệ thống) theo thời gian thực** trên trình duyệt cực kỳ rõ ràng, phân biệt màu sắc.
+- Hỗ trợ các nút bấm 1 chạm: Start, Stop, Restart, Update Image, Exec (vào trong bash của container).
+- Xem và chỉnh sửa trực tiếp nội dung file `docker-compose.yml` trên web.
+
+### Cài đặt Dockge cơ bản (Bảo mật qua SSH Tunnel)
+Để đảm bảo an toàn tuyệt đối, chúng ta sẽ **không** mở cổng 5001 ra Internet. Thay vào đó, Dockge sẽ chạy ngầm bên trong VPS và bạn sẽ dùng SSH để tạo "đường hầm" kết nối từ máy tính cá nhân.
+
+1. **Trên VPS**, chạy đoạn script sau để khởi tạo Dockge:
+```bash
+# Tạo thư mục chạy Dockge
+mkdir -p /opt/dockge
+cd /opt/dockge
+
+# Tải cấu hình
+curl -o docker-compose.yml https://raw.githubusercontent.com/louislam/dockge/master/compose.yaml
+
+# BẢO MẬT: Ép Dockge chỉ lắng nghe nội bộ (chặn truy cập từ Internet)
+sed -i 's/5001:5001/127.0.0.1:5001:5001/g' docker-compose.yml
+
+# Khởi chạy Dockge
+docker compose up -d
+```
+
+2. **Trên máy cá nhân (Laptop của bạn):** Mở một cửa sổ Terminal mới và chạy lệnh tạo đường hầm SSH (Port Forwarding):
+```bash
+ssh -L 5001:127.0.0.1:5001 anngon@161.248.147.99
+```
+
+3. **Truy cập an toàn:** Giữ nguyên cửa sổ Terminal trên (không đóng), mở trình duyệt web và truy cập vào địa chỉ: **`http://localhost:5001`** để tạo tài khoản Admin và quản lý hệ thống.
+
+### Liên kết Dự án vào Dockge (Symbolic Link)
+
+Vì Dockge chạy trong một Container cách ly và mặc định chỉ quét thư mục `/opt/stacks`, bạn cần làm 3 việc: Cấp quyền cho Dockge đọc thư mục chứa code của bạn (`/home/anngon`), tạo link liên kết, và đồng bộ tên file.
+
+**Bước 1: Cấp quyền và dọn dẹp thư mục chuẩn cho Dockge**
+```bash
+cd /opt/dockge
+
+# Thêm quyền truy cập thư mục /home/anngon vào cấu hình của Dockge
+sed -i '/- \/opt\/stacks:\/opt\/stacks/a \      - /home/anngon:/home/anngon' docker-compose.yml
+
+# Khởi động lại Dockge để nhận quyền mới
+docker compose down
+docker compose up -d
+```
+
+**Bước 2: Tạo liên kết báo cho Dockge biết vị trí của 3 thư mục dự án**
+```bash
+sudo mkdir -p /opt/stacks
+sudo ln -s /home/anngon/anngon-dev /opt/stacks/anngon-dev 2>/dev/null || true
+sudo ln -s /home/anngon/anngon-prod /opt/stacks/anngon-prod 2>/dev/null || true
+sudo ln -s /home/anngon/nginx-proxy /opt/stacks/nginx-proxy 2>/dev/null || true
+```
+
+**Bước 3: Đồng bộ tên file (Thực hiện SAU KHI đã Push code lên GitHub)**
+Dockge được lập trình cứng (hard-code) chỉ nhận diện các file tên `compose.yaml` hoặc `docker-compose.yml`. Vì GitHub Actions của chúng ta đẩy xuống file có đuôi `.dev.yml` và `.prod.yml`, chúng ta cần tạo thêm một đường dẫn tắt (alias) bên trong mỗi thư mục dự án:
+```bash
+# Xử lý cho nhánh Dev
+cd /home/anngon/anngon-dev
+rm -f docker-compose.yml
+ln -s docker-compose.dev.yml docker-compose.yml
+
+# Xử lý cho nhánh Prod
+cd /home/anngon/anngon-prod
+rm -f docker-compose.yml
+ln -s docker-compose.prod.yml docker-compose.yml
+```
+
+Cuối cùng, quay lại trình duyệt và tải lại trang (F5) `http://localhost:5001`. Cả 3 hệ thống của bạn sẽ hiện "Active" và sẵn sàng để bạn quản lý chỉ bằng 1 cú click chuột!

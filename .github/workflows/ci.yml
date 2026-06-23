@@ -1,0 +1,62 @@
+name: CI Verification
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  validate:
+    name: Code Quality & Build Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM & Node
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: |
+            frontend/pnpm-lock.yaml
+            backend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+
+      - name: Lint Backend
+        if: steps.filter.outputs.backend == 'true'
+        run: pnpm lint:be
+
+      - name: Build Backend
+        if: steps.filter.outputs.backend == 'true'
+        run: pnpm build:be
+
+      - name: Lint Frontend
+        if: steps.filter.outputs.frontend == 'true'
+        run: pnpm lint:fe
+
+      - name: Build Frontend
+        if: steps.filter.outputs.frontend == 'true'
+        run: pnpm build:fe

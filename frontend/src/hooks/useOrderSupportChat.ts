@@ -38,7 +38,10 @@ export function useOrderSupportChat(orderId?: string, options: UseOrderSupportCh
                     throw new Error('Không nhận được ID cuộc trò chuyện từ server');
                 }
                 const msgRes = await supportChatService.getMessages(String(convId));
-                setMessages(msgRes.data.messages);
+                await supportChatService.markAsRead(String(convId));
+                setMessages(msgRes.data.messages.map((msg) => (
+                    msg.senderType === 'STAFF' ? { ...msg, isRead: true } : msg
+                )));
             } catch (err: any) {
                 console.error('Failed to init support chat', err);
                 setError(err?.response?.data?.message || 'Không thể khởi tạo chat hỗ trợ');
@@ -51,9 +54,12 @@ export function useOrderSupportChat(orderId?: string, options: UseOrderSupportCh
     }, [orderId, enabled]);
 
     useSupportRealtime(conversationId ? String(conversationId) : null, (msg) => {
+        if (msg.senderType === 'STAFF' && conversationId) {
+            void supportChatService.markAsRead(String(conversationId));
+        }
         setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
+            return [...prev, msg.senderType === 'STAFF' ? { ...msg, isRead: true } : msg];
         });
     });
 
@@ -64,7 +70,10 @@ export function useOrderSupportChat(orderId?: string, options: UseOrderSupportCh
         try {
             setLoading(true);
             const msgRes = await supportChatService.getMessages(String(convId));
-            setMessages(msgRes.data.messages);
+            await supportChatService.markAsRead(String(convId));
+            setMessages(msgRes.data.messages.map((msg) => (
+                msg.senderType === 'STAFF' ? { ...msg, isRead: true } : msg
+            )));
         } catch (err: any) {
             console.error('Failed to refresh support messages', err);
             setError(err?.response?.data?.message || 'Không thể tải tin nhắn');

@@ -7,7 +7,7 @@ export interface StaffConversationSummary {
     customerName: string;
     lastMessage?: {
         content: string;
-        image_url?: string;
+        imageUrl?: string;
         createdAt: string;
         senderType: 'USER' | 'STAFF';
     };
@@ -22,7 +22,7 @@ export interface SupportMessage {
     senderType: 'USER' | 'STAFF';
     senderId: string;
     content: string;
-    image_url?: string;
+    imageUrl?: string;
     createdAt: string;
     isRead: boolean;
 }
@@ -37,16 +37,40 @@ export interface GetMessagesResponse {
 
 export interface SendMessagePayload {
     content: string;
-    image_url?: string;
+    imageUrl?: string;
 }
 
 export interface SendMessageResponse {
     message: SupportMessage;
 }
 
+export interface SupportSettings {
+    id?: string;
+    userId?: string;
+    welcomeMessage?: {
+        enabled: boolean;
+        content: string;
+    };
+    outOfOffice?: {
+        enabled: boolean;
+        message: string;
+        schedule: {
+            days: string[];
+            startTime: string;
+            endTime: string;
+        };
+    };
+    quickReplies?: Array<{
+        shortcut: string;
+        content: string;
+    }>;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 const staffSupportChatService = {
-    listConversations() {
-        return apiClient.get<ListConversationsResponse>('/support/staff/conversations');
+    listConversations(params?: { storeId?: string }) {
+        return apiClient.get<ListConversationsResponse>('/support/staff/conversations', { params });
     },
 
     getMessages(conversationId: string) {
@@ -66,17 +90,17 @@ const staffSupportChatService = {
     },
 
     getSettings() {
-        return apiClient.get<{ settings: any }>('/support/settings');
+        return apiClient.get<{ settings: SupportSettings }>('/support/settings');
     },
 
-    updateSettings(settings: any) {
-        return apiClient.post<{ settings: any }>('/support/settings', settings);
+    updateSettings(settings: Omit<SupportSettings, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
+        return apiClient.post<{ settings: SupportSettings }>('/support/settings', settings);
     },
 
     uploadImage(file: File) {
         const formData = new FormData();
         formData.append('file', file);
-        return apiClient.post<{ secure_url: string }>('/upload', formData, {
+        return apiClient.post<{ success: boolean; data: { secureUrl: string } }>('/files/upload?ownerType=review', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },

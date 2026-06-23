@@ -1,16 +1,32 @@
 import mongoose from 'mongoose';
-import IUser from './user.type';
-import IOrder from './order.type';
-import IFile from './file.type';
-import IProduct from './product.type';
 
-export default interface IReview extends mongoose.Document<mongoose.Types.ObjectId> {
-  user_id: IUser['_id'];
-  order_id: IOrder['_id'];
-  product_id: IProduct['_id'];
-  rating: number | null;
-  comment: string | null;
-  images: IFile['_id'][] | null;
-  parent_reply: IReview['_id'] | null;
+export const REVIEW_FEEDBACK_TAG_VALUES = [
+  'unhygienic',
+  'wrong_flavor',
+  'too_salty',
+  'too_bland',
+  'too_sweet',
+  'not_fresh',
+  'undercooked',
+  'overcooked',
+  'served_cold',
+  'small_portion',
+  'poor_packaging',
+  'different_from_photo',
+] as const;
+
+export type ReviewFeedbackTag = (typeof REVIEW_FEEDBACK_TAG_VALUES)[number];
+
+export interface IReview extends mongoose.Document<mongoose.Types.ObjectId> {
+  userId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  productId?: mongoose.Types.ObjectId | null;
+  rating: number;
+  feedbackTags: ReviewFeedbackTag[];
+  comment?: string | null;
+  images: mongoose.Types.ObjectId[];
+  reply?: string | null;
   isAnonymous: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

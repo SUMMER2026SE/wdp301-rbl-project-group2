@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   CheckCircle,
   AlertTriangle,
@@ -52,6 +52,28 @@ const OrderHistoryTabContent = () => {
   const [otherReason, setOtherReason] = useState<string>("");
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // --- Confirm Receipt States & Handler ---
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+
+  const handleConfirmReceiptInList = async (orderId: string) => {
+    try {
+      setConfirmingOrderId(orderId);
+      const res = await orderService.confirmReceipt(orderId);
+      if (res.success) {
+        showToast("success", "Xác nhận đã nhận hàng thành công!");
+        setOrders((prev) =>
+          prev.map((o) => (o._id === orderId ? res.data : o))
+        );
+      }
+    } catch (_err) {
+      const errorVal = _err as Error & { response?: { data?: { message?: string } } };
+      console.error("Failed to confirm receipt:", errorVal);
+      showToast("error", errorVal.response?.data?.message || "Không thể xác nhận nhận hàng");
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -79,6 +101,9 @@ const OrderHistoryTabContent = () => {
     if (statusFilter === "all") return true;
     if (statusFilter === "processing") {
       return ["confirmed", "processing", "ready_for_delivery"].includes(order.status);
+    }
+    if (statusFilter === "shipping") {
+      return ["shipping", "delivered"].includes(order.status);
     }
     return order.status === statusFilter;
   });
@@ -129,6 +154,8 @@ const OrderHistoryTabContent = () => {
         return { label: "Hoàn thành", className: "bg-emerald-50 text-emerald-600 border-emerald-200" };
       case "shipping":
         return { label: "Đang giao", className: "bg-orange-50 text-orange-600 border-orange-200" };
+      case "delivered":
+        return { label: "Đã giao", className: "bg-orange-100 text-orange-800 border-orange-300 animate-pulse" };
       case "ready_for_delivery":
         return { label: "Chờ Shipper lấy", className: "bg-blue-50 text-blue-600 border-blue-200" };
       case "confirmed":
@@ -145,7 +172,7 @@ const OrderHistoryTabContent = () => {
   const getImageUrl = (image: any) => {
     if (!image) return undefined;
     if (typeof image === "string") return image;
-    return image.secure_url || image.url || undefined;
+    return image.secureUrl || image.url || undefined;
   };
 
   if (loading) {
@@ -247,22 +274,42 @@ const OrderHistoryTabContent = () => {
             const variantChips = buildVariantChips((firstItem as any)?.variations);
             const moreItemsCount = order.items.length - 1;
 
+            const firstProductId = firstItem
+              ? (typeof firstItem.productId === "string"
+                ? firstItem.productId
+                : (firstItem.productId as any)?._id)
+              : null;
+
             return (
               <div
                 key={order._id}
                 className="flex flex-col sm:flex-row items-stretch rounded-[1.5rem] bg-white shadow-sm hover:shadow-xl border border-slate-200 transition-all overflow-hidden group"
               >
                 {/* Product Image */}
-                <div
-                  className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden"
-                >
-                  <img
-                    src={getImageUrl((firstItem.product_id as any)?.image)}
-                    alt="Food"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
-                </div>
+                {firstProductId ? (
+                  <Link
+                    to={`/food/${firstProductId}`}
+                    className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden block"
+                  >
+                    <img
+                      src={getImageUrl((firstItem.productId as any)?.image)}
+                      alt="Food"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+                  </Link>
+                ) : (
+                  <div
+                    className="w-full sm:w-40 md:w-48 aspect-video sm:aspect-square shrink-0 bg-slate-100 relative overflow-hidden"
+                  >
+                    <img
+                      src={getImageUrl((firstItem.productId as any)?.image)}
+                      alt="Food"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+                  </div>
+                )}
 
                 {/* Content */}
                 <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
@@ -271,7 +318,13 @@ const OrderHistoryTabContent = () => {
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="min-w-0">
                       <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1.5 leading-tight group-hover:text-orange-600 transition-colors">
-                        {(firstItem as any).product_id?.name || "Sản phẩm"}
+                        {firstProductId ? (
+                          <Link to={`/food/${firstProductId}`} className="hover:underline">
+                            {(firstItem as any).productId?.name || "Sản phẩm"}
+                          </Link>
+                        ) : (
+                          (firstItem as any).productId?.name || "Sản phẩm"
+                        )}
                       </h3>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
@@ -319,11 +372,32 @@ const OrderHistoryTabContent = () => {
                         Tổng thanh toán
                       </p>
                       <p className="text-xl font-black text-slate-900 tracking-tight">
-                        {order.total_price.toLocaleString("vi-VN")}đ
+                        {order.totalPrice.toLocaleString("vi-VN")}đ
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                      {/* Trạng thái Delivered -> Nút Xác nhận nhận hàng */}
+                      {order.status === "delivered" && (
+                        <button
+                          onClick={() => handleConfirmReceiptInList(order._id)}
+                          disabled={confirmingOrderId === order._id}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-colors active:scale-95 disabled:opacity-50 cursor-pointer animate-pulse"
+                        >
+                          {confirmingOrderId === order._id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Đã nhận hàng
+                            </>
+                          )}
+                        </button>
+                      )}
+
                       {/* Trạng thái Pending -> Nút Hủy */}
                       {order.status === "pending" && (
                         <button
@@ -350,7 +424,7 @@ const OrderHistoryTabContent = () => {
                           className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-colors active:scale-95"
                         >
                           <Star className="w-4 h-4 fill-current" />
-                          Đánh giá
+                          {order.isReviewed ? "Đánh giá lại" : "Đánh giá"}
                         </button>
                       )}
                     </div>

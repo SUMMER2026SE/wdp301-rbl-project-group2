@@ -1,72 +1,54 @@
 import { IProduct } from '@/types';
+import { ProductCategory, ProductStatus } from '@/types/product.type';
 import mongoose from 'mongoose';
 
-const VariantOptionSchema = new mongoose.Schema(
+const ProductRecipeItemSchema = new mongoose.Schema(
   {
-    choice: { type: String, required: true, trim: true },
-    extra_price: { type: Number, default: 0, min: 0 },
-  },
-  { _id: false }
-);
-
-const VariantGroupSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, trim: true },
-    required: { type: Boolean, default: false },
-    multiple: { type: Boolean, default: false },
-    max_choices: { type: Number, min: 1 },
-    options: { type: [VariantOptionSchema], default: [] },
+    ingredientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ingredient', required: true },
+    quantity: { type: Number, required: true },
+    unit: { type: String, required: true, trim: true },
   },
   { _id: false }
 );
 
 const ProductSchema = new mongoose.Schema<IProduct>(
   {
+    status: { type: String, required: true, enum: ProductStatus, default: ProductStatus.ACTIVE },
+    nameEmbedding: { type: String, default: null },
+    imgEmbedding: { type: String, required: true },
     name: { type: String, required: true, trim: true },
-    description: { type: String, required: true },
-    image: { type: mongoose.Schema.Types.ObjectId, ref: 'File' },
+    description: { type: String },
+    image: { type: String },
     price: {
       type: Number,
       required: true,
-      min: [0, 'Price must be a positive number'],
+      min: [0.01, 'Price must be greater than 0'],
     },
-    category: { type: String, required: true, trim: true },
-    restaurant: { type: String, required: true, trim: true },
-    time: { type: String, required: true },
+    category: { type: String, required: true, enum: ProductCategory },
+    restaurant: { type: String, trim: true },
+    time: { type: String, trim: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
-    review_count: { type: Number, default: 0, min: 0 },
-
-    recipe: [
-      {
-        name: { type: String },
-        quantity: { type: String },
-        _id: false,
-      },
-    ],
-    tags: [{ type: String }],
-    health_warning: { type: String },
-    health_tags: [{ type: String }],
+    reviewCount: { type: Number, default: 0, min: 0 },
+    recipe: { type: [ProductRecipeItemSchema], default: [] },
+    allergenTags: { type: [String], default: [] },
+    healthWarning: { type: String },
+    healthTags: { type: [String], default: [] },
     isAvailable: { type: Boolean, default: true },
-    variants: { type: [VariantGroupSchema], default: [] },
+    isCampaignRunning: { type: Boolean, default: false },
+    variationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Variation' }],
+    tags: { type: [String], default: [] },
+    operationalNote: { type: String, trim: true },
   },
   {
     timestamps: true,
   }
 );
 
-// Indexes for searching and filtering
-ProductSchema.index({
-  name: 'text',
-  description: 'text',
-  health_warning: 'text',
-  health_tags: 'text',
-}); // Text search
+// Indexes
+ProductSchema.index({ status: 1 });
 ProductSchema.index({ category: 1 });
-ProductSchema.index({ tags: 1 });
-ProductSchema.index({ health_tags: 1 });
 ProductSchema.index({ price: 1 });
-ProductSchema.index({ rating: -1 });
-ProductSchema.index({ isAvailable: 1 });
+ProductSchema.index({ name: 'text', description: 'text' }); // Text search indexing
 
 const ProductModel = mongoose.model<IProduct>('Product', ProductSchema, 'products');
 

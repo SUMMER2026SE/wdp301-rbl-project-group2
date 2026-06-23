@@ -12,8 +12,7 @@ import {
     History,
     Search,
     Clock,
-    Zap,
-    Loader2
+    Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -39,17 +38,13 @@ const VouchersPage = () => {
         { id: "special", name: "Đặc biệt" },
     ];
 
-    useEffect(() => {
-        fetchVouchers();
-    }, [activeCategory]);
-
     const fetchVouchers = async () => {
         try {
             setLoading(true);
             setError(null);
 
             const params: any = {
-                is_active: true,
+                isActive: true,
                 limit: 20,
             };
 
@@ -66,6 +61,10 @@ const VouchersPage = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchVouchers();
+    }, [activeCategory]);
 
     const handleCopy = (code: string) => {
         navigator.clipboard.writeText(code);
@@ -84,10 +83,10 @@ const VouchersPage = () => {
     };
 
     const formatDiscount = (voucher: Voucher) => {
-        if (voucher.discount_type === "percentage") {
-            return `${voucher.discount_value}%`;
+        if (voucher.discountType === "percentage") {
+            return `${voucher.discountValue}%`;
         }
-        return `${(voucher.discount_value / 1000).toFixed(0)}K`;
+        return `${(voucher.discountValue / 1000).toFixed(0)}K`;
     };
 
     const formatDate = (dateString: string) => {
@@ -108,7 +107,7 @@ const VouchersPage = () => {
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
             {/* --- HEADER --- */}
-            <div className="bg-white sticky top-0 z-50 border-b border-slate-100 shadow-sm">
+            <div className="bg-white border-b border-slate-100 shadow-sm">
                 <div className="max-w-5xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -263,7 +262,7 @@ const VouchersPage = () => {
 
                                             <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
                                                 <span className="flex items-center gap-1.5 bg-slate-100/80 px-2 py-1 rounded-md">
-                                                    <Clock className="w-3 h-3" /> HSD: {formatDate(voucher.end_date)}
+                                                    <Clock className="w-3 h-3" /> HSD: {formatDate(voucher.endAt)}
                                                 </span>
                                                 <span className="font-black text-orange-600 text-sm">
                                                     {formatDiscount(voucher)}

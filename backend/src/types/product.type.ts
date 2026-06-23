@@ -1,40 +1,70 @@
 import mongoose from 'mongoose';
-import IFile from './file.type';
 
-export interface IProductIngredient {
-  name: string;
-  quantity: string;
+export enum ProductStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  OUT_OF_STOCK = 'out_of_stock',
+  DELETED = 'deleted',
+}
+
+export enum ProductCategory {
+  FOOD = 'food',
+  DRINK = 'drink',
+  COMBO = 'combo',
+  OTHER = 'other',
+
+  // Vietnamese category values (operational in production)
+  COM_DIA_TRUYEN_THONG = 'Cơm Đĩa Truyền Thống',
+  GIAI_KHAT_TRANG_MIENG = 'Giải Khát & Tráng Miệng',
+  GOC_HEALTHY_AN_KIENG = 'Góc Healthy & Ăn Kiêng',
+  GOI_THEM_AN_KEM = 'Gọi Thêm Ăn Kèm',
+  TRU_DANH_MON_NUOC = 'Trứ Danh Món Nước',
+  DAC_SAN_BAN_CHAY = 'Đặc Sản & Bán Chạy',
+}
+
+export interface IProductRecipeItem {
+  ingredientId: mongoose.Types.ObjectId;
+  quantity: number;
+  unit: string;
 }
 
 export interface IProductVariantOption {
   choice: string;
-  extra_price: number;
+  extraPrice: number;
 }
 
 export interface IProductVariantGroup {
-  name: string;          // Size | Toppings | Sugar
-  required?: boolean;    // bắt buộc chọn
-  multiple?: boolean;    // cho phép chọn nhiều
-  max_choices?: number;  // giới hạn toppings
+  name: string;
+  required?: boolean;
+  multiple?: boolean;
+  maxChoices?: number;
   options: IProductVariantOption[];
 }
 
-export default interface IProduct extends mongoose.Document {
+export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
+  status: ProductStatus;
+  nameEmbedding?: string | null;
+  imgEmbedding: string;
   name: string;
-  description: string;
-  image: IFile['_id'];
+  description?: string;
+  image?: string;
   price: number;
-  category: string;
-  restaurant: string;
-  time: string;
-  rating: number;
-  review_count: number;
-  recipe: IProductIngredient[];
-  tags: string[];
-  health_warning?: string;
-  health_tags: string[];
-  isAvailable: boolean;
-  isFavorite?: boolean;
+  category: ProductCategory;
+  restaurant?: string;
+  time?: string;
+  rating?: number;
+  reviewCount?: number;
+  recipe: IProductRecipeItem[];
+  allergenTags: string[];
+  healthWarning?: string;
+  healthTags?: string[];
 
-  variants?: IProductVariantGroup[];
+  // camelCase fields
+  isAvailable?: boolean;
+  isCampaignRunning: boolean;
+  variationIds: mongoose.Types.ObjectId[];
+  tags?: string[];
+  operationalNote?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

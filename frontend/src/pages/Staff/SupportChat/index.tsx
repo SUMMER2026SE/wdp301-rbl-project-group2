@@ -17,6 +17,7 @@ import {
     Settings,
     RefreshCw,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { useStaffSupportChat } from '@/hooks/useStaffSupportChat';
 import orderService from '@/services/order.service';
 import type { Order } from '@/services/order.service';
@@ -46,7 +47,7 @@ const linkify = (text: string) => {
     );
 };
 
-function groupMessagesByDate(messages: { id: string; createdAt: string; senderType: string; content: string; image_url?: string }[]) {
+function groupMessagesByDate(messages: { id: string; createdAt: string; senderType: string; content: string; imageUrl?: string }[]) {
     const groups: { date: string; messages: typeof messages }[] = [];
     let currentDate = '';
     for (const msg of messages) {
@@ -68,6 +69,7 @@ function groupMessagesByDate(messages: { id: string; createdAt: string; senderTy
 
 export default function StaffSupportChatPage() {
     const navigate = useNavigate();
+    const { storeId } = useAuth();
     const {
         conversations,
         selectedConversationId,
@@ -79,7 +81,7 @@ export default function StaffSupportChatPage() {
         error,
         fetchConversations,
         sendMessage,
-    } = useStaffSupportChat();
+    } = useStaffSupportChat(storeId ?? undefined);
 
     const [search, setSearch] = useState('');
     const [input, setInput] = useState('');
@@ -118,12 +120,13 @@ export default function StaffSupportChatPage() {
             if (orderDetail) setOrderDetail(null);
             return;
         }
+        if (!storeId) return;
         setLoadingOrder(true);
-        orderService.getOrderById(conv.orderId)
+        orderService.getStaffOrderById(conv.orderId, { storeId })
             .then((res) => setOrderDetail(res.data))
             .catch(() => setOrderDetail(null))
             .finally(() => setLoadingOrder(false));
-    }, [selectedConversationId, conversations]);
+    }, [selectedConversationId, conversations, storeId]);
 
     const handleSend = async (content?: string) => {
         const text = (content ?? input).trim();
@@ -134,7 +137,7 @@ export default function StaffSupportChatPage() {
             if (selectedImage) {
                 const toastId = toast.loading('Đang tải ảnh lên...');
                 const uploadRes = await staffSupportChatService.uploadImage(selectedImage);
-                uploadedUrl = uploadRes.data.secure_url;
+                uploadedUrl = uploadRes.data.data.secureUrl;
                 toast.dismiss(toastId);
             }
 
@@ -473,9 +476,9 @@ export default function StaffSupportChatPage() {
                                                                     : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-sm'
                                                                     }`}
                                                             >
-                                                                {msg.image_url && (
+                                                                {msg.imageUrl && (
                                                                     <div className="mb-2">
-                                                                        <img src={msg.image_url} alt="Attached" className="max-w-full rounded-lg max-h-48 object-cover" />
+                                                                        <img src={msg.imageUrl} alt="Attached" className="max-w-full rounded-lg max-h-48 object-cover" />
                                                                     </div>
                                                                 )}
                                                                 {linkify(msg.content)}
@@ -642,7 +645,7 @@ export default function StaffSupportChatPage() {
                                 <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5">
                                     <span className="text-xs text-gray-500">Tổng cộng</span>
                                     <span className="text-sm font-bold text-primary">
-                                        {orderDetail.total_price.toLocaleString('vi-VN')}đ
+                                        {orderDetail.totalPrice.toLocaleString('vi-VN')}đ
                                     </span>
                                 </div>
 
@@ -655,10 +658,10 @@ export default function StaffSupportChatPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
-                                                    {(item.product_id as unknown as { name: string })?.name || 'Sản phẩm'}
+                                                    {(item.productId as unknown as { name: string })?.name || 'Sản phẩm'}
                                                 </p>
                                                 <p className="text-[10px] text-primary font-semibold mt-0.5">
-                                                    {item.sub_total.toLocaleString('vi-VN')}đ
+                                                    {item.subTotal.toLocaleString('vi-VN')}đ
                                                 </p>
                                             </div>
                                         </div>
@@ -675,12 +678,12 @@ export default function StaffSupportChatPage() {
                                     </p>
                                     <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                                         <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                        <span>{orderDetail.delivery_address.phone || '—'}</span>
+                                        <span>{orderDetail.deliveryAddress.phone || '—'}</span>
                                     </div>
                                     <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
                                         <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
                                         <span className="leading-relaxed">
-                                            {orderDetail.delivery_address.detail}, {orderDetail.delivery_address.ward}, {orderDetail.delivery_address.district}, {orderDetail.delivery_address.city}
+                                            {orderDetail.deliveryAddress.detail}, {orderDetail.deliveryAddress.ward}, {orderDetail.deliveryAddress.city}
                                         </span>
                                     </div>
                                 </div>

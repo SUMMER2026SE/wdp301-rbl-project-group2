@@ -15,6 +15,7 @@ export interface SupportMessage {
     senderType: 'USER' | 'STAFF';
     senderId: string;
     content: string;
+    imageUrl?: string;
     createdAt: string;
     isRead: boolean;
 }

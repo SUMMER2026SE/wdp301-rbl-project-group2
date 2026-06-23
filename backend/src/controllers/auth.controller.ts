@@ -3,6 +3,7 @@ import {
   createUser,
   getMe,
   login,
+  loginWithGoogle,
   logoutUser,
   refreshUserAccessToken,
   resendVerifyEmail,
@@ -12,8 +13,8 @@ import {
   verifyPasswordResetOTP,
 } from '@/services/auth.service';
 import { IUser } from '@/types';
-import appAssert from '@/utils/appAssert';
-import { catchErrors } from '@/utils/asyncHandler';
+import appAssert from '@/utils/app-assert';
+import { catchErrors } from '@/utils/async-handler';
 import { clearAuthCookies, setAuthCookies } from '@/utils/cookies';
 import {
   emailValidator,
@@ -26,31 +27,34 @@ import {
 export const registerHandler = catchErrors(async (req, res) => {
   const params = registerValidator.parse({
     ...req.body,
-    user_agent: req.headers['user-agent'],
+    userAgent: req.headers['user-agent'],
   });
 
   const user = await createUser(params);
-  return res.success<Omit<IUser, 'password_hash'>>(CREATED, {
+  return res.success<any>(CREATED, {
     data: user,
     message: 'Tài khoản đăng ký thành công',
   });
 });
 
 export const loginHandler = catchErrors(async (req, res) => {
-  const params = loginValidator.parse(req.body);
-  const { user, refresh_token, access_token, deviceId } = await login(params);
+  const params = loginValidator.parse({
+    ...req.body,
+    userAgent: req.headers['user-agent'],
+  });
+  const { user, refreshToken, accessToken, deviceId } = await login(params);
 
   return setAuthCookies({
     res,
-    accessToken: access_token,
-    refreshToken: refresh_token,
+    accessToken: accessToken,
+    refreshToken: refreshToken,
     deviceId,
-  }).success<Omit<IUser, 'password_hash'>>(OK, {
+  }).success<any>(OK, {
     data: user,
     message: 'Đăng nhập thành công',
     tokens: {
-      accessToken: access_token,
-      refreshToken: refresh_token,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
       deviceId,
     },
   });
@@ -61,18 +65,18 @@ export const refreshHandler = catchErrors(async (req, res) => {
   const deviceId = req.body?.deviceId || (req.cookies.deviceId as string | undefined);
   appAssert(refreshToken, UNAUTHORIZED, 'Token không hợp lệ');
 
-  const { access_token, refresh_token } = await refreshUserAccessToken(refreshToken);
+  const { accessToken, refreshToken: newRefreshToken } = await refreshUserAccessToken(refreshToken);
 
   return setAuthCookies({
     res,
-    accessToken: access_token,
-    refreshToken: refresh_token,
+    accessToken: accessToken,
+    refreshToken: newRefreshToken,
     deviceId,
   }).success(OK, {
     message: 'Làm mới token thành công',
     tokens: {
-      accessToken: access_token,
-      refreshToken: refresh_token,
+      accessToken: accessToken,
+      refreshToken: newRefreshToken,
       deviceId,
     },
   });
@@ -126,7 +130,7 @@ export const verifyPasswordResetOTPHandler = catchErrors(async (req, res) => {
 export const getMeHandler = catchErrors(async (req, res) => {
   const user = await getMe(req.userId);
 
-  return res.success<Omit<IUser, 'password_hash'>>(OK, { data: user });
+  return res.success<any>(OK, { data: user });
 });
 
 export const logout = catchErrors(async (req, res) => {
@@ -135,3 +139,31 @@ export const logout = catchErrors(async (req, res) => {
   await logoutUser(userId, deviceId);
   return clearAuthCookies(res).success(OK, { message: 'Đăng xuất thành công' });
 });
+
+export const loginWithGoogleHandler = catchErrors(async (req, res) => {
+  const { credential, deviceId, referralCode } = req.body;
+  appAssert(credential, UNAUTHORIZED, 'Thiếu token xác thực Google');
+
+  const { user, refreshToken, accessToken, deviceId: activeDeviceId } = await loginWithGoogle({
+    credential,
+    userAgent: req.headers['user-agent'],
+    deviceId,
+    referralCode,
+  });
+
+  return setAuthCookies({
+    res,
+    accessToken,
+    refreshToken,
+    deviceId: activeDeviceId,
+  }).success<any>(OK, {
+    data: user,
+    message: 'Đăng nhập Google thành công',
+    tokens: {
+      accessToken,
+      refreshToken,
+      deviceId: activeDeviceId,
+    },
+  });
+});
+

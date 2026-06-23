@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import { FoodCard } from "@/components/shared/FoodCard";
-import { useCart } from "@/hooks/useCart";
-import { useToast } from "@/hooks/useToast";
+import { useSafeCart } from "@/hooks/useSafeCart";
+import { useStoreStore } from "@/store/storeStore";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 // ── Skeleton ─────────────────────────────────────────────
 const BestSellerSkeleton = () => (
@@ -25,8 +26,8 @@ const BestSellerSection = () => {
   const { t } = useTranslation(["customer", "common"]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { addItem } = useCart();
-  const { toast } = useToast();
+  const { safeAddItem } = useSafeCart();
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +38,7 @@ const BestSellerSection = () => {
           limit: 4,
           page: 1,
           isAvailable: true,
+          ...(selectedStore?._id ? { storeId: selectedStore._id } : {}),
         });
         if (!cancelled) setProducts(res.data.slice(0, 4));
       } catch (err) {
@@ -49,7 +51,7 @@ const BestSellerSection = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedStore?._id]);
 
   return (
     <section className="my-16">
@@ -83,8 +85,9 @@ const BestSellerSection = () => {
                   key={dish._id}
                   id={dish._id}
                   name={dish.name}
-                  image={typeof dish.image === 'object' && dish.image?.secure_url ? dish.image.secure_url : (typeof dish.image === 'string' ? dish.image : '')}
-                  price={dish.price}
+                  image={typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : '')}
+                  price={dish.campaignPrice ?? dish.price}
+                  originalPrice={dish.campaignPrice != null ? dish.price : undefined}
                   rating={dish.rating}
                   restaurant={dish.restaurant}
                   time={dish.time}
@@ -93,15 +96,25 @@ const BestSellerSection = () => {
                       icon: <Flame className="w-3 h-3" />,
                       className: 'bg-orange-600 text-white'
                   }}
-                  onAddToCart={() => {
-                      addItem({
-                          productId: dish._id,
-                          name: dish.name,
-                          image: typeof dish.image === 'object' && dish.image?.secure_url ? dish.image.secure_url : (typeof dish.image === 'string' ? dish.image : ''),
-                          price: dish.price,
-                          quantity: 1
-                      });
-                      toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
+                  onAddToCart={(_, trigger) => {
+                      const image = typeof dish.image === 'object' && dish.image?.secureUrl ? dish.image.secureUrl : (typeof dish.image === 'string' ? dish.image : '');
+                      safeAddItem(
+                          dish,
+                          {
+                              productId: dish._id,
+                              name: dish.name,
+                              image,
+                              price: dish.campaignPrice ?? dish.price,
+                              quantity: 1
+                          },
+                          () => {
+                              showAddToCartFeedback(
+                                  trigger,
+                                  image,
+                                  t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                              );
+                          }
+                      );
                   }}
               />
             ))}

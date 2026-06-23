@@ -24,6 +24,123 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const getRedirectPath = (role?: string) => {
+    switch (role?.toUpperCase()) {
+      case "ADMIN":
+        return "/admin";
+      case "MANAGER":
+        return "/manager/dashboard";
+      case "STAFF":
+        return "/staff";
+      default:
+        return "/";
+    }
+  };
+
+  const resolveRedirectTarget = (fromState: any): string | null => {
+    if (!fromState) return null;
+    if (typeof fromState === "string") return fromState;
+    if (typeof fromState === "object") {
+      const pathname = fromState.pathname || "";
+      const search = fromState.search || "";
+      const hash = fromState.hash || "";
+      return `${pathname}${search}${hash}`;
+    }
+    return null;
+  };
+
+  const handleGoogleLogin = () => {
+    if (!(window as any).google) {
+      setError("Không thể tải SDK đăng nhập của Google.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+
+    const client = (window as any).google.accounts.oauth2.initTokenClient({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      scope: "email profile openid",
+      callback: async (tokenResponse: any) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          try {
+            const res = await authService.loginWithGoogle({
+              credential: tokenResponse.access_token,
+            });
+            const user = res.data;
+            if (!user) throw new Error("Không có dữ liệu người dùng");
+
+            // Store user in Zustand (tokens are in httpOnly cookies)
+            login({
+              _id: user._id,
+              username: user.username,
+              fullName: user.fullName,
+              email: user.email,
+              phone: user.phone,
+              role: user.role,
+              storeId: user.storeId,
+              isActive: user.isActive,
+              verifiedAt: user.verifiedAt,
+              collectedPoints: user.collectedPoints,
+              addresses: user.addresses ?? [],
+              preferences: user.preferences as any,
+              isHealthSetup: user.isHealthSetup,
+            });
+
+            // Merge guest cart
+            mergeGuestCartIntoCurrentUser();
+
+            // Sync onboarding preferences
+            const pendingRaw = localStorage.getItem(PENDING_PREFS_KEY);
+            if (pendingRaw) {
+              try {
+                const prefs = JSON.parse(pendingRaw) as PendingPreferences;
+                await userService.updatePreferences(prefs);
+              } catch {
+                // ignore preferences sync errors
+              } finally {
+                localStorage.removeItem(PENDING_PREFS_KEY);
+              }
+            }
+
+            // Redirect
+            setTimeout(() => {
+              const fromState = (location.state as any)?.from;
+              const redirectTarget = resolveRedirectTarget(fromState);
+              if (redirectTarget && !redirectTarget.startsWith("/profile")) {
+                navigate(redirectTarget, { replace: true });
+              } else {
+                const redirectPath = getRedirectPath(user.role);
+                if (redirectPath === "/") {
+                  if (!user.isHealthSetup) {
+                    navigate("/onboarding", { replace: true });
+                  } else {
+                    navigate("/", { replace: true });
+                  }
+                } else {
+                  navigate(redirectPath, { replace: true });
+                }
+              }
+            }, 0);
+          } catch (err: any) {
+            const msg = err?.response?.data?.message || t("auth:login.loginFailed");
+            setError(msg);
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+        }
+      },
+      error_callback: (err: any) => {
+        setLoading(false);
+        setError("Lỗi kết nối với Google.");
+        console.error(err);
+      }
+    });
+
+    client.requestAccessToken();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -38,13 +155,17 @@ const LoginPage = () => {
       login({
         _id: user._id,
         username: user.username,
+        fullName: user.fullName,
         email: user.email,
         phone: user.phone,
         role: user.role,
+        storeId: user.storeId,
         isActive: user.isActive,
-        verified_at: user.verified_at,
-        collected_points: user.collected_points,
+        verifiedAt: user.verifiedAt,
+        collectedPoints: user.collectedPoints,
         addresses: user.addresses ?? [], // ← include delivery addresses
+        preferences: user.preferences as any,
+        isHealthSetup: user.isHealthSetup,
       });
 
       // Sau khi login, merge giỏ guest (nếu có) vào giỏ của user hiện tại
@@ -65,16 +186,21 @@ const LoginPage = () => {
 
       // Delay navigation to let Zustand state propagate before route guards evaluate
       setTimeout(() => {
-        const from = (location.state as { from?: { pathname: string } })?.from
-          ?.pathname;
-        if (from && from !== "/profile") {
-          navigate(from, { replace: true });
-        } else if (user.role === "ADMIN") {
-          navigate("/admin");
-        } else if (user.role === "STAFF") {
-          navigate("/staff");
+        const fromState = (location.state as any)?.from;
+        const redirectTarget = resolveRedirectTarget(fromState);
+        if (redirectTarget && !redirectTarget.startsWith("/profile")) {
+          navigate(redirectTarget, { replace: true });
         } else {
-          navigate("/");
+          const redirectPath = getRedirectPath(user.role);
+          if (redirectPath === "/") {
+            if (!user.isHealthSetup) {
+              navigate("/onboarding", { replace: true });
+            } else {
+              navigate("/", { replace: true });
+            }
+          } else {
+            navigate(redirectPath, { replace: true });
+          }
         }
       }, 0);
     } catch (err: any) {
@@ -138,7 +264,9 @@ const LoginPage = () => {
           <div className="grid grid-cols-1 gap-3">
             <button
               type="button"
-              className="flex items-center justify-center gap-3 w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold transition-all hover:bg-accent"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="flex items-center justify-center gap-3 w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold transition-all hover:bg-accent disabled:opacity-50"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -159,15 +287,6 @@ const LoginPage = () => {
                 />
               </svg>
               <span>{t("auth:login.google")}</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center gap-3 w-full h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold transition-all hover:bg-accent"
-            >
-              <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-              <span>{t("auth:login.facebook", "Tiếp tục với Facebook")}</span>
             </button>
           </div>
 

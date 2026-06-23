@@ -37,6 +37,8 @@ export const useProducts = (
   const [loading, setLoading] = useState(autoFetch);
   const [error, setError] = useState<string | null>(null);
 
+  const filterKey = JSON.stringify(filters);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -52,7 +54,7 @@ export const useProducts = (
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(filters)]);
+  }, [filterKey]);
 
   useEffect(() => {
     if (autoFetch) {
@@ -85,7 +87,7 @@ export const useProducts = (
     );
 
     try {
-      await productService.updateProduct(product._id, {
+      await productService.updateProductAvailability(product._id, {
         isAvailable: newAvailability,
       });
     } catch (err) {

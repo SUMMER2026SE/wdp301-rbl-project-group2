@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { clsx } from "clsx";
 import type { Product } from "@/types/product";
 import {
@@ -6,6 +6,8 @@ import {
   CATEGORIES,
   HEALTH_TAG_OPTIONS,
 } from "@/hooks/useProductForm";
+import ingredientService, { type Ingredient } from "@/services/ingredient.service";
+import { getAllergenLabel } from "@/constants/allergenCatalog";
 
 // ---- Props ----
 
@@ -26,6 +28,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [loadingIngredients, setLoadingIngredients] = useState(false);
+
   const {
     formData,
     loading,
@@ -39,6 +44,28 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     removeRecipeItem,
     handleSubmit,
   } = useProductForm({ mode, product, onSuccess, onClose });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    const loadIngredients = async () => {
+      setLoadingIngredients(true);
+      try {
+        const data = await ingredientService.list();
+        if (!cancelled) setIngredients(data);
+      } catch {
+        if (!cancelled) setIngredients([]);
+      } finally {
+        if (!cancelled) setLoadingIngredients(false);
+      }
+    };
+
+    void loadIngredients();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -227,7 +254,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   menu_book
                 </span>
                 <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Nguyên liệu
+                  Nguyên liệu món ăn
                 </label>
               </div>
               <button
@@ -238,47 +265,136 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <span className="material-symbols-outlined text-[16px]">
                   add
                 </span>
-                Thêm nguyên liệu
+                Thêm dòng nguyên liệu
               </button>
             </div>
 
+            <p className="text-xs text-gray-500 leading-relaxed bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
+              Mỗi dòng là một thành phần của món. Chọn đúng nguyên liệu từ kho, nhập số lượng theo đơn vị chuẩn để hệ thống tự tính dị ứng và mô tả món ăn chính xác.
+            </p>
+
             {formData.recipe.length === 0 ? (
               <p className="text-xs text-gray-400 italic text-center py-4 border border-dashed border-gray-200 rounded-xl">
-                Chưa có nguyên liệu nào. Nhấn "+ Thêm nguyên liệu" để bắt đầu.
+                Chưa có nguyên liệu nào. Nhấn "+ Thêm dòng nguyên liệu" để bắt đầu.
               </p>
             ) : (
-              <div className="space-y-2">
-                {formData.recipe.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) =>
-                        updateRecipeItem(index, "name", e.target.value)
-                      }
-                      className="flex-1 h-10 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm"
-                      placeholder="Tên nguyên liệu"
-                    />
-                    <input
-                      type="text"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateRecipeItem(index, "quantity", e.target.value)
-                      }
-                      className="w-28 h-10 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm"
-                      placeholder="Số lượng"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeRecipeItem(index)}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              <div className="space-y-3">
+                {formData.recipe.map((item, index) => {
+                  const selectedIngredient = ingredients.find(
+                    (ingredient) => ingredient.id === item.ingredientId,
+                  );
+                  const usingCustomIngredient = !item.ingredientId;
+
+                  return (
+                    <div
+                      key={`recipe-item-${index}`}
+                      className="rounded-xl border border-gray-200 p-3 bg-gray-50/60 space-y-3"
                     >
-                      <span className="material-symbols-outlined text-[18px]">
-                        delete
-                      </span>
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                          Thành phần {index + 1}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => removeRecipeItem(index)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          aria-label={`Xóa thành phần ${index + 1}`}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            delete
+                          </span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_100px] gap-2 items-start">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Chọn nguyên liệu có sẵn
+                          </label>
+                          <select
+                            value={item.ingredientId}
+                            onChange={(e) =>
+                              updateRecipeItem(index, "ingredientId", e.target.value)
+                            }
+                            disabled={Boolean(item.ingredientName.trim())}
+                            className="w-full h-11 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm bg-white"
+                          >
+                            <option value="">
+                              {loadingIngredients ? "Đang tải nguyên liệu..." : "Không có / nhập mới bên cạnh"}
+                            </option>
+                            {ingredients.map((ingredient) => (
+                              <option key={ingredient.id} value={ingredient.id}>
+                                {ingredient.name}
+                                {ingredient.allergenTags.length > 0
+                                  ? ` (${ingredient.allergenTags.map(getAllergenLabel).join(", ")})`
+                                  : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Hoặc nhập nguyên liệu mới
+                          </label>
+                          <input
+                            type="text"
+                            value={item.ingredientName}
+                            onChange={(e) =>
+                              updateRecipeItem(index, "ingredientName", e.target.value)
+                            }
+                            className="w-full h-11 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm"
+                            placeholder="Ví dụ: Bò viên"
+                          />
+                          {selectedIngredient && !usingCustomIngredient && (
+                            <p className="text-[11px] text-gray-500">
+                              Dị ứng: {selectedIngredient.allergenTags.length > 0
+                                ? selectedIngredient.allergenTags.map(getAllergenLabel).join(", ")
+                                : "Không có"}
+                            </p>
+                          )}
+                          {usingCustomIngredient && item.ingredientName.trim() && (
+                            <p className="text-[11px] text-orange-600">
+                              Hệ thống sẽ tự tạo nguyên liệu mới khi lưu món.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Số lượng
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateRecipeItem(index, "quantity", e.target.value)
+                            }
+                            className="w-full h-11 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm"
+                            placeholder="1"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">
+                            Đơn vị
+                          </label>
+                          <input
+                            type="text"
+                            value={item.unit}
+                            onChange={(e) =>
+                              updateRecipeItem(index, "unit", e.target.value)
+                            }
+                            className="w-full h-11 px-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 outline-none text-sm"
+                            placeholder="g"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -301,13 +417,13 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   onClick={() => toggleHealthTag(tag.label)}
                   className={clsx(
                     "px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95",
-                    formData.health_tags.includes(tag.label)
+                    formData.healthTags.includes(tag.label)
                       ? tag.color
                       : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300",
                   )}
                 >
                   {tag.label}
-                  {formData.health_tags.includes(tag.label) && (
+                  {formData.healthTags.includes(tag.label) && (
                     <span className="ml-1">✓</span>
                   )}
                 </button>
@@ -322,8 +438,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </label>
             <input
               type="text"
-              value={formData.health_warning}
-              onChange={(e) => updateField("health_warning", e.target.value)}
+              value={formData.healthWarning}
+              onChange={(e) => updateField("healthWarning", e.target.value)}
               className="w-full h-12 px-4 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all"
               placeholder="Ví dụ: Không phù hợp cho người dị ứng lạc"
             />

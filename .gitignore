@@ -1,0 +1,26 @@
+# Local docker override configuration
+docker-compose.override.yml
+
+# Helper scripts
+kill-ports.js
+
+# Local product export data
+backend/src/foa.products.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Env configurations
+.env
+.env.*
+!.env.example

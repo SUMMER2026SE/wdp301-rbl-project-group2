@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { catchErrors } from '@/utils/asyncHandler';
+import { catchErrors } from '@/utils/async-handler';
 import { CREATED, OK } from '@/constants/http';
 import { uploadAndSaveFile, removeFile } from '@/services/file.service';
 import { FileOwnerType } from '@/types/file.type';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST } from '@/constants/http';
 
 /**
@@ -36,8 +36,8 @@ export const uploadFileHandler = catchErrors(async (req: Request, res: Response)
   return res.success(CREATED, {
     data: {
       _id: fileDoc._id,
-      secure_url: fileDoc.secure_url,
-      public_id: fileDoc.public_id,
+      secureUrl: fileDoc.secure_url,
+      publicId: fileDoc.public_id,
       width: fileDoc.width,
       height: fileDoc.height,
       bytes: fileDoc.bytes,

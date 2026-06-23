@@ -1,11 +1,10 @@
 import { Outlet } from "react-router-dom";
 import { NavLink } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { userService,type UserMeResponse } from "@/services/profile.service";
-import { useToast } from "@/hooks/useToast";
+import { userService, type UserMeResponse } from "@/services/profile.service";
+import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 const ProfileLayout = () => {
-  const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [me, setMe] = useState<UserMeResponse | null>(null);
@@ -22,7 +21,7 @@ const ProfileLayout = () => {
         if (!mounted) return;
         setMe(res.data.data);
       } catch (e: any) {
-        toast(e?.message || "Không thể tải thông tin", "error");
+        toast.error(e?.message || "Không thể tải thông tin");
       } finally {
         if (mounted) setLoadingMe(false);
       }
@@ -46,10 +45,10 @@ const ProfileLayout = () => {
       if (user) {
         setUser({ ...user, avatar: res.data.data.avatar });
       }
-      toast("Cập nhật avatar thành công", "success");
+      toast.success("Cập nhật avatar thành công");
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Upload avatar thất bại";
-      toast(msg, "error");
+      toast.error(msg);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -99,7 +98,7 @@ const ProfileLayout = () => {
               </div>
 
               <h2 className="text-2xl font-bold mb-1">
-                {loadingMe ? "..." : (me?.username || "—")}
+                {loadingMe ? "..." : (me?.fullName || me?.username || "—")}
               </h2>
 
               <p className="text-muted-foreground text-sm mb-4">
@@ -108,19 +107,19 @@ const ProfileLayout = () => {
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-600/10 text-orange-600 text-xs font-bold uppercase tracking-wider mb-6 border border-orange-600/20">
                 <span className="material-symbols-outlined text-sm">stars</span>
-                {typeof me?.collected_points === "number" ? `${me.collected_points} điểm` : "—"}
+                {typeof user?.collectedPoints === "number" ? `${user.collectedPoints} điểm` : "—"}
               </div>
               <div className="grid grid-cols-3 gap-4 w-full border-t border-border pt-6">
                 <div>
-                  <p className="text-xl font-bold">142</p>
+                  <p className="text-xl font-bold">{loadingMe ? "..." : (me?.ordersCount ?? 0)}</p>
                   <p className="text-xs text-muted-foreground uppercase font-medium">Đơn hàng</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold">28</p>
+                  <p className="text-xl font-bold">{loadingMe ? "..." : (me?.reviewsCount ?? 0)}</p>
                   <p className="text-xs text-muted-foreground uppercase font-medium">Đánh giá</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold">12</p>
+                  <p className="text-xl font-bold">{loadingMe ? "..." : (me?.savedCount ?? 0)}</p>
                   <p className="text-xs text-muted-foreground uppercase font-medium">Đã lưu</p>
                 </div>
               </div>
@@ -165,7 +164,7 @@ const ProfileLayout = () => {
                 )}
               </NavLink>
               <NavLink
-                to="/messages"
+                to="/profile/messages"
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${isActive ? "bg-accent text-foreground" : "hover:bg-accent text-muted-foreground hover:text-foreground"
                   }`
@@ -173,7 +172,7 @@ const ProfileLayout = () => {
               >
                 {({ isActive }) => (
                   <>
-                    <span className={`material-symbols-outlined ${isActive ? "text-primary" : ""}`}>
+                    <span className={`material-symbols-outlined ${isActive ? "text-orange-600" : ""}`}>
                       chat
                     </span>
                     Tin nhắn
@@ -227,7 +226,7 @@ const ProfileLayout = () => {
           </aside>
 
           {/* RIGHT COLUMN: Tab content */}
-          <section className="lg:col-span-8 space-y-8">
+          <section className="min-w-0 lg:col-span-8 space-y-8">
             <Outlet />
           </section>
         </div>

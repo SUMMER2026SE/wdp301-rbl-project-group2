@@ -1,22 +1,40 @@
 export interface Product {
   _id: string;
+  storeId?: string;
   name: string;
   description: string;
-  image: string | { secure_url: string };
+  image: string | { secureUrl: string };
   price: number;
   category: string;
   restaurant: string;
   time: string;
   rating: number;
-  review_count: number;
+  reviewCount: number;
   recipe: {
-    name: string;
-    quantity: string;
+    name?: string;
+    ingredientId?: {
+      _id: string;
+      name: string;
+      allergenTags?: string[];
+    } | string;
+    quantity: number | string;
+    unit?: string;
+    allergenTags?: string[];
   }[];
   tags: string[];
-  health_warning?: string;
-  health_tags: string[];
+  healthWarning?: string;
+  healthTags: string[];
+  healthRisk?: {
+    level: "safe" | "warning" | "danger";
+    matchedAllergens: string[];
+    matchedIngredients: string[];
+    message: string;
+  };
+  campaignPrice?: number;
   isAvailable: boolean;
+  status: "active" | "inactive" | "out_of_stock" | "deleted";
+  operationalNote?: string;
+  variationIds?: VariantGroup[];
   aiReason?: string;
   createdAt: string;
   updatedAt: string;
@@ -25,14 +43,14 @@ export interface Product {
 
 export interface VariantOption {
   choice: string;
-  extra_price: number;
+  extraPrice: number;
 }
 
 export interface VariantGroup {
   name: string;
   required?: boolean;
   multiple?: boolean;
-  max_choices?: number;
+  maxChoices?: number;
   options: VariantOption[];
 }
 
@@ -57,5 +75,7 @@ export interface ProductFilters {
   page?: number;
   limit?: number;
   isAvailable?: boolean;
-  health_tags?: string[];
+  healthTags?: string[];
+  storeId?: string;
+  showAll?: boolean;
 }

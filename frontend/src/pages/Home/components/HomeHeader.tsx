@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../hooks/useAuth";
 import i18n from "../../../config/i18n";
@@ -10,11 +10,33 @@ import { getSupportSocket } from "@/lib/support-socket";
 // import { apiClient } from "@/lib/api-client";
 import logo from "@/assets/logo.png";
 import { useCart } from "@/hooks/useCart";
+import { CartPreviewDropdown } from "@/components/shared/CartPreviewDropdown";
+import { useStoreStore } from "@/store/storeStore";
+import { BranchSelectorModal } from "@/components/shared/BranchSelectorModal";
 
 interface HomeHeaderProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
 }
+
+const getNotificationDisplayText = (notification: Notification) => {
+  if (notification.title !== "Danh gia da bi xoa") {
+    return { title: notification.title, body: notification.body };
+  }
+
+  return {
+    title: "Đánh giá đã bị xóa",
+    body: notification.body
+      .replace(
+        "Danh gia cua ban da bi xoa do vi pham chinh sach noi dung.",
+        "Đánh giá của bạn đã bị xóa do vi phạm chính sách nội dung.",
+      )
+      .replace(
+        "Ban da bi tam khoa quyen danh gia trong 24 gio.",
+        "Bạn đã bị tạm khóa quyền đánh giá trong 24 giờ.",
+      ),
+  };
+};
 
 const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const navigate = useNavigate();
@@ -23,16 +45,23 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const { items: cartItems, totalItems, clearCart } = useCart();
+  const { items: cartItems, totalItems, totalPrice, clearCart } = useCart();
 
-  const cartCount = cartItems.length;
+  const cartCount = totalItems > 0 ? totalItems : cartItems.length;
+  const location = useLocation();
+  const [urlSearchParams, setUrlSearchParams] = useSearchParams();
+  const isOnMenuPage = location.pathname === "/menu";
   // Local input state for header search
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
+
+  const { selectedStore } = useStoreStore();
+  const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
+
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  const [showCartPreview, setShowCartPreview] = useState(false);
-//   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
+  //   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
 
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -53,15 +82,29 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     navigate("/");
   };
 
-  // Navigate to /menu with search keyword
-  const handleSearch = (q: string) => {
+  // Handle search submit (either on /menu or other pages)
+  const handleSearchSubmit = (q: string) => {
     const trimmed = q.trim();
-    if (!trimmed) return;
-    navigate(`/menu?search=${encodeURIComponent(trimmed)}`);
+    if (trimmed) {
+      if (isOnMenuPage) {
+        const newParams = new URLSearchParams(urlSearchParams);
+        newParams.set("search", trimmed);
+        setUrlSearchParams(newParams, { replace: true });
+      } else {
+        navigate(`/menu?search=${encodeURIComponent(trimmed)}`);
+      }
+    } else if (isOnMenuPage) {
+      const newParams = new URLSearchParams(urlSearchParams);
+      newParams.delete("search");
+      setUrlSearchParams(newParams, { replace: true });
+    }
+
+    // Clear input after search
+    setLocalSearch("");
     setShowMobileSearch(false);
   };
 
-  const displayName = user?.username || user?.email?.split("@")[0] || "User";
+  const displayName = user?.fullName || user?.username || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
   const initial = displayName.charAt(0).toUpperCase();
   const avatarUrl = user?.avatar || "";
@@ -133,14 +176,14 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     }
   }, [isAuthenticated]);
 
-//   const fetchActiveOrders = useCallback(async () => {
-//     try {
-//       const res = await apiClient.get("/orders/active-count");
-//       setActiveOrdersCount(res.data.data?.count || 0);
-//     } catch (error) {
-//       console.error("Failed to fetch active orders count", error);
-//     }
-//   }, [isAuthenticated]);
+  //   const fetchActiveOrders = useCallback(async () => {
+  //     try {
+  //       const res = await apiClient.get("/orders/active-count");
+  //       setActiveOrdersCount(res.data.data?.count || 0);
+  //     } catch (error) {
+  //       console.error("Failed to fetch active orders count", error);
+  //     }
+  //   }, [isAuthenticated]);
   useEffect(() => {
     if (!isAuthenticated) {
       if (notifications.length > 0) setNotifications([]);
@@ -201,8 +244,15 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       playNotification();
     });
 
+    socket.on("notification:new", (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev.filter((item) => item._id !== notification._id)].slice(0, 50));
+      setUnreadCount((prev) => prev + 1);
+      playNotification();
+    });
+
     return () => {
       socket.off("order:status_updated");
+      socket.off("notification:new");
     };
   }, [isAuthenticated, user?._id, playNotification]);
 
@@ -213,11 +263,14 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       <div className="bg-[#3c2415] text-white/90 py-1.5 text-[11px] lg:text-xs font-medium z-50">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-1.5">
           <div className="flex items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer">
+            <div
+              onClick={() => setIsBranchModalOpen(true)}
+              className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer"
+            >
               <span className="material-symbols-outlined text-[14px]">
                 location_on
               </span>
-              <span>Đà Nẵng, VN</span>
+              <span>{selectedStore ? `Chi nhánh: ${selectedStore.district}` : "Đà Nẵng, VN"}</span>
             </div>
             <div className="flex items-center gap-1.5 hover:text-orange-300 transition-colors cursor-pointer">
               <span className="material-symbols-outlined text-[14px]">
@@ -286,25 +339,28 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   type="text"
                   value={onSearchChange ? searchQuery || "" : localSearch}
                   onChange={(e) => {
-                    if (onSearchChange) onSearchChange(e.target.value);
-                    else setLocalSearch(e.target.value);
+                    if (onSearchChange) {
+                      onSearchChange(e.target.value);
+                    } else {
+                      setLocalSearch(e.target.value);
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       if (onSearchChange)
                         onSearchChange((e.target as HTMLInputElement).value);
-                      else handleSearch(localSearch);
+                      else handleSearchSubmit(localSearch);
                     }
                   }}
                   placeholder={t("customer:menu.searchPlaceholder")}
                   className="w-full h-12 pl-12 pr-28 bg-orange-50/60 text-gray-900 rounded-full border-2 border-orange-200 placeholder:text-gray-400 focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:outline-none transition-all duration-300 text-sm font-medium"
                 />
                 <button
-                  onClick={() =>
-                    handleSearch(
-                      onSearchChange ? searchQuery || "" : localSearch,
-                    )
-                  }
+                  onClick={() => {
+                    if (!onSearchChange) {
+                      handleSearchSubmit(localSearch);
+                    }
+                  }}
                   className="absolute right-1.5 top-1.5 h-9 px-5 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center gap-1.5 transition-all hover:scale-[1.02] shadow-md text-sm font-semibold"
                 >
                   <span className="material-symbols-outlined text-[18px]">
@@ -376,8 +432,11 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                             Chưa có thông báo nào.
                           </div>
                         ) : (
-                          notifications.map((noti) => (
-                            <button
+                          notifications.map((noti) => {
+                            const displayText = getNotificationDisplayText(noti);
+
+                            return (
+                              <button
                               key={noti._id}
                               onClick={async () => {
                                 try {
@@ -410,7 +469,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-sm font-bold text-gray-900 line-clamp-1">
-                                      {noti.title}
+                                      {displayText.title}
                                     </p>
 
                                     {!noti.isRead && (
@@ -419,7 +478,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                   </div>
 
                                   <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                    {noti.body}
+                                    {displayText.body}
                                   </p>
 
                                   <p className="text-[11px] text-gray-400 mt-2">
@@ -429,8 +488,9 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                                   </p>
                                 </div>
                               </div>
-                            </button>
-                          ))
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     </div>
@@ -438,20 +498,25 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                 </div>
               )}
 
-              {/* Cart */}
-              <button
-                onClick={() => navigate("/cart")}
-                className="p-2.5 rounded-xl text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 relative group"
-              >
-                <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">
-                  shopping_cart
-                </span>
-                {cartCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 bg-orange-500 text-white text-[10px] font-black w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm">
-                    {cartCount > 99 ? "99+" : cartCount}
+              {/* Cart + hover preview */}
+              <CartPreviewDropdown items={cartItems} totalPrice={totalPrice}>
+                <button
+                  type="button"
+                  data-cart-icon
+                  onClick={() => navigate("/cart")}
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-orange-50 hover:text-orange-600 transition-all duration-200 relative group cursor-pointer"
+                  aria-label={t("customer:cart.title", "Giỏ hàng")}
+                >
+                  <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">
+                    shopping_cart
                   </span>
-                )}
-              </button>
+                  {cartCount > 0 && (
+                    <span className="absolute top-0.5 right-0.5 bg-orange-500 text-white text-[10px] font-black min-w-[18px] h-[18px] px-0.5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
+                </button>
+              </CartPreviewDropdown>
 
               <div className="h-7 w-px bg-gray-200 mx-2 hidden sm:block"></div>
 
@@ -650,12 +715,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
 
               {/* Right: secondary info */}
               <div className="flex items-center gap-5 text-[#6b4c2a]">
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="material-symbols-outlined text-orange-500 text-[15px]">
-                    local_shipping
-                  </span>
-                  <span>Miễn phí giao hàng từ 50K</span>
-                </div>
+
                 <div className="h-3.5 w-px bg-orange-200"></div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="material-symbols-outlined text-orange-500 text-[15px]">
@@ -664,12 +724,15 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   <span>7:00 - 22:00</span>
                 </div>
                 <div className="h-3.5 w-px bg-orange-200"></div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <button
+                  onClick={() => setIsBranchModalOpen(true)}
+                  className="flex items-center gap-1.5 text-xs hover:text-orange-600 transition-colors cursor-pointer"
+                >
                   <span className="material-symbols-outlined text-orange-500 text-[15px]">
                     location_on
                   </span>
-                  <span>Đà Nẵng, VN</span>
-                </div>
+                  <span>{selectedStore ? `Giao từ: ${selectedStore.name}` : "Đà Nẵng, VN"}</span>
+                </button>
               </div>
             </div>
           </div>
@@ -693,16 +756,16 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                   <input
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleSearch(localSearch)
-                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSearchSubmit(localSearch);
+                    }}
                     placeholder={t("customer:menu.searchPlaceholder")}
                     className="w-full h-12 pl-12 pr-4 bg-orange-50/60 text-gray-900 rounded-full border-2 border-orange-200 placeholder:text-gray-400 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:outline-none text-sm"
                     autoFocus
                   />
                 </div>
                 <button
-                  onClick={() => handleSearch(localSearch)}
+                  onClick={() => handleSearchSubmit(localSearch)}
                   className="h-12 px-4 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors"
                 >
                   Tìm
@@ -725,8 +788,8 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
       <div
         ref={mobileMenuRef}
         className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-0 pointer-events-none"
           }`}
         aria-hidden={!isMobileMenuOpen}
       >
@@ -897,6 +960,11 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
           </nav>
         </div>
       </div>
+      <BranchSelectorModal
+        isOpen={isBranchModalOpen}
+        onClose={() => setIsBranchModalOpen(false)}
+        isClosable={true}
+      />
     </>
   );
 };

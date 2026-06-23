@@ -9,28 +9,42 @@ export type ApiResponse<T> = {
 export interface UserPreferences {
   dietary: string[];
   allergies: string[];
-  health_goals: string[];
+  healthGoals: string[];
 }
 
 export type UserMeResponse = {
   _id: string;
   username: string;
+  fullName?: string;
   email: string;
   phone?: string;
   avatar?: string;
-  collected_points: number;
+  collectedPoints: number;
+  accumulatedPoints: number;
   tier: string;
-  referral_code: string;
-  referred_by?: string | null;
+  referralCode: string;
+  referredBy?: string | null;
   role: string;
   preferences?: UserPreferences;
+  ordersCount?: number;
+  reviewsCount?: number;
+  savedCount?: number;
+  receiveCampaignNotifications?: boolean;
+  storeId?: string | null;
 };
 
 export interface MembershipInfo {
-  collected_points: number;
+  collectedPoints: number;
+  accumulatedPoints: number;
   tier: string;
-  referral_code: string;
-  referred_by?: string | null;
+  referralCode: string;
+  referredBy?: string | null;
+  referralRewardStatus?: "none" | "pending" | "processing" | "rewarded" | "rejected";
+  referralQualifiedOrderId?: string | null;
+  referralRewardVoucherId?: string | null;
+  referralRewardedAt?: string | null;
+  referralRejectionReason?: string | null;
+  redeemedVoucherIds?: string[];
 }
 
 export interface PointTransaction {
@@ -38,27 +52,29 @@ export interface PointTransaction {
   amount: number;
   type: "earn" | "redeem" | "referral" | "bonus";
   description: string;
-  order_id?: string;
+  orderId?: string;
   createdAt: string;
 }
 
 export interface AddressPayload {
   label?: string;
-  receiver_name: string;
-  phone: string;
+  receiverName: string;
+  phone?: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
   isDefault: boolean;
 }
 
 export type UpdateMePayload = {
   username?: string;
+  fullName?: string;
   phone?: string;
   avatar?: string;
   preferences?: Partial<UserPreferences>;
   addresses?: AddressPayload[];
+  receiveCampaignNotifications?: boolean;
 };
 
 export const userService = {
@@ -96,8 +112,10 @@ export const userService = {
     return apiClient.get<ApiResponse<MembershipInfo>>("/users/me/membership");
   },
 
-  getPointTransactions() {
-    return apiClient.get<ApiResponse<PointTransaction[]>>("/users/me/points");
+  getPointTransactions(skip = 0, limit = 20) {
+    return apiClient.get<ApiResponse<PointTransaction[]>>("/users/me/points", {
+      params: { skip, limit },
+    });
   },
 
   claimReferral(code: string) {

@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import { OrderTimeline, type OrderStep } from "@/components/shared/OrderTimeline";
 import orderService, { type Order } from "@/services/order.service";
 import { format, addMinutes } from "date-fns";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
+import { getSupportSocket } from "@/lib/support-socket";
 
 const TrackOrderPage = () => {
     const { t } = useTranslation(['customer', 'common']);
@@ -15,26 +18,69 @@ const TrackOrderPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchOrder = async () => {
-            if (!orderId) {
-                setLoading(false);
-                return;
-            }
+    const { user } = useAuth();
+    const [submitting, setSubmitting] = useState(false);
 
-            try {
-                setLoading(true);
-                const res = await orderService.getOrderById(orderId);
+    const handleConfirmReceipt = async () => {
+        if (!orderId) return;
+        try {
+            setSubmitting(true);
+            const res = await orderService.confirmReceipt(orderId);
+            if (res.success) {
                 setOrder(res.data);
-            } catch (err: any) {
-                console.error("Failed to fetch order for tracking:", err);
-                setError(err.response?.data?.message || "Không tìm thấy đơn hàng");
-            } finally {
-                setLoading(false);
+                toast.success("Xác nhận đã nhận hàng thành công!");
+            }
+        } catch (err) {
+            const errorVal = err as Error & { response?: { data?: { message?: string } } };
+            console.error("Failed to confirm receipt:", errorVal);
+            toast.error(errorVal.response?.data?.message || "Không thể xác nhận nhận hàng");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const orderOwnerId = order && (typeof order.cusId === 'string' ? order.cusId : order.cusId?._id);
+    const isOwner = !!(user && orderOwnerId && user._id === orderOwnerId);
+
+    const fetchOrder = async (showLoading = true) => {
+        if (!orderId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            if (showLoading) setLoading(true);
+            const res = await orderService.getOrderById(orderId);
+            setOrder(res.data);
+        } catch (err) {
+            const errorVal = err as Error & { response?: { data?: { message?: string } } };
+            console.error("Failed to fetch order for tracking:", errorVal);
+            if (showLoading) {
+                setError(errorVal.response?.data?.message || "Không tìm thấy đơn hàng");
+            }
+        } finally {
+            if (showLoading) setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchOrder(true);
+    }, [orderId]);
+
+    useEffect(() => {
+        const socket = getSupportSocket();
+
+        const handleStatusUpdated = (data: { orderId: string }) => {
+            if (data.orderId === orderId) {
+                fetchOrder(false);
             }
         };
 
-        fetchOrder();
+        socket.on("order:status_updated", handleStatusUpdated);
+
+        return () => {
+            socket.off("order:status_updated", handleStatusUpdated);
+        };
     }, [orderId]);
 
     const mapStatusToStep = (status: string): OrderStep => {
@@ -44,6 +90,7 @@ const TrackOrderPage = () => {
             case 'processing':
             case 'ready_for_delivery': return 'preparing';
             case 'shipping': return 'delivering';
+            case 'delivered': return 'delivered';
             case 'completed': return 'completed';
             default: return 'pending';
         }
@@ -96,6 +143,7 @@ const TrackOrderPage = () => {
             case 'processing': return "Đầu bếp đang chuẩn bị món";
             case 'ready_for_delivery': return "Món ăn đã sẵn sàng giao";
             case 'shipping': return "Shipper đang trên đường tới";
+            case 'delivered': return "Đơn hàng đã được giao tới bạn";
             case 'completed': return "Đã giao hàng thành công";
             case 'cancelled': return "Đơn hàng đã bị hủy";
             default: return "Đang cập nhật tiến trình";
@@ -116,6 +164,8 @@ const TrackOrderPage = () => {
                                 <span className="material-symbols-outlined text-green-500 text-6xl">check_circle</span>
                             ) : order.status === 'cancelled' ? (
                                 <span className="material-symbols-outlined text-red-500 text-6xl">cancel</span>
+                            ) : order.status === 'delivered' ? (
+                                <span className="material-symbols-outlined text-orange-500 text-6xl animate-pulse">home</span>
                             ) : (
                                 <span className="material-symbols-outlined text-orange-600 text-6xl animate-bounce">
                                     {order.status === 'shipping' ? 'delivery_dining' : 'cooking'}
@@ -127,15 +177,56 @@ const TrackOrderPage = () => {
                                 <span className="material-symbols-outlined text-[20px]">check</span>
                             </div>
                         )}
+                        {order.status === 'delivered' && (
+                            <div className="absolute -bottom-2 -right-2 bg-orange-500 text-white size-10 rounded-full flex items-center justify-center ring-4 ring-background-light dark:ring-background-dark animate-bounce">
+                                <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+                            </div>
+                        )}
                     </div>
                     <h1 className="text-3xl md:text-5xl font-extrabold text-[#1c130d] dark:text-white mb-3">{getHeadline()}</h1>
-                    {order.status !== 'completed' && order.status !== 'cancelled' && (
+                    {order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered' && (
                         <p className="text-[#9e6b47] dark:text-white/60 text-lg">Dự kiến giao hàng: <span className="font-bold text-[#1c130d] dark:text-white">{estimatedTime}</span> (khoảng 30 phút)</p>
+                    )}
+                    {order.status === 'delivered' && (
+                        <p className="text-orange-600 dark:text-orange-400 font-bold text-lg animate-pulse">Vui lòng kiểm tra và xác nhận nhận hàng</p>
                     )}
                     {order.status === 'completed' && (
                         <p className="text-emerald-600 dark:text-emerald-400 font-bold text-lg">Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi!</p>
                     )}
                 </section>
+
+                {order.status === 'delivered' && isOwner && (
+                    <div className="max-w-[800px] mx-auto w-full mb-10 p-6 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-200 dark:border-orange-500/20 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-in fade-in duration-300">
+                        <div className="flex items-start gap-4 text-left">
+                            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-[#ea580c] shrink-0">
+                                <span className="material-symbols-outlined text-[28px] animate-bounce">moped</span>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-slate-800 dark:text-white text-lg">Đơn hàng đã được giao tới bạn!</h4>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Vui lòng kiểm tra món ăn và nhấn xác nhận. Đơn hàng sẽ tự động hoàn thành sau 30 phút.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleConfirmReceipt}
+                            disabled={submitting}
+                            className="px-6 py-3 bg-[#ea580c] text-white font-bold text-sm rounded-xl hover:bg-orange-700 active:scale-[0.98] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/30 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50 cursor-pointer"
+                        >
+                            {submitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Xác nhận đã nhận hàng
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                     <div className="lg:col-span-2 space-y-10">
@@ -148,7 +239,7 @@ const TrackOrderPage = () => {
                                     <p className="text-slate-500 text-sm mt-2">Chúng tôi rất tiếc về sự bất tiện này.</p>
                                 </div>
                             ) : (
-                                <OrderTimeline currentStep={mapStatusToStep(order.status)} />
+                                <OrderTimeline currentStep={mapStatusToStep(order.status)} order={order} />
                             )}
                         </div>
 
@@ -170,7 +261,7 @@ const TrackOrderPage = () => {
                                 <div>
                                     <p className="text-white/70 text-sm font-medium">Thanh toán</p>
                                     <h4 className="text-xl font-extrabold">
-                                        {order.payment.method === 'cash_on_delivery' ? 'COD' : 'Chuyển khoản'}
+                                        {order.payment.method === 'cash' ? 'COD' : 'Chuyển khoản'}
                                     </h4>
                                 </div>
                             </div>
@@ -196,8 +287,8 @@ const TrackOrderPage = () => {
                                     <span className="material-symbols-outlined text-orange-600 mt-0.5">location_on</span>
                                     <div>
                                         <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Địa chỉ giao hàng</p>
-                                        <p className="text-sm font-bold">{order.delivery_address.receiver_name} • {order.delivery_address.phone}</p>
-                                        <p className="text-sm text-slate-500 leading-snug">{order.delivery_address.detail}, {order.delivery_address.ward}, {order.delivery_address.district}, {order.delivery_address.city}</p>
+                                        <p className="text-sm font-bold">{order.deliveryAddress.receiverName} • {order.deliveryAddress.phone}</p>
+                                        <p className="text-sm text-slate-500 leading-snug">{order.deliveryAddress.detail}, {order.deliveryAddress.ward}, {order.deliveryAddress.city}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
@@ -216,7 +307,7 @@ const TrackOrderPage = () => {
                             <h3 className="text-lg font-bold mb-6">{t('customer:cart.grandTotal', 'Tóm tắt đơn hàng')}</h3>
                             <div className="space-y-4 mb-6">
                                 {order.items.map((item, idx) => {
-                                    const product = typeof item.product_id === 'object' ? item.product_id : null;
+                                    const product = typeof item.productId === 'object' ? item.productId : null;
                                     return (
                                         <div key={idx} className="flex justify-between items-start gap-4">
                                             <div className="flex flex-col">
@@ -227,22 +318,22 @@ const TrackOrderPage = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-sm font-bold">{item.sub_total.toLocaleString('vi-VN')}đ</span>
+                                            <span className="text-sm font-bold">{item.subTotal.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     );
                                 })}
                                 <div className="pt-4 border-t border-[#f4ece6] dark:border-white/10 space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-[#9e6b47]">{t('customer:cart.subtotal')}</span>
-                                        <span className="font-medium">{order.sub_total.toLocaleString('vi-VN')}đ</span>
+                                        <span className="font-medium">{order.subTotal.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-[#9e6b47]">{t('customer:cart.deliveryFee')}</span>
-                                        <span className="font-medium">{order.shipping_fee.toLocaleString('vi-VN')}đ</span>
+                                        <span className="font-medium">{order.shippingFee.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex justify-between text-lg font-extrabold pt-2">
                                         <span>{t('customer:cart.grandTotal')}</span>
-                                        <span className="text-orange-600">{order.total_price.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-orange-600">{order.totalPrice.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 </div>
                             </div>

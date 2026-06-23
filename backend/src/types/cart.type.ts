@@ -1,21 +1,45 @@
-import IProduct from './product.type';
-import IUser from './user.type';
+import mongoose from 'mongoose';
 
-export interface ICartVariation {
+export interface ICartItemVariation {
   name: string;
   choice: string;
-  extra_price: number;
+  extraPrice: number;
 }
 
 export interface ICartItem {
-  product_id: IProduct['_id'];
+  itemId?: mongoose.Types.ObjectId;
+  productId: mongoose.Types.ObjectId;
   quantity: number;
   price: number;
-  variations: ICartVariation[];
+  note?: string;
+  variations: ICartItemVariation[];
 }
 
-export default interface ICart {
-  user_id: IUser['_id'];
+export interface ICart extends mongoose.Document<mongoose.Types.ObjectId> {
+  storeId: mongoose.Types.ObjectId;
+  cusId: mongoose.Types.ObjectId;
   items: ICartItem[];
-  note: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICartItemDoc extends mongoose.Document<mongoose.Types.ObjectId> {
+  cartId: mongoose.Types.ObjectId;
+  productId: mongoose.Types.ObjectId;
+  name?: string;
+  image?: string;
+  quantity: number;
+  price: number;
+  note?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICartItemVariationDoc extends mongoose.Document<mongoose.Types.ObjectId> {
+  cartItemId: mongoose.Types.ObjectId;
+  variation_optionIds: mongoose.Types.ObjectId[];
+  name: string;
+  choice: string;
+  extraPrice: number;
+  createdAt: Date;
 }

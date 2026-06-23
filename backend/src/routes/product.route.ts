@@ -5,17 +5,20 @@ import {
     getAllProductsHandler,
     getProductByIdHandler,
     getProductCategoriesHandler,
+    getProductHealthRiskHandler,
+    updateProductAvailabilityHandler,
     updateProductHandler
 } from '@/controllers/product.controller';
 import { getRecommendationsHandler, getSafeFoodsHandler } from '@/controllers/recommendation.controller';
 import authenticate from '@/middlewares/authenticate';
+import optionalAuthenticate from '@/middlewares/optional-authenticate';
 import authorize from '@/middlewares/authorize';
 import { Role } from '@/types/user.type';
 
 const router = Router();
 
 // Public routes
-router.get('/', getAllProductsHandler);
+router.get('/', optionalAuthenticate, getAllProductsHandler);
 router.get('/categories', getProductCategoriesHandler);
 
 // AI-powered routes (authenticated)
@@ -29,9 +32,13 @@ router.get('/safe-foods', authenticate, async (req, res, next) => {
     return getSafeFoodsHandler(req, res, next);
 });
 
-router.get('/:id', getProductByIdHandler);
+router.get('/:id/health-risk', authenticate, getProductHealthRiskHandler);
+router.get('/:id', optionalAuthenticate, getProductByIdHandler);
 
-// Admin routes
+// Staff + Admin: toggle product availability only
+router.patch('/:id/availability', authenticate, authorize(Role.ADMIN, Role.STAFF), updateProductAvailabilityHandler);
+
+// Admin-only: full product CRUD
 router.post('/', authenticate, authorize(Role.ADMIN), createProductHandler);
 router.put('/:id', authenticate, authorize(Role.ADMIN), updateProductHandler);
 router.delete('/:id', authenticate, authorize(Role.ADMIN), deleteProductHandler);

@@ -1,9 +1,6 @@
 /**
- * FSS-40: useAllergyCheck
- * Client-side hook that checks a product against:
- *   1. User's declared allergies (preferences.allergies[])  → danger level
- *   2. User's dietary restrictions (preferences.dietary[])  → warning level
- *      e.g. 'chay', 'vegan', 'vegetarian' → warns on meat/seafood
+ * FSS-40: checks the current product against the user's health preferences.
+ * This is a customer-facing warning only; the backend still owns final safety logic.
  */
 
 import { useMemo } from 'react';
@@ -18,199 +15,230 @@ export interface AllergyCheckResult {
   warningMessage: string;
 }
 
-// ─── Normalize string for fuzzy matching ───────────────────────────────────
-function normalize(str: string): string {
-  return str
+const EMPTY_PREFERENCES: string[] = [];
+
+const normalize = (value: unknown): string =>
+  String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-}
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .trim();
 
-function fuzzyMatch(a: string, b: string): boolean {
+const fuzzyMatch = (a: unknown, b: unknown): boolean => {
   const na = normalize(a);
   const nb = normalize(b);
-  return nb.includes(na) || na.includes(nb);
-}
+  return Boolean(na && nb) && (nb.includes(na) || na.includes(nb));
+};
 
-// ─── Dietary restriction rules ─────────────────────────────────────────────
-
-/** Ingredients that are NOT vegetarian/vegan */
 const MEAT_INGREDIENTS = [
-  'thịt bò', 'thịt heo', 'thịt lợn', 'thịt gà', 'thịt vịt', 'thịt dê',
-  'bò', 'heo', 'lợn', 'gà', 'vịt', 'dê', 'trâu', 'cừu',
-  'thịt xá xíu', 'xá xíu', 'thịt xông khói', 'bacon', 'thịt xay',
-  'xúc xích', 'giăm bông', 'ham', 'lạp xưởng', 'chả lụa', 'chả giò',
-  'thịt nướng', 'bò viên', 'gân bò', 'nạm bò',
+  'th\u1ecbt b\u00f2', 'th\u1ecbt heo', 'th\u1ecbt l\u1ee3n', 'th\u1ecbt g\u00e0', 'th\u1ecbt v\u1ecbt', 'th\u1ecbt d\u00ea',
+  'b\u00f2', 'heo', 'l\u1ee3n', 'g\u00e0', 'v\u1ecbt', 'd\u00ea', 'tr\u00e2u', 'c\u1eebu',
+  'x\u00e1 x\u00edu', 'bacon', 'th\u1ecbt xay', 'x\u00fac x\u00edch', 'gi\u0103m b\u00f4ng', 'ham',
+  'l\u1ea1p x\u01b0\u1edfng', 'ch\u1ea3 l\u1ee5a', 'ch\u1ea3 gi\u00f2', 'b\u00f2 vi\u00ean', 'g\u00e2n b\u00f2', 'n\u1ea1m b\u00f2',
 ];
 
-/** Ingredients that are NOT pescatarian-safe (seafood) */
 const SEAFOOD_INGREDIENTS = [
-  'tôm', 'cua', 'mực', 'nghêu', 'sò', 'ngêu', 'hải sản', 'cá',
-  'cá hồi', 'cá ngừ', 'cá lóc', 'cá thu', 'sò điệp', 'tôm hùm',
-  'tôm sú', 'surimi', 'chả cá', 'mắm', 'mắm tôm', 'mắm ruốc',
+  't\u00f4m', 'cua', 'm\u1ef1c', 'ngh\u00eau', 's\u00f2', 'ng\u00eau', 'h\u1ea3i s\u1ea3n', 'c\u00e1',
+  'c\u00e1 h\u1ed3i', 'c\u00e1 ng\u1eeb', 'c\u00e1 l\u00f3c', 'c\u00e1 thu', 's\u00f2 \u0111i\u1ec7p', 't\u00f4m h\u00f9m',
+  't\u00f4m s\u00fa', 'surimi', 'ch\u1ea3 c\u00e1', 'm\u1eafm', 'm\u1eafm t\u00f4m', 'm\u1eafm ru\u1ed1c',
 ];
 
-/** Dietary keywords that mean "vegetarian or vegan" */
-const VEGETARIAN_KEYWORDS = ['chay', 'vegan', 'vegetarian', 'thuần chay', 'ăn chay'];
+const VEGETARIAN_KEYWORDS = ['chay', 'vegan', 'vegetarian', 'thu\u1ea7n chay', '\u0103n chay'];
+const PESCATARIAN_KEYWORDS = ['pescatarian', '\u0103n c\u00e1', 'no meat'];
+const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', '\u00edt carb'];
+const HIGH_CARB_INGREDIENTS = ['c\u01a1m', 'b\u00fan', 'm\u00ec', 'b\u00e1nh m\u00ec', 'khoai t\u00e2y', 'b\u00e1nh g\u1ea1o', 'b\u1ed9t m\u00ec', 'm\u00ec g\u1ea1o'];
 
-/** Dietary keywords that restrict red meat but allow seafood */
-const PESCATARIAN_KEYWORDS = ['pescatarian', 'ăn cá', 'no meat'];
+const getRecipeName = (item: Product['recipe'][number]): string => {
+  if (item.name?.trim()) return item.name.trim();
+  if (typeof item.ingredientId === 'object') return item.ingredientId.name?.trim() ?? '';
+  return '';
+};
 
-/** Dietary keywords for low-carb / keto users */
-const LOW_CARB_KEYWORDS = ['keto', 'low carb', 'low-carb', 'ít carb'];
+const productKeywords = (product: Product): string[] => [
+  product.name,
+  product.description,
+  ...((product.recipe ?? []).map(getRecipeName)),
+  ...(product.tags ?? []),
+  ...(product.healthTags ?? []),
+].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
 
-/** High-carb ingredients to warn low-carb users */
-const HIGH_CARB_INGREDIENTS = [
-  'cơm', 'bún', 'mì', 'bánh mì', 'khoai tây', 'bánh gạo', 'bột mì', 'mì gạo',
-];
-
-function isDietaryKeyword(diet: string, keywords: string[]): boolean {
-  return keywords.some(k => fuzzyMatch(k, diet));
-}
-
-function containsIngredient(product: Product, ingredients: string[]): string[] {
+const findConflicts = (product: Product, forbidden: string[]): string[] => {
   const found: string[] = [];
-  if (!product.recipe) return found;
-  for (const item of product.recipe) {
-    for (const ing of ingredients) {
-      if (fuzzyMatch(ing, item.name) && !found.includes(item.name)) {
-        found.push(item.name);
+
+  for (const keyword of productKeywords(product)) {
+    for (const forbiddenKeyword of forbidden) {
+      if (fuzzyMatch(forbiddenKeyword, keyword) && !found.includes(keyword)) {
+        found.push(keyword);
       }
     }
   }
-  return found;
-}
 
-// ─── Core check function ───────────────────────────────────────────────────
+  return found;
+};
+
+const isDietaryKeyword = (diet: unknown, keywords: string[]): boolean =>
+  keywords.some((keyword) => fuzzyMatch(keyword, diet));
+
+const ALLERGEN_ALIASES: Record<string, string[]> = {
+  beef: ['beef', 'bo', 'thit bo'],
+  pork: ['pork', 'heo', 'lon', 'thit heo', 'thit lon', 'suon', 'ba chi', 'cha lua', 'gio', 'nem'],
+  chicken: ['chicken', 'ga', 'thit ga'],
+  fish: ['fish', 'ca', 'cha ca', 'ca hoi', 'ca ngu', 'ca loc', 'ca thu', 'ca basa', 'nuoc mam'],
+  shrimp: ['shrimp', 'tom', 'tom hum', 'tom su', 'tom kho', 'mam tom'],
+  crab: ['crab', 'cua', 'ghe', 'cang cua'],
+  squid: ['squid', 'muc'],
+  shellfish: ['shellfish', 'hai san', 'hai san co vo', 'ngheu', 'so', 'oc', 'hen'],
+  eggs: ['eggs', 'egg', 'trung', 'trung ga', 'trung vit', 'trung cut', 'trung muoi'],
+  dairy: ['dairy', 'milk', 'sua', 'pho mai', 'kem', 'sua chua', 'yogurt', 'bo sua', 'sua dac'],
+  peanuts: ['peanuts', 'peanut', 'dau phong', 'lac', 'bo dau phong'],
+  soy: ['soy', 'dau nanh', 'tuong', 'tofu', 'dau hu'],
+  gluten: ['gluten', 'lua mi', 'banh mi', 'bot mi', 'hoanh thanh', 'ramen'],
+  tree_nuts: ['tree_nuts', 'tree nuts', 'hat cay', 'hanh nhan', 'oc cho', 'hat dieu', 'macca'],
+  sesame: ['sesame', 'me', 'vung', 'dau me'],
+  allium: ['allium', 'hanh', 'hanh la', 'hanh tay', 'toi', 'kieu', 'he'],
+  msg: ['msg', 'bot ngot', 'mi chinh'],
+};
+
+const ALLERGEN_ALIAS_TO_ID = Object.entries(ALLERGEN_ALIASES).reduce<Record<string, string>>(
+  (acc, [id, aliases]) => {
+    acc[normalize(id).replace(/\s+/g, '_')] = id;
+    for (const alias of aliases) {
+      acc[normalize(alias).replace(/\s+/g, '_')] = id;
+    }
+    return acc;
+  },
+  {},
+);
+
+const toAllergenId = (value: unknown) => {
+  const normalized = normalize(value).replace(/\s+/g, '_');
+  return ALLERGEN_ALIAS_TO_ID[normalized] ?? normalized;
+};
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const containsNormalizedPhrase = (text: string, phrase: string) => {
+  const normalizedPhrase = normalize(phrase);
+  if (!normalizedPhrase) return false;
+
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedPhrase)}($|[^a-z0-9])`);
+  return pattern.test(text);
+};
+
+const warningMentionsCurrentAllergy = (warning: string | undefined, allergyIds: Set<string>) => {
+  const normalizedWarning = normalize(warning);
+  if (!normalizedWarning) return false;
+
+  return [...allergyIds].some((id) =>
+    (ALLERGEN_ALIASES[id] ?? [id]).some((alias) => containsNormalizedPhrase(normalizedWarning, alias)),
+  );
+};
 
 export function checkProductAllergies(
   product: Product | null | undefined,
-  userAllergies: string[],
-  userDietary: string[] = []
+  userAllergies: unknown[],
+  userDietary: unknown[] = [],
 ): AllergyCheckResult {
   if (!product) return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 
-  // ── Step 1: Check hard allergies (DANGER) ────────────────────────────────
-  if (userAllergies.length > 0) {
-    const conflictIngredients: string[] = [];
+  const allergyIds = new Set(userAllergies.map(toAllergenId).filter(Boolean));
+  const hasUserAllergies = allergyIds.size > 0;
 
-    // Recipe ingredient match
-    if (product.recipe?.length) {
-      for (const ingredient of product.recipe) {
-        for (const allergen of userAllergies) {
-          if (fuzzyMatch(allergen, ingredient.name) && !conflictIngredients.includes(ingredient.name)) {
-            conflictIngredients.push(ingredient.name);
-          }
-        }
-      }
+  if (hasUserAllergies && product.healthRisk && product.healthRisk.level !== 'safe') {
+    const matchedIngredients = Array.isArray(product.healthRisk.matchedIngredients)
+      ? product.healthRisk.matchedIngredients.filter(Boolean)
+      : [];
+    const matchedAllergens = Array.isArray(product.healthRisk.matchedAllergens)
+      ? product.healthRisk.matchedAllergens.filter(Boolean)
+      : [];
+    const matchesCurrentProfile = matchedAllergens.some((tag) => allergyIds.has(toAllergenId(tag)));
+
+    if (matchesCurrentProfile) {
+      return {
+        level: product.healthRisk.level,
+        conflictIngredients: matchedIngredients.length ? matchedIngredients : matchedAllergens,
+        warningMessage: product.healthRisk.message ?? '',
+      };
     }
+  }
+
+  if (hasUserAllergies) {
+    const conflictIngredients = (product.recipe ?? [])
+      .filter((item) => {
+        const directTags = item.allergenTags ?? [];
+        const ingredientTags = typeof item.ingredientId === 'object' ? item.ingredientId.allergenTags ?? [] : [];
+        return [...directTags, ...ingredientTags].some((tag) => allergyIds.has(toAllergenId(tag)));
+      })
+      .map(getRecipeName)
+      .filter((name): name is string => Boolean(name));
 
     if (conflictIngredients.length > 0) {
+      const uniqueConflicts = [...new Set(conflictIngredients)];
       return {
         level: 'danger',
-        conflictIngredients,
-        warningMessage: `Món này chứa nguyên liệu bạn dị ứng: ${conflictIngredients.join(', ')}`,
-      };
-    }
-
-    // health_tags match (WARNING)
-    const tagConflicts: string[] = [];
-    for (const tag of product.health_tags ?? []) {
-      for (const allergen of userAllergies) {
-        if (fuzzyMatch(allergen, tag) && !tagConflicts.includes(tag)) {
-          tagConflicts.push(tag);
-        }
-      }
-    }
-    if (tagConflicts.length > 0) {
-      return {
-        level: 'warning',
-        conflictIngredients: tagConflicts,
-        warningMessage: `Món này có thể không phù hợp với hồ sơ sức khỏe của bạn`,
+        conflictIngredients: uniqueConflicts,
+        warningMessage: `M\u00f3n n\u00e0y c\u00f3 ${uniqueConflicts.join(', ')}, c\u00f3 th\u1ec3 kh\u00f4ng ph\u00f9 h\u1ee3p v\u1edbi h\u1ed3 s\u01a1 d\u1ecb \u1ee9ng c\u1ee7a b\u1ea1n.`,
       };
     }
   }
 
-  // ── Step 2: Check dietary restrictions (WARNING) ─────────────────────────
   if (userDietary.length > 0) {
-    // 2a. Vegetarian / Vegan
-    const isVegetarian = userDietary.some(d => isDietaryKeyword(d, VEGETARIAN_KEYWORDS));
+    const isVegetarian = userDietary.some((diet) => isDietaryKeyword(diet, VEGETARIAN_KEYWORDS));
     if (isVegetarian) {
-      const meatFound = containsIngredient(product, MEAT_INGREDIENTS);
-      const seafoodFound = containsIngredient(product, SEAFOOD_INGREDIENTS);
-      const allConflicts = [...meatFound, ...seafoodFound];
-
-      if (allConflicts.length > 0) {
+      const conflicts = findConflicts(product, [...MEAT_INGREDIENTS, ...SEAFOOD_INGREDIENTS]);
+      if (conflicts.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: allConflicts,
-          warningMessage: `Bạn đang ăn chay — món này chứa: ${allConflicts.join(', ')}`,
-        };
-      }
-
-      // Check health_tags for meat/seafood hints
-      const meatTags = (product.health_tags ?? []).filter(t =>
-        MEAT_INGREDIENTS.some(m => fuzzyMatch(m, t)) ||
-        SEAFOOD_INGREDIENTS.some(s => fuzzyMatch(s, t))
-      );
-      if (meatTags.length > 0) {
-        return {
-          level: 'warning',
-          conflictIngredients: meatTags,
-          warningMessage: `Bạn đang ăn chay — món này có thể chứa thịt hoặc hải sản`,
+          conflictIngredients: conflicts,
+          warningMessage: `B\u1ea1n \u0111ang \u0103n chay, m\u00f3n n\u00e0y c\u00f3 th\u1ec3 ch\u1ee9a: ${conflicts.join(', ')}`,
         };
       }
     }
 
-    // 2b. Pescatarian (no red meat, fish ok)
-    const isPescatarian = userDietary.some(d => isDietaryKeyword(d, PESCATARIAN_KEYWORDS));
+    const isPescatarian = userDietary.some((diet) => isDietaryKeyword(diet, PESCATARIAN_KEYWORDS));
     if (isPescatarian && !isVegetarian) {
-      const meatFound = containsIngredient(product, MEAT_INGREDIENTS);
-      if (meatFound.length > 0) {
+      const conflicts = findConflicts(product, MEAT_INGREDIENTS);
+      if (conflicts.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: meatFound,
-          warningMessage: `Bạn không ăn thịt đỏ — món này chứa: ${meatFound.join(', ')}`,
+          conflictIngredients: conflicts,
+          warningMessage: `B\u1ea1n kh\u00f4ng \u0103n th\u1ecbt \u0111\u1ecf, m\u00f3n n\u00e0y c\u00f3 th\u1ec3 ch\u1ee9a: ${conflicts.join(', ')}`,
         };
       }
     }
 
-    // 2c. Low-carb / Keto
-    const isLowCarb = userDietary.some(d => isDietaryKeyword(d, LOW_CARB_KEYWORDS));
+    const isLowCarb = userDietary.some((diet) => isDietaryKeyword(diet, LOW_CARB_KEYWORDS));
     if (isLowCarb) {
-      const carbFound = containsIngredient(product, HIGH_CARB_INGREDIENTS);
-      if (carbFound.length > 0) {
+      const conflicts = findConflicts(product, HIGH_CARB_INGREDIENTS);
+      if (conflicts.length > 0) {
         return {
           level: 'warning',
-          conflictIngredients: carbFound,
-          warningMessage: `Chế độ Low-carb/Keto — món này chứa nhiều tinh bột: ${carbFound.join(', ')}`,
+          conflictIngredients: conflicts,
+          warningMessage: `Ch\u1ebf \u0111\u1ed9 Low-carb/Keto, m\u00f3n n\u00e0y ch\u1ee9a nhi\u1ec1u tinh b\u1ed9t: ${conflicts.join(', ')}`,
         };
       }
     }
   }
 
-  // ── Step 3: Generic product health_warning ───────────────────────────────
-  if (product.health_warning?.trim()) {
+  if (hasUserAllergies && warningMentionsCurrentAllergy(product.healthWarning, allergyIds)) {
     return {
       level: 'warning',
       conflictIngredients: [],
-      warningMessage: product.health_warning,
+      warningMessage: product.healthWarning ?? '',
     };
   }
 
   return { level: 'safe', conflictIngredients: [], warningMessage: '' };
 }
 
-// ─── Hook (reads from auth store automatically) ────────────────────────────
-
 export function useAllergyCheck(product: Product | null | undefined): AllergyCheckResult {
-  const user = useAuthStore((s) => s.user);
-  const userAllergies: string[] = user?.preferences?.allergies ?? [];
-  const userDietary: string[] = user?.preferences?.dietary ?? [];
+  const user = useAuthStore((state) => state.user);
+  const userAllergies = user?.preferences?.allergies ?? EMPTY_PREFERENCES;
+  const userDietary = user?.preferences?.dietary ?? EMPTY_PREFERENCES;
 
   return useMemo(
     () => checkProductAllergies(product, userAllergies, userDietary),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [product?._id, userAllergies.join(','), userDietary.join(',')]
+    [product, userAllergies, userDietary],
   );
 }

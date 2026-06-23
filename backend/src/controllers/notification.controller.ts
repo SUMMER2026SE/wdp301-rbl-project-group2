@@ -2,7 +2,7 @@ import NotificationModel from '@/models/notification.model';
 
 export const getMyNotifications = async (req: any, res: any) => {
   const notifications = await NotificationModel.find({
-    user_id: req.userId,
+    userId: req.userId,
   }).sort({ createdAt: -1 });
 
   return res.json({
@@ -13,7 +13,7 @@ export const getMyNotifications = async (req: any, res: any) => {
 
 export const getUnreadNotificationCount = async (req: any, res: any) => {
   const count = await NotificationModel.countDocuments({
-    user_id: req.userId,
+    userId: req.userId,
     isRead: false,
   });
 
@@ -27,7 +27,7 @@ export const markNotificationAsRead = async (req: any, res: any) => {
   const notification = await NotificationModel.findOneAndUpdate(
     {
       _id: req.params.id,
-      user_id: req.userId,
+      userId: req.userId,
     },
     {
       isRead: true,
@@ -44,7 +44,7 @@ export const markNotificationAsRead = async (req: any, res: any) => {
 export const markAllNotificationsAsRead = async (req: any, res: any) => {
   await NotificationModel.updateMany(
     {
-      user_id: req.userId,
+      userId: req.userId,
       isRead: false,
     },
     {

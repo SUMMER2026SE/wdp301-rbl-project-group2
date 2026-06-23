@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Loader2, RefreshCw, BellRing, ChefHat, PackageCheck, Inbox } from "lucide-react";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
@@ -6,6 +6,7 @@ import OrderKanbanCard from "@/components/Staff/OrderKanbanCard";
 import RejectModal from "@/components/Staff/RejectModal";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 
 const POLL_INTERVAL = 10_000; // 10 seconds
 
@@ -17,12 +18,15 @@ export default function StaffOrders() {
   const prevPendingCount = useRef(0);
   const { playNotification } = useNotificationSound();
   const { toast } = useToast();
+  const { storeId } = useAuth();
 
   // ── Fetch ──────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
     try {
-      const res = await orderService.getAllOrders({
+      if (!storeId) return;
+      const res = await orderService.getStaffOrders({
+        storeId,
         status: "pending,confirmed,processing,ready_for_delivery",
       });
       setOrders(res.data);
@@ -31,7 +35,7 @@ export default function StaffOrders() {
     } finally {
       if (showLoader) setLoading(false);
     }
-  }, []);
+  }, [storeId]);
 
   // Initial load
   useEffect(() => {
@@ -44,12 +48,27 @@ export default function StaffOrders() {
     return () => clearInterval(id);
   }, [fetchOrders]);
 
+  // Sort orders by createdAt ascending (older orders on top)
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [orders]);
+
   // Derived columns
-  const pendingOrders = orders.filter((o) => o.status === "pending");
-  const preparingOrders = orders.filter(
-    (o) => o.status === "confirmed" || o.status === "processing",
-  );
-  const readyOrders = orders.filter((o) => o.status === "ready_for_delivery");
+  const pendingOrders = useMemo(() => sortedOrders.filter((o) => o.status === "pending"), [sortedOrders]);
+  const preparingOrders = useMemo(() => sortedOrders.filter(
+    (o) => o.status === "confirmed" || o.status === "processing"
+  ), [sortedOrders]);
+  const readyOrders = useMemo(() => sortedOrders.filter((o) => o.status === "ready_for_delivery"), [sortedOrders]);
+
+  // Check for pending orders older than 5 minutes
+  const overdueOrders = useMemo(() => {
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    return pendingOrders.filter(
+      (o) => new Date(o.createdAt).getTime() < fiveMinutesAgo
+    );
+  }, [pendingOrders]);
 
   // Sound alert when new PENDING orders arrive
   useEffect(() => {
@@ -58,6 +77,17 @@ export default function StaffOrders() {
     }
     prevPendingCount.current = pendingOrders.length;
   }, [pendingOrders.length, playNotification]);
+
+  // Sound alarm periodically if there are overdue pending orders
+  useEffect(() => {
+    if (overdueOrders.length > 0) {
+      playNotification();
+      const interval = setInterval(() => {
+        playNotification();
+      }, 15000); // sound reminder every 15 seconds
+      return () => clearInterval(interval);
+    }
+  }, [overdueOrders.length, playNotification]);
 
   // ── Helpers ────────────────────────────────────────────────────────────
   const startActioning = (id: string) =>
@@ -75,7 +105,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.confirmOrder(orderId);
+      if (!storeId) return;
+      await orderService.staffConfirmOrder(orderId, { storeId });
       toast("Đã nhận đơn, bắt đầu chế biến!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -99,7 +130,8 @@ export default function StaffOrders() {
     const orderId = rejectTarget._id;
     startActioning(orderId);
     try {
-      await orderService.rejectOrder(orderId, reason);
+      if (!storeId) return;
+      await orderService.staffRejectOrder(orderId, { storeId, reason });
       toast("Đã từ chối đơn hàng.", "info");
       setRejectTarget(null);
       await fetchOrders();
@@ -117,7 +149,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.markOrderReady(orderId);
+      if (!storeId) return;
+      await orderService.staffMarkOrderReady(orderId, { storeId });
       toast("Đơn hàng đã sẵn sàng để giao!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -134,7 +167,8 @@ export default function StaffOrders() {
     if (actioningIds.has(orderId)) return;
     startActioning(orderId);
     try {
-      await orderService.assignDelivery(orderId);
+      if (!storeId) return;
+      await orderService.staffAssignDelivery(orderId, { storeId });
       toast("Bạn đã nhận giao đơn này!", "success");
       await fetchOrders();
     } catch (err: unknown) {
@@ -147,56 +181,6 @@ export default function StaffOrders() {
     }
   };
 
-  // ── Kanban Column Component ──────────────────────────────────────────────
-  const KanbanColumn = ({
-    title,
-    count,
-    colorTheme,
-    icon: Icon,
-    children,
-  }: {
-    title: string;
-    count: number;
-    colorTheme: "rose" | "blue" | "emerald";
-    icon: any;
-    children: React.ReactNode;
-  }) => {
-    const themeStyles = {
-      rose: "text-rose-600 bg-rose-100 border-rose-200 shadow-rose-500/10",
-      blue: "text-blue-600 bg-blue-100 border-blue-200 shadow-blue-500/10",
-      emerald: "text-emerald-600 bg-emerald-100 border-emerald-200 shadow-emerald-500/10"
-    };
-
-    return (
-      <div className="flex flex-col gap-4 bg-slate-100/50 rounded-[2rem] p-4 border border-slate-100">
-        {/* Column Header */}
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ${themeStyles[colorTheme]}`}>
-              <Icon className="w-4 h-4" />
-            </div>
-            <span className="font-black text-slate-800 tracking-tight uppercase text-sm">
-              {title}
-            </span>
-          </div>
-          <div className="flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white shadow-sm border border-slate-200 text-xs font-black text-slate-700">
-            {count}
-          </div>
-        </div>
-
-        {/* Column Content */}
-        <div className="flex flex-col gap-3 min-h-[300px]">
-          {children}
-          {count === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-slate-200 bg-white/50 rounded-2xl gap-2">
-              <Inbox className="w-8 h-8 text-slate-300" />
-              <p className="text-sm font-medium text-slate-400 text-center">Trống</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────
   if (loading) {
@@ -240,6 +224,37 @@ export default function StaffOrders() {
         </button>
       </div>
 
+      {/* Flashing Warning Banner for unconfirmed orders > 5 mins */}
+      {overdueOrders.length > 0 && (
+        <div className="mb-6 p-4 bg-rose-50 border-2 border-rose-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+              <BellRing className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-rose-800 uppercase tracking-wide">
+                Cảnh báo đơn hàng trễ xác nhận!
+              </p>
+              <p className="text-xs text-rose-600 font-bold mt-0.5">
+                Có {overdueOrders.length} đơn hàng đã quá 5 phút chưa được xác nhận: {" "}
+                <span className="font-mono text-rose-700 bg-rose-100/50 px-1.5 py-0.5 rounded">
+                  {overdueOrders.map(o => `#${o.code}`).join(", ")}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              playNotification();
+              toast(`Nhắc nhở: Cần xử lý gấp ${overdueOrders.length} đơn hàng trễ!`, "info");
+            }}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm shadow-rose-600/10 shrink-0 self-end sm:self-auto"
+          >
+            Nhắc nhở
+          </button>
+        </div>
+      )}
+
       {/* Kanban board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
         {/* Column 1: PENDING */}
@@ -257,6 +272,7 @@ export default function StaffOrders() {
               onReject={handleRejectOpen}
               onMarkReady={handleMarkReady}
               isActioning={actioningIds.has(order._id)}
+              isOverdue={overdueOrders.some((o) => o._id === order._id)}
             />
           ))}
         </KanbanColumn>
@@ -312,3 +328,54 @@ export default function StaffOrders() {
     </div>
   );
 }
+
+// ── Kanban Column Component ──────────────────────────────────────────────
+const KanbanColumn = ({
+  title,
+  count,
+  colorTheme,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  count: number;
+  colorTheme: "rose" | "blue" | "emerald";
+  icon: any;
+  children: React.ReactNode;
+}) => {
+  const themeStyles = {
+    rose: "text-rose-600 bg-rose-100 border-rose-200 shadow-rose-500/10",
+    blue: "text-blue-600 bg-blue-100 border-blue-200 shadow-blue-500/10",
+    emerald: "text-emerald-600 bg-emerald-100 border-emerald-200 shadow-emerald-500/10"
+  };
+
+  return (
+    <div className="flex flex-col gap-4 bg-slate-100/50 rounded-[2rem] p-4 border border-slate-100">
+      {/* Column Header */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ${themeStyles[colorTheme]}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <span className="font-black text-slate-800 tracking-tight uppercase text-sm">
+            {title}
+          </span>
+        </div>
+        <div className="flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-white shadow-sm border border-slate-200 text-xs font-black text-slate-700">
+          {count}
+        </div>
+      </div>
+
+      {/* Column Content */}
+      <div className="flex flex-col gap-3 min-h-[300px]">
+        {children}
+        {count === 0 && (
+          <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-slate-200 bg-white/50 rounded-2xl gap-2">
+            <Inbox className="w-8 h-8 text-slate-300" />
+            <p className="text-sm font-medium text-slate-400 text-center">Trống</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

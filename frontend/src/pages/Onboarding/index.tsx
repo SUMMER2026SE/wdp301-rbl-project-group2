@@ -1,63 +1,46 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
+import { userService } from "@/services/profile.service";
+import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Utensils,
+  ShieldCheck,
+  Search,
+  X,
+  CheckCircle2,
+  Loader2,
+  AlertOctagon,
+  Info
+} from "lucide-react";
 
 import {
-  DIET_OPTIONS,
   ALLERGY_OPTIONS,
-  HEALTH_GOALS,
   PENDING_PREFS_KEY,
   type PendingPreferences,
-
 } from "@/constants/preferences";
-
-const HEALTH_COLOR = "var(--health)";
-
-const STEPS = [
-  { id: 1, label: "Chế độ ăn", icon: "restaurant_menu" },
-  { id: 2, label: "Dị ứng", icon: "warning" },
-  { id: 3, label: "Mục tiêu", icon: "flag" },
-];
+import logo from "@/assets/logo.png";
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
+  const { isAuthenticated, getUser } = useAuth();
 
-  const [step, setStep] = useState(1);
-  const [diet, setDiet] = useState<string[]>([]);
+  useEffect(() => {
+    document.title = "FoodieDash | Thiết lập dị ứng & sức khỏe";
+  }, []);
+
   const [allergies, setAllergies] = useState<string[]>([]);
-  const [healthGoals, setHealthGoals] = useState<string[]>([]);
   const [allergySearch, setAllergySearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  /* ── helpers ── */
-  const toggleSet = (
-    setState: React.Dispatch<React.SetStateAction<string[]>>,
-    id: string
-  ) =>
-    setState((prev) =>
+  const toggleAllergy = (id: string) => {
+    setAllergies((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  };
 
   const filteredAllergies = useMemo(() => {
     const q = allergySearch.trim().toLowerCase();
@@ -65,413 +48,268 @@ const OnboardingPage = () => {
     return ALLERGY_OPTIONS.filter((a) => a.label.toLowerCase().includes(q));
   }, [allergySearch]);
 
-  /* ── save & navigate ── */
-  const savePrefs = () => {
-    const prefs: PendingPreferences = {
-      dietary: diet,
-      allergies,
-      health_goals: healthGoals,
-    };
-    localStorage.setItem(PENDING_PREFS_KEY, JSON.stringify(prefs));
-  };
+  const hasSelectedAllergies = allergies.length > 0;
 
-  const handleComplete = () => {
-    savePrefs();
-    navigate("/login", { state: { fromOnboarding: true } });
+  const handleComplete = async () => {
+    setSaving(true);
+    try {
+      if (isAuthenticated) {
+        await userService.updatePreferences({
+          allergies,
+          dietary: [],
+          healthGoals: [],
+        });
+        await getUser();
+        toast.success("Thiết lập hồ sơ thành công!");
+        navigate("/", { replace: true });
+      } else {
+        const prefs: PendingPreferences = {
+          dietary: [],
+          allergies,
+          healthGoals: [],
+        };
+        localStorage.setItem(PENDING_PREFS_KEY, JSON.stringify(prefs));
+        toast.success("Đã lưu tạm. Vui lòng đăng nhập để đồng bộ!");
+        navigate("/login", { state: { fromOnboarding: true } });
+      }
+    } catch (err: any) {
+      console.error("Lỗi lưu thiết lập:", err);
+      toast.error(err?.response?.data?.message || "Lỗi hệ thống, vui lòng thử lại.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSkip = () => {
-    localStorage.removeItem(PENDING_PREFS_KEY);
-    navigate("/login");
+    if (isAuthenticated) {
+      navigate("/", { replace: true });
+    } else {
+      localStorage.removeItem(PENDING_PREFS_KEY);
+      navigate("/login");
+    }
   };
 
-  const canGoNext = step < 3;
-
   return (
-    <div className="bg-background min-h-screen font-sans">
-      {/* Top Bar */}
-      <div className="fixed top-0 left-0 w-full bg-card/80 backdrop-blur-md z-50 border-b border-border">
-        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div className="bg-slate-50 min-h-screen font-sans flex flex-col relative">
+      {/* Top Bar - Clean & Flat */}
+      <div className="fixed top-0 left-0 w-full bg-white border-b border-slate-200 z-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div
             onClick={() => navigate("/")}
-            className="flex items-center gap-2.5 text-orange-600 cursor-pointer group"
+            className="flex items-center gap-2.5 text-orange-600 hover:scale-105 transition-transform group shrink-0 cursor-pointer"
           >
-            <div className="bg-orange-600 text-white p-2 rounded-xl group-hover:rotate-12 transition-transform duration-300 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[20px]">restaurant_menu</span>
-            </div>
-            <h2 className="text-2xl font-black tracking-tighter">FoodieDash</h2>
+            <img
+              src={logo}
+              alt="FoodieDash"
+              className="h-12 -ml-5 -mr-7 object-contain group-hover:rotate-12 transition-transform duration-300"
+            />
+            <h2 className="text-xl font-black tracking-tighter text-orange-600">
+              FoodieDash
+            </h2>
           </div>
 
-          {/* Step pill indicators */}
-          <div className="flex items-center gap-2">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(s.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${step === s.id
-                      ? "text-white"
-                      : step > s.id
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-600"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  style={step === s.id ? { backgroundColor: HEALTH_COLOR } : undefined}
-                >
-                  {step > s.id ? (
-                    <span
-                      className="material-symbols-outlined text-sm"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      check_circle
-                    </span>
-                  ) : (
-                    <span className="material-symbols-outlined text-sm">{s.icon}</span>
-                  )}
-                  <span className="hidden sm:inline">{s.label}</span>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className="h-px w-6 rounded-full transition-colors"
-                    style={{
-                      backgroundColor:
-                        step > s.id ? "var(--health)" : "var(--border)",
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-bold shadow-sm shadow-orange-600/20">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Hồ sơ Sức khỏe</span>
           </div>
         </div>
       </div>
 
-      <main className="pt-28 pb-12 px-6 flex flex-col items-center">
+      <main className="pt-24 pb-16 px-4 sm:px-6 flex-1 flex flex-col items-center justify-center z-10">
         <div className="w-full max-w-2xl">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight mb-3">
-              {t("customer:onboarding.title", "Thiết lập hồ sơ sức khỏe")}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-3">
+              Thiết lập Dữ liệu Dị ứng
             </h1>
-            <p className="text-muted-foreground text-lg">
-              {t(
-                "customer:onboarding.subtitle",
-                "Giúp AI gợi ý món ăn phù hợp hoàn toàn với bạn"
-              )}
+            <p className="text-slate-500 text-sm leading-relaxed">
+              Hãy cho chúng tôi biết các thành phần bạn cần tránh. Hệ thống sẽ tự động đối chiếu với thực đơn và chặn các món ăn không an toàn.
             </p>
           </div>
 
-          {/* AI badge */}
-          <div className="mb-8 flex items-start gap-3 p-4 bg-primary/5 rounded-xl border border-primary/10">
-            <span
-              className="material-symbols-outlined text-primary mt-0.5 shrink-0"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              auto_awesome
-            </span>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              <span className="font-bold text-primary">Gợi ý AI:</span>{" "}
-              Dữ liệu này giúp lọc 100% món ăn an toàn — đối chiếu nguyên liệu với hồ sơ của bạn theo
-              thời gian thực.
-              {diet.length + allergies.length + healthGoals.length > 0 && (
-                <span className="ml-2 inline-flex items-center gap-1 text-primary font-semibold">
-                  <span className="material-symbols-outlined text-sm">check_circle</span>
-                  {diet.length + allergies.length + healthGoals.length} tuỳ chọn đã chọn
-                </span>
-              )}
-            </p>
+          {/* Info Card - Professional Trust Vibe */}
+          <div className="mb-8 flex items-start gap-3 p-4 bg-orange-50 rounded-xl border border-orange-200">
+            <Info className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="font-semibold text-orange-900 text-sm">
+                Cam kết an toàn thực phẩm
+              </h4>
+              <p className="text-sm text-orange-800/80 leading-relaxed">
+                Khi có dấu hiệu chứa thành phần dị ứng đã chọn, món ăn sẽ được dán nhãn cảnh báo đỏ hoặc ẩn khỏi thực đơn của bạn.
+              </p>
+            </div>
           </div>
 
-          {/* ─────────────── STEP 1: DIET ─────────────── */}
-          {step === 1 && (
-            <div className="bg-card rounded-[24px] border border-border p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="size-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    backgroundColor: "color-mix(in srgb, var(--health) 15%, transparent)",
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ color: HEALTH_COLOR }}
+          {/* Selector Panel - Clean White Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Danh mục nguyên liệu</h2>
+                <p className="text-slate-500 text-xs mt-1">Chọn các thành phần bạn mẫn cảm</p>
+              </div>
+
+              {/* Search Box - Standard */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={allergySearch}
+                  onChange={(e) => setAllergySearch(e.target.value)}
+                  placeholder="Tìm kiếm nguyên liệu..."
+                  className="w-full text-sm py-2 pl-9 pr-8 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                />
+                {allergySearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAllergySearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    restaurant_menu
-                  </span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">Chế độ ăn uống</h2>
-                  <p className="text-muted-foreground text-sm">
-                    Chọn một hoặc nhiều chế độ phù hợp với bạn
-                  </p>
-                </div>
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-
-              <div className="h-px bg-border my-6" />
-
-              <div className="flex flex-wrap gap-3">
-                {DIET_OPTIONS.map((opt) => {
-                  const active = diet.includes(opt.id);
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => toggleSet(setDiet, opt.id)}
-                      className={`flex items-center gap-2 h-11 px-5 rounded-xl font-medium border transition-all hover:brightness-105 active:scale-95 ${active
-                          ? "text-white border-transparent shadow-md"
-                          : "bg-muted/50 text-foreground border-border hover:border-[var(--health)]/50"
-                        }`}
-                      style={active ? { backgroundColor: HEALTH_COLOR } : undefined}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {opt.icon}
-                      </span>
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {diet.length > 0 && (
-                <p className="mt-5 text-sm font-medium" style={{ color: HEALTH_COLOR }}>
-                  ✓{" "}
-                  {diet
-                    .map((id) => DIET_OPTIONS.find((o) => o.id === id)?.label)
-                    .join(", ")}
-                </p>
-              )}
             </div>
-          )}
 
-          {/* ─────────────── STEP 2: ALLERGIES ─────────────── */}
-          {step === 2 && (
-            <div className="bg-card rounded-[24px] border border-border p-8 shadow-sm">
-              <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-xl flex items-center justify-center bg-red-100 dark:bg-red-900/30">
-                    <span className="material-symbols-outlined text-red-500">warning</span>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground">
-                      Dị ứng & Không dung nạp
-                    </h2>
-                    <p className="text-muted-foreground text-sm">
-                      Chúng tôi sẽ lọc các món chứa thành phần này
-                    </p>
-                  </div>
-                </div>
-
-                {/* Working search */}
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">
-                    search
-                  </span>
-                  <input
-                    type="text"
-                    value={allergySearch}
-                    onChange={(e) => setAllergySearch(e.target.value)}
-                    placeholder="Tìm chất gây dị ứng..."
-                    className="text-sm py-2 pl-9 pr-8 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground outline-none transition-all w-52"
-                  />
-                  {allergySearch && (
-                    <button
-                      type="button"
-                      onClick={() => setAllergySearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
-                    </button>
-                  )}
-                </div>
+            {/* Interactive Grid - Flat Design */}
+            {filteredAllergies.length === 0 ? (
+              <div className="text-center text-slate-500 py-10 rounded-xl border border-dashed border-slate-200 text-sm bg-slate-50">
+                Không tìm thấy nguyên liệu nào phù hợp.
               </div>
-
-              <div className="h-px bg-border my-6" />
-
-              {filteredAllergies.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 text-sm">
-                  Không tìm thấy kết quả phù hợp
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {filteredAllergies.map((a) => {
-                    const active = allergies.includes(a.id);
-                    return (
-                      <label
-                        key={a.id}
-                        className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${active
-                            ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10"
-                            : "border-border bg-muted/30 hover:bg-muted/60"
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${a.colorClass}`}
-                          >
-                            <span className="material-symbols-outlined text-[18px]">
-                              {a.icon}
-                            </span>
-                          </div>
-                          <span className="font-medium text-foreground text-sm">
-                            {a.label}
-                          </span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={active}
-                          onChange={() => toggleSet(setAllergies, a.id)}
-                          className="size-5 rounded"
-                          style={{ accentColor: "#ef4444" }}
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Selected tags */}
-              {allergies.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {allergies.map((id) => {
-                    const opt = ALLERGY_OPTIONS.find((o) => o.id === id);
-                    return (
-                      <span
-                        key={id}
-                        className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-medium"
-                      >
-                        {opt?.label}
-                        <button
-                          type="button"
-                          onClick={() => toggleSet(setAllergies, id)}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ─────────────── STEP 3: HEALTH GOALS ─────────────── */}
-          {step === 3 && (
-            <div className="bg-card rounded-[24px] border border-border p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="size-10 rounded-xl flex items-center justify-center bg-primary/10">
-                  <span className="material-symbols-outlined text-primary">flag</span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">Mục tiêu sức khỏe</h2>
-                  <p className="text-muted-foreground text-sm">
-                    Chọn tất cả mục tiêu phù hợp — có thể chọn nhiều
-                  </p>
-                </div>
-              </div>
-
-              <div className="h-px bg-border my-6" />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {HEALTH_GOALS.map((g) => {
-                  const active = healthGoals.includes(g.id);
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                {filteredAllergies.map((a) => {
+                  const active = allergies.includes(a.id);
                   return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => toggleSet(setHealthGoals, g.id)}
-                      className={`flex items-center gap-4 p-5 rounded-2xl border text-left transition-all group ${active
-                          ? "border-2 border-primary bg-primary/5"
-                          : "border border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
+                    <div
+                      key={a.id}
+                      onClick={() => toggleAllergy(a.id)}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-colors ${active
+                        ? "border-red-300 bg-red-50"
+                        : "border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/50"
                         }`}
                     >
-                      <div
-                        className={`size-12 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110 ${active ? "bg-primary" : "bg-card"
-                          }`}
-                      >
-                        <span
-                          className={`material-symbols-outlined ${active ? "text-primary-foreground" : "text-primary"
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"
                             }`}
                         >
-                          {g.icon}
-                        </span>
+                          {/* Dùng chuẩn material icon nếu data đang cấu hình thế */}
+                          <span className="material-symbols-outlined text-[20px]">
+                            {a.icon}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-semibold text-sm ${active ? "text-red-900" : "text-slate-700"}`}>
+                            {a.label}
+                          </span>
+                          <span className={`text-[11px] ${active ? "text-red-600" : "text-slate-500"}`}>
+                            {active ? "Đã chọn chặn" : "Hiển thị bình thường"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-foreground text-sm">{g.label}</p>
-                        <p className="text-muted-foreground text-xs mt-0.5">{g.desc}</p>
-                      </div>
+
                       {active && (
-                        <span
-                          className="material-symbols-outlined text-primary shrink-0"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          check_circle
-                        </span>
+                        <AlertOctagon className="w-5 h-5 text-red-500 shrink-0" />
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
-
-              {healthGoals.length > 0 && (
-                <p className="mt-5 text-sm font-medium text-primary">
-                  ✓ Đã chọn {healthGoals.length} mục tiêu
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* ─────────────── Navigation ─────────────── */}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 mt-6">
-            {step === 1 ? (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="flex-1 h-14 rounded-xl text-muted-foreground font-bold text-base hover:bg-muted transition-colors"
-              >
-                {t("customer:onboarding.skip", "Bỏ qua")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setStep((s) => s - 1)}
-                className="flex-1 h-14 rounded-xl font-bold text-base border border-border hover:bg-muted transition-colors flex items-center justify-center gap-2 text-foreground"
-              >
-                <span className="material-symbols-outlined">arrow_back</span>
-                Quay lại
-              </button>
             )}
 
-            {canGoNext ? (
-              <button
-                type="button"
-                onClick={() => setStep((s) => s + 1)}
-                className="flex-[2] h-14 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-lg shadow-primary/25 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                Tiếp theo
-                <span className="material-symbols-outlined">arrow_forward</span>
-              </button>
-            ) : (
+            {/* Selected Tags list */}
+            <AnimatePresence>
+              {hasSelectedAllergies && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6 pt-5 border-t border-slate-100 overflow-hidden"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-slate-600">
+                      Đang chặn ({allergies.length}) nguyên liệu
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setAllergies([])}
+                      className="text-xs font-medium text-slate-500 hover:text-red-600"
+                    >
+                      Bỏ chọn tất cả
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <AnimatePresence>
+                      {allergies.map((id) => {
+                        const opt = ALLERGY_OPTIONS.find((o) => o.id === id);
+                        return (
+                          <motion.span
+                            key={id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.1 } }}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-700 font-semibold border border-red-200"
+                          >
+                            {opt?.label}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAllergy(id);
+                              }}
+                              className="text-red-400 hover:text-red-600 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5 block" />
+                            </button>
+                          </motion.span>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Action Row - Clean Sticky Mobile */}
+          <div className="fixed sm:relative bottom-0 left-0 w-full sm:w-auto p-4 sm:p-0 bg-white sm:bg-transparent border-t border-slate-200 sm:border-none mt-8 z-40">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 max-w-2xl mx-auto w-full">
+              {!hasSelectedAllergies && (
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={saving}
+                  className="flex-1 h-12 w-full rounded-xl text-slate-600 hover:bg-slate-200 font-semibold text-sm bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  Bỏ qua thiết lập này
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleComplete}
-                className="flex-[2] h-14 rounded-xl text-white font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:brightness-105"
-                style={{
-                  backgroundColor: HEALTH_COLOR,
-                  boxShadow: `0 8px 24px color-mix(in srgb, var(--health) 30%, transparent)`,
-                }}
+                disabled={saving}
+                className={`h-12 rounded-xl text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${hasSelectedAllergies
+                  ? "flex-1 w-full bg-orange-600 hover:bg-orange-700"
+                  : "flex-[2] w-full bg-slate-900 hover:bg-slate-800"
+                  }`}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  check_circle
-                </span>
-                {t("customer:onboarding.complete", "Hoàn tất thiết lập")}
+                {saving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    {hasSelectedAllergies ? "Lưu hồ sơ dị ứng" : "Hoàn tất mặc định"}
+                  </>
+                )}
               </button>
-            )}
+            </div>
           </div>
 
-          <p className="mt-6 text-xs text-muted-foreground text-center">
-            Dữ liệu được mã hóa và chỉ dùng để cải thiện trải nghiệm. Bạn có thể chỉnh sửa bất cứ
-            lúc nào trong{" "}
-            <span className="font-semibold">Hồ sơ → Cài đặt sức khỏe</span>.
+          <div className="h-24 sm:h-0 w-full shrink-0" />
+
+          <p className="mt-4 text-[12px] text-slate-400 text-center leading-relaxed max-w-lg mx-auto px-4">
+            Thiết lập có thể được thay đổi bất kỳ lúc nào tại mục Cá nhân → Sức khỏe. Dữ liệu của bạn được bảo mật nghiêm ngặt.
           </p>
         </div>
       </main>

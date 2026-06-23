@@ -6,10 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import recommendationService from "@/services/recommendation.service";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
-import { useCart } from "@/hooks/useCart";
-import { useToast } from "@/hooks/useToast";
+import { useSafeCart } from "@/hooks/useSafeCart";
 import { useAuthStore } from "@/store/authStore";
 import { FoodCard } from "@/components/shared/FoodCard";
+import { useStoreStore } from "@/store/storeStore";
+import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 
 // Nhãn gợi ý mặc định khi dùng fallback (không có AI)
@@ -35,18 +37,34 @@ type DisplayItem =
   | { type: "ai"; data: { product: Product; healthScore: number; aiReason: string } }
   | { type: "fallback"; data: Product; tag: string };
 
+const getProductKey = (product: Product) =>
+  product.name
+    ? product.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()
+    : product._id;
+
+const uniqueDisplayItems = (list: DisplayItem[]) => {
+  const seen = new Set<string>();
+  return list.filter((item) => {
+    const product = item.type === "ai" ? item.data.product : item.data;
+    const key = getProductKey(product);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 // ── Main Component ────────────────────────────────────────
 
 const RecommendedSection = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
   const { isAuthenticated } = useAuthStore();
-  const { addItem } = useCart();
-  const { toast } = useToast();
+  const { safeAddItem } = useSafeCart();
 
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAIMode, setIsAIMode] = useState(false);
+  const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,10 +75,10 @@ const RecommendedSection = () => {
         if (isAuthenticated) {
           // ── Thử lấy AI recommendations ──
           try {
-            const res = await recommendationService.getAIRecommendations();
+            const res = await recommendationService.getAIRecommendations({ storeId: selectedStore?._id });
             const aiData = res.data.data;
             if (!cancelled && aiData && aiData.length > 0) {
-              setItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "ai", data: d })));
+              setItems(uniqueDisplayItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "ai", data: d }))));
               setIsAIMode(true);
               return;
             }
@@ -78,11 +96,11 @@ const RecommendedSection = () => {
         });
         if (!cancelled) {
           setItems(
-            res.data.slice(0, 3).map((p, idx) => ({
+            uniqueDisplayItems(res.data.map((p, idx) => ({
               type: "fallback",
               data: p,
               tag: FALLBACK_TAGS[idx] ?? "Great Choice",
-            })),
+            }))).slice(0, 3),
           );
           setIsAIMode(false);
         }
@@ -97,7 +115,7 @@ const RecommendedSection = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedStore?._id]);
 
   // ── Render ────────────────────────────────────────────
 
@@ -201,7 +219,7 @@ const RecommendedSection = () => {
 
         {/* Items */}
         {!loading &&
-          items.map((item, idx) => {
+          items.map((item) => {
             const isAI = item.type === "ai";
             const product = isAI ? item.data.product : item.data;
             const customBadge = isAI
@@ -217,26 +235,39 @@ const RecommendedSection = () => {
 
             return (
               <FoodCard
-                key={isAI ? product._id + idx : product._id}
+                key={product._id}
                 id={product._id}
                 name={product.name}
-                image={typeof product.image === 'object' && product.image?.secure_url ? product.image.secure_url : (typeof product.image === 'string' ? product.image : '')}
-                price={product.price}
+                image={typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '')}
+                price={product.campaignPrice ?? product.price}
+                originalPrice={product.campaignPrice != null ? product.price : undefined}
                 rating={product.rating}
                 restaurant={product.restaurant}
                 time={product.time}
                 description={isAI ? item.data.aiReason : product.description}
+                healthStatus={getProductHealthStatus(product)}
+                allergenInfo={getProductAllergenInfo(product)}
                 variant="horizontal"
                 customBadge={customBadge}
-                onAddToCart={() => {
-                  addItem({
-                    productId: product._id,
-                    name: product.name,
-                    image: typeof product.image === 'object' && product.image?.secure_url ? product.image.secure_url : (typeof product.image === 'string' ? product.image : ''),
-                    price: product.price,
-                    quantity: 1
-                  });
-                  toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
+                onAddToCart={(_, trigger) => {
+                  const image = typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '');
+                  safeAddItem(
+                    product,
+                    {
+                      productId: product._id,
+                      name: product.name,
+                      image,
+                      price: product.campaignPrice ?? product.price,
+                      quantity: 1
+                    },
+                    () => {
+                      showAddToCartFeedback(
+                        trigger,
+                        image,
+                        t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                      );
+                    }
+                  );
                 }}
               />
             );

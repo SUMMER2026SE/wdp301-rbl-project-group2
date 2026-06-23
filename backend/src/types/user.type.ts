@@ -1,9 +1,17 @@
 import mongoose from 'mongoose';
 
 export enum Role {
-  ADMIN = 'ADMIN',
-  STAFF = 'STAFF',
-  CUSTOMER = 'CUSTOMER',
+  ADMIN = 'admin',
+  MANAGER = 'manager',
+  STAFF = 'staff',
+  CUSTOMER = 'customer',
+}
+
+export enum UserStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  BLOCKED = 'blocked',
+  DELETED = 'deleted',
 }
 
 export enum UserTier {
@@ -14,12 +22,21 @@ export enum UserTier {
   DIAMOND = 'Diamond',
 }
 
+export enum ReferralRewardStatus {
+  NONE = 'none',
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  REWARDED = 'rewarded',
+  REJECTED = 'rejected',
+}
 export interface IAddresses {
+  _id?: mongoose.Types.ObjectId;
   label: string;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
-  district: string;
+  ward: string;
+  district?: string;
   city: string;
   isDefault: boolean;
 }
@@ -27,32 +44,48 @@ export interface IAddresses {
 export interface IPreferences {
   dietary: string[];
   allergies: string[];
-  health_goals: string[];
+  healthGoals: string[];
 }
 
 export interface IHealthProfile {
   allergies: string[];
-  conditions: string[];
-  dietaryGoals: string[];
+  calories: number;
 }
 
-export default interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
+export interface IUser extends mongoose.Document<mongoose.Types.ObjectId> {
   fullName?: string;
   username: string;
   email: string;
   phone: string;
   avatar?: string | null;
-  avatar_public_id?: string | null;
-  password_hash: string;
+  avatarPublicId?: string | null;
+  passwordHash: string;
   role: Role;
   addresses: IAddresses[];
-  preferences: IPreferences;
-  verified_at: Date;
-  isActive: boolean;
-  collected_points: number;
-  tier: UserTier;
-  referral_code: string;
-  referred_by?: mongoose.Types.ObjectId | null;
+  preferences?: IPreferences;
+  health?: IHealthProfile;
+  isHealthSetup: boolean;
+  loginFailedCount: number;
+  lockedUntil?: Date | null;
+  verifiedAt?: Date | null;
+  status: UserStatus;
+  collectedPoints: number;
+  accumulatedPoints: number;
+  tier?: UserTier;
+  referralCode?: string;
+  referredBy?: mongoose.Types.ObjectId | null;
+  referralRewardStatus: ReferralRewardStatus;
+  referralQualifiedOrderId?: mongoose.Types.ObjectId | null;
+  referralRewardVoucherId?: mongoose.Types.ObjectId | null;
+  referralRewardedAt?: Date | null;
+  referralRejectionReason?: string | null;
+  storeId?: mongoose.Types.ObjectId | null;
+  receiveCampaignNotifications?: boolean;
+  reviewModeration?: {
+    toxicCount: number;
+    reviewBannedUntil?: Date | null;
+    lastToxicAt?: Date | null;
+  };
 
   aiRecommendationsCache?: {
     data?: any;
@@ -63,5 +96,5 @@ export default interface IUser extends mongoose.Document<mongoose.Types.ObjectId
   healthProfile?: IHealthProfile;
 
   comparePassword(password: string): Promise<boolean>;
-  omitPassword(): Omit<IUser, 'password_hash'>;
+  omitPassword(): any;
 }

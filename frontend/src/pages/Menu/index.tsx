@@ -16,14 +16,11 @@ import useDebounce from "@/hooks/useDebounce";
 import type { Product } from "@/types/product";
 import { CUSTOMER_CATEGORY_FILTERS } from "@/constants/product.constants";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/hooks/useCart";
-import { Plus, ArrowRight } from "lucide-react";
-import { useAuthStore } from "@/store/authStore";
-import { checkProductAllergies } from "@/hooks/useAllergyCheck";
-import toast from "react-hot-toast";
-
+import { useSafeCart } from "@/hooks/useSafeCart";
 import { FoodCard } from "@/components/shared/FoodCard";
-import { useToast } from "@/hooks/useToast";
+import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productHealthRisk";
+import { useStoreStore } from "@/store/storeStore";
+import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 const FoodCardSkeleton = () => (
   <div className="bg-white rounded-[2rem] border border-slate-100 p-3 shadow-sm animate-pulse">
@@ -44,8 +41,7 @@ const FoodCardSkeleton = () => (
 const MenuPage = () => {
   const { t } = useTranslation(["customer", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { addItem } = useCart();
-  const { toast } = useToast();
+  const { safeAddItem } = useSafeCart();
 
   // ── State ──
   const categoryParam = searchParams.get("category") || "all";
@@ -63,6 +59,8 @@ const MenuPage = () => {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const selectedStore = useStoreStore((s) => s.selectedStore);
+
   const LIMIT = 9;
   const debouncedSearch = useDebounce(searchQuery, 400);
 
@@ -79,6 +77,10 @@ const MenuPage = () => {
           sort: sortBy,
           isAvailable: true,
         };
+
+        if (selectedStore?._id) {
+          filters.storeId = selectedStore._id;
+        }
 
         if (activeCategory !== "all") filters.category = activeCategory;
         if (debouncedSearch.trim()) filters.search = debouncedSearch.trim();
@@ -98,7 +100,7 @@ const MenuPage = () => {
         setLoadingMore(false);
       }
     },
-    [activeCategory, debouncedSearch, sortBy, minRating],
+    [activeCategory, debouncedSearch, sortBy, minRating, selectedStore],
   );
 
   useEffect(() => {
@@ -116,15 +118,23 @@ const MenuPage = () => {
     fetchCategories();
   }, [t]);
 
+  // Sync searchQuery from URL params (when user searches from header)
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || "";
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+      // Khi user search mới từ header, tự động reset category về "Tất cả"
+      if (urlSearch && activeCategory !== "all") {
+        setActiveCategory("all");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, activeCategory, searchQuery]);
+
   useEffect(() => {
     setPage(1);
     fetchProducts(1, false);
-
-    const params: Record<string, string> = {};
-    if (activeCategory !== "all") params.category = activeCategory;
-    if (searchQuery) params.search = searchQuery;
-    setSearchParams(params, { replace: true });
-  }, [activeCategory, debouncedSearch, sortBy, minRating, fetchProducts, setSearchParams]);
+  }, [activeCategory, debouncedSearch, sortBy, minRating, fetchProducts]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -137,28 +147,31 @@ const MenuPage = () => {
     setSearchQuery("");
     setSortBy("popular");
     setMinRating(null);
+    // Also clear URL search params
+    setSearchParams({}, { replace: true });
+  };
+
+  const handleCategoryClick = (categoryId: string) => {
+    setActiveCategory(categoryId);
+    // Khi chọn category mới, xóa search text để không bị đè 2 bộ lọc
+    if (searchQuery) {
+      setSearchQuery("");
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("search");
+      setSearchParams(newParams, { replace: true });
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
-      {/* Mobile Sticky Search & Filter Header (Chỉ hiện trên điện thoại) */}
-      <div className="lg:hidden sticky top-[60px] z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 space-y-3 shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Tìm món ăn..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 text-sm transition-all"
-          />
-        </div>
+      {/* Sticky Category Header (Mobile only) */}
+      <div className="lg:hidden sticky top-[60px] z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-sm">
         {/* Horizontal Scroll Categories for Mobile */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar mask-fade-edges-right pb-1">
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => handleCategoryClick(cat.id)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all active:scale-95 border ${activeCategory === cat.id
                 ? "bg-slate-900 text-white border-slate-900 shadow-md"
                 : "bg-white text-slate-600 border-slate-200 hover:border-orange-300"
@@ -176,6 +189,7 @@ const MenuPage = () => {
           {/* ── SIDEBAR (Chỉ hiện trên Desktop) ── */}
           <aside className="hidden lg:block w-72 shrink-0 space-y-6 sticky top-[100px] h-fit">
 
+
             {/* Categories */}
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200">
               <div className="flex items-center gap-2 mb-5">
@@ -190,7 +204,7 @@ const MenuPage = () => {
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
+                    onClick={() => handleCategoryClick(cat.id)}
                     className={`relative w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 overflow-hidden group
                       ${activeCategory === cat.id
                         ? "bg-orange-50 text-orange-700"
@@ -242,38 +256,7 @@ const MenuPage = () => {
           {/* ── MAIN CONTENT ── */}
           <main className="flex-1 min-w-0">
 
-            {/* Toolbar (Desktop) */}
-            <div className="hidden lg:flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm món ăn (vd: Phở, Cơm tấm...)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 text-sm transition-all"
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-sm font-bold text-slate-500">Sắp xếp:</span>
-                <div className="relative">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="appearance-none bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 py-2.5 pl-4 pr-10 rounded-xl focus:ring-2 focus:ring-orange-400/20 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
-                  >
-                    <option value="popular">Phổ biến nhất</option>
-                    <option value="rating">Đánh giá cao</option>
-                    <option value="price_low">Giá: Thấp đến Cao</option>
-                    <option value="price_high">Giá: Cao xuống Thấp</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                </div>
-              </div>
-            </div>
 
             {/* Active filters chips (Dành cho cả Desktop & Mobile) */}
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -309,12 +292,10 @@ const MenuPage = () => {
                   {minRating !== null && (
                     <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-sm">
                       <Star className="w-3 h-3 fill-yellow-600 text-yellow-600" /> {minRating}+
-                      <button onClick={() => setMinRating(null)} className="ml-1 hover:text-yellow-900">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
                     </span>
                   )}
-                  <button onClick={clearFilters} className="text-xs font-bold text-slate-400 hover:text-slate-700 underline underline-offset-2 ml-2">
+                  <button onClick={clearFilters} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:text-slate-700 hover:border-slate-300 transition-all active:scale-95 shadow-sm ml-2">
+                    <X className="w-3.5 h-3.5" />
                     Xóa lọc
                   </button>
                 </div>
@@ -338,20 +319,33 @@ const MenuPage = () => {
                     key={item._id}
                     id={item._id}
                     name={item.name}
-                    image={typeof item.image === 'object' && item.image?.secure_url ? item.image.secure_url : (typeof item.image === 'string' ? item.image : '')}
-                    price={item.price}
+                    image={typeof item.image === 'object' && item.image?.secureUrl ? item.image.secureUrl : (typeof item.image === 'string' ? item.image : '')}
+                    price={item.campaignPrice ?? item.price}
+                    originalPrice={item.campaignPrice != null ? item.price : undefined}
                     rating={item.rating}
                     restaurant={item.restaurant}
                     time={item.time}
-                    onAddToCart={() => {
-                      addItem({
-                        productId: item._id,
-                        name: item.name,
-                        image: typeof item.image === 'object' && item.image?.secure_url ? item.image.secure_url : (typeof item.image === 'string' ? item.image : ''),
-                        price: item.price,
-                        quantity: 1
-                      });
-                      toast(t('customer:foodCard.addToCart', 'Đã thêm vào giỏ hàng!'), 'success');
+                    healthStatus={getProductHealthStatus(item)}
+                    allergenInfo={getProductAllergenInfo(item)}
+                    onAddToCart={(_, trigger) => {
+                      const image = typeof item.image === 'object' && item.image?.secureUrl ? item.image.secureUrl : (typeof item.image === 'string' ? item.image : '');
+                      safeAddItem(
+                        item,
+                        {
+                          productId: item._id,
+                          name: item.name,
+                          image,
+                          price: item.campaignPrice ?? item.price,
+                          quantity: 1
+                        },
+                        () => {
+                          showAddToCartFeedback(
+                            trigger,
+                            image,
+                            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                          );
+                        }
+                      );
                     }}
                   />
                 ))}
@@ -391,7 +385,9 @@ const MenuPage = () => {
                   {t("customer:menu.noResults", "Không tìm thấy món ăn")}
                 </h3>
                 <p className="text-slate-500 mt-2 max-w-sm mx-auto font-medium">
-                  Rất tiếc, không có món ăn nào phù hợp với bộ lọc hiện tại. Thử tìm với từ khóa khác nhé!
+                  {debouncedSearch.trim()
+                    ? `Không có món ăn nào có tên khớp với “${debouncedSearch.trim()}”.`
+                    : "Không có món ăn nào phù hợp với bộ lọc hiện tại."}
                 </p>
                 <Button
                   onClick={clearFilters}

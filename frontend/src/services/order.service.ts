@@ -1,39 +1,69 @@
 import { apiClient } from "@/lib/api-client";
 
+export interface ManagerOrderActionPayload {
+  reason?: string;
+  note?: string;
+}
+
+export interface ManagerAssignDeliveryPayload extends ManagerOrderActionPayload {
+  driverId: string;
+}
+
+export interface ManagerOverrideStatusPayload extends ManagerOrderActionPayload {
+  status: Order["status"];
+}
+
+export interface StaffStoreScope {
+  storeId: string;
+}
+
+export interface StaffOrderListParams extends StaffStoreScope {
+  status?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+export interface StaffOrderActionPayload extends StaffStoreScope {
+  reason?: string;
+}
+
 export interface PlaceOrderItemVariation {
   name: string;
   choice: string;
-  extra_price?: number;
+  extraPrice?: number;
 }
 
 export interface PlaceOrderItem {
-  product_id: string;
+  productId: string;
   quantity: number;
   variations?: PlaceOrderItemVariation[];
 }
 
 export interface PlaceOrderAddress {
   label?: string;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
 }
 
 export type PaymentMethod =
+  | "cash"
   | "cash_on_delivery"
-  | "credit_card"
-  | "paypal"
-  | "bank_transfer";
+  | "bank_transfer"
+  | "momo"
+  | "vnpay"
+  | "stripe";
 
 export interface PlaceOrderRequest {
   items: PlaceOrderItem[];
-  payment_method?: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   voucher?: string;
-  shipping_fee?: number;
-  delivery_address?: PlaceOrderAddress;
+  shippingFee?: number;
+  deliveryAddress?: PlaceOrderAddress;
   note?: string;
 }
 
@@ -42,22 +72,22 @@ export interface PlacedOrder {
   code: string;
   status: string;
   items: Array<{
-    product_id: string;
+    productId: string;
     quantity: number;
-    variations: Array<{ name: string; choice: string; extra_price: number }>;
-    sub_total: number;
+    variations: Array<{ name: string; choice: string; extraPrice: number }>;
+    subTotal: number;
   }>;
-  sub_total: number;
+  subTotal: number;
   note?: string;
-  staff_note_items?: string[];
-  shipping_fee: number;
-  total_price: number;
+  staffNoteItems?: string[];
+  shippingFee: number;
+  totalPrice: number;
   payment: {
     method: PaymentMethod;
-    paid_at: string | null;
+    paidAt: string | null;
   };
-  delivery_address: PlaceOrderAddress;
-  voucher: string | null;
+  deliveryAddress: PlaceOrderAddress;
+  voucherId: string | null;
   checkoutUrl?: string;
   createdAt: string;
 }
@@ -65,53 +95,76 @@ export interface PlacedOrder {
 export interface Order {
   _id: string;
   code: string;
-  user_id?:
-  | string
-  | {
-    _id: string;
-    username: string;
-    email: string;
-    phone: string;
-  };
-  items: Array<{
-    product_id:
+  storeId?:
     | string
     | {
-      _id: string;
-      name: string;
-      image: string | { secure_url: string };
-      price: number;
-    };
+        _id: string;
+        name?: string;
+        storeName?: string;
+        address?: string;
+      }
+    | null;
+  cusId?:
+    | string
+    | {
+        _id: string;
+        username: string;
+        fullName?: string;
+        email: string;
+        phone: string;
+      };
+  items: Array<{
+    name?: string;
+    productId:
+      | string
+      | {
+          _id: string;
+          name: string;
+          image: string | { secureUrl?: string };
+          price: number;
+        };
     quantity: number;
-    variations: Array<{ name: string; choice: string; extra_price?: number }>;
-    sub_total: number;
+    variations: Array<{ name: string; choice: string; extraPrice?: number }>;
+    subTotal: number;
   }>;
   note?: string;
-  staff_note_items?: string[];
+  staffNoteItems?: string[];
   status:
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "ready_for_delivery"
-  | "shipping"
-  | "completed"
-  | "cancelled";
-  sub_total: number;
-  shipping_fee: number;
-  total_price: number;
+    | "pending"
+    | "confirmed"
+    | "processing"
+    | "preparing"
+    | "ready_for_delivery"
+    | "shipping"
+    | "delivering"
+    | "delivered"
+    | "completed"
+    | "cancelled";
+  subTotal: number;
+  shippingFee: number;
+  totalPrice: number;
   payment: {
     method: PaymentMethod;
-    paid_at: string | null;
+    paidAt: string | null;
   };
-  delivery_address: PlaceOrderAddress;
-  delivery_info?: {
-    shipped_at?: string;
-    delivered_at?: string;
-    driver_id?: string | null;
+  deliveryAddress: PlaceOrderAddress;
+  deliveryInfo?: {
+    shippedAt?: string;
+    deliveredAt?: string;
+    driverId?: string | null;
   };
   voucher?: string | null;
   createdAt: string;
   updatedAt: string;
+  isReviewed?: boolean;
+  discountAmount?: number;
+  statusHistory?: any[];
+  cancellation?: {
+    reason: string;
+    cancelledBy: "staff" | "customer";
+    refundRequired?: boolean;
+    refundedAt?: string | null;
+  } | null;
 }
 
 export interface OrderListResponse {
@@ -155,7 +208,7 @@ class OrderService {
 
   async getAllOrders(params?: {
     status?: string;
-    driver_id?: string;
+    driverId?: string;
     page?: number;
     limit?: number;
     sort?: string;
@@ -166,13 +219,85 @@ class OrderService {
 
   async cancelOrder(
     id: string,
-    data?: { reason: string }
+    data?: { reason: string },
   ): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.patch(`/orders/${id}/cancel`, data);
     return response.data;
   }
 
   // ── Staff actions ────────────────────────────────────────────────────────
+
+  async getStaffOrders(
+    params: StaffOrderListParams,
+  ): Promise<OrderListResponse> {
+    const response = await apiClient.get("/orders/staff/orders", { params });
+    return response.data;
+  }
+
+  async getStaffOrderById(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.get(`/orders/staff/orders/${id}`, {
+      params: scope,
+    });
+    return response.data;
+  }
+
+  async staffConfirmOrder(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/orders/staff/orders/${id}/confirm`,
+      scope,
+    );
+    return response.data;
+  }
+
+  async staffRejectOrder(
+    id: string,
+    data: StaffOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/orders/staff/orders/${id}/reject`,
+      data,
+    );
+    return response.data;
+  }
+
+  async staffMarkOrderReady(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/orders/staff/orders/${id}/ready`,
+      scope,
+    );
+    return response.data;
+  }
+
+  async staffAssignDelivery(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/orders/staff/orders/${id}/deliver`,
+      scope,
+    );
+    return response.data;
+  }
+
+  async staffCompleteDelivery(
+    id: string,
+    scope: StaffStoreScope,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/orders/staff/orders/${id}/complete`,
+      scope,
+    );
+    return response.data;
+  }
 
   /** Staff: Nhận đơn (PENDING → CONFIRMED) */
   async confirmOrder(id: string): Promise<{ success: boolean; data: Order }> {
@@ -202,8 +327,96 @@ class OrderService {
   }
 
   /** Staff: Giao thành công (SHIPPING → COMPLETED) */
-  async completeDelivery(id: string): Promise<{ success: boolean; data: Order }> {
+  async completeDelivery(
+    id: string,
+  ): Promise<{ success: boolean; data: Order }> {
     const response = await apiClient.patch(`/orders/${id}/complete`);
+    return response.data;
+  }
+
+  /** Customer: Xác nhận đã nhận hàng (DELIVERED → COMPLETED) */
+  async confirmReceipt(id: string): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/orders/${id}/customer-confirm`);
+    return response.data;
+  }
+
+  // ── Manager actions ──────────────────────────────────────────────────────
+
+  async getManagerOrders(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<OrderListResponse> {
+    const response = await apiClient.get("/manager/orders", { params });
+    return response.data;
+  }
+
+  async getManagerOrderById(
+    id: string,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.get(`/manager/orders/${id}`);
+    return response.data;
+  }
+
+  async managerConfirmOrder(
+    id: string,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(`/manager/orders/${id}/confirm`);
+    return response.data;
+  }
+
+  async managerRejectOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/manager/orders/${id}/reject`,
+      data,
+    );
+    return response.data;
+  }
+
+  async managerCancelOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/manager/orders/${id}/cancel`,
+      data,
+    );
+    return response.data;
+  }
+
+  async managerAssignDelivery(
+    id: string,
+    data: ManagerAssignDeliveryPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/manager/orders/${id}/assign-delivery`,
+      data,
+    );
+    return response.data;
+  }
+
+  async managerManualCompleteOrder(
+    id: string,
+    data: ManagerOrderActionPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/manager/orders/${id}/manual-complete`,
+      data,
+    );
+    return response.data;
+  }
+
+  async managerOverrideOrderStatus(
+    id: string,
+    data: ManagerOverrideStatusPayload,
+  ): Promise<{ success: boolean; data: Order }> {
+    const response = await apiClient.patch(
+      `/manager/orders/${id}/override-status`,
+      data,
+    );
     return response.data;
   }
 }

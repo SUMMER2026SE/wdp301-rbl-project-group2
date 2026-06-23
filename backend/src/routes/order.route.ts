@@ -1,20 +1,28 @@
 import {
-    cancelOrderHandler,
-    confirmOrderHandler,
-    getAllOrdersHandler,
-    getMyOrdersHandler,
-    getOrderDetailHandler,
-    markReadyHandler,
-    placeOrderHandler,
-    rejectOrderHandler,
-    updateOrderStatusHandler,
-    getWeeklyRevenueHandler,
-    getDashboardStatsHandler,
-    getRecentOrdersHandler,
-    assignDeliveryHandler,
-    completeDeliveryHandler,
+  cancelOrderHandler,
+  confirmOrderHandler,
+  getAllOrdersHandler,
+  getMyOrdersHandler,
+  getOrderDetailHandler,
+  markReadyHandler,
+  placeOrderHandler,
+  rejectOrderHandler,
+  updateOrderStatusHandler,
+  getWeeklyRevenueHandler,
+  getDashboardStatsHandler,
+  getRecentOrdersHandler,
+  assignDeliveryHandler,
+  completeDeliveryHandler,
+  customerConfirmOrderHandler,
+  getStaffOrders,
+  getStaffOrderById,
+  staffAssignDelivery,
+  staffCompleteDelivery,
+  staffConfirmOrder,
+  staffMarkOrderReady,
+  staffRejectOrder,
 } from '@/controllers/order.controller';
-import { authenticate, authorize } from '@/middlewares';
+import { authenticate, authorize, requireStaffStore } from '@/middlewares';
 import { Role } from '@/types/user.type';
 import { Router } from 'express';
 
@@ -25,6 +33,39 @@ orderRoutes.post('/', authenticate, placeOrderHandler);
 
 // GET /api/orders/me — Get current user's order history
 orderRoutes.get('/me', authenticate, getMyOrdersHandler);
+
+// ── Staff-scoped routes ─────────────────────────────────────────────────────
+orderRoutes.get('/staff/orders', authenticate, authorize(Role.STAFF), requireStaffStore, getStaffOrders);
+orderRoutes.get('/staff/orders/:id', authenticate, authorize(Role.STAFF), requireStaffStore, getStaffOrderById);
+orderRoutes.patch(
+  '/staff/orders/:id/confirm',
+  authenticate,
+  authorize(Role.STAFF),
+  requireStaffStore,
+  staffConfirmOrder
+);
+orderRoutes.patch('/staff/orders/:id/reject', authenticate, authorize(Role.STAFF), requireStaffStore, staffRejectOrder);
+orderRoutes.patch(
+  '/staff/orders/:id/ready',
+  authenticate,
+  authorize(Role.STAFF),
+  requireStaffStore,
+  staffMarkOrderReady
+);
+orderRoutes.patch(
+  '/staff/orders/:id/deliver',
+  authenticate,
+  authorize(Role.STAFF),
+  requireStaffStore,
+  staffAssignDelivery
+);
+orderRoutes.patch(
+  '/staff/orders/:id/complete',
+  authenticate,
+  authorize(Role.STAFF),
+  requireStaffStore,
+  staffCompleteDelivery
+);
 
 // GET /api/orders/:idOrCode — Get detail of a specific order
 orderRoutes.get('/:idOrCode', authenticate, getOrderDetailHandler);
@@ -37,6 +78,9 @@ orderRoutes.patch('/:id/status', authenticate, authorize(Role.ADMIN, Role.STAFF)
 
 // PATCH /api/orders/:id/cancel — Cancel an order
 orderRoutes.patch('/:id/cancel', authenticate, cancelOrderHandler);
+
+// PATCH /api/orders/:id/customer-confirm — Customer confirms receipt of order
+orderRoutes.patch('/:id/customer-confirm', authenticate, customerConfirmOrderHandler);
 //get /api/orders/revenue/weekly
 orderRoutes.get('/revenue/weekly', getWeeklyRevenueHandler);
 orderRoutes.get('/dashboard/stats', getDashboardStatsHandler);

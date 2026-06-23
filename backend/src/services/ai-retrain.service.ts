@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const AI_MICROSERVICE_URL = process.env.AI_MICROSERVICE_URL || 'http://localhost:8001';
+const AI_RETRAIN_TOKEN = process.env.AI_RETRAIN_TOKEN;
 
 const autoRetrainEnabled = () => /^true|1$/i.test(String(process.env.AI_AUTO_RETRAIN_ON_ORDER_COMPLETED ?? ''));
 
@@ -23,7 +24,14 @@ export function scheduleAiModelRetrain(reason: string): void {
   lastTriggeredAt = now;
 
   axios
-    .post(`${AI_MICROSERVICE_URL}/recommend/retrain`, {}, { timeout: 5000 })
+    .post(
+      `${AI_MICROSERVICE_URL}/recommend/retrain`,
+      {},
+      {
+        timeout: 5000,
+        headers: AI_RETRAIN_TOKEN ? { 'X-AI-Retrain-Token': AI_RETRAIN_TOKEN } : undefined,
+      }
+    )
     .then(() => console.log(`[AI] Retrain triggered (${reason})`))
     .catch((err) => console.warn(`[AI] Retrain request failed (${reason}):`, err?.message ?? err));
 }

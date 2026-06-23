@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 
 interface StaffDebt {
     _id: string;
-    driver_name: string;
-    driver_email: string;
-    total_amount: number;
-    order_count: number;
-    order_ids: string[];
+    driverName: string;
+    driverEmail: string;
+    totalAmount: number;
+    orderCount: number;
+    orderIds: string[];
 }
 
 const AdminCashControl = () => {
@@ -40,7 +40,7 @@ const AdminCashControl = () => {
 
         try {
             setCollectingId(driverId);
-            await apiClient.post('/admin/collect-cash', { driver_id: driverId });
+            await apiClient.post('/admin/collect-cash', { driverId });
             toast.success(`Đã tất toán công nợ cho ${driverName}`);
             fetchDebts();
         } catch (error) {
@@ -51,11 +51,11 @@ const AdminCashControl = () => {
     };
 
     const filteredDebts = debts.filter(d =>
-        d.driver_name.toLowerCase().includes(search.toLowerCase()) ||
-        d.driver_email.toLowerCase().includes(search.toLowerCase())
+        d.driverName.toLowerCase().includes(search.toLowerCase()) ||
+        d.driverEmail.toLowerCase().includes(search.toLowerCase())
     );
 
-    const totalUncollected = debts.reduce((acc, curr) => acc + curr.total_amount, 0);
+    const totalUncollected = debts.reduce((acc, curr) => acc + curr.totalAmount, 0);
 
     return (
         <div className="space-y-6">
@@ -154,25 +154,25 @@ const AdminCashControl = () => {
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 bg-orange-100 dark:bg-orange-500/10 text-orange-600 rounded-xl flex items-center justify-center font-black text-sm">
-                                                {debt.driver_name.charAt(0).toUpperCase()}
+                                                {debt.driverName.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <p className="font-bold text-gray-900 dark:text-white capitalize leading-none mb-1">{debt.driver_name}</p>
-                                                <p className="text-[11px] text-[#9a734c]">{debt.driver_email}</p>
+                                                <p className="font-bold text-gray-900 dark:text-white capitalize leading-none mb-1">{debt.driverName}</p>
+                                                <p className="text-[11px] text-[#9a734c]">{debt.driverEmail}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5 text-center">
                                         <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs font-bold">
-                                            {debt.order_count} đơn
+                                            {debt.orderCount} đơn
                                         </span>
                                     </td>
                                     <td className="px-6 py-5 font-black text-orange-600 text-lg">
-                                        {debt.total_amount.toLocaleString('vi-VN')}₫
+                                        {debt.totalAmount.toLocaleString('vi-VN')}₫
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <button
-                                            onClick={() => handleCollectCash(debt._id, debt.driver_name)}
+                                            onClick={() => handleCollectCash(debt._id, debt.driverName)}
                                             disabled={collectingId === debt._id}
                                             className={cn(
                                                 "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",

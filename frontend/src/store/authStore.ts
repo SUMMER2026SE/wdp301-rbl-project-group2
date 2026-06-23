@@ -1,16 +1,22 @@
 import { create } from "zustand";
+import {
+  disconnectSupportSocket,
+  reconnectSupportSocket,
+} from "@/lib/support-socket";
+import { removeToken } from "@/utils/storage";
 
 // ---- Types (aligned with BE) ----
 
-export type UserRole = "ADMIN" | "STAFF" | "CUSTOMER";
+export type UserRole = "ADMIN" | "MANAGER" | "STAFF" | "CUSTOMER";
+export type ApiUserRole = UserRole | Lowercase<UserRole>;
 
 export interface AuthAddress {
   label?: string;
-  receiver_name: string;
+  receiverName: string;
   phone: string;
   detail: string;
   ward: string;
-  district: string;
+  district?: string;
   city: string;
   isDefault: boolean;
 }
@@ -18,19 +24,23 @@ export interface AuthAddress {
 export interface AuthUser {
   _id: string;
   username: string;
+  fullName?: string;
   email: string;
   phone?: string;
   avatar?: string;
-  role: UserRole;
+  role: ApiUserRole;
   isActive: boolean;
-  verified_at: string | null;
-  collected_points: number;
+  isHealthSetup?: boolean;
+  verifiedAt: string | null;
+  collectedPoints: number;
   addresses: AuthAddress[]; // Delivery addresses — aligned with BE IUser
   preferences?: {
     dietary: string[];
     allergies: string[];
-    health_goals: string[];
+    healthGoals: string[];
   };
+  receiveCampaignNotifications?: boolean;
+  storeId?: string | null;
 }
 
 interface AuthState {
@@ -52,17 +62,25 @@ interface AuthState {
 
 const STORAGE_KEY = "foodiedash_user";
 
+function normalizeRole(role: ApiUserRole): UserRole {
+  return role.toUpperCase() as UserRole;
+}
+
+function normalizeUser(user: AuthUser): AuthUser {
+  return { ...user, role: normalizeRole(user.role) };
+}
+
 function getStoredUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeUser(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
 }
 
 function setStoredUser(user: AuthUser) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeUser(user)));
 }
 
 function clearStoredUser() {
@@ -82,22 +100,26 @@ const _initialUser = getStoredUser();
 export const useAuthStore = create<AuthState>((set) => ({
   user: _initialUser,
   isAuthenticated: !!_initialUser,
-  role: _initialUser?.role ?? null,
+  role: _initialUser ? normalizeRole(_initialUser.role) : null,
   hydrated: true, // Already hydrated synchronously above
 
   login: (user) => {
-    setStoredUser(user);
+    reconnectSupportSocket();
+    const normalizedUser = normalizeUser(user);
+    setStoredUser(normalizedUser);
     // Reset location alert state so it shows after login
     localStorage.removeItem("location_alert_dismissed");
     set({
-      user,
+      user: normalizedUser,
       isAuthenticated: true,
-      role: user.role,
+      role: normalizeRole(user.role),
     });
   },
 
   logout: () => {
+    disconnectSupportSocket();
     clearStoredUser();
+    removeToken();
     set({
       user: null,
       isAuthenticated: false,
@@ -106,8 +128,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   setUser: (user) => {
-    setStoredUser(user);
-    set({ user, role: user.role });
+    const normalizedUser = normalizeUser(user);
+    setStoredUser(normalizedUser);
+    set({ user: normalizedUser, role: normalizeRole(user.role) });
   },
 
   getUser: async () => {
@@ -117,9 +140,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { default: authService } = await import("@/services/auth.service");
       const res = await authService.getCurrentUser();
       if (res.data) {
-        const user = res.data;
+        const user = normalizeUser(res.data);
         setStoredUser(user);
-        set({ user, role: user.role });
+        set({ user, role: normalizeRole(user.role) });
+        reconnectSupportSocket();
       }
     } catch (error) {
       // If cookie session is invalid/expired, clear local auth to avoid mismatch
@@ -143,7 +167,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user,
         isAuthenticated: true,
-        role: user.role,
+        role: normalizeRole(user.role),
       });
     }
   },

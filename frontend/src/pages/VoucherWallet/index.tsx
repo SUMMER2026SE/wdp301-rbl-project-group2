@@ -1,23 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import voucherService from "@/services/voucher.service";
 import productAPI from "@/services/product.service";
 import { userService, type MembershipInfo, type PointTransaction } from "@/services/profile.service";
+import { useAuth } from "@/hooks/useAuth";
+import toast from 'react-hot-toast';
 import type { Voucher } from "@/types/voucher";
 import type { Product } from "@/types/product";
 import { DiscountType } from "@/types/voucher";
+import { ChevronDown, ChevronUp, Copy, Loader2, Share2, X } from "lucide-react";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function formatDiscount(voucher: Voucher): string {
-    if (voucher.discount_type === DiscountType.PERCENTAGE) {
-        return `${voucher.discount_value}%`;
+    if (voucher.discountType === DiscountType.PERCENTAGE) {
+        return `${voucher.discountValue}%`;
     }
-    if (voucher.discount_type === DiscountType.FIXED_AMOUNT) {
-        return `${(voucher.discount_value / 1000).toFixed(0)}k`;
+    if (voucher.discountType === DiscountType.FIXED_AMOUNT) {
+        return `${(voucher.discountValue / 1000).toFixed(0)}k`;
     }
-    return `${voucher.discount_value}`;
+    return `${voucher.discountValue}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -38,15 +41,15 @@ function getExpiryLabel(endDate: string): string {
 }
 
 function isExpired(v: Voucher): boolean {
-    return new Date(v.end_date) < new Date();
+    return new Date(v.endAt) < new Date();
 }
 
 // A voucher is "exhausted" only when the global pool is fully used up
 function isExhausted(v: Voucher): boolean {
     return (
-        v.total_usage_limit !== null &&
-        v.total_usage_limit !== undefined &&
-        v.current_usage_count >= v.total_usage_limit
+        v.usageLimit !== null &&
+        v.usageLimit !== undefined &&
+        v.usedCount >= v.usageLimit
     );
 }
 
@@ -87,9 +90,9 @@ const VoucherCard = ({
             </div>
             <div className="flex-1 p-5 space-y-3">
                 <div className="flex flex-wrap gap-2">
-                    {voucher.min_order_amount > 0 && (
+                    {voucher.minOrderValue > 0 && (
                         <span className="px-2 py-1 bg-muted text-[9px] font-bold rounded">
-                            Tối thiểu {(voucher.min_order_amount / 1000).toFixed(0)}k
+                            Tối thiểu {(voucher.minOrderValue / 1000).toFixed(0)}k
                         </span>
                     )}
                     {voucher.conditions?.slice(0, 1).map((c, i) => (
@@ -99,7 +102,7 @@ const VoucherCard = ({
                 <h5 className="text-sm font-bold line-clamp-1">{voucher.title}</h5>
                 <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground font-medium italic">
-                        {getExpiryLabel(voucher.end_date)}
+                        {getExpiryLabel(voucher.endAt)}
                     </span>
                     <button
                         onClick={() => onCopy(voucher.code)}
@@ -217,162 +220,372 @@ const MembershipPerks = ({ tier }: { tier: string }) => {
     );
 };
 
-const PointsActivity = ({ activities }: { activities: PointTransaction[] }) => {
+const POINT_HISTORY_PAGE_SIZE = 4;
+
+const PointsActivity = ({
+    activities,
+    loading,
+    loadingMore,
+    hasMore,
+    onLoadMore,
+    onCollapse,
+}: {
+    activities: PointTransaction[];
+    loading: boolean;
+    loadingMore: boolean;
+    hasMore: boolean;
+    onLoadMore: () => void;
+    onCollapse: () => void;
+}) => {
+    const canCollapse = activities.length > POINT_HISTORY_PAGE_SIZE;
+
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
+        <div className="min-w-0 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">history</span>
                     <h4 className="text-lg font-bold">Lịch sử điểm</h4>
                 </div>
-                <button className="text-[10px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest">Xem thêm</button>
+                {activities.length > 0 && (canCollapse || hasMore) && (
+                    <div className="flex items-center gap-1">
+                        {canCollapse && (
+                            <button
+                                type="button"
+                                onClick={onCollapse}
+                                disabled={loadingMore}
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <ChevronUp className="size-4" />
+                                Thu lại
+                            </button>
+                        )}
+                        {hasMore && (
+                            <button
+                                type="button"
+                                onClick={onLoadMore}
+                                disabled={loadingMore}
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {loadingMore ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <ChevronDown className="size-4" />
+                                )}
+                                {loadingMore ? "Đang tải" : "Xem thêm"}
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
-            {activities.length === 0 ? (
-                <div className="bg-card border border-border rounded-[24px] p-8 flex flex-col items-center justify-center text-center space-y-2">
+
+            {loading ? (
+                <div className="grid grid-cols-1 gap-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="h-[74px] animate-pulse rounded-2xl border border-border bg-card" />
+                    ))}
+                </div>
+            ) : activities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center space-y-2 rounded-[24px] border border-border bg-card p-8 text-center">
                     <span className="material-symbols-outlined text-4xl opacity-20">history</span>
                     <p className="text-xs font-bold uppercase tracking-widest opacity-40">Chưa có hoạt động</p>
                 </div>
             ) : (
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-1 px-1">
-                    {activities.map((a, i) => (
-                        <div key={i} className="min-w-[260px] bg-card border border-border rounded-2xl p-4 flex gap-4 items-center shrink-0 hover:border-primary/30 transition-all group">
-                            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "bg-green-50 dark:bg-green-950/40 text-green-600" : "bg-orange-50 dark:bg-orange-950/40 text-orange-600"}`}>
-                                <span className="material-symbols-outlined text-lg">
-                                    {a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "add_circle" : "remove_circle"}
-                                </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start gap-2">
-                                    <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{a.description}</p>
-                                    <span className={`text-sm font-black shrink-0 ${a.type === "earn" || a.type === "referral" || a.type === "bonus" ? "text-green-600" : "text-orange-600"}`}>
-                                        {a.amount > 0 ? "+" : ""}{a.amount}
+                <div className="grid min-w-0 grid-cols-1 gap-3">
+                    {activities.map((activity) => {
+                        const isPositive =
+                            activity.type === "earn" ||
+                            activity.type === "referral" ||
+                            activity.type === "bonus";
+
+                        return (
+                            <div
+                                key={activity._id}
+                                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/30 sm:gap-4"
+                            >
+                                <div
+                                    className={
+                                        "flex size-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110 " +
+                                        (isPositive
+                                            ? "bg-green-50 text-green-600 dark:bg-green-950/40"
+                                            : "bg-orange-50 text-orange-600 dark:bg-orange-950/40")
+                                    }
+                                >
+                                    <span className="material-symbols-outlined text-lg">
+                                        {isPositive ? "add_circle" : "remove_circle"}
                                     </span>
                                 </div>
-                                <div className="flex justify-between items-center mt-1">
-                                    <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">{a.type}</p>
-                                    <p className="text-[9px] text-muted-foreground whitespace-nowrap opacity-60 font-bold">{formatDate(a.createdAt)}</p>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex min-w-0 items-start justify-between gap-3">
+                                        <p className="min-w-0 break-words text-sm font-bold leading-snug transition-colors group-hover:text-primary">
+                                            {activity.description}
+                                        </p>
+                                        <span
+                                            className={
+                                                "shrink-0 text-sm font-black " +
+                                                (isPositive ? "text-green-600" : "text-orange-600")
+                                            }
+                                        >
+                                            {activity.amount > 0 ? "+" : ""}
+                                            {activity.amount}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-[9px] font-medium uppercase text-muted-foreground">
+                                            {activity.type}
+                                        </p>
+                                        <p className="whitespace-nowrap text-[9px] font-bold text-muted-foreground opacity-60">
+                                            {formatDate(activity.createdAt)}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
     );
 };
 
-const Missions = () => {
-    const missions = [
-        { title: "Mời bạn mới", bonus: "+100 pts", progress: 0, total: 1, icon: "person_add" },
-        { title: "Đặt 3 đơn hàng", bonus: "+50 pts", progress: 1, total: 3, icon: "shopping_bag" },
-    ];
-
-    return (
-        <div className="space-y-4">
-            <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">Nhiệm vụ hôm nay</h4>
-            {missions.map((m, i) => (
-                <div key={i} className="bg-white dark:bg-card border border-border rounded-2xl p-4 flex gap-4 items-center group cursor-pointer hover:border-primary/50 transition-all">
-                    <div className="size-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined">{m.icon}</span>
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1.5">
-                            <p className="text-sm font-bold">{m.title}</p>
-                            <span className="text-[10px] font-black text-primary">{m.bonus}</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${(m.progress / m.total) * 100}%` }} />
-                        </div>
-                        <p className="mt-1 text-[10px] text-muted-foreground font-bold">{m.progress}/{m.total} hoàn thành</p>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
+type InviteModalProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    code: string;
+    canClaim: boolean;
+    referralStatus?: MembershipInfo["referralRewardStatus"];
+    rejectionReason?: string | null;
+    onClaimed: () => Promise<void>;
 };
 
+const InviteModal = ({
+    isOpen,
+    onClose,
+    code,
+    canClaim,
+    referralStatus,
+    rejectionReason,
+    onClaimed,
+}: InviteModalProps) => {
+    const [referralInput, setReferralInput] = useState("");
+    const [claiming, setClaiming] = useState(false);
 
-const InviteModal = ({ isOpen, onClose, code }: { isOpen: boolean; onClose: () => void; code: string }) => {
+    useEffect(() => {
+        if (isOpen) setReferralInput("");
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
-    const handleCopyCode = () => {
-        navigator.clipboard.writeText(code);
-        // Could add a toast here
+    const inviteUrl =
+        window.location.origin +
+        "/register?referral=" +
+        encodeURIComponent(code);
+
+    const copyText = async (text: string) => {
+        if (navigator.clipboard) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        textArea.remove();
+
+        if (!copied) throw new Error("Copy command failed");
     };
 
+    const handleCopyInviteLink = async () => {
+        try {
+            await copyText(inviteUrl);
+            toast.success("Đã sao chép link mời");
+        } catch {
+            toast.error("Không thể sao chép link. Vui lòng thử lại");
+        }
+    };
+    const handleClaimReferral = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const normalizedCode = referralInput.trim().toUpperCase();
+
+        if (!normalizedCode) {
+            toast.error("Vui lòng nhập mã giới thiệu");
+            return;
+        }
+
+        try {
+            setClaiming(true);
+            const response = await userService.claimReferral(normalizedCode);
+            await onClaimed();
+            toast.success(response.data.message || "Đã ghi nhận mã giới thiệu");
+            setReferralInput("");
+            onClose();
+        } catch (error: unknown) {
+            const message =
+                typeof error === "object" &&
+                error !== null &&
+                "response" in error &&
+                typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === "string"
+                    ? (error as { response: { data: { message: string } } }).response.data.message
+                    : "Không thể nhập mã giới thiệu";
+            toast.error(message);
+        } finally {
+            setClaiming(false);
+        }
+    };
+
+    const statusContent = {
+        pending: {
+            title: "Đang chờ đơn đầu tiên",
+            description: "Lời mời đã được ghi nhận. Đơn đầu tiên phải hoàn tất và có tổng thanh toán từ 100.000đ.",
+            className: "border-amber-200 bg-amber-50 text-amber-900",
+        },
+        processing: {
+            title: "Đang kiểm tra điều kiện",
+            description: "Hệ thống đang xác minh đơn hàng và điều kiện chống gian lận.",
+            className: "border-amber-200 bg-amber-50 text-amber-900",
+        },
+        rewarded: {
+            title: "Đã trao thưởng giới thiệu",
+            description: "Người mời đã nhận voucher 30.000đ cho đơn từ 150.000đ; người được mời đã nhận 50 điểm.",
+            className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        },
+        rejected: {
+            title: "Lời mời không đủ điều kiện",
+            description:
+                rejectionReason === "minimum_order_not_met"
+                    ? "Đơn đầu tiên hoàn tất chưa đạt 100.000đ."
+                    : "Hệ thống phát hiện điều kiện referral không hợp lệ hoặc có dấu hiệu trùng tài khoản.",
+            className: "border-rose-200 bg-rose-50 text-rose-900",
+        },
+    } as const;
+
+    const currentStatus =
+        referralStatus && referralStatus !== "none"
+            ? statusContent[referralStatus]
+            : null;
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-card w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="relative p-8 text-center space-y-6">
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-modal-title"
+        >
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white shadow-2xl dark:bg-card">
+                <div className="relative space-y-6 p-6 sm:p-8">
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted transition-colors"
+                        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:right-6 sm:top-6"
+                        aria-label="Đóng"
                     >
-                        <span className="material-symbols-outlined text-muted-foreground">close</span>
+                        <X className="size-5" />
                     </button>
 
-                    <div className="inline-flex size-20 bg-orange-100 dark:bg-orange-950/40 text-orange-600 rounded-3xl items-center justify-center mb-2">
-                        <span className="material-symbols-outlined text-4xl">celebration</span>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="text-2xl font-black">Mời bạn bè, Nhận quà!</h3>
-                        <p className="text-sm text-muted-foreground px-4">
-                            Chia sẻ mã giới thiệu của bạn để cả hai cùng nhận được <span className="font-bold text-primary">Voucher 200.000đ</span>
+                    <div className="space-y-3 pr-10">
+                        <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 dark:bg-orange-950/40">
+                            <Share2 className="size-7" />
+                        </div>
+                        <h3 id="invite-modal-title" className="text-2xl font-black">
+                            Mời bạn bè nhận thưởng
+                        </h3>
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                            Gửi link bằng bất kỳ ứng dụng nào. Khi bạn bè đăng ký và hoàn tất đơn đầu tiên từ
+                            <strong className="text-primary"> 100.000đ</strong>, bạn nhận voucher
+                            <strong className="text-primary"> 30.000đ</strong>; họ nhận
+                            <strong className="text-primary"> 50 điểm</strong>.
                         </p>
                     </div>
 
-                    <div className="bg-muted/50 p-6 rounded-2xl border-2 border-dashed border-border group">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Mã của bạn</p>
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-3xl font-black tracking-tighter text-primary">{code}</span>
+                    <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
+                        <label htmlFor="invite-link" className="text-xs font-bold uppercase text-muted-foreground">
+                            Link mời của bạn
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                                id="invite-link"
+                                value={code ? inviteUrl : "Đang tạo link..."}
+                                readOnly
+                                onFocus={(event) => event.currentTarget.select()}
+                                className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm outline-none"
+                            />
                             <button
-                                onClick={handleCopyCode}
-                                className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md"
+                                type="button"
+                                onClick={handleCopyInviteLink}
+                                disabled={!code}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                SAO CHÉP
+                                <Copy className="size-4" />
+                                Sao chép link
                             </button>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Mã dự phòng: <strong className="text-foreground">{code || "Đang tạo mã..."}</strong>
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                        {["Facebook", "Zalo", "Messenger"].map((platform) => (
-                            <button key={platform} className="flex flex-col items-center gap-2 p-3 bg-muted/30 rounded-2xl hover:bg-primary/5 transition-colors group">
-                                <span className="material-symbols-outlined text-muted-foreground group-hover:text-primary">share</span>
-                                <span className="text-[10px] font-bold">{platform}</span>
-                            </button>
+                    <ol className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                        {[
+                            ["1", "Gửi link", "Qua bất kỳ ứng dụng nào"],
+                            ["2", "Bạn bè đặt món", "Đơn đầu tiên từ 100.000đ"],
+                            ["3", "Nhận thưởng", "Voucher 30.000đ và 50 điểm"],
+                        ].map(([number, title, description]) => (
+                            <li key={number} className="rounded-xl border border-border p-3">
+                                <span className="font-black text-primary">{number}</span>
+                                <p className="mt-1 font-bold">{title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                            </li>
                         ))}
-                    </div>
+                    </ol>
 
-                    <div className="pt-4 border-t border-border">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                            <span>Cách thức hoạt động</span>
+                    {currentStatus && (
+                        <div className={"rounded-xl border p-4 text-sm " + currentStatus.className}>
+                            <p className="font-bold">{currentStatus.title}</p>
+                            <p className="mt-1 leading-relaxed">{currentStatus.description}</p>
                         </div>
-                        <div className="flex justify-between items-start gap-2">
-                            {[
-                                { i: "1", t: "Gửi mã", s: "Cho bạn bè" },
-                                { i: "2", t: "Bạn đặt", s: "Đơn đầu tiên" },
-                                { i: "3", t: "Nhận quà", s: "Vào ví ngay" },
-                            ].map((step, idx) => (
-                                <div key={idx} className="flex-1 text-center space-y-1">
-                                    <div className="size-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold mx-auto flex items-center justify-center">
-                                        {step.i}
-                                    </div>
-                                    <p className="text-[10px] font-bold">{step.t}</p>
-                                    <p className="text-[8px] text-muted-foreground">{step.s}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    )}
+
+                    {canClaim && (
+                        <form onSubmit={handleClaimReferral} className="space-y-3 border-t border-border pt-5">
+                            <div>
+                                <label htmlFor="referral-code" className="text-sm font-bold">
+                                    Bạn nhận mã trực tiếp thay vì link?
+                                </label>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Nhập trước khi hoàn tất đơn hàng đầu tiên.
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input
+                                    id="referral-code"
+                                    value={referralInput}
+                                    onChange={(event) => setReferralInput(event.target.value)}
+                                    placeholder="FOODIE-XXXXXXXX"
+                                    autoComplete="off"
+                                    className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-4 text-sm font-bold uppercase outline-none transition-colors focus:border-primary"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={claiming || !referralInput.trim()}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {claiming && <Loader2 className="size-4 animate-spin" />}
+                                    {claiming ? "Đang ghi nhận" : "Ghi nhận mã"}
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
-
-// ─── Main content (exported for reuse) ───────────────────────────────────────
-
+// Main content (exported for reuse)
 export const VoucherWalletContent = () => {
+    const { getUser } = useAuth();
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -381,14 +594,18 @@ export const VoucherWalletContent = () => {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [membership, setMembership] = useState<MembershipInfo | null>(null);
     const [activities, setActivities] = useState<PointTransaction[]>([]);
-    const [rewardProducts, setRewardProducts] = useState<Product[]>([]);
+    const [activitiesLoading, setActivitiesLoading] = useState(true);
+    const [loadingMoreActivities, setLoadingMoreActivities] = useState(false);
+    const [hasMoreActivities, setHasMoreActivities] = useState(false);
+    const [rewardVouchers, setRewardVouchers] = useState<Voucher[]>([]);
     const [rewardLoading, setRewardLoading] = useState(true);
 
     const fetchVouchers = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
-            const res = await voucherService.getVouchers({ limit: 100 });
+            // Fetch user's vouchers and public vouchers
+            const res = await voucherService.getVouchers({ ownerId: 'me', limit: 100 });
             setVouchers(res.data ?? []);
         } catch (err) {
             console.error("Failed to fetch vouchers:", err);
@@ -396,15 +613,31 @@ export const VoucherWalletContent = () => {
         } finally {
             setLoading(false);
         }
-    }, [setVouchers, setLoading, setError]);
+    }, []);
 
     const fetchRewards = useCallback(async () => {
         try {
             setRewardLoading(true);
-            const res = await productAPI.getProducts({ limit: 10, sort: "-rating" });
-            setRewardProducts(res.data ?? []);
+            // Fetch reward template vouchers
+            const res = await voucherService.getVouchers({ isReward: true, limit: 100 });
+            
+            const tiersOrder = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+            const getTierWeight = (t?: string | null) => {
+                if (!t) return 0;
+                const idx = tiersOrder.indexOf(t);
+                return idx === -1 ? 0 : idx;
+            };
+
+            const sorted = (res.data ?? []).sort((a, b) => {
+                const wA = getTierWeight(a.minTier);
+                const wB = getTierWeight(b.minTier);
+                if (wA !== wB) return wA - wB;
+                return (a.pointCost || 0) - (b.pointCost || 0);
+            });
+
+            setRewardVouchers(sorted);
         } catch (err) {
-            console.error("Failed to fetch reward products:", err);
+            console.error("Failed to fetch reward vouchers:", err);
         } finally {
             setRewardLoading(false);
         }
@@ -412,15 +645,48 @@ export const VoucherWalletContent = () => {
 
     const fetchMembershipData = useCallback(async () => {
         try {
+            setActivitiesLoading(true);
             const [mRes, pRes] = await Promise.all([
                 userService.getMembership(),
-                userService.getPointTransactions()
+                userService.getPointTransactions(0, POINT_HISTORY_PAGE_SIZE + 1)
             ]);
             setMembership(mRes.data.data);
-            setActivities(pRes.data.data ?? []);
+            const pointHistory = pRes.data.data ?? [];
+            setActivities(pointHistory.slice(0, POINT_HISTORY_PAGE_SIZE));
+            setHasMoreActivities(pointHistory.length > POINT_HISTORY_PAGE_SIZE);
         } catch (err) {
             console.error("Failed to fetch membership info:", err);
+        } finally {
+            setActivitiesLoading(false);
         }
+    }, []);
+
+    const loadMoreActivities = useCallback(async () => {
+        if (loadingMoreActivities || !hasMoreActivities) return;
+
+        try {
+            setLoadingMoreActivities(true);
+            const response = await userService.getPointTransactions(
+                activities.length,
+                POINT_HISTORY_PAGE_SIZE + 1,
+            );
+            const nextPage = response.data.data ?? [];
+            setActivities((current) => [
+                ...current,
+                ...nextPage.slice(0, POINT_HISTORY_PAGE_SIZE),
+            ]);
+            setHasMoreActivities(nextPage.length > POINT_HISTORY_PAGE_SIZE);
+        } catch (err) {
+            console.error("Failed to load more point history:", err);
+            toast.error("Không thể tải thêm lịch sử điểm");
+        } finally {
+            setLoadingMoreActivities(false);
+        }
+    }, [activities.length, hasMoreActivities, loadingMoreActivities]);
+
+    const collapseActivities = useCallback(() => {
+        setActivities((current) => current.slice(0, POINT_HISTORY_PAGE_SIZE));
+        setHasMoreActivities(true);
     }, []);
 
     useEffect(() => {
@@ -460,14 +726,25 @@ export const VoucherWalletContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 relative bg-white dark:bg-card rounded-[24px] border border-border p-8 shadow-sm overflow-hidden">
                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-10">
-                            <div>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Số dư điểm</p>
-                                <h2 className="text-5xl font-black text-foreground tabular-nums">
-                                    {membership?.collected_points?.toLocaleString() ?? 0} <span className="text-xl font-medium text-muted-foreground">pts</span>
-                                </h2>
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-10">
+                            <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 w-full sm:w-auto">
+                                <div>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Điểm có thể đổi</p>
+                                    <h2 className="text-4xl font-black text-primary tabular-nums">
+                                        {membership?.collectedPoints?.toLocaleString() ?? 0} <span className="text-sm font-medium text-muted-foreground">pts</span>
+                                    </h2>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để đổi lấy voucher ưu đãi</p>
+                                </div>
+                                <div className="hidden sm:block w-px bg-border h-12 self-center" />
+                                <div>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Tổng điểm tích lũy</p>
+                                    <h2 className="text-4xl font-black text-foreground tabular-nums">
+                                        {(membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0).toLocaleString()} <span className="text-sm font-medium text-muted-foreground">pts</span>
+                                    </h2>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để xét thăng hạng thành viên</p>
+                                </div>
                             </div>
-                            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-full flex items-center gap-2">
+                            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 rounded-full flex items-center gap-2 shrink-0 self-start sm:self-center">
                                 <span className="material-symbols-outlined text-green-600 text-base font-bold">verified</span>
                                 <span className="text-green-700 dark:text-green-400 font-bold text-xs uppercase">
                                     Thành viên {membership?.tier || "Bronze"}
@@ -489,12 +766,13 @@ export const VoucherWalletContent = () => {
 
                                 let progress = 100;
                                 let needed = 0;
+                                const accPoints = membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0;
 
                                 if (nextTier) {
                                     const range = nextTier.pts - currentTier.pts;
-                                    const earnedInRange = (membership?.collected_points || 0) - currentTier.pts;
+                                    const earnedInRange = accPoints - currentTier.pts;
                                     progress = Math.min(Math.max((earnedInRange / range) * 100, 5), 100);
-                                    needed = nextTier.pts - (membership?.collected_points || 0);
+                                    needed = Math.max(0, nextTier.pts - accPoints);
                                 }
 
                                 return (
@@ -534,8 +812,9 @@ export const VoucherWalletContent = () => {
                         <span className="material-symbols-outlined text-4xl mb-4 opacity-80 group-hover:scale-110 transition-transform">celebration</span>
                         <h3 className="text-2xl font-bold leading-tight mb-2">Chia sẻ niềm vui</h3>
                         <p className="text-orange-100 text-sm leading-relaxed mb-6">
-                            Giới thiệu bạn bè và cả hai đều nhận{" "}
-                            <span className="font-bold text-white underline decoration-2 underline-offset-4">voucher 200.000đ</span>
+                            Gửi link mời cho bạn bè. Nhận{" "}
+                            <span className="font-bold text-white underline decoration-2 underline-offset-4">voucher 30.000đ</span>{" "}
+                            khi họ hoàn tất đơn đầu tiên từ 100.000đ.
                         </p>
                     </div>
                     <button
@@ -551,7 +830,11 @@ export const VoucherWalletContent = () => {
             <InviteModal
                 isOpen={showInviteModal}
                 onClose={() => setShowInviteModal(false)}
-                code={membership?.referral_code || "FOODIE"}
+                code={membership?.referralCode || ""}
+                canClaim={!membership?.referredBy && (!membership?.referralRewardStatus || membership.referralRewardStatus === "none")}
+                referralStatus={membership?.referralRewardStatus}
+                rejectionReason={membership?.referralRejectionReason}
+                onClaimed={fetchMembershipData}
             />
 
             {/* Rewards Shop */}
@@ -574,30 +857,66 @@ export const VoucherWalletContent = () => {
                 <div className="flex gap-6 overflow-x-auto no-scrollbar pb-6 -mx-1 px-1">
                     {rewardLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="w-60 h-[300px] bg-card rounded-[24px] border border-border animate-pulse shrink-0 flex-none" />
+                            <div key={i} className="w-60 h-[150px] bg-card rounded-[24px] border border-border animate-pulse shrink-0 flex-none" />
                         ))
-                    ) : rewardProducts.length > 0 ? (
-                        rewardProducts.map((product) => {
-                            const pts = Math.ceil(product.price / 100);
-                            const imgUrl = typeof product.image === "string" ? product.image : product.image.secure_url;
+                    ) : rewardVouchers.length > 0 ? (
+                        rewardVouchers.map((v) => {
+                            const pts = v.pointCost || 0;
+                            const color = getColor(v.category || 'discount');
+                            
+                            const tiers = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+                            const userTier = membership?.tier || "Bronze";
+                            const minTier = v.minTier;
+                            const isAlreadyClaimed = membership?.redeemedVoucherIds?.includes(v._id);
+                            const isTierQualified = !minTier || tiers.indexOf(userTier) >= tiers.indexOf(minTier);
+                            const hasEnoughPoints = (membership?.collectedPoints || 0) >= pts;
+                            const canRedeem = hasEnoughPoints && isTierQualified && !isAlreadyClaimed;
+
                             return (
-                                <div key={product._id} className="w-60 bg-card p-3 rounded-[24px] border border-border hover:shadow-lg transition-all group shrink-0 flex-none">
-                                    <div className="relative aspect-[4/3] bg-muted rounded-2xl mb-3 overflow-hidden">
-                                        <img
-                                            alt={product.name}
-                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            src={imgUrl}
-                                        />
-                                        {product.rating >= 4.5 && (
-                                            <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-card/90 backdrop-blur rounded-full text-[9px] font-black uppercase text-primary z-10">
-                                                Phổ biến
+                                <div key={v._id} className={`w-64 bg-card p-4 rounded-[24px] border border-border hover:shadow-lg transition-all shrink-0 flex-none flex flex-col justify-between relative overflow-hidden ${isAlreadyClaimed ? "opacity-50 grayscale" : !canRedeem ? "opacity-80" : ""}`}>
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                        <span className="material-symbols-outlined text-8xl">local_activity</span>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className={`p-2 rounded-xl ${color.bg} ${color.text} flex items-center justify-center shrink-0`}>
+                                                <span className="material-symbols-outlined text-xl">loyalty</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xl font-black text-primary">{pts.toLocaleString()}</p>
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">ĐIỂM</p>
+                                            </div>
+                                        </div>
+                                        <h4 className="font-bold text-lg mb-1 leading-tight line-clamp-2">{v.title}</h4>
+                                        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{v.description}</p>
+                                        
+                                        {minTier && minTier !== "Bronze" && (
+                                            <div className="mb-4">
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-orange-600/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded">
+                                                    Hạng {minTier === 'Silver' ? 'Bạc' : minTier === 'Gold' ? 'Vàng' : minTier === 'Platinum' ? 'Bạch Kim' : minTier === 'Diamond' ? 'Kim Cương' : minTier}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
-                                    <h4 className="font-bold text-base mb-1 truncate">{product.name}</h4>
-                                    <p className="text-[11px] text-muted-foreground mb-3 line-clamp-1">{product.description || "Thưởng thức món ăn tuyệt vời"}</p>
-                                    <button className="w-full py-2 bg-background border border-primary/20 text-primary font-bold rounded-xl hover:bg-primary hover:text-white transition-all text-xs flex items-center justify-center gap-2">
-                                        {pts.toLocaleString()} <span className="text-[9px] opacity-80">ĐIỂM</span>
+                                    <button 
+                                        onClick={async () => {
+                                            if (isAlreadyClaimed) return;
+                                            try {
+                                                await voucherService.redeemRewardVoucher(v._id);
+                                                // Refresh data locally and globally
+                                                await fetchMembershipData();
+                                                await fetchVouchers();
+                                                await getUser();
+                                                toast.success("Đổi voucher thành công! Kiểm tra trong 'Voucher của bạn'");
+                                            } catch (error) {
+                                                const err = error as { response?: { data?: { message?: string } } };
+                                                toast.error(err.response?.data?.message || "Đổi điểm thất bại");
+                                            }
+                                        }}
+                                        disabled={!canRedeem}
+                                        className={`w-full py-2.5 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 ${canRedeem ? "bg-primary text-white hover:bg-primary/90 shadow-md shadow-primary/20 hover:-translate-y-0.5" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                                    >
+                                        {isAlreadyClaimed ? "ĐÃ ĐỔI" : canRedeem ? "ĐỔI NGAY" : !isTierQualified ? `HẠNG CHƯA ĐỦ` : "KHÔNG ĐỦ ĐIỂM"}
                                     </button>
                                 </div>
                             );
@@ -615,14 +934,20 @@ export const VoucherWalletContent = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-12">
                     <TierRoadmap
-                        points={membership?.collected_points || 0}
+                        points={membership?.accumulatedPoints ?? membership?.collectedPoints ?? 0}
                         tier={membership?.tier || "Bronze"}
                     />
                     <MembershipPerks tier={membership?.tier || "Bronze"} />
-                    <PointsActivity activities={activities} />
+                    <PointsActivity
+                        activities={activities}
+                        loading={activitiesLoading}
+                        loadingMore={loadingMoreActivities}
+                        hasMore={hasMoreActivities}
+                        onLoadMore={loadMoreActivities}
+                        onCollapse={collapseActivities}
+                    />
                 </div>
                 <div className="space-y-8">
-                    <Missions />
                     <div className="bg-gradient-to-br from-primary/10 to-orange-500/5 p-6 rounded-3xl border border-primary/10">
                         <h4 className="text-sm font-bold mb-4">Mẹo tích điểm</h4>
                         <ul className="space-y-3">
@@ -719,6 +1044,8 @@ export const VoucherWalletContent = () => {
 
 const VoucherWalletPage = () => {
     const { t } = useTranslation(["customer", "common"]);
+    const { getUser } = useAuth();
+    
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-[#1b140d] dark:text-gray-100 transition-colors duration-200 min-h-screen">
             <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">

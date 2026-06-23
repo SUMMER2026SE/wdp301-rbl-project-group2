@@ -1,6 +1,6 @@
 import { FORBIDDEN } from "@/constants/http";
 import { Role } from "@/types/user.type";
-import appAssert from "@/utils/appAssert";
+import appAssert from "@/utils/app-assert";
 import { Request, RequestHandler, NextFunction, Response } from "express";
 
 const authorize =
@@ -9,9 +9,13 @@ const authorize =
       const role = req.role;
       appAssert(role, FORBIDDEN, "Not authorized");
 
-      //check if role is allowed
+      const normalizedRole = role.toLowerCase();
+      const normalizedAllowedRoles = allowedRoles.map((allowedRole) =>
+        allowedRole.toLowerCase()
+      );
+
       appAssert(
-        allowedRoles.includes(role),
+        normalizedAllowedRoles.includes(normalizedRole),
         FORBIDDEN,
         "Not authorized to access this route"
       );

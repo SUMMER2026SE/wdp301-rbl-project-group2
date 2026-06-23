@@ -1,16 +1,67 @@
 import { Request, Response } from 'express';
-import { filterSafeProducts } from '@/utils/healthFilter';
-import { catchErrors } from '@/utils/asyncHandler';
+import mongoose from 'mongoose';
+import { catchErrors } from '@/utils/async-handler';
 import { OK } from '@/constants/http';
-import UserModel from '@/models/users.model';
+import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
 import FileModel from '@/models/file.model';
 import OrderModel from '@/models/order.model';
-import { sanitizeAiRecommendations } from '@/utils/recommendationAi.util';
-import appAssert from '@/utils/appAssert';
-import { NOT_FOUND } from '@/constants/http';
+import { sanitizeAiRecommendations } from '@/utils/recommendation-ai.util';
+import appAssert from '@/utils/app-assert';
+import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import { OrderStatus } from '@/types/order.type';
-import { getAIRecommendations } from '@/services/ai.service';
+import { getAIRecommendations, getAISafeFoodInsights } from '@/services/ai.service';
+import { evaluateProductHealthRisk, filterSafeProductsByHealthRisk } from '@/services/health-risk.service';
+
+const PRODUCT_RECIPE_POPULATE = {
+    path: 'recipe.ingredientId',
+    select: 'name allergenTags',
+};
+
+const mapRecipeForAI = (recipe: any[] = []) =>
+    recipe.map((item) => ({
+        name: item?.name ?? item?.ingredientId?.name ?? '',
+        quantity: item?.quantity,
+        unit: item?.unit,
+        allergenTags: item?.allergenTags ?? item?.ingredientId?.allergenTags ?? [],
+    }));
+
+const normalizeProductName = (name: unknown) =>
+    String(name ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const dedupeProductsByName = <T extends { name?: string }>(products: T[]): T[] => {
+    const seen = new Set<string>();
+    return products.filter((product) => {
+        const key = normalizeProductName(product.name);
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
+const dedupeRecommendationResults = <T extends { product?: { name?: string } }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+        const key = normalizeProductName(item.product?.name);
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
+const getStoreFilter = (req: Request): { storeId?: string; filter: { storeId?: string } } => {
+    const storeId = typeof req.query.storeId === 'string' ? req.query.storeId.trim() : '';
+    if (!storeId) return { storeId: undefined, filter: {} };
+    appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'storeId không hợp lệ');
+    return { storeId, filter: {} };
+};
 
 /**
  * Tìm danh sách top sản phẩm được đặt bởi users có healthProfile tương tự.
@@ -18,7 +69,7 @@ import { getAIRecommendations } from '@/services/ai.service';
  */
 async function getSimilarUsersTopProducts(
     currentUserId: string,
-    preferences: { dietary: string[]; allergies: string[]; health_goals: string[] }
+    preferences: { dietary: string[]; allergies: string[]; healthGoals: string[] }
 ): Promise<string[]> {
 
     // 1. Tìm users có ít nhất 1 điểm chung trong preferences
@@ -31,8 +82,8 @@ async function getSimilarUsersTopProducts(
     if (preferences.dietary.length > 0) {
         orConditions.push({ 'preferences.dietary': { $in: preferences.dietary } });
     }
-    if (preferences.health_goals.length > 0) {
-        orConditions.push({ 'preferences.health_goals': { $in: preferences.health_goals } });
+    if (preferences.healthGoals.length > 0) {
+        orConditions.push({ 'preferences.healthGoals': { $in: preferences.healthGoals } });
     }
 
     if (orConditions.length === 0) return []; // Không có preferences → skip
@@ -50,7 +101,7 @@ async function getSimilarUsersTopProducts(
     // 2. Lấy các đơn hàng đã hoàn thành của nhóm users tương tự
     const similarUserIds = similarUsers.map(u => u._id);
     const orders = await OrderModel.find({
-        user_id: { $in: similarUserIds },
+        cusId: { $in: similarUserIds },
         status: OrderStatus.COMPLETED,
     }).lean();
 
@@ -59,11 +110,11 @@ async function getSimilarUsersTopProducts(
         return [];
     }
 
-    // 3. Đếm tần suất mỗi product_id trong các đơn hàng
+    // 3. Đếm tần suất mỗi productId trong các đơn hàng
     const productCount = new Map<string, number>();
     for (const order of orders) {
         for (const item of order.items) {
-            const pid = item.product_id.toString();
+            const pid = item.productId.toString();
             productCount.set(pid, (productCount.get(pid) ?? 0) + item.quantity);
         }
     }
@@ -86,15 +137,16 @@ async function getSimilarUsersTopProducts(
 
 export const getRecommendationsHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
+    const { storeId, filter: storeFilter } = getStoreFilter(req);
 
     // 1. Get User Profile
     const user = await UserModel.findById(userId);
     appAssert(user, NOT_FOUND, 'User not found');
 
-    const preferences = user.preferences || { dietary: [], allergies: [], health_goals: [] };
+    const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
 
     // 2. Cache Check Strategy
-    const latestProduct = await ProductModel.findOne({ isAvailable: true })
+    const latestProduct = await ProductModel.findOne({ isAvailable: true, ...storeFilter })
         .sort({ updatedAt: -1 })
         .select('updatedAt');
 
@@ -106,10 +158,11 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
     const forceRefresh = req.query.refresh === 'true';
 
     if (!forceRefresh && cache && cache.data && cache.updatedAt) {
-        if (cache.updatedAt.getTime() > lastProductUpdatedTime) {
+        const cacheStoreId = (cache as any).storeId ?? null;
+        if (cache.updatedAt.getTime() > lastProductUpdatedTime && cacheStoreId === (storeId ?? null)) {
             console.log(`[AI Cache Hit] Returning cached recommendations for user ${user.email}`);
             return res.status(OK).json({
-                data: cache.data,
+                data: dedupeRecommendationResults(cache.data),
                 message: 'Lấy danh sách gợi ý thành công (Tự động)'
             });
         }
@@ -118,12 +171,13 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
     console.log(`[AI Cache Miss / Force Refresh] Generating new recommendations for user ${user.email}...`);
 
     // 3. Get Products for AI
-    const dbProducts = await ProductModel.find({ isAvailable: true })
-        .sort({ rating: -1, review_count: -1 })
+    const dbProducts = await ProductModel.find({ isAvailable: true, ...storeFilter })
+        .populate(PRODUCT_RECIPE_POPULATE)
+        .sort({ rating: -1, reviewCount: -1 })
         .limit(100);
 
     // Strictly filter out any items conflicting with allergies or dietary preferences
-    const safeDbProducts = filterSafeProducts(dbProducts, preferences);
+    const safeDbProducts = dedupeProductsByName(filterSafeProductsByHealthRisk(dbProducts, preferences));
 
     const productsForAI = safeDbProducts.slice(0, 50).map((p) => ({
         _id: p._id.toString(),
@@ -131,8 +185,8 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
         description: p.description,
         category: p.category,
         tags: p.tags,
-        health_tags: p.health_tags ?? [],
-        recipe: p.recipe,
+        healthTags: p.healthTags ?? [],
+        recipe: mapRecipeForAI(p.recipe as any[]),
         price: p.price,
         rating: p.rating,
     }));
@@ -163,7 +217,9 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
 
     // 5b. Chỉ giữ ID đã gửi cho AI + xác minh lại an toàn trên bản ghi DB; bổ sung nếu thiếu
     const candidateIds = [...new Set(recommendations.map((r: any) => String(r.productId)).filter(Boolean))];
-    const fetchedForSanitize = await ProductModel.find({ _id: { $in: candidateIds } }).lean();
+    const fetchedForSanitize = await ProductModel.find({ _id: { $in: candidateIds } })
+        .populate(PRODUCT_RECIPE_POPULATE)
+        .lean();
     recommendations = sanitizeAiRecommendations(recommendations, {
         allowedIds: allowedIdsForAi,
         preferences,
@@ -173,26 +229,25 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
 
     // 6. Fetch full product data for returned IDs
     const aiProductIds = recommendations.map(r => r.productId);
-    const fullProducts = await ProductModel.find({ _id: { $in: aiProductIds } }).lean();
-
-    // 7. Resolve image URLs directly from FileModel (avoids Mixed cache serialization issues)
-    const imageIds = fullProducts.map(p => p.image).filter(Boolean);
-    const imageFiles = await FileModel.find({ _id: { $in: imageIds } }).lean();
-    const imageMap = new Map(imageFiles.map(f => [f._id.toString(), f.secure_url]));
+    const fullProducts = await ProductModel.find({ _id: { $in: aiProductIds } })
+        .populate(PRODUCT_RECIPE_POPULATE)
+        .lean();
 
     // 8. Merge AI reasons with full product data
-    const finalResult = recommendations.map(rec => {
+    const finalResult = dedupeRecommendationResults(recommendations.map(rec => {
         const fullProduct = fullProducts.find(p => p._id.toString() === rec.productId);
         if (!fullProduct) return null;
 
-        const imageUrl = imageMap.get((fullProduct.image as any)?.toString() ?? '') ?? null;
-
         return {
-            product: { ...fullProduct, image: imageUrl },
+            product: {
+                ...fullProduct,
+                recipe: mapRecipeForAI(fullProduct.recipe as any[]),
+                healthRisk: evaluateProductHealthRisk(fullProduct, preferences),
+            },
             aiReason: rec.reason,
             healthScore: rec.healthScore
         };
-    }).filter(item => item !== null);
+    }).filter(item => item !== null));
 
     // 9. Save to Cache
     const currentUser = await UserModel.findById(userId).select('aiRecommendationsCache').lean();
@@ -203,6 +258,7 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
             'aiRecommendationsCache': {
                 ...currentCache,
                 data: finalResult,
+                storeId: storeId ?? null,
                 updatedAt: new Date()
             }
         }
@@ -221,16 +277,18 @@ export const getRecommendationsHandler = catchErrors(async (req: Request, res: R
  */
 export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
+    const { storeId, filter: storeFilter } = getStoreFilter(req);
 
     // 1. Get User Profile
     const user = await UserModel.findById(userId);
     appAssert(user, NOT_FOUND, 'User not found');
 
-    const preferences = user.preferences || { dietary: [], allergies: [], health_goals: [] };
+    const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
     const userAllergies = preferences.allergies.map((a: string) => a.toLowerCase().trim());
+    const forceRefresh = req.query.refresh === 'true';
 
     // 2. Cache Check Strategy
-    const latestProduct = await ProductModel.findOne({ isAvailable: true })
+    const latestProduct = await ProductModel.findOne({ isAvailable: true, ...storeFilter })
         .sort({ updatedAt: -1 })
         .select('updatedAt');
 
@@ -243,30 +301,29 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
     // Or we just recalculate since safe-foods UI is accessed less frequently. 
     // Wait, the user has `aiRecommendationsCache` which is currently an object. Let's cast it to any to add safeFoods.
     const cache = (user as any).aiRecommendationsCache;
-    console.log(`[SafeFoods Debug] cache exists?`, !!cache, `safeFoodsData exists?`, !!cache?.safeFoodsData, `updatedAt exists?`, !!cache?.updatedAt);
-    if (cache && cache.safeFoodsData && cache.updatedAt) {
-        console.log(`[SafeFoods Debug] cache.updatedAt:`, cache.updatedAt, `lastProductUpdatedTime:`, new Date(lastProductUpdatedTime));
-        if (cache.updatedAt.getTime() > lastProductUpdatedTime) {
+    if (!forceRefresh && cache && cache.safeFoodsData && cache.updatedAt) {
+        const cacheStoreId = (cache as any).storeId ?? null;
+        if (cache.updatedAt.getTime() > lastProductUpdatedTime && cacheStoreId === (storeId ?? null)) {
             console.log(`[SafeFoods Cache Hit] Returning cached safe foods for user ${user.email}`);
             return res.status(OK).json(cache.safeFoodsData);
-        } else {
-            console.log(`[SafeFoods Debug] Cache is obsolete.`);
         }
     }
 
     console.log(`[SafeFoods Cache Miss] Generating new AI insights for safe foods for user ${user.email}...`);
 
     // 3. Get all available products
-    const allProducts = await ProductModel.find({ isAvailable: true })
-        .sort({ rating: -1, review_count: -1 })
+    const allProducts = await ProductModel.find({ isAvailable: true, ...storeFilter })
+        .populate(PRODUCT_RECIPE_POPULATE)
+        .sort({ rating: -1, reviewCount: -1 })
         .lean();
 
     // 4. Rule-Based Filter: strictly exclude products conflicting with dietary or allergies
-    let safeProducts = filterSafeProducts(allProducts, preferences);
-    let unsafeCount = allProducts.length - safeProducts.length;
+    const menuProducts = dedupeProductsByName(allProducts);
+    const safeProductCandidates = dedupeProductsByName(filterSafeProductsByHealthRisk(menuProducts, preferences));
+    const unsafeCount = menuProducts.length - safeProductCandidates.length;
 
     // Shuffle and pick 6 items to match the "AI suggestions" behavior
-    safeProducts = safeProducts.sort(() => 0.5 - Math.random()).slice(0, 6);
+    const safeProducts = safeProductCandidates.sort(() => 0.5 - Math.random()).slice(0, 6);
 
     // 5. Get AI Insights for the Safe Products
     const productsForAI = safeProducts.map((p) => ({
@@ -275,14 +332,12 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
         description: p.description,
         category: p.category,
         tags: p.tags,
-        health_tags: p.health_tags ?? [],
-        recipe: p.recipe,
+        healthTags: p.healthTags ?? [],
+        recipe: mapRecipeForAI(p.recipe as any[]),
         price: p.price,
         rating: p.rating,
     }));
 
-    // Import this at the top of file or use the existing import
-    const { getAISafeFoodInsights } = require('@/services/ai.service');
     let aiInsights: any[] = [];
     try {
         aiInsights = await getAISafeFoodInsights(productsForAI, preferences);
@@ -295,14 +350,10 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
     // Create a map for quick lookup of AI reasons
     const insightMap = new Map(aiInsights.map((i: any) => [i.productId, i.aiReason]));
 
-    // 6. Resolve image URLs
-    const imageIds = safeProducts.map(p => p.image).filter(Boolean);
-    const imageFiles = await FileModel.find({ _id: { $in: imageIds } }).lean();
-    const imageMap = new Map(imageFiles.map(f => [f._id.toString(), f.secure_url]));
-
     const result = safeProducts.map(product => ({
         ...product,
-        image: imageMap.get((product.image as any)?.toString() ?? '') ?? null,
+        recipe: mapRecipeForAI(product.recipe as any[]),
+        healthRisk: evaluateProductHealthRisk(product, preferences),
         aiReason: insightMap.get(product._id.toString()) || 'Món ăn an toàn, đã được sàng lọc không chứa thành phần gây dị ứng của bạn.'
     }));
 
@@ -311,10 +362,10 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
         filters: {
             allergies: preferences.allergies,
             dietary: preferences.dietary,
-            health_goals: preferences.health_goals,
+            healthGoals: preferences.healthGoals,
         },
         stats: {
-            total: allProducts.length,
+            total: menuProducts.length,
             safe: safeProducts.length,
             excluded: unsafeCount,
         },
@@ -330,6 +381,7 @@ export const getSafeFoodsHandler = catchErrors(async (req: Request, res: Respons
             'aiRecommendationsCache': {
                 ...currentCache,
                 safeFoodsData: responsePayload,
+                storeId: storeId ?? null,
                 updatedAt: new Date()
             }
         }

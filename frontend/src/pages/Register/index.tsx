@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
 import authService from "@/services/auth.service";
 import logo from "@/assets/logo.png";
 
@@ -8,7 +10,11 @@ const HEALTH_COLOR = "var(--health)";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get("referral")?.trim().toUpperCase() || "";
   const { t } = useTranslation(["auth", "common"]);
+  const { login } = useAuth();
+  const { mergeGuestCartIntoCurrentUser } = useCart();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +22,73 @@ const RegisterPage = () => {
   const [aiOptIn, setAiOptIn] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleGoogleLogin = () => {
+    if (!(window as any).google) {
+      setError("Không thể tải SDK đăng nhập của Google.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+
+    const client = (window as any).google.accounts.oauth2.initTokenClient({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      scope: "email profile openid",
+      callback: async (tokenResponse: any) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          try {
+            const res = await authService.loginWithGoogle({
+              credential: tokenResponse.access_token,
+              referralCode: referralCode || undefined,
+            });
+            const user = res.data;
+            if (!user) throw new Error("Không có dữ liệu người dùng");
+
+            // Store user in Zustand
+            login({
+              _id: user._id,
+              username: user.username,
+              email: user.email,
+              phone: user.phone,
+              role: user.role,
+              isActive: user.isActive,
+              verifiedAt: user.verifiedAt,
+              collectedPoints: user.collectedPoints,
+              addresses: user.addresses ?? [],
+            });
+
+            // Merge guest cart
+            mergeGuestCartIntoCurrentUser();
+
+            // Redirect
+            setTimeout(() => {
+              if (user.role === "ADMIN") {
+                navigate("/admin");
+              } else if (user.role === "STAFF") {
+                navigate("/staff");
+              } else {
+                navigate("/");
+              }
+            }, 0);
+          } catch (err: any) {
+            const msg = err?.response?.data?.message || "Đăng nhập Google thất bại.";
+            setError(msg);
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+        }
+      },
+      error_callback: (err: any) => {
+        setLoading(false);
+        setError("Lỗi kết nối với Google.");
+        console.error(err);
+      }
+    });
+
+    client.requestAccessToken();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +99,8 @@ const RegisterPage = () => {
         username,
         email,
         password,
-        confirm_password: confirmPassword,
+        confirmPassword,
+        referralCode: referralCode || undefined,
       });
       // Redirect to OTP verification page
       localStorage.setItem("pending_verify_email", email);
@@ -104,6 +178,15 @@ const RegisterPage = () => {
           </p>
         </div>
 
+        {referralCode && (
+          <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+            <p className="font-bold">Bạn đang đăng ký qua lời mời FoodieDash</p>
+            <p className="mt-1">
+              Mã {referralCode} sẽ được gắn tự động. Hoàn tất đơn đầu tiên từ 100.000đ để bạn nhận 50 điểm và người mời nhận voucher 30.000đ.
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm flex items-center gap-2 rounded-r-lg">
             <span className="material-symbols-outlined text-lg">error</span>
@@ -150,7 +233,31 @@ const RegisterPage = () => {
               className="flex w-full rounded-lg border border-input bg-transparent h-12 px-4 text-base transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-muted-foreground/50 text-foreground"
               placeholder="••••••••"
               required
+              minLength={8}
             />
+
+            {/* Password Strength Criteria */}
+            <div className="flex flex-col gap-1.5 mt-1 px-1">
+              <p className="text-xs font-semibold text-muted-foreground">Yêu cầu mật khẩu:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className={`flex items-center gap-1.5 transition-colors ${password.length >= 8 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                  <span className="material-symbols-outlined text-[16px]">{password.length >= 8 ? "check_circle" : "circle"}</span>
+                  <span>Tối thiểu 8 ký tự</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${/[A-Z]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                  <span className="material-symbols-outlined text-[16px]">{/[A-Z]/.test(password) ? "check_circle" : "circle"}</span>
+                  <span>Ít nhất 1 chữ viết hoa</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${/[0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                  <span className="material-symbols-outlined text-[16px]">{/[0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                  <span>Ít nhất 1 chữ số</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${/[^a-zA-Z0-9]/.test(password) ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground/70"}`}>
+                  <span className="material-symbols-outlined text-[16px]">{/[^a-zA-Z0-9]/.test(password) ? "check_circle" : "circle"}</span>
+                  <span>Ít nhất 1 ký tự đặc biệt</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-foreground text-sm font-semibold">
@@ -226,10 +333,12 @@ const RegisterPage = () => {
             </span>
             <div className="flex-grow border-t border-border" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3">
             <button
               type="button"
-              className="flex items-center justify-center gap-2 rounded-lg border border-border bg-transparent h-12 px-4 text-sm font-semibold hover:bg-accent transition-colors text-foreground"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 rounded-lg border border-border bg-transparent h-12 px-4 text-sm font-semibold hover:bg-accent transition-colors text-foreground disabled:opacity-50 w-full"
             >
               <svg className="size-5" viewBox="0 0 24 24">
                 <path
@@ -250,15 +359,6 @@ const RegisterPage = () => {
                 />
               </svg>
               <span>Google</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 rounded-lg border border-border bg-transparent h-12 px-4 text-sm font-semibold hover:bg-accent transition-colors text-foreground"
-            >
-              <svg className="size-5" fill="#1877F2" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-              <span>Facebook</span>
             </button>
           </div>
         </div>

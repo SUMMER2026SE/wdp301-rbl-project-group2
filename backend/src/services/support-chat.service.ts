@@ -1,24 +1,44 @@
 import mongoose from 'mongoose';
-import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import { SupportConversationModel, SupportMessageModel } from '@/models';
-import appAssert from '@/utils/appAssert';
+import appAssert from '@/utils/app-assert';
 import { getOrderById } from './order.service';
+
+const isStaffRole = (role: string) => {
+  const normalizedRole = role.toLowerCase();
+  return normalizedRole === 'staff' || normalizedRole === 'admin';
+};
+
+const assertStaffConversationScope = (
+  conversation: { store_id?: mongoose.Types.ObjectId | null },
+  role: string,
+  requesterStoreId?: mongoose.Types.ObjectId
+) => {
+  if (role.toLowerCase() !== 'staff') return;
+
+  appAssert(requesterStoreId, FORBIDDEN, 'Tài khoản nhân viên chưa được gán chi nhánh');
+  appAssert(
+    conversation.store_id?.toString() === requesterStoreId.toString(),
+    FORBIDDEN,
+    'Bạn không có quyền thao tác hội thoại ngoài chi nhánh của bạn'
+  );
+};
 
 export const createOrGetConversation = async (userId: mongoose.Types.ObjectId, orderIdOrCode?: string) => {
   let orderIdToUse = null;
+  let storeIdToUse: mongoose.Types.ObjectId | null = null;
 
   if (orderIdOrCode) {
     const order = await getOrderById(orderIdOrCode);
-    // `getOrderById` populates `user_id`, so it can be either ObjectId or a populated document.
-    const orderOwnerId =
-      (order as any).user_id?._id?.toString?.() ??
-      (order as any).user_id?.toString?.();
+    // `getOrderById` may populate the customer, or return its ObjectId.
+    const orderOwnerId = (order as any).cusId?._id?.toString?.() ?? (order as any).cusId?.toString?.();
     appAssert(
       orderOwnerId && orderOwnerId === userId.toString(),
       BAD_REQUEST,
       'Bạn không có quyền chat cho đơn hàng này'
     );
     orderIdToUse = order._id;
+    storeIdToUse = (order as any).storeId ?? null;
   }
 
   let conversation = await SupportConversationModel.findOne({
@@ -31,7 +51,7 @@ export const createOrGetConversation = async (userId: mongoose.Types.ObjectId, o
     conversation = await SupportConversationModel.create({
       user_id: userId,
       order_id: orderIdToUse,
-      store_id: null,
+      store_id: storeIdToUse,
       status: 'open',
     });
   }
@@ -39,14 +59,20 @@ export const createOrGetConversation = async (userId: mongoose.Types.ObjectId, o
   return conversation;
 };
 
-export const getMessages = async (conversationId: string, requesterId: mongoose.Types.ObjectId, role: string) => {
+export const getMessages = async (
+  conversationId: string,
+  requesterId: mongoose.Types.ObjectId,
+  role: string,
+  requesterStoreId?: mongoose.Types.ObjectId
+) => {
   const conversation = await SupportConversationModel.findById(conversationId);
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
 
   // Only owner user or staff/admin can view
   const isOwner = conversation.user_id.toString() === requesterId.toString();
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isStaff = isStaffRole(role);
   appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền xem cuộc trò chuyện này');
+  assertStaffConversationScope(conversation, role, requesterStoreId);
 
   const messages = await SupportMessageModel.find({ conversation_id: conversation._id }).sort({ createdAt: 1 });
   return { conversation, messages };
@@ -57,31 +83,39 @@ export const sendMessage = async (
   senderId: mongoose.Types.ObjectId,
   role: string,
   content: string,
-  image_url?: string
+  imageUrl?: string,
+  requesterStoreId?: mongoose.Types.ObjectId
 ) => {
-  appAssert(content.trim() || image_url, BAD_REQUEST, 'Nội dung tin nhắn hoặc ảnh không được để trống');
+  appAssert(content.trim() || imageUrl, BAD_REQUEST, 'Nội dung tin nhắn hoặc ảnh không được để trống');
 
   const conversation = await SupportConversationModel.findById(conversationId);
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
 
   const isOwner = conversation.user_id.toString() === senderId.toString();
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isStaff = isStaffRole(role);
   appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền gửi tin nhắn trong cuộc trò chuyện này');
+  assertStaffConversationScope(conversation, role, requesterStoreId);
 
   const message = await SupportMessageModel.create({
     conversation_id: conversation._id,
     sender_type: isOwner ? 'USER' : 'STAFF',
     sender_id: senderId,
     content: content.trim(),
-    image_url: image_url || null,
+    image_url: imageUrl || null,
   });
+
+  conversation.updatedAt = new Date();
+  await conversation.save();
 
   return message;
 };
 
-export const listStaffConversations = async () => {
-  // For now: list all open conversations, newest first
-  const conversations = await SupportConversationModel.find({ status: 'open' })
+export const listStaffConversations = async (storeId?: string) => {
+  const filter: Record<string, unknown> = { status: 'open' };
+  if (storeId) {
+    filter.store_id = new mongoose.Types.ObjectId(storeId);
+  }
+  const conversations = await SupportConversationModel.find(filter)
     .sort({ updatedAt: -1 })
     .populate('order_id')
     .populate('user_id');
@@ -108,11 +142,11 @@ export const listStaffConversations = async () => {
         customerName: user?.username ?? 'Khách hàng',
         lastMessage: lastMessage
           ? {
-            content: lastMessage.content,
-            image_url: lastMessage.image_url,
-            createdAt: lastMessage.createdAt.toISOString(),
-            senderType: lastMessage.sender_type,
-          }
+              content: lastMessage.content,
+              imageUrl: lastMessage.image_url,
+              createdAt: lastMessage.createdAt.toISOString(),
+              senderType: lastMessage.sender_type,
+            }
           : undefined,
         unreadCount,
         status: conv.status,
@@ -124,12 +158,20 @@ export const listStaffConversations = async () => {
   return results;
 };
 
-export const markAsRead = async (conversationId: string, requesterId: mongoose.Types.ObjectId, role: string) => {
+export const markAsRead = async (
+  conversationId: string,
+  requesterId: mongoose.Types.ObjectId,
+  role: string,
+  requesterStoreId?: mongoose.Types.ObjectId
+) => {
   const conversation = await SupportConversationModel.findById(conversationId);
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
 
   // If staff, mark USER messages as read. If user, mark STAFF messages as read.
-  const isStaff = role === 'STAFF' || role === 'ADMIN';
+  const isOwner = conversation.user_id.toString() === requesterId.toString();
+  const isStaff = isStaffRole(role);
+  appAssert(isOwner || isStaff, BAD_REQUEST, 'Bạn không có quyền cập nhật cuộc trò chuyện này');
+  assertStaffConversationScope(conversation, role, requesterStoreId);
   const targetSenderType = isStaff ? 'USER' : 'STAFF';
 
   await SupportMessageModel.updateMany(
@@ -144,13 +186,17 @@ export const markAsRead = async (conversationId: string, requesterId: mongoose.T
   return { success: true };
 };
 
-export const closeConversation = async (conversationId: string) => {
-  const conversation = await SupportConversationModel.findByIdAndUpdate(
-    conversationId,
-    { status: 'closed' },
-    { new: true }
-  );
+export const closeConversation = async (
+  conversationId: string,
+  role: string,
+  requesterStoreId?: mongoose.Types.ObjectId
+) => {
+  const conversation = await SupportConversationModel.findById(conversationId);
   appAssert(conversation, NOT_FOUND, 'Không tìm thấy cuộc trò chuyện');
+  assertStaffConversationScope(conversation, role, requesterStoreId);
+
+  conversation.status = 'closed';
+  await conversation.save();
   return conversation;
 };
 
@@ -164,7 +210,7 @@ export const listUserConversations = async (userId: mongoose.Types.ObjectId) => 
       const [lastMessage] = await SupportMessageModel.find({ conversation_id: conv._id })
         .sort({ createdAt: -1 })
         .limit(1);
-      
+
       const unreadCount = await SupportMessageModel.countDocuments({
         conversation_id: conv._id,
         sender_type: 'STAFF',
@@ -179,11 +225,11 @@ export const listUserConversations = async (userId: mongoose.Types.ObjectId) => 
         orderId: order?._id?.toString() ?? '',
         lastMessage: lastMessage
           ? {
-            content: lastMessage.content,
-            image_url: lastMessage.image_url,
-            createdAt: lastMessage.createdAt.toISOString(),
-            senderType: lastMessage.sender_type,
-          }
+              content: lastMessage.content,
+              imageUrl: lastMessage.image_url,
+              createdAt: lastMessage.createdAt.toISOString(),
+              senderType: lastMessage.sender_type,
+            }
           : undefined,
         unreadCount,
         status: conv.status,
@@ -194,6 +240,3 @@ export const listUserConversations = async (userId: mongoose.Types.ObjectId) => 
 
   return results;
 };
-
-
-

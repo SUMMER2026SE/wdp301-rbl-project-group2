@@ -4,7 +4,14 @@ import { clsx } from "clsx";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
 import { AdminDrawer } from "@/components/shared/AdminDrawer";
-import { Package, Clock, MapPin, User, ReceiptText, ExternalLink } from "lucide-react";
+import {
+  Package,
+  Clock,
+  MapPin,
+  User,
+  ReceiptText,
+  ExternalLink,
+} from "lucide-react";
 
 const ORDER_TABS = [
   { id: "all", label: "Tất cả đơn" },
@@ -93,14 +100,6 @@ const AdminOrders = () => {
   return (
     <div className="max-w-7xl mx-auto w-full">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight text-[#1b140d]">
-            Quản lý đơn hàng
-          </h2>
-          <p className="text-[#9a734c] mt-1">
-            Kiểm soát luồng đơn hàng theo thời gian thực.
-          </p>
-        </div>
         <div className="flex gap-3">
           <div className="flex bg-white rounded-lg border border-[#e7dbcf] p-1">
             <button
@@ -200,10 +199,18 @@ const AdminOrders = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#ee8c2b]/20 flex items-center justify-center text-[#ee8c2b] font-bold text-xs">
-                            {order.user_id?.username?.charAt(0) || "U"}
+                            {typeof order.cusId === "object"
+                              ? (
+                                  order.cusId?.fullName || order.cusId?.username
+                                )?.charAt(0) || "U"
+                              : "U"}
                           </div>
                           <span className="text-sm font-semibold text-[#1b140d]">
-                            {order.user_id?.username || "Ẩn danh"}
+                            {typeof order.cusId === "object"
+                              ? order.cusId?.fullName ||
+                                order.cusId?.username ||
+                                "Ẩn danh"
+                              : "Ẩn danh"}
                           </span>
                         </div>
                       </td>
@@ -225,11 +232,11 @@ const AdminOrders = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-[#1b140d]">
-                            {order.total_price.toLocaleString("vi-VN")}₫
+                            {order.totalPrice.toLocaleString("vi-VN")}₫
                           </span>
                           <span className="text-[10px] text-gray-400">
-                            {(order.shipping_fee ?? 0) > 0
-                              ? `+${order.shipping_fee.toLocaleString("vi-VN")}đ ship`
+                            {(order.shippingFee ?? 0) > 0
+                              ? `+${order.shippingFee.toLocaleString("vi-VN")}đ ship`
                               : "Free ship"}
                           </span>
                         </div>
@@ -322,7 +329,9 @@ const AdminOrders = () => {
                           </span>
                         </div>
                         <p className="text-sm font-semibold mb-3">
-                          {card.user_id?.username}
+                          {typeof card.cusId === "object"
+                            ? card.cusId?.fullName || card.cusId?.username
+                            : "Khách hàng"}
                         </p>
                         <div className="flex justify-between items-center text-sm mb-2">
                           <span className="text-gray-500">Số món:</span>
@@ -333,15 +342,15 @@ const AdminOrders = () => {
                         <div className="flex justify-between items-center text-sm mb-2">
                           <span className="text-gray-500">Tổng tiền:</span>
                           <span className="font-bold text-[#ee8c2b]">
-                            {card.total_price.toLocaleString("vi-VN")}₫
+                            {card.totalPrice.toLocaleString("vi-VN")}₫
                           </span>
                         </div>
                         <div className="flex justify-between items-center text-sm mb-3">
                           <span className="text-gray-500">Phí giao hàng:</span>
                           <span className="font-semibold text-[#1b140d]">
-                            {(card.shipping_fee ?? 0) === 0
+                            {(card.shippingFee ?? 0) === 0
                               ? "Miễn phí"
-                              : `${card.shipping_fee.toLocaleString("vi-VN")}đ`}
+                              : `${card.shippingFee.toLocaleString("vi-VN")}đ`}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-3">
@@ -387,14 +396,18 @@ const AdminOrders = () => {
         {loadingDetails ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-4 border-[#ee8c2b] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-[#9a734c] font-bold">Đang tải chi tiết...</p>
+            <p className="text-sm text-[#9a734c] font-bold">
+              Đang tải chi tiết...
+            </p>
           </div>
         ) : orderDetails ? (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             {/* Order Header Info */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-black text-[#1b140d]">Đơn hàng #{orderDetails.code}</h3>
+                <h3 className="text-2xl font-black text-[#1b140d]">
+                  Đơn hàng #{orderDetails.code}
+                </h3>
                 <p className="text-sm text-[#9a734c] font-medium mt-1">
                   {new Date(orderDetails.createdAt).toLocaleString("vi-VN")}
                 </p>
@@ -414,10 +427,12 @@ const AdminOrders = () => {
                 <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest mb-2 flex items-center gap-1">
                   <Clock size={12} /> Trạng thái
                 </p>
-                <span className={clsx(
-                  "px-3 py-1 rounded-lg text-xs font-black uppercase tracking-tight",
-                  getStatusInfo(orderDetails.status).class
-                )}>
+                <span
+                  className={clsx(
+                    "px-3 py-1 rounded-lg text-xs font-black uppercase tracking-tight",
+                    getStatusInfo(orderDetails.status).class,
+                  )}
+                >
                   {getStatusInfo(orderDetails.status).label}
                 </span>
               </div>
@@ -426,7 +441,9 @@ const AdminOrders = () => {
                   <ReceiptText size={12} /> Thanh toán
                 </p>
                 <p className="text-sm font-bold text-[#1b140d]">
-                  {orderDetails.payment?.method === "cash_on_delivery" ? "Tiền mặt (COD)" : "Chuyển khoản"}
+                  {orderDetails.payment?.method === "cash"
+                    ? "Tiền mặt (COD)"
+                    : "Chuyển khoản"}
                 </p>
               </div>
             </div>
@@ -434,21 +451,36 @@ const AdminOrders = () => {
             {/* Items List */}
             <div className="space-y-4">
               <h4 className="text-sm font-black text-[#1b140d] uppercase tracking-widest flex items-center gap-2">
-                <Package size={16} className="text-[#ee8c2b]" /> Danh sách món ({orderDetails.items.length})
+                <Package size={16} className="text-[#ee8c2b]" /> Danh sách món (
+                {orderDetails.items.length})
               </h4>
               <div className="space-y-3">
                 {orderDetails.items.map((item: any, idx: number) => (
-                  <div key={idx} className="flex gap-4 p-3 bg-white rounded-xl border border-[#e7dbcf] hover:border-[#ee8c2b]/30 transition-all">
+                  <div
+                    key={idx}
+                    className="flex gap-4 p-3 bg-white rounded-xl border border-[#e7dbcf] hover:border-[#ee8c2b]/30 transition-all"
+                  >
                     <div
                       className="w-16 h-16 rounded-lg bg-gray-100 bg-cover bg-center shrink-0"
-                      style={{ backgroundImage: `url(${item.product_id?.image?.secure_url || item.product_id?.image || ''})` }}
+                      style={{
+                        backgroundImage: `url(${typeof item.productId === "object" ? (typeof item.productId.image === "string" ? item.productId.image : item.productId.image?.secureUrl || "") : ""})`,
+                      }}
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-black text-[#1b140d] line-clamp-1">{item.product_id?.name}</p>
-                      <p className="text-[11px] text-[#9a734c] font-bold mt-0.5">SL: {item.quantity} x {(item.price ?? 0).toLocaleString("vi-VN")}₫</p>
+                      <p className="text-sm font-black text-[#1b140d] line-clamp-1">
+                        {typeof item.productId === "object"
+                          ? item.productId?.name
+                          : "Sản phẩm"}
+                      </p>
+                      <p className="text-[11px] text-[#9a734c] font-bold mt-0.5">
+                        SL: {item.quantity} x{" "}
+                        {(item.price ?? 0).toLocaleString("vi-VN")}₫
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-[#ee8c2b]">{(item.sub_total ?? 0).toLocaleString("vi-VN")}₫</p>
+                      <p className="text-sm font-black text-[#ee8c2b]">
+                        {(item.subTotal ?? 0).toLocaleString("vi-VN")}₫
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -458,19 +490,41 @@ const AdminOrders = () => {
             {/* Customer & Delivery */}
             <div className="space-y-4 pt-4 border-t border-[#e7dbcf]">
               <div className="flex items-start gap-4">
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><User size={20} /></div>
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <User size={20} />
+                </div>
                 <div>
-                  <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">Khách hàng</p>
-                  <p className="text-sm font-bold text-[#1b140d]">{orderDetails.user_id?.username || "Khách vãng lai"}</p>
-                  <p className="text-xs text-[#9a734c]">{orderDetails.delivery_address?.receiver_name} • {orderDetails.delivery_address?.phone}</p>
+                  <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">
+                    Khách hàng
+                  </p>
+                  <p className="text-sm font-bold text-[#1b140d]">
+                    {typeof orderDetails.cusId === "object"
+                      ? orderDetails.cusId?.fullName ||
+                        orderDetails.cusId?.username ||
+                        "Khách vãng lai"
+                      : "Khách vãng lai"}
+                  </p>
+                  <p className="text-xs text-[#9a734c]">
+                    {orderDetails.deliveryAddress?.receiverName} •{" "}
+                    {orderDetails.deliveryAddress?.phone}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="p-2 bg-green-50 text-green-600 rounded-lg"><MapPin size={20} /></div>
+                <div className="p-2 bg-green-50 text-green-600 rounded-lg">
+                  <MapPin size={20} />
+                </div>
                 <div>
-                  <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">Địa chỉ giao</p>
-                  <p className="text-sm font-bold text-[#1b140d] line-clamp-2">{orderDetails.delivery_address?.detail}</p>
-                  <p className="text-xs text-[#9a734c]">{orderDetails.delivery_address?.ward}, {orderDetails.delivery_address?.district}</p>
+                  <p className="text-[10px] font-black text-[#9a734c] uppercase tracking-widest">
+                    Địa chỉ giao
+                  </p>
+                  <p className="text-sm font-bold text-[#1b140d] line-clamp-2">
+                    {orderDetails.deliveryAddress?.detail}
+                  </p>
+                  <p className="text-xs text-[#9a734c]">
+                    {orderDetails.deliveryAddress?.ward},{" "}
+                    {orderDetails.deliveryAddress?.city}
+                  </p>
                 </div>
               </div>
             </div>
@@ -479,16 +533,24 @@ const AdminOrders = () => {
             <div className="p-6 bg-[#1b140d] rounded-2xl text-white space-y-3">
               <div className="flex justify-between text-xs opacity-70">
                 <span>Tạm tính</span>
-                <span>{(orderDetails.sub_total ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span>
+                  {(orderDetails.subTotal ?? 0).toLocaleString("vi-VN")}₫
+                </span>
               </div>
               <div className="flex justify-between text-xs opacity-70">
                 <span>Phí giao hàng</span>
-                <span>{(orderDetails.shipping_fee ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span>
+                  {(orderDetails.shippingFee ?? 0).toLocaleString("vi-VN")}₫
+                </span>
               </div>
               <div className="h-px bg-white/10 my-1" />
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black uppercase tracking-widest">Tổng cộng</span>
-                <span className="text-2xl font-black text-[#ee8c2b]">{(orderDetails.total_price ?? 0).toLocaleString("vi-VN")}₫</span>
+                <span className="text-sm font-black uppercase tracking-widest">
+                  Tổng cộng
+                </span>
+                <span className="text-2xl font-black text-[#ee8c2b]">
+                  {(orderDetails.totalPrice ?? 0).toLocaleString("vi-VN")}₫
+                </span>
               </div>
             </div>
 
@@ -496,7 +558,9 @@ const AdminOrders = () => {
             <div className="pt-4 flex gap-3">
               {orderDetails.status === "pending" && (
                 <button
-                  onClick={() => handleUpdateStatus(orderDetails._id, "confirmed")}
+                  onClick={() =>
+                    handleUpdateStatus(orderDetails._id, "confirmed")
+                  }
                   className="flex-1 py-4 bg-[#ee8c2b] text-white font-black rounded-xl shadow-lg shadow-[#ee8c2b]/20 hover:bg-[#d87c24] transition-all"
                 >
                   Xác nhận đơn hàng

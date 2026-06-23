@@ -1,15 +1,32 @@
 services:
   fe-prod:
     image: ${DOCKERHUB_USERNAME}/anngon-frontend:latest
+    container_name: anngon-frontend-prod
     restart: always
     networks: [ web-network ]
 
   be-prod:
     image: ${DOCKERHUB_USERNAME}/anngon-backend:latest
-    env_file: .env.prod # Chứa MONGODB_URI=mongodb+srv://... (Trỏ tới DB 'my_app_prod' trên Atlas)
+    container_name: anngon-backend-prod
+    env_file: .env # Chứa MONGODB_URI=mongodb+srv://... (Trỏ tới DB 'my_app_prod' trên Atlas)
     restart: always
+    depends_on:
+      - redis-prod
+    networks: [ web-network ]
+
+  redis-prod:
+    image: redis:7-alpine
+    container_name: anngon-redis-prod
+    restart: always
+    volumes:
+      - redis-prod-data:/data
     networks: [ web-network ]
 
 networks:
   web-network:
     external: true
+
+volumes:
+  redis-prod-data:
+    driver: local
+

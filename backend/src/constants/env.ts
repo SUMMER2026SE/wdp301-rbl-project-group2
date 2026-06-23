@@ -32,7 +32,7 @@ const getNumberEnv = (key: string, defaultValue: number): number => {
 
 //env
 export const NODE_ENV = getEnv('NODE_ENV');
-export const PORT = getEnv('PORT', '4004');
+export const PORT = getEnv('PORT', '8005');
 
 //app
 export const APP_ORIGIN = getEnv('APP_ORIGIN');
@@ -49,6 +49,8 @@ export const MONGODB_URI = getEnv('MONGODB_URI');
 // node_mailer
 export const GOOGLE_APP_USER = getEnv('GOOGLE_APP_USER');
 export const GOOGLE_APP_PASSWORD = getEnv('GOOGLE_APP_PASSWORD');
+export const GOOGLE_CLIENT_ID = getEnv('GOOGLE_CLIENT_ID').trim();
+
 
 // cloudinary
 export const CLOUDINARY_CLOUD_NAME = getEnv('CLOUDINARY_CLOUD_NAME');

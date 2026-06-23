@@ -11,7 +11,8 @@ import {
     Bell,
     Truck,
     MessageCircleMore,
-    Search
+    Search,
+    Clock
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -23,11 +24,13 @@ import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import orderService from "@/services/order.service";
+import { getStores } from "@/services/store.service";
 
 interface OrderNotification {
     id: string;
     code: string;
-    total_price: number;
+    totalPrice: number;
     itemsCount: number;
     createdAt: string;
     isRead: boolean;
@@ -36,8 +39,16 @@ interface OrderNotification {
 export default function StaffLayout() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, storeId } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [storeName, setStoreName] = useState("Chi nhánh Ngũ Hành Sơn");
+    const [socketConnected, setSocketConnected] = useState(() => {
+        try {
+            return getSupportSocket().connected;
+        } catch {
+            return false;
+        }
+    });
     const [isHovered, setIsHovered] = useState(false); // Sidebar hover
     const [notifications, setNotifications] = useState<OrderNotification[]>([]);
     const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -50,17 +61,82 @@ export default function StaffLayout() {
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
+    // Fetch pending orders on mount to pre-populate notifications
+    useEffect(() => {
+        const fetchPendingOrders = async () => {
+            if (!storeId) return;
+            try {
+                const res = await orderService.getStaffOrders({ storeId, status: "pending", limit: 20 });
+                if (res?.success && Array.isArray(res.data)) {
+                    const mapped: OrderNotification[] = res.data.map(order => ({
+                        id: order._id,
+                        code: order.code,
+                        totalPrice: order.totalPrice,
+                        itemsCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+                        createdAt: order.createdAt,
+                        isRead: true // mark as read by default so the badge doesn't bounce/count old orders on load
+                    }));
+                    setNotifications(mapped);
+                }
+            } catch (err) {
+                console.error("Failed to fetch pending orders for notifications:", err);
+            }
+        };
+
+        void fetchPendingOrders();
+    }, [storeId]);
+
+    // Fetch store name that staff is working at
+    useEffect(() => {
+        const fetchStore = async () => {
+            if (!user?.storeId) {
+                setStoreName("Chi nhánh Ngũ Hành Sơn");
+                return;
+            }
+            try {
+                const res = await getStores();
+                if (res?.success && Array.isArray(res.data)) {
+                    const matchedStore = res.data.find(s => s._id === user.storeId);
+                    if (matchedStore) {
+                        setStoreName(matchedStore.name);
+                    } else {
+                        setStoreName("Chi nhánh Ngũ Hành Sơn");
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch store name:", err);
+                setStoreName("Chi nhánh Ngũ Hành Sơn");
+            }
+        };
+        void fetchStore();
+    }, [user?.storeId]);
+    // Sync socket connection state
+    useEffect(() => {
+        const socket = getSupportSocket();
+
+        const handleConnect = () => setSocketConnected(true);
+        const handleDisconnect = () => setSocketConnected(false);
+
+        socket.on("connect", handleConnect);
+        socket.on("disconnect", handleDisconnect);
+
+        return () => {
+            socket.off("connect", handleConnect);
+            socket.off("disconnect", handleDisconnect);
+        };
+    }, []);
+
     // Socket listener for new orders
     useEffect(() => {
         const socket = getSupportSocket();
 
-        socket.on('order:new', (data: { _id: string; code: string; total_price: number; itemsCount: number; createdAt: string }) => {
+        socket.on('order:new', (data: { _id: string; code: string; totalPrice: number; itemsCount: number; createdAt: string }) => {
             console.log('New order received:', data);
 
             const newNotif: OrderNotification = {
                 id: data._id,
                 code: data.code,
-                total_price: data.total_price,
+                totalPrice: data.totalPrice,
                 itemsCount: data.itemsCount,
                 createdAt: data.createdAt,
                 isRead: false
@@ -86,7 +162,7 @@ export default function StaffLayout() {
                                     Đơn hàng mới #{data.code}
                                 </p>
                                 <p className="mt-1 text-sm text-slate-500 font-medium h-5 overflow-hidden">
-                                    {data.itemsCount} món • {data.total_price.toLocaleString('vi-VN')}₫
+                                    {data.itemsCount} món • {data.totalPrice.toLocaleString('vi-VN')}₫
                                 </p>
                             </div>
                         </div>
@@ -218,15 +294,25 @@ export default function StaffLayout() {
 
                 {/* Bottom Section (AI Status & Logout) */}
                 <div className="p-4 border-t border-slate-100 shrink-0">
-                    {/* AI Status Widget */}
+                    {/* Shift Status Widget */}
                     <div className={`flex items-center p-3 bg-slate-50 border border-slate-200/60 rounded-xl mb-3 transition-all duration-300 ${isHovered ? 'gap-3' : 'justify-center p-2'}`}>
+                        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                            <Clock className="w-4 h-4 animate-pulse" />
+                            <span 
+                                className={cn(
+                                    "absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white transition-colors duration-300",
+                                    socketConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                                )} 
+                                title={socketConnected ? "Hệ thống kết nối thời gian thực ổn định" : "Mất kết nối thời gian thực"}
+                            />
+                        </div>
                         {isHovered && (
-                            <>
-                                <div className="relative flex h-2.5 w-2.5 shrink-0 mr-1">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                </div>
-                            </>
+                            <div className="flex flex-col overflow-hidden whitespace-nowrap animate-in fade-in duration-300 text-left">
+                                <span className="text-xs font-black text-slate-800">Đang Trong Ca Trực</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 truncate max-w-[150px]" title={storeName}>
+                                    {storeName}
+                                </span>
+                            </div>
                         )}
                     </div>
 
@@ -356,7 +442,7 @@ export default function StaffLayout() {
                                                                         </span>
                                                                     </div>
                                                                     <p className="text-xs font-semibold text-slate-500 mb-2">
-                                                                        {notif.itemsCount} món • {notif.total_price.toLocaleString('vi-VN')}₫
+                                                                        {notif.itemsCount} món • {notif.totalPrice.toLocaleString('vi-VN')}₫
                                                                     </p>
                                                                     <div className="inline-flex items-center text-[11px] font-black text-orange-500 group-hover:translate-x-1 transition-transform">
                                                                         Chi tiết <span className="material-symbols-outlined text-[14px] ml-1">arrow_forward</span>

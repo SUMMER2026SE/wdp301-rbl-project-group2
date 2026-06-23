@@ -21,6 +21,7 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
 
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
+    const chatPanelRef = useRef<HTMLDivElement | null>(null);
 
     const {
         conversation,
@@ -36,6 +37,23 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isOpen]); // Thêm isOpen để cuộn khi vừa mở chat
+
+    // Nhấn ra ngoài khung chat để đóng
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            const target = event.target as HTMLElement;
+            if (isOpen && chatPanelRef.current && !chatPanelRef.current.contains(target) && !target.closest('.chat-trigger-btn')) {
+                if (showEntryCard) {
+                    setLocalIsOpen(false);
+                } else {
+                    minimizeChat();
+                }
+                onClose?.();
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen, showEntryCard, minimizeChat, onClose]);
 
     const handleToggle = () => {
         if (showEntryCard) {
@@ -91,7 +109,7 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
                             type="button"
                             onClick={handleToggle}
                             disabled={false}
-                            className="group flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-600 hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
+                            className="chat-trigger-btn group flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-600 hover:-translate-y-0.5 transition-all active:scale-95 shrink-0"
                         >
                             <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">
                                 forum
@@ -103,7 +121,10 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
 
             {/* Floating Chat Panel (Cửa sổ chat nổi) */}
             {isOpen && (
-                <div className="fixed bottom-[100px] right-4 sm:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-6rem)] bg-slate-50 dark:bg-slate-900 rounded-3xl shadow-2xl shadow-slate-900/20 border border-slate-200/60 dark:border-slate-700 flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 fade-in duration-300">
+                <div 
+                    ref={chatPanelRef}
+                    className="fixed bottom-[100px] right-4 sm:right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-6rem)] bg-slate-50 dark:bg-slate-900 rounded-3xl shadow-2xl shadow-slate-900/20 border border-slate-200/60 dark:border-slate-700 flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 fade-in duration-300"
+                >
 
                     {/* Header */}
                     <div className="relative flex items-center justify-between px-5 py-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
@@ -180,7 +201,14 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
                                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-sm' // Bong bóng của quán (đuôi bên trái)
                                             }`}
                                     >
-                                        <p className="break-words">{msg.content}</p>
+                                        {msg.imageUrl && (
+                                            <img
+                                                src={msg.imageUrl}
+                                                alt="Attached image"
+                                                className="mb-2 max-h-48 max-w-full rounded-lg object-cover"
+                                            />
+                                        )}
+                                        {msg.content && <p className="break-words">{msg.content}</p>}
                                     </div>
                                     <span className="mt-1 text-[10px] font-medium text-slate-400 px-1">
                                         {new Date(msg.createdAt).toLocaleTimeString('vi-VN', {
@@ -221,11 +249,11 @@ export function OrderSupportChat({ orderId: propOrderId, initialOpen = false, sh
             )}
             {/* Floating Bubble (Bong bóng chat khi thu nhỏ) */}
             {!isOpen && !showEntryCard && (
-                <div className="fixed bottom-6 right-6 z-[60] animate-in zoom-in fade-in duration-300">
+                <div className="fixed bottom-24 right-6 z-[60] animate-in zoom-in fade-in duration-300">
                     <button
                         type="button"
                         onClick={handleToggle}
-                        className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-orange-500 text-white shadow-2xl shadow-orange-500/40 hover:bg-orange-600 hover:scale-110 active:scale-95 transition-all pointer-events-auto"
+                        className="chat-trigger-btn group relative flex items-center justify-center w-14 h-14 rounded-full bg-orange-500 text-white shadow-2xl shadow-orange-500/40 hover:bg-orange-600 hover:scale-110 active:scale-95 transition-all pointer-events-auto"
                     >
                         <span className="material-symbols-outlined text-[28px] group-hover:rotate-12 transition-transform">
                             forum

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getAIResponseForChat } from '@/services/ai.service';
-import UserModel from '@/models/users.model';
+import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
 
 export const handleChat = async (req: Request, res: Response) => {
@@ -18,7 +18,7 @@ export const handleChat = async (req: Request, res: Response) => {
             const user = await UserModel.findById(userId).lean();
             if (user) {
                 // Fetch a few safe foods for context
-                const preferences = user.preferences || { dietary: [], allergies: [], health_goals: [] };
+                const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
                 const userAllergies = preferences.allergies.map((a: string) => a.normalize('NFC').toLowerCase().trim());
 
                 const allAvailableProducts = await ProductModel.find({ isAvailable: true }).limit(20).lean();

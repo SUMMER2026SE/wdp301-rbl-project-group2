@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { getToken } from "@/utils/storage";
 
 function getSocketBaseUrl() {
   const apiUrl = import.meta.env.VITE_BASE_API;
@@ -10,9 +11,11 @@ let socket: Socket | null = null;
 
 export function getSupportSocket() {
   if (!socket) {
+    const token = getToken();
     socket = io(getSocketBaseUrl(), {
       withCredentials: true,
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
+      auth: token ? { accessToken: token } : undefined,
       // Automatically reconnect
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -42,5 +45,21 @@ export function disconnectSupportSocket() {
   if (socket) {
     socket.disconnect();
     socket = null;
+  }
+}
+
+/**
+ * Reconnect the existing socket to refresh authentication credentials (cookies).
+ * Preserves any registered event listeners.
+ */
+export function reconnectSupportSocket() {
+  const token = getToken();
+  if (socket) {
+    console.debug("[SupportSocket] Reconnecting socket to refresh auth...");
+    socket.auth = token ? { accessToken: token } : {};
+    socket.disconnect();
+    socket.connect();
+  } else {
+    getSupportSocket();
   }
 }
