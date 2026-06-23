@@ -490,21 +490,9 @@ const AdminLayout = () => {
       >
         {/* Topbar — same height as logo area */}
         <header
-          className="border-b border-[#e7dbcf] dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-6 sticky top-0 z-10"
+          className="border-b border-[#e7dbcf] dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-end px-6 sticky top-0 z-10"
           style={{ height: TOPBAR_H }}
         >
-          <div className="flex items-center gap-4 flex-1 max-w-xl">
-            <div className="relative w-full">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] dark:text-gray-500 text-lg">
-                search
-              </span>
-              <input
-                type="text"
-                className="w-full bg-[#f3ede7] dark:bg-gray-800 border-none rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-orange-500/20 placeholder:text-[#9a734c] dark:placeholder:text-gray-500 dark:text-white"
-                placeholder="Tìm đơn hàng, món ăn hoặc khách hàng..."
-              />
-            </div>
-          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
