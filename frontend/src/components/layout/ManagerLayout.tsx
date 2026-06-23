@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+// FoodieDash Manager
 import {
   BarChart3,
   ClipboardList,
@@ -65,7 +66,6 @@ export default function ManagerLayout() {
     { path: "/manager/orders", label: "Quản lý Đơn hàng", icon: ClipboardList },
     { path: "/manager/menu", label: "Menu chi nhánh", icon: MenuSquare },
     { path: "/manager/staff", label: "Nhân viên", icon: Users },
-    { path: "/manager/staff-requests", label: "Đề xuất nhân sự", icon: Users },
     { path: "/manager/cash", label: "Doanh thu & COD", icon: WalletCards },
     { path: "/manager/settings", label: "Cài đặt", icon: Settings },
   ];
