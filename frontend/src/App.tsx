@@ -198,10 +198,7 @@ function App() {
                 <Route path="menu" element={<ManagerMenu />} />
                 <Route path="cash" element={<ManagerCash />} />
                 <Route path="staff" element={<ManagerStaff />} />
-                <Route
-                  path="staff-requests"
-                  element={<ManagerStaffRequests />}
-                />
+                <Route path="staff-requests" element={<ManagerStaffRequests />} />
                 <Route path="settings" element={<ManagerSettings />} />
                 <Route
                   path="*"

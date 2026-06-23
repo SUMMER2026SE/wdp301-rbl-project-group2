@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -10,6 +10,8 @@ const HEALTH_COLOR = "var(--health)";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get("referral")?.trim().toUpperCase() || "";
   const { t } = useTranslation(["auth", "common"]);
   const { login } = useAuth();
   const { mergeGuestCartIntoCurrentUser } = useCart();
@@ -37,6 +39,7 @@ const RegisterPage = () => {
           try {
             const res = await authService.loginWithGoogle({
               credential: tokenResponse.access_token,
+              referralCode: referralCode || undefined,
             });
             const user = res.data;
             if (!user) throw new Error("Không có dữ liệu người dùng");
@@ -97,6 +100,7 @@ const RegisterPage = () => {
         email,
         password,
         confirmPassword,
+        referralCode: referralCode || undefined,
       });
       // Redirect to OTP verification page
       localStorage.setItem("pending_verify_email", email);
@@ -173,6 +177,15 @@ const RegisterPage = () => {
             {t("auth:register.subtitle")}
           </p>
         </div>
+
+        {referralCode && (
+          <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+            <p className="font-bold">Bạn đang đăng ký qua lời mời FoodieDash</p>
+            <p className="mt-1">
+              Mã {referralCode} sẽ được gắn tự động. Hoàn tất đơn đầu tiên từ 100.000đ để bạn nhận 50 điểm và người mời nhận voucher 30.000đ.
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm flex items-center gap-2 rounded-r-lg">

@@ -29,15 +29,17 @@ const AdminVouchers = () => {
     setLoading(true);
 
     try {
-      // Fetch paginated vouchers for table display
       const res = await VoucherAPI.getVouchers({
         page,
         limit: LIMIT,
+        includeExpired: true,
+        adminView: true,
       });
 
-      // Fetch all vouchers for stats calculation
       const allRes = await VoucherAPI.getVouchers({
-        limit: 10000, // Large number to get all vouchers
+        limit: 10000,
+        includeExpired: true,
+        adminView: true,
       });
 
       if (res.success && allRes.success) {

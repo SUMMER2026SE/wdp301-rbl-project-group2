@@ -226,7 +226,7 @@ const ProfileLayout = () => {
           </aside>
 
           {/* RIGHT COLUMN: Tab content */}
-          <section className="lg:col-span-8 space-y-8">
+          <section className="min-w-0 lg:col-span-8 space-y-8">
             <Outlet />
           </section>
         </div>

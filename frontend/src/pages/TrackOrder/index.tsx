@@ -239,7 +239,7 @@ const TrackOrderPage = () => {
                                     <p className="text-slate-500 text-sm mt-2">Chúng tôi rất tiếc về sự bất tiện này.</p>
                                 </div>
                             ) : (
-                                <OrderTimeline currentStep={mapStatusToStep(order.status)} />
+                                <OrderTimeline currentStep={mapStatusToStep(order.status)} order={order} />
                             )}
                         </div>
 

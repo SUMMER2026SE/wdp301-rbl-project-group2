@@ -19,6 +19,55 @@ import { useAuth } from "@/hooks/useAuth";
 import { OrderSupportChat } from "@/components/shared/OrderSupportChat";
 import toast from "react-hot-toast";
 import { getSupportSocket } from "@/lib/support-socket";
+const formatMilestoneTime = (dateInput: string | Date | null | undefined) => {
+  if (!dateInput) return "";
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  const timeStr = d.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const dateStr = d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  return `${timeStr} - ${dateStr}`;
+};
+
+const getMilestoneTimes = (o: Order) => {
+  const times = {
+    pending: o.createdAt,
+    confirmed: null as string | Date | null,
+    preparing: null as string | Date | null,
+    delivering: null as string | Date | null,
+    delivered: null as string | Date | null,
+    completed: null as string | Date | null,
+  };
+
+  if (o.statusHistory && Array.isArray(o.statusHistory)) {
+    for (const history of o.statusHistory) {
+      const status = history.status;
+      const timestamp = history.createdAt;
+      if (timestamp) {
+        if (status === "confirmed") times.confirmed = timestamp;
+        if (status === "processing" || status === "preparing") times.preparing = timestamp;
+        if (status === "shipping" || status === "delivering") times.delivering = timestamp;
+        if (status === "delivered") times.delivered = timestamp;
+        if (status === "completed") times.completed = timestamp;
+      }
+    }
+  }
+
+  if (!times.confirmed && o.payment?.paidAt) times.confirmed = o.payment.paidAt;
+  if (!times.delivering && o.deliveryInfo?.shippedAt) times.delivering = o.deliveryInfo.shippedAt;
+  if (!times.delivered && o.deliveryInfo?.deliveredAt) times.delivered = o.deliveryInfo.deliveredAt;
+  if (!times.completed && o.status === "completed") times.completed = o.updatedAt;
+  if (o.status === "delivered" && !times.delivered) times.delivered = o.updatedAt;
+  if (o.status === "confirmed" && !times.confirmed) times.confirmed = o.updatedAt;
+
+  return times;
+};
 
 const OrderDetailPage = () => {
   const navigate = useNavigate();
@@ -192,6 +241,7 @@ const OrderDetailPage = () => {
     }
   };
   const statusIdx = getStatusIdx(order.status);
+  const milestoneTimes = getMilestoneTimes(order);
   const orderOwnerId =
     typeof order.cusId === "string"
       ? order.cusId
@@ -284,65 +334,91 @@ const OrderDetailPage = () => {
                 <h3 className="font-bold text-lg">Món ăn đã đặt</h3>
               </div>
               <div className="divide-y divide-gray-50 dark:divide-white/5">
-                {order.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-20 h-20 rounded-2xl bg-gray-100 bg-cover bg-center shrink-0 border border-gray-100 dark:border-white/10"
-                        style={{
-                          backgroundImage: `url("${getImageUrl((item.productId as any)?.image)}")`,
-                        }}
-                      />
-                      <div>
-                        <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
-                          {(item.productId as any)?.name ||
-                            "Sản phẩm không còn tồn tại"}
-                        </h4>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded-md">
-                            Số lượng: {item.quantity}
-                          </span>
+                {order.items.map((item, idx) => {
+                  const productId = typeof item.productId === "string"
+                    ? item.productId
+                    : (item.productId as any)?._id;
+
+                  const isAvailable = !!productId;
+
+                  const itemContent = (
+                    <>
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-20 h-20 rounded-2xl bg-gray-100 bg-cover bg-center shrink-0 border border-gray-100 dark:border-white/10"
+                          style={{
+                            backgroundImage: `url("${getImageUrl((item.productId as any)?.image)}")`,
+                          }}
+                        />
+                        <div>
+                          <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
+                            {(item.productId as any)?.name ||
+                              "Sản phẩm không còn tồn tại"}
+                          </h4>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded-md">
+                              Số lượng: {item.quantity}
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const chips = buildVariantChips(
+                              (item as any).variations,
+                            );
+                            if (!chips.length) return null;
+
+                            return (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {chips.map((c) => (
+                                  <span
+                                    key={c.key}
+                                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
+                                    title={
+                                      c.extra > 0
+                                        ? `+${c.extra.toLocaleString("vi-VN")}đ`
+                                        : undefined
+                                    }
+                                  >
+                                    {c.text}
+                                    {c.extra > 0 && (
+                                      <span className="text-[#9a734c] font-bold">
+                                        +{c.extra.toLocaleString("vi-VN")}đ
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
-
-                        {(() => {
-                          const chips = buildVariantChips(
-                            (item as any).variations,
-                          );
-                          if (!chips.length) return null;
-
-                          return (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {chips.map((c) => (
-                                <span
-                                  key={c.key}
-                                  className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
-                                  title={
-                                    c.extra > 0
-                                      ? `+${c.extra.toLocaleString("vi-VN")}đ`
-                                      : undefined
-                                  }
-                                >
-                                  {c.text}
-                                  {c.extra > 0 && (
-                                    <span className="text-[#9a734c] font-bold">
-                                      +{c.extra.toLocaleString("vi-VN")}đ
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
                       </div>
+                      <p className="font-black text-lg text-gray-900 dark:text-white">
+                        {item.subTotal.toLocaleString("vi-VN")}đ
+                      </p>
+                    </>
+                  );
+
+                  if (isAvailable) {
+                    return (
+                      <Link
+                        key={idx}
+                        to={`/food/${productId}`}
+                        className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors cursor-pointer no-underline"
+                      >
+                        {itemContent}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-6 flex items-center justify-between group hover:bg-gray-50/50 dark:hover:bg-white/2 transition-colors"
+                    >
+                      {itemContent}
                     </div>
-                    <p className="font-black text-lg text-gray-900 dark:text-white">
-                      {item.subTotal.toLocaleString("vi-VN")}đ
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -529,12 +605,11 @@ const OrderDetailPage = () => {
                     >
                       Đã đặt hàng
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(order.createdAt).toLocaleTimeString("vi-VN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                    {order.createdAt && (
+                      <p className="text-xs text-gray-500 font-medium">
+                        {formatMilestoneTime(order.createdAt)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -586,6 +661,11 @@ const OrderDetailPage = () => {
                           ? "Đã xong"
                           : "Chờ xác nhận"}
                     </p>
+                    {(milestoneTimes.preparing || milestoneTimes.confirmed) && (
+                      <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                        {formatMilestoneTime(milestoneTimes.preparing || milestoneTimes.confirmed)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -635,6 +715,11 @@ const OrderDetailPage = () => {
                           ? "Đã giao đến"
                           : "Chờ lấy hàng"}
                     </p>
+                    {milestoneTimes.delivering && (
+                      <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                        {formatMilestoneTime(milestoneTimes.delivering)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -676,12 +761,14 @@ const OrderDetailPage = () => {
                         Chờ xác nhận nhận hàng
                       </p>
                     )}
-                    {statusIdx === 3 && order.updatedAt && (
-                      <p className="text-xs text-green-600/70">
-                        {new Date(order.updatedAt).toLocaleTimeString("vi-VN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                    {milestoneTimes.delivered && (
+                      <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                        {formatMilestoneTime(milestoneTimes.delivered)}
+                      </p>
+                    )}
+                    {statusIdx === 3 && milestoneTimes.completed && (
+                      <p className="text-xs text-green-600/70 mt-0.5 font-bold">
+                        Hoàn thành: {formatMilestoneTime(milestoneTimes.completed)}
                       </p>
                     )}
                   </div>
