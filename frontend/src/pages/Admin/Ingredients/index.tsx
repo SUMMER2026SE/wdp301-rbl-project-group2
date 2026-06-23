@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, Loader2, Pencil, Trash2, X } from "lucide-react";
+import {
+  Beaker,
+  Bot,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ALLERGEN_OPTIONS, getAllergenLabel } from "@/constants/allergenCatalog";
 import ingredientService, {
   type AllergenSuggestion,
@@ -81,6 +91,19 @@ const AdminIngredients = () => {
     if (!keyword) return ingredients;
     return ingredients.filter((item) => item.name.toLowerCase().includes(keyword));
   }, [ingredients, search]);
+
+  const taggedIngredients = useMemo(
+    () => ingredients.filter((item) => item.allergenTags.length > 0).length,
+    [ingredients],
+  );
+
+  const aiSuggestedIngredients = useMemo(
+    () =>
+      ingredients.filter(
+        (item) => item.allergenSource === "ai" || item.allergenSuggestion,
+      ).length,
+    [ingredients],
+  );
 
   const toggleTag = (tag: string) => {
     setForm((prev) => ({
@@ -199,28 +222,47 @@ const AdminIngredients = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-[#1b140d] dark:text-white">
-            Kho nguyên liệu & dị ứng
-          </h1>
-          <p className="text-sm text-[#9a734c] mt-1">
-            Quản lý nguyên liệu, dùng AI để gợi ý tag dị ứng tham khảo khi thêm hoặc chỉnh sửa.
-          </p>
+    <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
+      <section className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b140d] via-[#6d3518] to-[#d87c24] px-6 py-8 text-white shadow-xl shadow-orange-950/20 md:px-8">
+        <div className="absolute -right-16 -top-24 size-64 rounded-full bg-amber-300/35 blur-3xl" />
+        <div className="absolute -bottom-28 left-1/3 size-64 rounded-full bg-orange-400/20 blur-3xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-orange-200">
+              <Beaker className="size-4" aria-hidden="true" />
+              Kho nguyên liệu
+            </div>
+            <h1 className="text-3xl font-black tracking-tight md:text-4xl">
+              Hiểu rõ từng thành phần món ăn
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/70 md:text-base">
+              Quản lý nguyên liệu và kiểm soát tag dị ứng với gợi ý AI minh bạch, dễ rà soát.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-orange-100/30 bg-white/15 px-5 py-3 shadow-inner shadow-white/5 backdrop-blur-sm">
+              <p className="text-2xl font-black text-orange-300">{ingredients.length}</p>
+              <p className="text-xs font-semibold text-white/60">Tổng nguyên liệu</p>
+            </div>
+            <div className="rounded-2xl border border-orange-100/30 bg-white/15 px-5 py-3 shadow-inner shadow-white/5 backdrop-blur-sm">
+              <p className="text-2xl font-black text-orange-300">{taggedIngredients}</p>
+              <p className="text-xs font-semibold text-white/60">Có tag dị ứng</p>
+            </div>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#ee8c2b] px-6 text-sm font-black text-white shadow-lg shadow-black/20 transition-all hover:bg-[#d87c24] active:scale-[0.98]"
+            >
+              <Plus className="size-5" aria-hidden="true" />
+              Thêm nguyên liệu
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="px-4 py-2.5 bg-orange-600 text-white text-sm font-bold rounded-xl hover:bg-orange-500 transition-colors flex items-center gap-2"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          Thêm nguyên liệu
-        </button>
-      </div>
+      </section>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {error}
         </div>
       )}
@@ -234,6 +276,7 @@ const AdminIngredients = () => {
               type="button"
               onClick={closeForm}
               className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Đóng biểu mẫu nguyên liệu"
             >
               <X className="w-4 h-4" />
             </button>
@@ -343,32 +386,51 @@ const AdminIngredients = () => {
         </div>
       )}
 
-      <div className="relative max-w-md">
-        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#9a734c] text-[18px]">
-          search
-        </span>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm nguyên liệu..."
-          className="w-full h-10 pl-10 pr-4 rounded-xl bg-white dark:bg-gray-900 border border-[#e7dbcf] dark:border-gray-800 text-sm focus:ring-2 focus:ring-orange-500/20"
-        />
+      <div className="mb-6 rounded-2xl border border-orange-200/70 bg-gradient-to-br from-white via-[#fffaf4] to-orange-50/70 p-4 shadow-[0_12px_35px_rgba(139,77,27,0.08)] dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-xl">
+            <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-[#9a734c]" aria-hidden="true" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm nguyên liệu theo tên..."
+              className="h-12 w-full rounded-xl border border-orange-200 bg-white pl-12 pr-11 text-sm font-medium text-[#1b140d] shadow-sm outline-none transition focus:border-[#ee8c2b] focus:ring-4 focus:ring-[#ee8c2b]/15 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#9a734c] hover:bg-[#f3ede7] dark:hover:bg-gray-700"
+                aria-label="Xóa nội dung tìm kiếm"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-[#9a734c]">
+            <Bot className="size-4 text-orange-500" aria-hidden="true" />
+            {aiSuggestedIngredients} nguyên liệu có gợi ý AI
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-[#e7dbcf] dark:border-gray-800 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-orange-200/80 bg-white shadow-[0_14px_40px_rgba(139,77,27,0.09)] dark:border-gray-800 dark:bg-gray-900">
         {loading ? (
-          <div className="h-48 flex items-center justify-center text-[#9a734c]">
-            <Loader2 className="w-6 h-6 animate-spin" />
+          <div className="flex h-56 flex-col items-center justify-center gap-3 text-[#9a734c]">
+            <Loader2 className="size-7 animate-spin text-orange-500" />
+            <span className="text-sm font-bold">Đang tải nguyên liệu...</span>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-[#e7dbcf] dark:border-gray-800 bg-[#f3ede7]/50 dark:bg-gray-800/50">
+              <tr className="border-b border-orange-200 bg-gradient-to-r from-orange-100/90 via-amber-50 to-[#fffaf4] dark:border-gray-800 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
                 <th className="px-5 py-3 text-left text-xs font-bold text-[#9a734c] uppercase tracking-wider">Nguyên liệu</th>
                 <th className="px-5 py-3 text-left text-xs font-bold text-[#9a734c] uppercase tracking-wider">Dị ứng</th>
+                <th className="px-5 py-3 text-left text-xs font-bold text-[#9a734c] uppercase tracking-wider">Nguồn tag</th>
                 <th className="px-5 py-3 text-center text-xs font-bold text-[#9a734c] uppercase tracking-wider">Sản phẩm</th>
-                <th className="px-5 py-3 text-right text-xs font-bold text-[#9a734c] uppercase tracking-wider"></th>
+                <th className="px-5 py-3 text-right text-xs font-bold text-[#9a734c] uppercase tracking-wider">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e7dbcf]/50 dark:divide-gray-800">
@@ -391,18 +453,29 @@ const AdminIngredients = () => {
                       )}
                     </div>
                   </td>
+                  <td className="px-5 py-3.5">
+                    <span
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${getSourceBadge(ingredient).className}`}
+                    >
+                      {getSourceBadge(ingredient).label}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5 text-center font-semibold text-[#9a734c]">{ingredient.usedInProducts}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => openEdit(ingredient)}
-                        className="p-2 rounded-lg text-[#9a734c] hover:bg-[#f3ede7] hover:text-[#1b140d] transition-colors"
+                        className="flex size-10 items-center justify-center rounded-xl border border-orange-100 text-[#9a734c] transition-colors hover:bg-orange-50 hover:text-[#d87c24]"
+                        title="Sửa nguyên liệu"
+                        aria-label={`Sửa ${ingredient.name}`}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(ingredient)}
-                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        className="flex size-10 items-center justify-center rounded-xl border border-red-100 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        title="Xóa nguyên liệu"
+                        aria-label={`Xóa ${ingredient.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -412,13 +485,24 @@ const AdminIngredients = () => {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-sm font-semibold text-slate-400">
-                    Chưa có nguyên liệu phù hợp
+                  <td colSpan={5} className="px-5 py-16 text-center">
+                    <div className="mx-auto flex max-w-sm flex-col items-center">
+                      <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-300">
+                        <Beaker className="size-8" aria-hidden="true" />
+                      </div>
+                      <p className="font-black text-[#1b140d] dark:text-white">
+                        {search ? "Không tìm thấy nguyên liệu" : "Chưa có nguyên liệu nào"}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-400">
+                        {search ? `Không có kết quả phù hợp với “${search}”.` : "Thêm nguyên liệu đầu tiên để bắt đầu quản lý."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
 
