@@ -242,8 +242,16 @@ class AppRouter {
     ];
     final isPublicRoute = publicPaths.contains(currentPath);
 
-    if (authState is AuthLoading || authState is AuthInitial) {
+    if (authState is AuthInitial) {
       return currentPath == '/splash' ? null : '/splash';
+    }
+
+    if (authState is AuthLoading) {
+      // Only force splash if user is currently at splash or root
+      if (currentPath == '/splash' || currentPath == '/') {
+        return null;
+      }
+      return null; // Keep the current route to show inline loading indicator
     }
 
     if (authState is AuthUnauthenticated) {
