@@ -1046,7 +1046,11 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
       $push: {
         statusHistory: {
           status: OrderStatus.COMPLETED,
-          changedBy: actorId || (order.cusId as any)?._id || order.cusId || new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          changedBy:
+            actorId ||
+            (order.cusId as any)?._id ||
+            order.cusId ||
+            new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
           actorRole,
           createdAt: completedAt,
         },

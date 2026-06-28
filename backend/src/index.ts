@@ -16,7 +16,6 @@ import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
 import { startEmailWorker } from '@/jobs/email-queue';
 
-
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const app = express();
@@ -26,8 +25,10 @@ const allowedOrigins = [
   'https://fefoa.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:49152',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:49152',
 ];
 
 const corsOptions: cors.CorsOptions = {
@@ -192,7 +193,7 @@ cron.schedule('* * * * *', async () => {
 server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await connectToDatabase();
-  
+
   // Khởi chạy hàng đợi gửi mail chạy ngầm
   startEmailWorker();
   console.log('[Queue] BullMQ Email Worker đã sẵn sàng nhận nhiệm vụ.');
