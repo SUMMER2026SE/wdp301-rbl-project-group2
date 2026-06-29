@@ -7,6 +7,7 @@ import { ToastContainer } from "@/hooks/useToast";
 import {
   calculateShippingFee,
   calculateDistance,
+  formatDistance,
   WARD_CENTROIDS,
 } from "@/utils/shipping";
 import { AddressModal } from "@/components/shared/AddressModal";
@@ -42,6 +43,9 @@ const CheckoutPage = () => {
     shippingResult,
     settings,
     selectedStore,
+    selectedStoreDistance,
+    nearestStoreSuggestion,
+    selectNearestStoreSuggestion,
     isSubmitting,
     handlePlaceOrder,
     vouchers,
@@ -50,8 +54,58 @@ const CheckoutPage = () => {
   } = useCheckout();
 
   const [isVouchersOpen, setIsVouchersOpen] = useState(false);
+  const [isNearestStoreModalOpen, setIsNearestStoreModalOpen] = useState(false);
+  const [dismissedNearestStoreKey, setDismissedNearestStoreKey] = useState<
+    string | null
+  >(null);
 
   const { toasts, dismiss, toast } = useToast();
+
+  const nearestStoreSuggestionKey =
+    selectedStore && nearestStoreSuggestion
+      ? [
+          selectedStore._id,
+          nearestStoreSuggestion.store._id,
+          effectiveAddress?.detail ?? "",
+          effectiveAddress?.ward ?? "",
+          effectiveAddress?.city ?? "",
+        ].join("|")
+      : null;
+
+  const hasCloserStoreSuggestion = Boolean(
+    selectedStore &&
+    nearestStoreSuggestion &&
+    selectedStore._id !== nearestStoreSuggestion.store._id,
+  );
+
+  useEffect(() => {
+    if (
+      hasCloserStoreSuggestion &&
+      nearestStoreSuggestionKey &&
+      dismissedNearestStoreKey !== nearestStoreSuggestionKey
+    ) {
+      setIsNearestStoreModalOpen(true);
+      return;
+    }
+
+    setIsNearestStoreModalOpen(false);
+  }, [
+    dismissedNearestStoreKey,
+    hasCloserStoreSuggestion,
+    nearestStoreSuggestionKey,
+  ]);
+
+  const keepCurrentStore = () => {
+    setDismissedNearestStoreKey(nearestStoreSuggestionKey);
+    setIsNearestStoreModalOpen(false);
+  };
+
+  const switchToNearestStore = () => {
+    selectNearestStoreSuggestion();
+    setDismissedNearestStoreKey(nearestStoreSuggestionKey);
+    setIsNearestStoreModalOpen(false);
+    toast("Đã đổi sang chi nhánh gần địa chỉ nhận hàng hơn", "success");
+  };
 
   // PayOS limit check: If total drops below 2,000 VND and paymentMethod is "bank_transfer", fallback to "cash"
   useEffect(() => {
@@ -234,6 +288,8 @@ const CheckoutPage = () => {
           ward: nearestWard,
           city: "Đà Nẵng",
           isDefault: false,
+          latitude,
+          longitude,
         };
         setSuggestedAddress(suggAddr);
 
@@ -297,6 +353,8 @@ const CheckoutPage = () => {
                 ward: resolvedWard,
                 city: "Đà Nẵng",
                 isDefault: false,
+                latitude,
+                longitude,
               };
               setSuggestedAddress(updatedSugg);
 
@@ -920,6 +978,97 @@ const CheckoutPage = () => {
                 </div>
               </section>
 
+              {selectedStore &&
+                nearestStoreSuggestion &&
+                hasCloserStoreSuggestion && (
+                <section
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setIsNearestStoreModalOpen(true);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setIsNearestStoreModalOpen(true);
+                    }
+                  }}
+                  className={`rounded-xl border p-4 ${
+                    hasCloserStoreSuggestion
+                      ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 cursor-pointer transition-all hover:border-amber-300 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:hover:border-amber-700 dark:hover:bg-amber-900/20"
+                      : "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={`material-symbols-outlined text-xl shrink-0 ${
+                          hasCloserStoreSuggestion
+                            ? "text-amber-600"
+                            : "text-emerald-600"
+                        }`}
+                      >
+                        {hasCloserStoreSuggestion ? "near_me" : "store"}
+                      </span>
+                      <div>
+                        <p
+                          className={`text-sm font-bold ${
+                            hasCloserStoreSuggestion
+                              ? "text-amber-800 dark:text-amber-300"
+                              : "text-emerald-800 dark:text-emerald-300"
+                          }`}
+                        >
+                          Có chi nhánh gần địa chỉ này hơn
+                        </p>
+                        <p className="text-sm font-semibold text-[#1b140d] dark:text-white mt-0.5">
+                          {nearestStoreSuggestion.store.name}
+                        </p>
+                        <p
+                          className={`text-xs mt-0.5 ${
+                            hasCloserStoreSuggestion
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-emerald-700 dark:text-emerald-400"
+                          }`}
+                        >
+                          {nearestStoreSuggestion.store.address}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                      {selectedStoreDistance !== null && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-zinc-900 px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-700">
+                          <span className="material-symbols-outlined text-[14px]">
+                            store
+                          </span>
+                          Đang chọn: {formatDistance(selectedStoreDistance)}
+                        </span>
+                      )}
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full bg-white dark:bg-zinc-900 px-3 py-1 text-xs font-bold border ${
+                          hasCloserStoreSuggestion
+                            ? "text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                            : "text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          near_me
+                        </span>
+                        {formatDistance(nearestStoreSuggestion.distance)}
+                      </span>
+                      {hasCloserStoreSuggestion && (
+                        <button
+                          type="button"
+                          onClick={() => setIsNearestStoreModalOpen(true)}
+                          className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-700 transition-colors"
+                        >
+                          Xem gợi ý
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* Payment Method */}
               <section className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
@@ -1130,7 +1279,7 @@ const CheckoutPage = () => {
                           </span>
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-green-700 dark:text-green-400">
-                              {voucherState.appliedVoucher.code}
+                              {voucherState.appliedVoucher.title}
                             </span>
                             <span className="text-[10px] font-bold text-green-600">
                               Đã giảm: {discount.toLocaleString("vi-VN")}đ
@@ -1298,6 +1447,88 @@ const CheckoutPage = () => {
         </main>
       </div>
 
+      {isNearestStoreModalOpen &&
+        hasCloserStoreSuggestion &&
+        selectedStore &&
+        nearestStoreSuggestion && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 dark:border-zinc-800">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-2xl text-orange-600">
+                    near_me
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                    Cửa hàng này gần hơn
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={keepCurrentStore}
+                  className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
+                  aria-label="Đóng gợi ý chi nhánh"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    close
+                  </span>
+                </button>
+              </div>
+
+              <div className="space-y-3 p-6">
+                <button
+                  type="button"
+                  onClick={keepCurrentStore}
+                  className="w-full rounded-xl border border-gray-200 p-4 text-left transition-all hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50 dark:focus:ring-zinc-700"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase text-slate-400">
+                      Đang chọn
+                    </p>
+                    {selectedStoreDistance !== null && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-zinc-800 dark:text-slate-300">
+                        <span className="material-symbols-outlined text-[13px]">
+                          near_me
+                        </span>
+                        {formatDistance(selectedStoreDistance)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {selectedStore.name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {selectedStore.address}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={switchToNearestStore}
+                  className="w-full rounded-xl border-2 border-orange-200 bg-orange-50 p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:border-orange-900/60 dark:bg-orange-900/10 dark:hover:border-orange-800 dark:hover:bg-orange-900/20"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase text-orange-600">
+                      Gần hơn
+                    </p>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-orange-700 dark:bg-zinc-900 dark:text-orange-300">
+                      <span className="material-symbols-outlined text-[13px]">
+                        near_me
+                      </span>
+                      {formatDistance(nearestStoreSuggestion.distance)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {nearestStoreSuggestion.store.name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    {nearestStoreSuggestion.store.address}
+                  </p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       <AddressModal
         isOpen={isAddressModalOpen}
         onClose={() => {
@@ -1359,8 +1590,7 @@ const CheckoutPage = () => {
                       handleApplyVoucherCode(voucherState.code);
                     }}
                     disabled={
-                      !voucherState.code.trim() ||
-                      voucherState.isValidating
+                      !voucherState.code.trim() || voucherState.isValidating
                     }
                     className="bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
                   >
@@ -1403,7 +1633,8 @@ const CheckoutPage = () => {
                         const unavailableReason =
                           getVoucherUnavailableReason(v);
                         const isUnavailable = Boolean(unavailableReason);
-                        const isApplied = voucherState.appliedVoucher?._id === v._id;
+                        const isApplied =
+                          voucherState.appliedVoucher?._id === v._id;
 
                         return (
                           <div
@@ -1434,9 +1665,7 @@ const CheckoutPage = () => {
                                   : "0đ"
                               }
                               className={`${
-                                isApplied
-                                  ? "ring-2 ring-orange-600"
-                                  : ""
+                                isApplied ? "ring-2 ring-orange-600" : ""
                               } shadow-sm transition-all pointer-events-none`}
                             />
 
@@ -1457,7 +1686,9 @@ const CheckoutPage = () => {
 
                             {isApplied && (
                               <span className="absolute top-3 right-3 bg-orange-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow-sm flex items-center gap-1">
-                                <span className="material-symbols-outlined text-xs">check</span>
+                                <span className="material-symbols-outlined text-xs">
+                                  check
+                                </span>
                                 Đang dùng
                               </span>
                             )}

@@ -12,7 +12,12 @@ import type {
 import voucherService from "@/services/voucher.service";
 import { VoucherCategory, type Voucher } from "@/types/voucher";
 import type { AuthAddress } from "@/store/authStore";
-import { calculateShippingFee } from "@/utils/shipping";
+import {
+  calculateShippingFee,
+  calculateDistance,
+  findNearestStore,
+  getAddressCoordinates,
+} from "@/utils/shipping";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useStoreStore } from "@/store/storeStore";
 
@@ -27,6 +32,16 @@ export interface VoucherState {
   discountAmount: number;
   error: string | null;
 }
+
+const toOrderAddress = (address: PlaceOrderAddress): PlaceOrderAddress => ({
+  label: address.label,
+  receiverName: address.receiverName,
+  phone: address.phone,
+  detail: address.detail,
+  ward: address.ward,
+  district: address.district,
+  city: address.city,
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -70,11 +85,15 @@ export const useCheckout = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings, fetchSettings } = useSettingsStore();
-  const { selectedStore } = useStoreStore();
+  const { selectedStore, stores, fetchStores, selectStore } = useStoreStore();
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   // Ref to signal that order has been placed successfully.
   const orderPlacedRef = useRef(false);
@@ -116,6 +135,39 @@ export const useCheckout = () => {
 
   const effectiveAddress =
     selectedAddress ?? (defaultAddress as PlaceOrderAddress | null);
+
+  const nearestStoreSuggestion = useMemo(() => {
+    const addressCoordinates = getAddressCoordinates(effectiveAddress);
+    return findNearestStore(addressCoordinates, stores);
+  }, [effectiveAddress, stores]);
+
+  const selectedStoreDistance = useMemo(() => {
+    const addressCoordinates = getAddressCoordinates(effectiveAddress);
+    const coordinates = selectedStore?.location?.coordinates;
+
+    if (!addressCoordinates || !coordinates || coordinates.length !== 2) {
+      return null;
+    }
+
+    const [storeLng, storeLat] = coordinates;
+    if (!Number.isFinite(storeLat) || !Number.isFinite(storeLng)) {
+      return null;
+    }
+
+    return calculateDistance(
+      addressCoordinates.lat,
+      addressCoordinates.lng,
+      storeLat,
+      storeLng,
+    );
+  }, [effectiveAddress, selectedStore]);
+
+  const selectNearestStoreSuggestion = useCallback(() => {
+    const nearestStore = nearestStoreSuggestion?.store;
+    if (!nearestStore) return;
+
+    selectStore(nearestStore);
+  }, [nearestStoreSuggestion, selectStore]);
 
   // ── Payment Method ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -381,7 +433,7 @@ export const useCheckout = () => {
               voucherId: voucherState.appliedVoucher._id,
             }
           : {}),
-        deliveryAddress: effectiveAddress,
+        deliveryAddress: toOrderAddress(effectiveAddress),
         shippingFee: deliveryFee,
         deliveryFee,
         note: orderNote?.trim() || undefined,
@@ -462,6 +514,9 @@ export const useCheckout = () => {
     shippingResult,
     settings,
     selectedStore,
+    selectedStoreDistance,
+    nearestStoreSuggestion,
+    selectNearestStoreSuggestion,
     isSubmitting,
     handlePlaceOrder,
     orderPlacedRef,
