@@ -19,6 +19,8 @@ export interface AuthAddress {
   district?: string;
   city: string;
   isDefault: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AuthUser {
