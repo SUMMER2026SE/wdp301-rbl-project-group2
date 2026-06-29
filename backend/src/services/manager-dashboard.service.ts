@@ -55,6 +55,38 @@ const getStoreSettingsOrDefault = async (storeId: mongoose.Types.ObjectId) => {
   };
 };
 
+const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
+  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
+});
+
+const getProductKey = (product: { category?: unknown; name?: unknown }) =>
+  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
+
+const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
+  products: T[],
+  storeId: mongoose.Types.ObjectId
+) => {
+  const currentStoreId = storeId.toString();
+  const byKey = new Map<string, T>();
+
+  for (const product of products) {
+    const key = getProductKey(product);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, product);
+      continue;
+    }
+
+    const productStoreId = (product as any).storeId?.toString();
+    const existingStoreId = (existing as any).storeId?.toString();
+    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
+      byKey.set(key, product);
+    }
+  }
+
+  return Array.from(byKey.values());
+};
+
 const getDriverDisplay = (deliveryInfo: any) => {
   const driver = deliveryInfo?.driverId;
   if (driver && typeof driver === 'object') {
@@ -113,7 +145,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
         ...codPaymentFilter,
         'payment.cashCollectedAt': null,
       }).select('totalPrice'),
-      ProductModel.find({ storeId: storeId }).select('status isAvailable operationalNote'),
+      ProductModel.find(getScopedProductFilter(storeId)).select('category name storeId status isAvailable operationalNote').lean(),
     ]);
 
   const averageProcessingMinutes = completedOrders.length
@@ -147,6 +179,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     staff[driverId].revenue += getOrderTotal(order);
     return staff;
   }, {});
+  const visibleProducts = preferStoreOverrides(products, storeId);
 
   return {
     orders: {
@@ -165,14 +198,14 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     },
     staffPerformance: Object.values(staffPerformanceMap),
     menu: {
-      activeSellingItems: products.filter(
+      activeSellingItems: visibleProducts.filter(
         (product) => product.status === ProductStatus.ACTIVE && product.isAvailable !== false
       ).length,
-      outOfStockItems: products.filter(
+      outOfStockItems: visibleProducts.filter(
         (product) => product.status === ProductStatus.OUT_OF_STOCK || product.isAvailable === false
       ).length,
-      disabledItems: products.filter((product) => product.status === ProductStatus.INACTIVE).length,
-      operationalNotes: products.filter((product) => Boolean(product.operationalNote?.trim())).length,
+      disabledItems: visibleProducts.filter((product) => product.status === ProductStatus.INACTIVE).length,
+      operationalNotes: visibleProducts.filter((product) => Boolean(product.operationalNote?.trim())).length,
     },
   };
 };

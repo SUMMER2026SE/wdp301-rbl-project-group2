@@ -6,7 +6,7 @@ import { CampaignModel } from '@/models/campaign.model';
 import { CampaignStatus } from '@/types/campaign.type';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
-import { NOT_FOUND } from '@/constants/http';
+import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import {
   attachSharedToppingVariants,
   attachSharedToppingVariantsToProducts,
@@ -66,6 +66,38 @@ const attachHealthRisk = <T extends Record<string, any>>(product: T, preferences
     ...product,
     healthRisk: evaluateProductHealthRisk(product, preferences),
   };
+};
+
+const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
+  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
+});
+
+const getProductKey = (product: { category?: unknown; name?: unknown }) =>
+  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
+
+const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
+  products: T[],
+  storeId: mongoose.Types.ObjectId
+) => {
+  const currentStoreId = storeId.toString();
+  const byKey = new Map<string, T>();
+
+  for (const product of products) {
+    const key = getProductKey(product);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, product);
+      continue;
+    }
+
+    const productStoreId = (product as any).storeId?.toString();
+    const existingStoreId = (existing as any).storeId?.toString();
+    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
+      byKey.set(key, product);
+    }
+  }
+
+  return Array.from(byKey.values());
 };
 
 const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredientName?: string; quantity: number; unit: string }>) => {
@@ -148,18 +180,30 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     limit = 12,
     isAvailable,
     healthTags,
+    storeId,
   } = filters;
 
   const query: any = {};
+  let requestedStoreId: mongoose.Types.ObjectId | undefined;
+
+  if (storeId) {
+    appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'Store id không hợp lệ');
+    requestedStoreId = new mongoose.Types.ObjectId(storeId);
+    Object.assign(query, getScopedProductFilter(requestedStoreId));
+  }
 
   // Default: only show available & active products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
+  const shouldFilterCustomerVisibilityAfterStoreOverride = Boolean(requestedStoreId && !filters.showAll);
+
   if (filters.showAll) {
     // Staff/admin management: show everything except deleted
     query.status = { $ne: 'deleted' };
     if (isAvailable !== undefined) {
       query.isAvailable = isAvailable;
     }
+  } else if (shouldFilterCustomerVisibilityAfterStoreOverride) {
+    // Store override rows must win before customer visibility filtering.
   } else {
     // Customer view: only show available & active products
     query.isAvailable = isAvailable !== undefined ? isAvailable : true;
@@ -223,14 +267,26 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
 
   const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
+  const scopedProducts = requestedStoreId
+    ? preferStoreOverrides(productsWithCampaign, requestedStoreId)
+    : productsWithCampaign;
+  const visibleProducts = shouldFilterCustomerVisibilityAfterStoreOverride
+    ? scopedProducts.filter((product: any) => {
+        const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
+        return (
+          product.isAvailable === expectedAvailability &&
+          !['deleted', 'inactive', 'out_of_stock'].includes(String(product.status))
+        );
+      })
+    : scopedProducts;
 
   return {
-    products: productsWithCampaign,
+    products: visibleProducts,
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
+      total: requestedStoreId ? visibleProducts.length : total,
+      totalPages: Math.ceil((requestedStoreId ? visibleProducts.length : total) / limit),
     },
   };
 };
