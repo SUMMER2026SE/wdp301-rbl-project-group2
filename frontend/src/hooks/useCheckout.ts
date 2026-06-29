@@ -20,6 +20,8 @@ import {
 } from "@/utils/shipping";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useStoreStore } from "@/store/storeStore";
+import productAPI from "@/services/product.service";
+import type { Product } from "@/types/product";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -55,6 +57,12 @@ const getUserTier = (user: any) => {
   return user?.tier || user?.userTier || user?.rank || user?.memberTier || null;
 };
 
+const UNAVAILABLE_ITEM_MESSAGE =
+  "Sản phẩm này đã hết, vui lòng chọn sản phẩm khác";
+
+const productAvailabilityKey = (product: { category?: string; name?: string }) =>
+  `${String(product.category ?? "").trim().toLowerCase()}::${String(product.name ?? "").trim().toLowerCase()}`;
+
 // ────────────────────────────────────────────────────────────────────────────
 // Hook
 // ────────────────────────────────────────────────────────────────────────────
@@ -77,9 +85,9 @@ export const useCheckout = () => {
 
   const {
     items: storeCartItems,
-    totalPrice: storeTotalPrice,
     clearCart,
     orderNote,
+    updateAvailability,
   } = useCart();
 
   const { user } = useAuth();
@@ -107,14 +115,33 @@ export const useCheckout = () => {
   const buyNowItem = location.state?.buyNowItem as CartItem | undefined;
 
   const cartItems = buyNowItem ? [buyNowItem] : storeCartItems;
-  const totalPrice = buyNowItem
-    ? (buyNowItem.price +
-        (buyNowItem.extras?.reduce(
-          (sum: number, extra: { price: number }) => sum + extra.price,
-          0,
-        ) || 0)) *
-      buyNowItem.quantity
-    : storeTotalPrice;
+  const selectedCartItems = useMemo(
+    () => cartItems.filter((item) => item.selected !== false),
+    [cartItems],
+  );
+  const unavailableCartItems = useMemo(
+    () => selectedCartItems.filter((item) => item.unavailable),
+    [selectedCartItems],
+  );
+  const hasUnavailableCartItems = unavailableCartItems.length > 0;
+  const availableCartItems = useMemo(
+    () => selectedCartItems.filter((item) => !item.unavailable),
+    [selectedCartItems],
+  );
+  const payableTotal = useMemo(
+    () =>
+      availableCartItems.reduce((sum, item) => {
+        const extrasPrice =
+          item.extras?.reduce(
+            (extraSum: number, extra: { price: number }) =>
+              extraSum + extra.price,
+            0,
+          ) || 0;
+        return sum + (item.price + extrasPrice) * item.quantity;
+      }, 0),
+    [availableCartItems],
+  );
+  const totalPrice = payableTotal;
 
   // ── Address ───────────────────────────────────────────────────────────────
   const addresses = useMemo(
@@ -162,12 +189,100 @@ export const useCheckout = () => {
     );
   }, [effectiveAddress, selectedStore]);
 
-  const selectNearestStoreSuggestion = useCallback(() => {
-    const nearestStore = nearestStoreSuggestion?.store;
-    if (!nearestStore) return;
+  const resolveCartAvailabilityForStore = useCallback(
+    async (storeId: string) => {
+      const removedItemNames = new Set<string>();
+      const availabilityMap: Record<
+        string,
+        { unavailable: boolean; reason?: string }
+      > = {};
+      const unavailableSelectedProductIds: string[] = [];
 
-    selectStore(nearestStore);
-  }, [nearestStoreSuggestion, selectStore]);
+      if (buyNowItem || cartItems.length === 0) {
+        return {
+          removedItemNames: [],
+          availabilityMap,
+          unavailableSelectedProductIds,
+        };
+      }
+
+      const [visibleProductsRes, productDetailResults] = await Promise.all([
+        productAPI.getProducts({
+          storeId,
+          limit: 1000,
+          isAvailable: true,
+        }),
+        Promise.all(
+          cartItems.map((item) =>
+            productAPI.getProductById(item.productId).catch(() => null),
+          ),
+        ),
+      ]);
+
+      const visibleProductByKey = new Map<string, Product>();
+      for (const product of visibleProductsRes.data ?? []) {
+        visibleProductByKey.set(productAvailabilityKey(product), product);
+      }
+
+      productDetailResults.forEach((result, index) => {
+        const cartItem = cartItems[index];
+        if (!cartItem) return;
+
+        const product = result?.success ? result.data : null;
+        const visibleProduct = product
+          ? visibleProductByKey.get(productAvailabilityKey(product))
+          : undefined;
+        const unavailable = !visibleProduct;
+
+        availabilityMap[cartItem.productId] = {
+          unavailable,
+          reason: unavailable ? UNAVAILABLE_ITEM_MESSAGE : undefined,
+        };
+
+        if (unavailable && cartItem.selected !== false) {
+          unavailableSelectedProductIds.push(cartItem.productId);
+          removedItemNames.add(cartItem.name);
+        }
+      });
+
+      return {
+        removedItemNames: Array.from(removedItemNames),
+        availabilityMap,
+        unavailableSelectedProductIds,
+      };
+    },
+    [buyNowItem, cartItems],
+  );
+
+  const selectNearestStoreSuggestion = useCallback(async () => {
+    const nearestStore = nearestStoreSuggestion?.store;
+    if (!nearestStore) return [];
+
+    try {
+      const result = await resolveCartAvailabilityForStore(nearestStore._id);
+      if (!buyNowItem && cartItems.length > 0) {
+        updateAvailability(result.availabilityMap);
+      }
+
+      selectStore(nearestStore);
+      return result.removedItemNames;
+    } catch (error) {
+      console.error("Failed to validate cart items for suggested store", error);
+      toast(
+        "Không thể kiểm tra tình trạng món ở chi nhánh mới. Vui lòng thử lại.",
+        "warning",
+      );
+      throw error;
+    }
+  }, [
+    buyNowItem,
+    cartItems,
+    nearestStoreSuggestion,
+    resolveCartAvailabilityForStore,
+    selectStore,
+    toast,
+    updateAvailability,
+  ]);
 
   // ── Payment Method ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -398,9 +513,14 @@ export const useCheckout = () => {
   const handlePlaceOrder = useCallback(async () => {
     if (isSubmitting) return;
 
-    if (cartItems.length === 0) {
-      toast("Giỏ hàng của bạn đang trống", "warning");
-      navigate("/menu");
+    if (availableCartItems.length === 0) {
+      toast(
+        cartItems.length === 0
+          ? "Giỏ hàng của bạn đang trống"
+          : "Không có sản phẩm khả dụng để thanh toán",
+        "warning",
+      );
+      navigate(cartItems.length === 0 ? "/menu" : "/cart");
       return;
     }
 
@@ -420,7 +540,7 @@ export const useCheckout = () => {
       const payload = {
         storeId: selectedStore?._id,
 
-        items: cartItems.map((item) => ({
+        items: availableCartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           variations: item.variations ?? [],
@@ -472,6 +592,7 @@ export const useCheckout = () => {
   }, [
     isSubmitting,
     cartItems,
+    availableCartItems,
     effectiveAddress,
     isDeliverable,
     paymentMethod,
@@ -490,6 +611,10 @@ export const useCheckout = () => {
   return {
     // Cart
     cartItems,
+    selectedCartItems,
+    availableCartItems,
+    unavailableCartItems,
+    hasUnavailableCartItems,
     // Address
     addresses,
     defaultAddress,
@@ -513,6 +638,7 @@ export const useCheckout = () => {
     isDeliverable,
     shippingResult,
     settings,
+    stores,
     selectedStore,
     selectedStoreDistance,
     nearestStoreSuggestion,

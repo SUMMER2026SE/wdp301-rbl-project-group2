@@ -15,6 +15,12 @@ import { useToast } from "@/hooks/useToast";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
 import { useStoreStore } from "@/store/storeStore";
 
+const UNAVAILABLE_ITEM_MESSAGE =
+  "Sản phẩm này đã hết, vui lòng chọn sản phẩm khác";
+
+const productAvailabilityKey = (product: { category?: string; name?: string }) =>
+  `${String(product.category ?? "").trim().toLowerCase()}::${String(product.name ?? "").trim().toLowerCase()}`;
+
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
@@ -32,6 +38,7 @@ const ShoppingCartPage = () => {
     setOrderNote,
     toggleSelectItem,
     toggleSelectAll,
+    updateAvailability,
     clearCart,
   } = useSafeCart();
 
@@ -40,6 +47,11 @@ const ShoppingCartPage = () => {
   const [loadingUpsell, setLoadingUpsell] = useState(true);
   const selectedStore = useStoreStore((s) => s.selectedStore);
   const [originalPrices, setOriginalPrices] = useState<Record<string, number>>({});
+  const unavailableItems = cartItems.filter(
+    (item) => item.unavailable && item.selected !== false,
+  );
+  const hasUnavailableItems = unavailableItems.length > 0;
+  const cartProductIds = cartItems.map((item) => item.productId).join("|");
 
   useEffect(() => {
     const fetchUpsellProducts = async () => {
@@ -65,13 +77,22 @@ const ShoppingCartPage = () => {
     const syncPrices = async () => {
       if (cartItems.length === 0) return;
       try {
-        const [productsRes, campaignsRes] = await Promise.all([
+        const [productsRes, campaignsRes, storeVisibleProductsRes] = await Promise.all([
           Promise.all(
             cartItems.map((item) =>
               productAPI.getProductById(item.productId).catch(() => null)
             )
           ),
           campaignAPI.getCampaigns().catch(() => ({ data: [] })),
+          selectedStore?._id
+            ? productAPI
+                .getProducts({
+                  storeId: selectedStore._id,
+                  limit: 1000,
+                  isAvailable: true,
+                })
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         const now = new Date();
@@ -92,31 +113,86 @@ const ShoppingCartPage = () => {
 
         const priceMap: Record<string, number> = {};
         const origPriceMap: Record<string, number> = {};
-        productsRes.forEach((res) => {
-          if (!res || !res.success || !res.data) return;
-          const product = res.data;
-          let price = product.price;
-          origPriceMap[product._id] = product.price;
+        const availabilityMap: Record<
+          string,
+          { unavailable: boolean; reason?: string }
+        > = {};
+        const visibleStoreProductByKey = new Map<string, Product>();
 
-          const rule = campaignRuleMap[product._id];
+        for (const product of storeVisibleProductsRes?.data ?? []) {
+          visibleStoreProductByKey.set(productAvailabilityKey(product), product);
+        }
+
+        productsRes.forEach((res, index) => {
+          const cartItem = cartItems[index];
+          if (!cartItem) return;
+
+          if (!res || !res.success || !res.data) {
+            if (cartItem) {
+              availabilityMap[cartItem.productId] = {
+                unavailable: true,
+                reason: UNAVAILABLE_ITEM_MESSAGE,
+              };
+            }
+            return;
+          }
+          const product = res.data;
+          const visibleStoreProduct = selectedStore?._id
+            ? visibleStoreProductByKey.get(productAvailabilityKey(product))
+            : undefined;
+          const effectiveProduct = visibleStoreProduct ?? product;
+          let price = effectiveProduct.price;
+          origPriceMap[cartItem.productId] = effectiveProduct.price;
+
+          const rule =
+            campaignRuleMap[effectiveProduct._id] ??
+            campaignRuleMap[cartItem.productId];
           if (rule) {
             if (rule.fixedPrice !== null && rule.fixedPrice !== undefined) {
               price = rule.fixedPrice;
             } else if (rule.discount !== null && rule.discount !== undefined) {
-              price = product.price * (1 - rule.discount / 100);
+              price = effectiveProduct.price * (1 - rule.discount / 100);
             }
           }
-          priceMap[product._id] = price;
+          priceMap[cartItem.productId] = price;
+
+          const productStoreId =
+            typeof effectiveProduct.storeId === "string"
+              ? effectiveProduct.storeId
+              : (effectiveProduct.storeId as any)?._id;
+          const unavailable =
+            (selectedStore?._id && visibleStoreProduct
+              ? false
+              : effectiveProduct.isAvailable === false) ||
+            ["inactive", "out_of_stock", "deleted"].includes(
+              effectiveProduct.status,
+            ) ||
+            Boolean(
+              selectedStore?._id &&
+                productStoreId &&
+                productStoreId !== selectedStore._id,
+            ) ||
+            Boolean(
+              selectedStore?._id &&
+                !visibleStoreProduct &&
+                !productStoreId,
+            );
+
+          availabilityMap[cartItem.productId] = {
+            unavailable,
+            reason: unavailable ? UNAVAILABLE_ITEM_MESSAGE : undefined,
+          };
         });
 
         setOriginalPrices(origPriceMap);
         useCartStore.getState().updateItemPrices(priceMap);
+        updateAvailability(availabilityMap);
       } catch (err) {
         console.error("Failed to sync cart prices with active campaigns:", err);
       }
     };
     syncPrices();
-  }, [cartItems.length]);
+  }, [cartProductIds, cartItems, selectedStore?._id, updateAvailability]);
 
   // Mock upsell items (vẫn giữ để UI đẹp)
   const upsellItems = MOCK_UPSELL_ITEMS;
@@ -200,33 +276,51 @@ const ShoppingCartPage = () => {
                   </Link>
                 </div>
               ) : (
-                cartItems.map((item) => (
-                  <div
-                    key={itemKey(item)}
-                    onClick={() => toggleSelectItem(itemKey(item))}
-                    className="flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer"
-                  >
-                    <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={item.selected !== false}
-                        onChange={() => toggleSelectItem(itemKey(item))}
-                        className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                      />
-                    </div>
+                cartItems.map((item) => {
+                  const isUnavailable = Boolean(item.unavailable);
+
+                  return (
                     <div
-                      className="bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100"
-                      style={{ backgroundImage: `url("${item.image}")` }}
-                    />
-                    <div className="flex flex-1 flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-bold text-text-main dark:text-white line-clamp-1">
-                            {item.name}
-                          </h3>
-                          <p className="text-[#9a734c] text-sm mt-1">
-                            {item.size || "Standard"}
-                          </p>
+                      key={itemKey(item)}
+                      onClick={() => toggleSelectItem(itemKey(item))}
+                      aria-disabled={isUnavailable}
+                      className={`flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer ${
+                        isUnavailable ? "bg-gray-50/70 dark:bg-white/[0.03]" : ""
+                      }`}
+                    >
+                      <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={item.selected !== false}
+                          onChange={() => toggleSelectItem(itemKey(item))}
+                          className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        />
+                      </div>
+                      <div
+                        className={`bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100 ${
+                          isUnavailable ? "grayscale opacity-60" : ""
+                        }`}
+                        style={{ backgroundImage: `url("${item.image}")` }}
+                      />
+                      <div
+                        className={`flex flex-1 flex-col justify-between ${
+                          isUnavailable ? "grayscale" : ""
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-bold text-text-main dark:text-white line-clamp-1">
+                              {item.name}
+                            </h3>
+                            {isUnavailable && (
+                              <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
+                                {item.unavailableReason ||
+                                  UNAVAILABLE_ITEM_MESSAGE}
+                              </p>
+                            )}
+                            <p className="text-[#9a734c] text-sm mt-1">
+                              {item.size || "Standard"}
+                            </p>
 
                           {(() => {
                             const chips = buildVariantChips(
@@ -286,7 +380,8 @@ const ShoppingCartPage = () => {
                         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors"
+                            disabled={isUnavailable}
+                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
                           >
                             -
                           </button>
@@ -295,7 +390,8 @@ const ShoppingCartPage = () => {
                           </span>
                           <button
                             onClick={() => updateQuantity(itemKey(item), item.quantity + 1)}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors"
+                            disabled={isUnavailable}
+                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
                           >
                             +
                           </button>
@@ -303,7 +399,8 @@ const ShoppingCartPage = () => {
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -369,12 +466,21 @@ const ShoppingCartPage = () => {
                       }
                       navigate("/checkout");
                     }}
-                    disabled={totalPrice === 0}
+                    disabled={totalPrice === 0 || hasUnavailableItems}
                     className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg mt-8 hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                   >
                     {t("customer:cart.checkout", "Tiến hành thanh toán")}
                     <span className="material-symbols-outlined">arrow_forward</span>
                   </button>
+
+                  {hasUnavailableItems && (
+                    <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs font-bold text-red-600 dark:text-red-400">
+                      <span className="material-symbols-outlined text-sm">
+                        block
+                      </span>
+                      Vui lòng xóa hoặc chọn sản phẩm khác cho món đã hết hàng
+                    </p>
+                  )}
 
                   <p className="text-center text-[10px] text-[#9a734c] mt-4 uppercase tracking-widest font-bold">
                     Thanh toán bảo mật qua cổng kết nối an toàn

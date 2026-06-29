@@ -50,6 +50,7 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   image?: string;
   price: number;
   category: ProductCategory;
+  storeId?: mongoose.Types.ObjectId;
   restaurant?: string;
   time?: string;
   rating?: number;

@@ -1,6 +1,6 @@
 export interface Product {
   _id: string;
-  storeId?: string;
+  storeId?: string | { _id: string };
   name: string;
   description: string;
   image: string | { secureUrl: string };

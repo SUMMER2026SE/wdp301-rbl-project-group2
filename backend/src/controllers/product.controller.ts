@@ -26,7 +26,7 @@ export const getProductCategoriesHandler = catchErrors(async (req: Request, res:
 
 // GET /api/products
 export const getAllProductsHandler = catchErrors(async (req: Request, res: Response) => {
-    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, showAll } = req.query;
+    const { category, minPrice, maxPrice, minRating, search, sort, page, limit, isAvailable, showAll, storeId } = req.query;
 
     const rawHealthTags = req.query.healthTags || req.query['healthTags[]'];
     let healthTagsParsed: string[] | undefined = undefined;
@@ -66,6 +66,7 @@ export const getAllProductsHandler = catchErrors(async (req: Request, res: Respo
         page: page ? Number(page) : 1,
         limit: limit ? Number(limit) : 12,
         isAvailable: isAvailable === undefined ? undefined : isAvailable === 'true',
+        storeId: typeof storeId === 'string' ? storeId : undefined,
         showAll: shouldShowAll,
         healthTags: healthTagsParsed,
     };
