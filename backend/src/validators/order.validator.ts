@@ -1,7 +1,7 @@
 import { PaymentMethod } from '@/types/order.type';
 import z from 'zod';
 
-export const voucherIdValidator = z.string().length(24, 'Voucher id không hợp lệ').optional();
+export const voucherIdValidator = z.string().min(1, 'Voucher không hợp lệ').max(50, 'Voucher không hợp lệ').optional();
 
 export const deliveryAddressValidator = z.object({
   label: z.string().optional(),
