@@ -25,6 +25,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
       min: [0.01, 'Price must be greater than 0'],
     },
     category: { type: String, required: true, enum: ProductCategory },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', index: true },
     restaurant: { type: String, trim: true },
     time: { type: String, trim: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
@@ -47,6 +48,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
 // Indexes
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ category: 1 });
+ProductSchema.index({ storeId: 1, status: 1 });
 ProductSchema.index({ price: 1 });
 ProductSchema.index({ name: 'text', description: 'text' }); // Text search indexing
 
