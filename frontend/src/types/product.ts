@@ -1,6 +1,10 @@
 export interface Product {
   _id: string;
   storeId?: string | { _id: string };
+  storeAvailability?: {
+    storeId: string | { _id: string };
+    status: "active" | "inactive" | "out_of_stock";
+  }[];
   name: string;
   description: string;
   image: string | { secureUrl: string };

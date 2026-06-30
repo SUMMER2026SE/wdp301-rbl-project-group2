@@ -11,6 +11,18 @@ const ProductRecipeItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ProductStoreAvailabilitySchema = new mongoose.Schema(
+  {
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    status: {
+      type: String,
+      required: true,
+      enum: [ProductStatus.ACTIVE, ProductStatus.INACTIVE, ProductStatus.OUT_OF_STOCK],
+    },
+  },
+  { _id: false }
+);
+
 const ProductSchema = new mongoose.Schema<IProduct>(
   {
     status: { type: String, required: true, enum: ProductStatus, default: ProductStatus.ACTIVE },
@@ -25,7 +37,6 @@ const ProductSchema = new mongoose.Schema<IProduct>(
       min: [0.01, 'Price must be greater than 0'],
     },
     category: { type: String, required: true, enum: ProductCategory },
-    storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', index: true },
     restaurant: { type: String, trim: true },
     time: { type: String, trim: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
@@ -37,6 +48,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
     isAvailable: { type: Boolean, default: true },
     isCampaignRunning: { type: Boolean, default: false },
     variationIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Variation' }],
+    storeAvailability: { type: [ProductStoreAvailabilitySchema], default: [] },
     tags: { type: [String], default: [] },
     operationalNote: { type: String, trim: true },
   },
@@ -48,7 +60,7 @@ const ProductSchema = new mongoose.Schema<IProduct>(
 // Indexes
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ category: 1 });
-ProductSchema.index({ storeId: 1, status: 1 });
+ProductSchema.index({ 'storeAvailability.storeId': 1 });
 ProductSchema.index({ price: 1 });
 ProductSchema.index({ name: 'text', description: 'text' }); // Text search indexing
 

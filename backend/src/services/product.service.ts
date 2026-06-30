@@ -12,6 +12,7 @@ import {
   attachSharedToppingVariantsToProducts,
 } from '@/services/shared-topping.service';
 import { evaluateProductHealthRisk } from '@/services/health-risk.service';
+import { applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
 export const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
 
@@ -66,38 +67,6 @@ const attachHealthRisk = <T extends Record<string, any>>(product: T, preferences
     ...product,
     healthRisk: evaluateProductHealthRisk(product, preferences),
   };
-};
-
-const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
-  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
-});
-
-const getProductKey = (product: { category?: unknown; name?: unknown }) =>
-  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
-
-const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
-  products: T[],
-  storeId: mongoose.Types.ObjectId
-) => {
-  const currentStoreId = storeId.toString();
-  const byKey = new Map<string, T>();
-
-  for (const product of products) {
-    const key = getProductKey(product);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, product);
-      continue;
-    }
-
-    const productStoreId = (product as any).storeId?.toString();
-    const existingStoreId = (existing as any).storeId?.toString();
-    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
-      byKey.set(key, product);
-    }
-  }
-
-  return Array.from(byKey.values());
 };
 
 const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredientName?: string; quantity: number; unit: string }>) => {
@@ -189,7 +158,6 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   if (storeId) {
     appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'Store id không hợp lệ');
     requestedStoreId = new mongoose.Types.ObjectId(storeId);
-    Object.assign(query, getScopedProductFilter(requestedStoreId));
   }
 
   // Default: only show available & active products to customers.
@@ -268,7 +236,7 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 
   const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
   const scopedProducts = requestedStoreId
-    ? preferStoreOverrides(productsWithCampaign, requestedStoreId)
+    ? applyStoreAvailabilityToProducts(productsWithCampaign, requestedStoreId)
     : productsWithCampaign;
   const visibleProducts = shouldFilterCustomerVisibilityAfterStoreOverride
     ? scopedProducts.filter((product: any) => {
