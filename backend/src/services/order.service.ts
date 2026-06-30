@@ -29,6 +29,7 @@ import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
 import { attachSharedToppingVariants } from './shared-topping.service';
+import { applyStoreAvailability } from '@/utils/product-store-availability';
 
 const INNER_WARDS = [
   'Hải Châu I',
@@ -276,26 +277,9 @@ const resolveOrderItems = async (
   }
 
   for (const item of rawItems) {
-    let productDoc = await ProductModel.findById(item.productId).session(session);
-
-    if (productDoc && storeObjectId) {
-      const productObject = productDoc.toObject() as any;
-      const productStoreId = productObject.storeId?.toString();
-
-      if (!productStoreId || productStoreId !== storeObjectId.toString()) {
-        const storeOverrideDoc = await ProductModel.findOne({
-          storeId: storeObjectId,
-          name: productObject.name,
-          category: productObject.category,
-        }).session(session);
-
-        if (storeOverrideDoc) {
-          productDoc = storeOverrideDoc;
-        }
-      }
-    }
-
-    const product = await attachSharedToppingVariants(productDoc?.toObject() as any);
+    const productDoc = await ProductModel.findById(item.productId).session(session);
+    const productObject = productDoc ? applyStoreAvailability(productDoc.toObject() as any, storeObjectId) : null;
+    const product = await attachSharedToppingVariants(productObject as any);
 
     appAssert(product, NOT_FOUND, `Không tìm thấy sản phẩm với id: ${item.productId}`);
     appAssert(product.isAvailable, BAD_REQUEST, `Sản phẩm "${product.name}" hiện không có sẵn`);
@@ -305,14 +289,6 @@ const resolveOrderItems = async (
       `Sản phẩm "${product.name}" hiện không có sẵn`
     );
 
-    const productStoreId = (product as any).storeId?.toString();
-    if (storeId && productStoreId) {
-      appAssert(
-        productStoreId === storeId,
-        BAD_REQUEST,
-        `Sản phẩm "${product.name}" không thuộc chi nhánh đã chọn`
-      );
-    }
 
     const normalizedVariations = [];
     if (item.variations && item.variations.length > 0) {

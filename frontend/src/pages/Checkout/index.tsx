@@ -180,6 +180,9 @@ const CheckoutPage = () => {
       limit: 1000,
       isAvailable: true,
     });
+    const visibleProductById = new Map(
+      (visibleProductsRes.data ?? []).map((product) => [product._id, product]),
+    );
     const visibleProductByKey = new Map(
       (visibleProductsRes.data ?? []).map((product) => [
         productAvailabilityKey(product),
@@ -197,7 +200,10 @@ const CheckoutPage = () => {
         ? productDetails[index]!.data
         : null;
       const isUnavailable = product
-        ? !visibleProductByKey.has(productAvailabilityKey(product))
+        ? !(
+            visibleProductById.has(item.productId) ||
+            visibleProductByKey.has(productAvailabilityKey(product))
+          )
         : true;
 
       availabilityMap[item.productId] = {

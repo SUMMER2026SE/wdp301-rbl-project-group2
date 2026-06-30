@@ -117,9 +117,11 @@ const ShoppingCartPage = () => {
           string,
           { unavailable: boolean; reason?: string }
         > = {};
+        const visibleStoreProductById = new Map<string, Product>();
         const visibleStoreProductByKey = new Map<string, Product>();
 
         for (const product of storeVisibleProductsRes?.data ?? []) {
+          visibleStoreProductById.set(product._id, product);
           visibleStoreProductByKey.set(productAvailabilityKey(product), product);
         }
 
@@ -138,7 +140,8 @@ const ShoppingCartPage = () => {
           }
           const product = res.data;
           const visibleStoreProduct = selectedStore?._id
-            ? visibleStoreProductByKey.get(productAvailabilityKey(product))
+            ? visibleStoreProductById.get(cartItem.productId) ??
+              visibleStoreProductByKey.get(productAvailabilityKey(product))
             : undefined;
           const effectiveProduct = visibleStoreProduct ?? product;
           let price = effectiveProduct.price;
@@ -156,27 +159,12 @@ const ShoppingCartPage = () => {
           }
           priceMap[cartItem.productId] = price;
 
-          const productStoreId =
-            typeof effectiveProduct.storeId === "string"
-              ? effectiveProduct.storeId
-              : (effectiveProduct.storeId as any)?._id;
-          const unavailable =
-            (selectedStore?._id && visibleStoreProduct
-              ? false
-              : effectiveProduct.isAvailable === false) ||
-            ["inactive", "out_of_stock", "deleted"].includes(
-              effectiveProduct.status,
-            ) ||
-            Boolean(
-              selectedStore?._id &&
-                productStoreId &&
-                productStoreId !== selectedStore._id,
-            ) ||
-            Boolean(
-              selectedStore?._id &&
-                !visibleStoreProduct &&
-                !productStoreId,
-            );
+          const unavailable = selectedStore?._id
+            ? !visibleStoreProduct
+            : effectiveProduct.isAvailable === false ||
+              ["inactive", "out_of_stock", "deleted"].includes(
+                effectiveProduct.status,
+              );
 
           availabilityMap[cartItem.productId] = {
             unavailable,

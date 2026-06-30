@@ -3,78 +3,46 @@ import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import ProductModel from '@/models/product.model';
 import { ProductStatus } from '@/types/product.type';
+import { applyStoreAvailability, applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
-const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
-  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
-});
-
-const getGlobalProductFilter = () => ({
-  $or: [{ storeId: { $exists: false } }, { storeId: null }],
-});
-
-const getProductKey = (product: { category?: unknown; name?: unknown }) =>
-  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
-
-const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
-  products: T[],
-  storeId: mongoose.Types.ObjectId
-) => {
-  const currentStoreId = storeId.toString();
-  const byKey = new Map<string, T>();
-
-  for (const product of products) {
-    const key = getProductKey(product);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, product);
-      continue;
-    }
-
-    const productStoreId = (product as any).storeId?.toString();
-    const existingStoreId = (existing as any).storeId?.toString();
-    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
-      byKey.set(key, product);
-    }
-  }
-
-  return Array.from(byKey.values());
+const assertOperationalStatus = (status: unknown) => {
+  appAssert(
+    [ProductStatus.ACTIVE, ProductStatus.INACTIVE, ProductStatus.OUT_OF_STOCK].includes(status as ProductStatus),
+    BAD_REQUEST,
+    'Trang thai san pham khong hop le'
+  );
 };
 
 export const getManagerMenu = async (
   storeId: mongoose.Types.ObjectId,
   query: { category?: string; status?: string } = {}
 ) => {
-  const filter: Record<string, any> = getScopedProductFilter(storeId);
+  const filter: Record<string, any> = { status: { $ne: ProductStatus.DELETED } };
 
   if (query.category) {
     filter.category = query.category;
   }
   if (query.status) {
-    filter.status = query.status;
+    assertOperationalStatus(query.status);
   }
 
-  const products = await ProductModel.find(filter)
-    .sort({ category: 1, name: 1 })
-    .populate('variationIds')
-    .lean();
+  const products = await ProductModel.find(filter).sort({ category: 1, name: 1 }).populate('variationIds').lean();
+  const scopedProducts = applyStoreAvailabilityToProducts(products, storeId);
 
-  return preferStoreOverrides(products, storeId);
+  return query.status ? scopedProducts.filter((product) => product.status === query.status) : scopedProducts;
 };
 
 export const getManagerProductById = async (storeId: mongoose.Types.ObjectId, productId: string) => {
-  const product = await ProductModel.findOne({
-    _id: productId,
-    ...getScopedProductFilter(storeId),
-  })
+  const product = await ProductModel.findById(productId)
     .populate({
       path: 'recipe.ingredientId',
       select: 'name unit',
     })
     .populate('variationIds');
 
-  appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
+  appAssert(product, NOT_FOUND, 'Khong tim thay san pham');
 
-  return product;
+  return applyStoreAvailability(product.toObject(), storeId);
 };
 
 export const updateManagerProductAvailability = async (
@@ -86,61 +54,44 @@ export const updateManagerProductAvailability = async (
     appAssert(
       ['isAvailable', 'status', 'operationalNote'].includes(key),
       BAD_REQUEST,
-      `Không được phép cập nhật trường core: ${key}`
+      `Khong duoc phep cap nhat truong core: ${key}`
     );
   }
 
   if ('status' in updates) {
-    const status = updates.status;
-    appAssert(
-      [ProductStatus.ACTIVE, ProductStatus.INACTIVE, ProductStatus.OUT_OF_STOCK].includes(status),
-      BAD_REQUEST,
-      'Trạng thái sản phẩm không hợp lệ'
+    assertOperationalStatus(updates.status);
+  }
+
+  const requestedStatus =
+    'status' in updates
+      ? updates.status
+      : 'isAvailable' in updates
+        ? updates.isAvailable
+          ? ProductStatus.ACTIVE
+          : ProductStatus.INACTIVE
+        : undefined;
+
+  appAssert(requestedStatus, BAD_REQUEST, 'Trang thai san pham la bat buoc');
+
+  const product = await ProductModel.findById(productId).lean();
+  appAssert(product, NOT_FOUND, 'Khong tim thay san pham');
+
+  const existingEntry = product.storeAvailability?.some((item: any) => item.storeId?.toString() === storeId.toString());
+
+  if (existingEntry) {
+    await ProductModel.updateOne(
+      { _id: product._id, 'storeAvailability.storeId': storeId },
+      { $set: { 'storeAvailability.$.status': requestedStatus } }
+    );
+  } else {
+    await ProductModel.updateOne(
+      { _id: product._id, 'storeAvailability.storeId': { $ne: storeId } },
+      { $push: { storeAvailability: { storeId, status: requestedStatus } } }
     );
   }
 
-  const updateFields: any = {};
-  if ('isAvailable' in updates) {
-    updateFields.isAvailable = !!updates.isAvailable;
-  }
-  if ('status' in updates) {
-    updateFields.status = updates.status;
-  }
-  if ('operationalNote' in updates) {
-    updateFields.operationalNote = updates.operationalNote?.trim() || undefined;
-  }
+  const updatedProduct = await ProductModel.findById(product._id).populate('variationIds').lean();
+  appAssert(updatedProduct, NOT_FOUND, 'Khong tim thay san pham');
 
-  const storeProduct = await ProductModel.findOneAndUpdate(
-    { _id: productId, storeId },
-    { $set: updateFields },
-    { new: true }
-  );
-
-  if (storeProduct) {
-    return storeProduct;
-  }
-
-  const globalProduct = await ProductModel.findOne({
-    _id: productId,
-    ...getGlobalProductFilter(),
-  }).lean();
-  appAssert(globalProduct, NOT_FOUND, 'Không tìm thấy sản phẩm');
-
-  const baseProduct = { ...(globalProduct as any) };
-  delete baseProduct._id;
-  delete baseProduct.__v;
-  delete baseProduct.createdAt;
-  delete baseProduct.updatedAt;
-  const insertResult = await ProductModel.collection.insertOne({
-    ...baseProduct,
-    ...updateFields,
-    storeId,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  const product = await ProductModel.findById(insertResult.insertedId);
-  appAssert(product, NOT_FOUND, 'Không tìm thấy sản phẩm');
-
-  return product;
+  return applyStoreAvailability(updatedProduct, storeId);
 };

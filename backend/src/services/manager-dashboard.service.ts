@@ -6,6 +6,7 @@ import { createAuditLog } from '@/services/audit-log.service';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 import { OrderStatus, PaymentMethod } from '@/types/order.type';
 import { ProductStatus } from '@/types/product.type';
+import { applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
 const IN_PROGRESS_STATUSES = [
   OrderStatus.CONFIRMED,
@@ -53,38 +54,6 @@ const getStoreSettingsOrDefault = async (storeId: mongoose.Types.ObjectId) => {
     openHours: settings?.openHours ?? DEFAULT_OPEN_HOURS,
     isOpen: settings?.isOpen ?? true,
   };
-};
-
-const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
-  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
-});
-
-const getProductKey = (product: { category?: unknown; name?: unknown }) =>
-  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
-
-const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
-  products: T[],
-  storeId: mongoose.Types.ObjectId
-) => {
-  const currentStoreId = storeId.toString();
-  const byKey = new Map<string, T>();
-
-  for (const product of products) {
-    const key = getProductKey(product);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, product);
-      continue;
-    }
-
-    const productStoreId = (product as any).storeId?.toString();
-    const existingStoreId = (existing as any).storeId?.toString();
-    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
-      byKey.set(key, product);
-    }
-  }
-
-  return Array.from(byKey.values());
 };
 
 const getDriverDisplay = (deliveryInfo: any) => {
@@ -145,7 +114,9 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
         ...codPaymentFilter,
         'payment.cashCollectedAt': null,
       }).select('totalPrice'),
-      ProductModel.find(getScopedProductFilter(storeId)).select('category name storeId status isAvailable operationalNote').lean(),
+      ProductModel.find({ status: { $ne: ProductStatus.DELETED } })
+        .select('category name status isAvailable storeAvailability operationalNote')
+        .lean(),
     ]);
 
   const averageProcessingMinutes = completedOrders.length
@@ -179,7 +150,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     staff[driverId].revenue += getOrderTotal(order);
     return staff;
   }, {});
-  const visibleProducts = preferStoreOverrides(products, storeId);
+  const visibleProducts = applyStoreAvailabilityToProducts(products, storeId);
 
   return {
     orders: {
