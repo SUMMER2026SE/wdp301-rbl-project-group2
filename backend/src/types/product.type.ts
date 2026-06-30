@@ -69,6 +69,9 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   isCampaignRunning: boolean;
   variationIds: mongoose.Types.ObjectId[];
   storeAvailability?: IProductStoreAvailability[];
+  crossContaminationRisk?: boolean;
+  mayContain?: string[];
+  embedding?: number[];
   tags?: string[];
   operationalNote?: string;
   createdAt: Date;
