@@ -46,6 +46,7 @@ const PreferencesSchema = new mongoose.Schema<IPreferences>(
     dietary: { type: [String], default: [] },
     allergies: { type: [String], default: [] },
     healthGoals: { type: [String], default: [] },
+    tastes: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -110,7 +111,7 @@ const UserSchema = new mongoose.Schema<IUser>(
     },
     preferences: {
       type: PreferencesSchema,
-      default: () => ({ dietary: [] as string[], allergies: [] as string[], healthGoals: [] as string[] }),
+      default: () => ({ dietary: [] as string[], allergies: [] as string[], healthGoals: [] as string[], tastes: [] as string[] }),
     },
     receiveCampaignNotifications: {
       type: Boolean,
