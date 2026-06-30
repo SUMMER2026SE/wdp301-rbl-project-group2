@@ -41,6 +41,11 @@ export interface IProductVariantGroup {
   options: IProductVariantOption[];
 }
 
+export interface IProductStoreAvailability {
+  storeId: mongoose.Types.ObjectId;
+  status: ProductStatus;
+}
+
 export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   status: ProductStatus;
   nameEmbedding?: string | null;
@@ -50,7 +55,6 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   image?: string;
   price: number;
   category: ProductCategory;
-  storeId?: mongoose.Types.ObjectId;
   restaurant?: string;
   time?: string;
   rating?: number;
@@ -64,6 +68,7 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   isAvailable?: boolean;
   isCampaignRunning: boolean;
   variationIds: mongoose.Types.ObjectId[];
+  storeAvailability?: IProductStoreAvailability[];
   tags?: string[];
   operationalNote?: string;
   createdAt: Date;
