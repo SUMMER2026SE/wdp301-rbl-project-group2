@@ -9,7 +9,6 @@ import NotificationModel from '@/models/notification.model';
 import { FileOwnerType } from '@/types/file.type';
 import { OrderStatus } from '@/types/order.type';
 import { NotificationType } from '@/types/notification.type';
-import { ProductStatus } from '@/types/product.type';
 import { ReviewReactionType } from '@/types/review-reaction.type';
 import { moderateReviewComment } from '@/services/ai.service';
 import appAssert from '@/utils/app-assert';
@@ -280,8 +279,8 @@ export const getFeaturedReviews = async (limit = 3) => {
     .populate('userId', 'username avatar')
     .populate({
       path: 'productId',
-      select: 'name image status',
-      match: { status: ProductStatus.ACTIVE },
+      select: 'name image isAvailable',
+      match: { isAvailable: true },
     })
     .lean();
 

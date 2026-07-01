@@ -160,22 +160,19 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     requestedStoreId = new mongoose.Types.ObjectId(storeId);
   }
 
-  // Default: only show available & active products to customers.
+  // Default: only show available products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
   const shouldFilterCustomerVisibilityAfterStoreOverride = Boolean(requestedStoreId && !filters.showAll);
 
   if (filters.showAll) {
-    // Staff/admin management: show everything except deleted
-    query.status = { $ne: 'deleted' };
     if (isAvailable !== undefined) {
       query.isAvailable = isAvailable;
     }
   } else if (shouldFilterCustomerVisibilityAfterStoreOverride) {
     // Store override rows must win before customer visibility filtering.
   } else {
-    // Customer view: only show available & active products
+    // Customer view: only show available products.
     query.isAvailable = isAvailable !== undefined ? isAvailable : true;
-    query.status = { $nin: ['deleted', 'inactive', 'out_of_stock'] };
   }
   if (healthTags?.length) {
     query.healthTags = { $in: healthTags };
@@ -243,7 +240,7 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
         const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
         return (
           product.isAvailable === expectedAvailability &&
-          !['deleted', 'inactive', 'out_of_stock'].includes(String(product.status))
+          !['inactive', 'out_of_stock'].includes(String(product.status))
         );
       })
     : scopedProducts;

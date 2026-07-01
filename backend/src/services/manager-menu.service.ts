@@ -17,7 +17,7 @@ export const getManagerMenu = async (
   storeId: mongoose.Types.ObjectId,
   query: { category?: string; status?: string } = {}
 ) => {
-  const filter: Record<string, any> = { status: { $ne: ProductStatus.DELETED } };
+  const filter: Record<string, any> = {};
 
   if (query.category) {
     filter.category = query.category;

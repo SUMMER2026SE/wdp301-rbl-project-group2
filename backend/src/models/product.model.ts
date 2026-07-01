@@ -25,7 +25,6 @@ const ProductStoreAvailabilitySchema = new mongoose.Schema(
 
 const ProductSchema = new mongoose.Schema<IProduct>(
   {
-    status: { type: String, required: true, enum: ProductStatus, default: ProductStatus.ACTIVE },
     nameEmbedding: { type: String, default: null },
     imgEmbedding: { type: String, required: true },
     name: { type: String, required: true, trim: true },
@@ -58,7 +57,6 @@ const ProductSchema = new mongoose.Schema<IProduct>(
 );
 
 // Indexes
-ProductSchema.index({ status: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ 'storeAvailability.storeId': 1 });
 ProductSchema.index({ price: 1 });
