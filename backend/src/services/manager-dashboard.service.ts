@@ -114,9 +114,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
         ...codPaymentFilter,
         'payment.cashCollectedAt': null,
       }).select('totalPrice'),
-      ProductModel.find({ status: { $ne: ProductStatus.DELETED } })
-        .select('category name status isAvailable storeAvailability operationalNote')
-        .lean(),
+      ProductModel.find({}).select('category name isAvailable storeAvailability operationalNote').lean(),
     ]);
 
   const averageProcessingMinutes = completedOrders.length

@@ -17,6 +17,7 @@ import appAssert from '@/utils/app-assert';
 import { productValidator, updateProductValidator } from '@/validators/product.validator';
 import { Role } from '@/types/user.type';
 import { ProductStatus } from '@/types/product.type';
+import mongoose from 'mongoose';
 
 // GET /api/products/categories
 export const getProductCategoriesHandler = catchErrors(async (_req: Request, res: Response) => {
@@ -119,7 +120,7 @@ export const deleteProductHandler = catchErrors(async (req: Request, res: Respon
 // PATCH /api/products/:id/availability - Staff + Admin only
 export const updateProductAvailabilityHandler = catchErrors(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { isAvailable, status, operationalNote } = req.body;
+  const { isAvailable, status, operationalNote, storeId } = req.body;
 
   const updates: Partial<{ isAvailable: boolean; status: string; operationalNote: string }> = {};
   if (isAvailable !== undefined) updates.isAvailable = !!isAvailable;
@@ -139,11 +140,26 @@ export const updateProductAvailabilityHandler = catchErrors(async (req: Request,
 
   let product;
   const userRoleNormalized = user.role?.toLowerCase();
-  if (userRoleNormalized === Role.STAFF && user.storeId) {
-    product = await updateManagerProductAvailability(user.storeId as any, id, updates);
+  const scopedStoreId =
+    userRoleNormalized === Role.STAFF && user.storeId
+      ? user.storeId
+      : typeof storeId === 'string' && mongoose.isValidObjectId(storeId)
+        ? new mongoose.Types.ObjectId(storeId)
+        : undefined;
+
+  if (scopedStoreId && (updates.status !== undefined || updates.isAvailable !== undefined)) {
+    product = await updateManagerProductAvailability(scopedStoreId as any, id, updates);
   } else {
     appAssert(userRoleNormalized === Role.ADMIN, FORBIDDEN, 'Ban khong co quyen cap nhat trang thai san pham');
-    product = await ProductModel.findOneAndUpdate({ _id: id }, { $set: updates }, { new: true });
+    appAssert(updates.status === undefined, BAD_REQUEST, 'Store id la bat buoc khi cap nhat trang thai san pham');
+    const globalUpdates: Partial<{ isAvailable: boolean; operationalNote: string }> = {};
+    if (updates.isAvailable !== undefined) globalUpdates.isAvailable = updates.isAvailable;
+    if (updates.operationalNote !== undefined) globalUpdates.operationalNote = updates.operationalNote;
+    product = await ProductModel.findOneAndUpdate(
+      { _id: id },
+      { $set: globalUpdates },
+      { new: true }
+    );
     appAssert(product, NOT_FOUND, 'Khong tim thay san pham');
   }
 
