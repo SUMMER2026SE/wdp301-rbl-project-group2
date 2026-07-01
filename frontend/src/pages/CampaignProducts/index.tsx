@@ -62,14 +62,14 @@ const CampaignProductsPage: React.FC = () => {
           const matched = active.find((c) => c._id === campaignId);
           if (matched) {
             setCampaign(matched);
-            campaignAPI.trackActivity(matched._id, "view").catch(() => {});
+            campaignAPI.trackActivity(matched._id, "view").catch(() => { });
           } else {
             const detailRes = await campaignAPI.getCampaignById(campaignId);
             if (detailRes.success) {
               setCampaign(detailRes.data);
               campaignAPI
                 .trackActivity(detailRes.data._id, "view")
-                .catch(() => {});
+                .catch(() => { });
             } else {
               setError("Không thể tải thông tin chiến dịch");
             }
@@ -236,11 +236,10 @@ const CampaignProductsPage: React.FC = () => {
                 onClick={() => {
                   navigate(`/products-campaign/${c._id}`);
                 }}
-                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  campaign._id === c._id
-                    ? "bg-orange-600 text-white shadow-md shadow-orange-600/10"
-                    : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
-                }`}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${campaign._id === c._id
+                  ? "bg-orange-600 text-white shadow-md shadow-orange-600/10"
+                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
               >
                 {c.name}
               </button>
@@ -330,17 +329,17 @@ const CampaignProductsPage: React.FC = () => {
                 isUpcoming
                   ? undefined
                   : (_, trigger) => {
-                      campaignAPI
-                        .trackActivity(campaign._id, "click")
-                        .catch(() => {});
-                      safeAddItem(p.product, {
-                        productId: p._id,
-                        name: p.name,
-                        image: p.image,
-                        price: p.price,
-                        quantity: 1,
-                      });
-                    }
+                    campaignAPI
+                      .trackActivity(campaign._id, "click")
+                      .catch(() => { });
+                    safeAddItem(p.product, {
+                      productId: p._id,
+                      name: p.name,
+                      image: p.image,
+                      price: p.price,
+                      quantity: 1,
+                    });
+                  }
               }
             />
           ))}

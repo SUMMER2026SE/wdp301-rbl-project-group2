@@ -98,7 +98,7 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
   return resolved;
 };
 
-async function applyCampaignPricing<T extends { _id: any; price: number }>(
+export async function applyCampaignPricing<T extends { _id: any; price: number }>(
   products: T[]
 ): Promise<(T & { campaignPrice?: number })[]> {
   if (!products.length) return products;
