@@ -4,6 +4,7 @@ import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
 import Redis from 'ioredis';
 import { redisConfig } from '@/config/redis';
+import { applyCampaignPricing } from '@/services/product.service';
 
 const redis = new Redis({
     host: (redisConfig as any).host,
@@ -83,11 +84,7 @@ export const handleChat = async (req: Request, res: Response) => {
                 response: "Phí giao hàng của FOA được tính dựa trên khoảng cách: Miễn phí cho đơn hàng dưới 2km. Từ 2km trở lên, phí ship dao động từ 15,000đ - 25,000đ tùy khoảng cách cụ thể nha."
             });
         }
-        if (intent === 'PROMOTION') {
-            return res.json({
-                response: "FOA đang có chương trình khuyến mãi giảm ngay 10% cho đơn hàng đầu tiên của bạn đó! Bạn có thể xem thêm chi tiết trong mục 'Ưu đãi' trên ứng dụng nha."
-            });
-        }
+
         if (intent === 'OUT_OF_SCOPE') {
             return res.json({
                 response: "Mình là trợ lý đặt món của FOA, chỉ có thể hỗ trợ các thông tin về thực đơn, dinh dưỡng, an toàn thực phẩm và đơn hàng thôi nè. Bạn vui lòng hỏi những chủ đề liên quan nhé!"
@@ -138,16 +135,18 @@ export const handleChat = async (req: Request, res: Response) => {
         if (verifiedIds.length > 0) {
             const products = await ProductModel.find({ _id: { $in: verifiedIds } }).lean();
             if (products.length > 0) {
-                recommendedProducts = products.map(p => ({
+                // Apply campaign pricing logic
+                const pricedProducts = await applyCampaignPricing(products);
+                recommendedProducts = pricedProducts.map(p => ({
                     _id: p._id.toString(),
                     name: p.name,
-                    price: p.price,
+                    price: p.campaignPrice ?? p.price,
                     image: p.image || '',
                     category: p.category,
                     description: p.description
                 }));
-                finalMessage += "\n\n**Các món ăn gợi ý cho bạn:**\n" + products.map(p =>
-                    `- **${p.name}** (${p.price.toLocaleString()}đ): ${p.description || ''}`
+                finalMessage += "\n\n**Các món ăn gợi ý cho bạn:**\n" + pricedProducts.map(p =>
+                    `- **${p.name}** (${(p.campaignPrice ?? p.price).toLocaleString()}đ${p.campaignPrice ? ' - Giá gốc: ~~' + p.price.toLocaleString() + 'đ~~' : ''}): ${p.description || ''}`
                 ).join('\n');
             }
         }

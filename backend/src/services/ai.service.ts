@@ -12,7 +12,7 @@ import { StoreModel } from '@/models/store.model';
 import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
 
 export const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-export const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+export const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 export const groq = new Groq({ apiKey: GROQ_API_KEY });
 export const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
 
