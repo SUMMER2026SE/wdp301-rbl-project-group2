@@ -4,6 +4,7 @@ import { IngredientModel } from '@/models/ingredient.model';
 import { StoreModel } from '@/models/store.model';
 import { CampaignModel } from '@/models/campaign.model';
 import { CampaignStatus } from '@/types/campaign.type';
+import { ProductStatus } from '@/types/product.type';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
@@ -197,6 +198,38 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     query.name = { $regex: escapeRegex(literalSearch), $options: 'i' };
   }
 
+  if (shouldFilterCustomerVisibilityAfterStoreOverride) {
+    const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
+    if (expectedAvailability) {
+      query.$or = [
+        {
+          storeAvailability: {
+            $elemMatch: {
+              storeId: requestedStoreId,
+              status: ProductStatus.ACTIVE,
+            },
+          },
+        },
+        {
+          $and: [
+            {
+              storeAvailability: {
+                $not: {
+                  $elemMatch: {
+                    storeId: requestedStoreId,
+                  },
+                },
+              },
+            },
+            { isAvailable: true },
+          ],
+        },
+      ];
+    } else {
+      query._id = { $exists: false };
+    }
+  }
+
   let sortOptions: any = {};
   switch (sort) {
     case 'price_asc':
@@ -218,6 +251,13 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 
   const skip = (page - 1) * limit;
 
+  const enrichProducts = async (productsToEnrich: any[]) => {
+    const productsWithIngredients = productsToEnrich.map((product) => withRecipeNames(product));
+    const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
+    const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
+    return applyCampaignPricing(productsWithRisk);
+  };
+
   const [products, total] = await Promise.all([
     ProductModel.find(query)
       .populate(PRODUCT_RECIPE_POPULATE)
@@ -227,31 +267,18 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
       .lean(),
     ProductModel.countDocuments(query),
   ]);
-  const productsWithIngredients = products.map((product) => withRecipeNames(product));
-  const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
-  const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
-
-  const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
   const scopedProducts = requestedStoreId
-    ? applyStoreAvailabilityToProducts(productsWithCampaign, requestedStoreId)
-    : productsWithCampaign;
-  const visibleProducts = shouldFilterCustomerVisibilityAfterStoreOverride
-    ? scopedProducts.filter((product: any) => {
-        const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
-        return (
-          product.isAvailable === expectedAvailability &&
-          !['inactive', 'out_of_stock'].includes(String(product.status))
-        );
-      })
-    : scopedProducts;
+    ? applyStoreAvailabilityToProducts(products, requestedStoreId)
+    : products;
+  const productsWithCampaign = await enrichProducts(scopedProducts);
 
   return {
-    products: visibleProducts,
+    products: productsWithCampaign,
     pagination: {
       page,
       limit,
-      total: requestedStoreId ? visibleProducts.length : total,
-      totalPages: Math.ceil((requestedStoreId ? visibleProducts.length : total) / limit),
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   };
 };
