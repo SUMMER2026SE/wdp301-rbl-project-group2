@@ -41,6 +41,26 @@ export interface CreateCampaignPayload {
   endTime: string;
 }
 
+export interface CampaignSuggestionProduct {
+  productId: string;
+  name: string;
+  reason: string;
+  discount?: number;
+  fixedPrice?: number | null;
+  soldQuantity?: number;
+}
+
+export interface CampaignSuggestionResponse {
+  name: string;
+  type: string;
+  summary: string;
+  startTime?: string;
+  endTime?: string;
+  products: CampaignSuggestionProduct[];
+  rationale?: string;
+  durationDays?: number;
+}
+
 class CampaignAPI {
   async getCampaigns(): Promise<{ success: boolean; data: Campaign[] }> {
     const response = await apiClient.get("/campaigns");
@@ -54,6 +74,17 @@ class CampaignAPI {
 
   async createCampaign(data: CreateCampaignPayload): Promise<{ success: boolean; data: Campaign; message: string }> {
     const response = await apiClient.post("/campaigns", data);
+    return response.data;
+  }
+
+  async suggestCampaign(payload: {
+    days?: number;
+    weather?: "rainy" | "hot" | "cold" | "sunny" | "normal";
+    occasion?: "summer" | "christmas" | "tet" | "valentine" | "none";
+    goal?: "boost_sales" | "clear_stock" | "contextual" | "engagement";
+    productCount?: number;
+  }): Promise<{ success: boolean; data: CampaignSuggestionResponse; message: string }> {
+    const response = await apiClient.post("/campaigns/ai-suggest", payload);
     return response.data;
   }
 

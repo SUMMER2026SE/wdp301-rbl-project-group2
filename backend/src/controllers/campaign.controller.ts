@@ -9,12 +9,14 @@ import {
   updateCampaign,
   updateCampaignStatus,
   trackCampaignActivity,
+  suggestCampaignWithAI,
 } from '@/services/campaign.service';
 import { CampaignStatus } from '@/types/campaign.type';
 import {
   createCampaignValidator,
   updateCampaignStatusValidator,
   updateCampaignValidator,
+  suggestCampaignValidator,
 } from '@/validators/campaign.validator';
 
 export const createCampaignHandler = catchErrors(async (req, res) => {
@@ -37,6 +39,16 @@ export const getCampaignsHandler = catchErrors(async (req, res) => {
 export const getCampaignByIdHandler = catchErrors(async (req, res) => {
   const campaign = await getCampaignById(req.params.id);
   return res.success(OK, { data: campaign });
+});
+
+export const suggestCampaignWithAIHandler = catchErrors(async (req, res) => {
+  const params = suggestCampaignValidator.parse(req.body);
+  const suggestion = await suggestCampaignWithAI(params);
+
+  return res.success(OK, {
+    data: suggestion,
+    message: 'Đã tạo gợi ý chiến dịch thành công',
+  });
 });
 
 export const updateCampaignHandler = catchErrors(async (req, res) => {
@@ -76,3 +88,5 @@ export const trackCampaignActivityHandler = catchErrors(async (req, res) => {
     message: 'Ghi nhận lượt tương tác thành công',
   });
 });
+
+
