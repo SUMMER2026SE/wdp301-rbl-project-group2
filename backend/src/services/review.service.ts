@@ -4,23 +4,19 @@ import OrderModel from '@/models/order.model';
 import ProductModel from '@/models/product.model';
 import ReviewModel from '@/models/review.model';
 import ReviewReactionModel from '@/models/review-reaction.model';
-import UserModel from '@/models/user.model';
 import NotificationModel from '@/models/notification.model';
-import { FileOwnerType } from '@/types/file.type';
-import { OrderStatus } from '@/types/order.type';
+import UserModel from '@/models/user.model';
+import { FileModerationCategory, FileModerationStatus, FileOwnerType } from '@/types/file.type';
 import { NotificationType } from '@/types/notification.type';
+import { OrderStatus } from '@/types/order.type';
 import { ProductStatus } from '@/types/product.type';
 import { ReviewReactionType } from '@/types/review-reaction.type';
-import { moderateReviewComment } from '@/services/ai.service';
+import { moderateReviewImageFromUrl } from '@/services/ai.service';
 import appAssert from '@/utils/app-assert';
 import { TCreateReviewItem } from '@/validators/review.validator';
+import { deleteFile } from '@/utils/upload-file';
 import mongoose from 'mongoose';
 import type { Server } from 'socket.io';
-
-const REVIEW_TOXIC_LIMIT = 3;
-const REVIEW_BAN_HOURS = 24;
-const REVIEW_MODERATION_MIN_DELAY_MS = 50_000;
-const REVIEW_MODERATION_MAX_DELAY_MS = 60_000;
 
 const emptyReactionSummary = () => ({
   like: 0,
@@ -126,14 +122,12 @@ export const createOrderReviews = async (
     reviewDocs.push(review);
     await updateProductOverallRating(productId);
 
-    if (review) {
-      scheduleReviewModeration({
+    if (review && images.length > 0) {
+      scheduleReviewImageModeration({
         reviewId: review._id,
-        expectedUpdatedAt: review.updatedAt,
+        imageIds: images,
         userId,
         orderId: order._id,
-        productId,
-        comment,
         io,
       });
     }
@@ -280,8 +274,8 @@ export const getFeaturedReviews = async (limit = 3) => {
     .populate('userId', 'username avatar')
     .populate({
       path: 'productId',
-      select: 'name image status',
-      match: { status: ProductStatus.ACTIVE },
+      select: 'name image isAvailable',
+      match: { isAvailable: true },
     })
     .lean();
 
@@ -317,99 +311,108 @@ const updateProductOverallRating = async (productId: string) => {
     reviewCount: 0,
   });
 };
-
-const recordToxicReviewAttempt = async (userId: mongoose.Types.ObjectId) => {
-  const user = await UserModel.findByIdAndUpdate(
-    userId,
-    {
-      $inc: { 'reviewModeration.toxicCount': 1 },
-      $set: { 'reviewModeration.lastToxicAt': new Date() },
-    },
-    { new: true }
-  ).select('reviewModeration');
-
-  const toxicCount = user?.reviewModeration?.toxicCount ?? 1;
-  const reviewBannedUntil =
-    toxicCount >= REVIEW_TOXIC_LIMIT ? new Date(Date.now() + REVIEW_BAN_HOURS * 60 * 60 * 1000) : null;
-
-  if (reviewBannedUntil) {
-    await UserModel.findByIdAndUpdate(userId, {
-      $set: { 'reviewModeration.reviewBannedUntil': reviewBannedUntil },
-    });
-  }
-
-  return {
-    toxicCount,
-    reviewBannedUntil,
-  };
-};
-
-const getReviewModerationDelayMs = () =>
-  REVIEW_MODERATION_MIN_DELAY_MS +
-  Math.floor(Math.random() * (REVIEW_MODERATION_MAX_DELAY_MS - REVIEW_MODERATION_MIN_DELAY_MS + 1));
-
-const scheduleReviewModeration = (payload: {
+const scheduleReviewImageModeration = (payload: {
   reviewId: mongoose.Types.ObjectId;
-  expectedUpdatedAt: Date;
+  imageIds: string[];
   userId: mongoose.Types.ObjectId;
   orderId: mongoose.Types.ObjectId;
-  productId: string;
-  comment: string;
   io?: Server;
 }) => {
   const timer = setTimeout(() => {
-    void moderateSavedReview(payload);
-  }, getReviewModerationDelayMs());
+    void moderateSavedReviewImages(payload);
+  }, 0);
 
   timer.unref?.();
 };
 
-const moderateSavedReview = async ({
+const deleteRejectedReviewImage = async (file: {
+  _id: mongoose.Types.ObjectId;
+  public_id: string;
+  resource_type: string;
+}) => {
+  try {
+    await deleteFile(file.public_id, file.resource_type);
+  } catch (error) {
+    console.error('[ReviewImageModeration] Failed to delete rejected Cloudinary file', {
+      fileId: file._id.toString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+
+  await FileModel.findByIdAndDelete(file._id);
+};
+
+const moderateSavedReviewImages = async ({
   reviewId,
-  expectedUpdatedAt,
+  imageIds,
   userId,
   orderId,
-  productId,
-  comment,
   io,
 }: {
   reviewId: mongoose.Types.ObjectId;
-  expectedUpdatedAt: Date;
+  imageIds: string[];
   userId: mongoose.Types.ObjectId;
   orderId: mongoose.Types.ObjectId;
-  productId: string;
-  comment: string;
   io?: Server;
 }) => {
   try {
-    const moderation = await moderateReviewComment(comment);
-    if (moderation.action !== 'delete') return;
+    const files = await FileModel.find({
+      _id: { $in: imageIds },
+      owner_id: userId,
+      owner_type: FileOwnerType.REVIEW,
+    }).select('_id public_id secure_url resource_type format bytes moderationStatus');
 
-    const deleted = await ReviewModel.deleteOne({
-      _id: reviewId,
-      updatedAt: expectedUpdatedAt,
-    });
-    if (deleted.deletedCount === 0) return;
+    for (const file of files) {
+      if (file.moderationStatus === FileModerationStatus.APPROVED) continue;
 
-    await ReviewReactionModel.deleteMany({ reviewId });
-    await updateProductOverallRating(productId);
-    const violation = await recordToxicReviewAttempt(userId);
-    const bannedMessage = violation.reviewBannedUntil
-      ? ' Bạn đã bị tạm khóa quyền đánh giá trong 24 giờ.'
-      : '';
+      const fallbackMimeType = file.format ? `image/${file.format}` : 'image/jpeg';
+      const moderation = await moderateReviewImageFromUrl(file.secure_url, fallbackMimeType, file.bytes);
+      const now = new Date();
 
-    const notification = await NotificationModel.create({
-      userId,
-      orderId,
-      title: 'Đánh giá đã bị xóa',
-      body: `Đánh giá của bạn đã bị xóa do vi phạm chính sách nội dung.${bannedMessage}`,
-      type: NotificationType.SYSTEM,
-      isRead: false,
-    });
+      if (moderation.action === 'allow') {
+        await FileModel.updateOne(
+          { _id: file._id },
+          {
+            $set: {
+              moderationStatus: FileModerationStatus.APPROVED,
+              moderationCategory: FileModerationCategory.NONE,
+              moderationConfidence: moderation.confidence,
+              moderationReason: moderation.reason,
+              moderatedAt: now,
+            },
+          }
+        );
+        continue;
+      }
 
-    io?.to(`user:${userId.toString()}`).emit('notification:new', notification.toObject());
+      await ReviewModel.updateOne({ _id: reviewId }, { $pull: { images: file._id } });
+      await FileModel.updateOne(
+        { _id: file._id },
+        {
+          $set: {
+            moderationStatus: FileModerationStatus.REJECTED,
+            moderationCategory: moderation.category,
+            moderationConfidence: moderation.confidence,
+            moderationReason: moderation.reason,
+            moderatedAt: now,
+          },
+        }
+      );
+      await deleteRejectedReviewImage(file);
+
+      const notification = await NotificationModel.create({
+        userId,
+        orderId,
+        title: 'Ảnh đánh giá đã bị gỡ',
+        body: `Một ảnh trong đánh giá của bạn đã bị gỡ do không phù hợp với chính sách nội dung.${moderation.reason ? ` Lý do: ${moderation.reason}` : ''}`,
+        type: NotificationType.SYSTEM,
+        isRead: false,
+      });
+
+      io?.to(`user:${userId.toString()}`).emit('notification:new', notification.toObject());
+    }
   } catch (error) {
-    console.error('[ReviewModeration] Background moderation failed', {
+    console.error('[ReviewImageModeration] Background moderation failed', {
       reviewId: reviewId.toString(),
       error: error instanceof Error ? error.message : 'Unknown error',
     });

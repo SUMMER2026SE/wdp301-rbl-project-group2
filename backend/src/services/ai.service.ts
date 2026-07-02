@@ -5,9 +5,21 @@ import axios from 'axios';
 import { z } from 'zod';
 import { OrderStatus } from '@/types';
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-const groq = new Groq({ apiKey: GROQ_API_KEY });
+export const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+export const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+export const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
+export const groq = new Groq({ apiKey: GROQ_API_KEY });
+export const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
+
+const dotProduct = (a: number[], b: number[]) => a.reduce((sum, val, i) => sum + val * b[i], 0);
+const magnitude = (a: number[]) => Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+export const cosineSimilarity = (a: number[], b: number[]) => {
+  if (!a || !b || a.length !== b.length) return 0;
+  const magA = magnitude(a);
+  const magB = magnitude(b);
+  if (magA === 0 || magB === 0) return 0;
+  return dotProduct(a, b) / (magA * magB);
+};
 
 const reviewModerationSchema = z.object({
   action: z.enum(['allow', 'delete']),
@@ -99,6 +111,168 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 };
 
+
+const REVIEW_IMAGE_MODERATION_CATEGORIES = [
+  'none',
+  'sexual',
+  'violence',
+  'hate',
+  'self_harm',
+  'illegal',
+  'spam',
+  'private_info',
+  'other',
+] as const;
+
+const reviewImageModerationSchema = z.object({
+  action: z.enum(['allow', 'reject']),
+  category: z.enum(REVIEW_IMAGE_MODERATION_CATEGORIES).default('none'),
+  confidence: z.number().min(0).max(1).default(0),
+  reason: z.string().max(200).default(''),
+});
+
+export type ReviewImageModerationResult = z.infer<typeof reviewImageModerationSchema>;
+
+const fallbackRejectReviewImage = (reason: string): ReviewImageModerationResult => ({
+  action: 'reject',
+  category: 'other',
+  confidence: 1,
+  reason,
+});
+
+const REVIEW_IMAGE_MODEL_CANDIDATES = Array.from(
+  new Set(
+    (process.env.GEMINI_VISION_MODELS || `${DEFAULT_GEMINI_MODEL},gemini-2.5-flash,gemini-2.0-flash`)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )
+);
+const parseJsonObject = (raw: string) => {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON object in AI response');
+  return JSON.parse(jsonMatch[0]);
+};
+
+interface ReviewImageModerationInput {
+  buffer: Buffer;
+  mimeType: string;
+  bytes?: number;
+}
+
+const moderateReviewImageData = async ({ buffer, mimeType, bytes }: ReviewImageModerationInput): Promise<ReviewImageModerationResult> => {
+  if (!buffer?.length) {
+    return fallbackRejectReviewImage('Image file is empty');
+  }
+
+  const prompt = `You are an image content moderation classifier for customer food-order reviews.
+Inspect ONLY the provided image. Do not infer identity, demographics, or private traits.
+
+ALLOW images that are clearly safe for a food review, including:
+- food, drinks, packaging, delivery bags, restaurant/store context
+- damaged, spoiled, undercooked, messy, or low-quality food when shown as customer feedback
+- receipts only when no sensitive personal/payment details are readable
+
+REJECT images containing:
+- nudity, sexual content, or explicit body exposure
+- graphic violence, blood, gore, self-harm, weapons, drugs, or illegal activity
+- hate symbols, extremist content, harassment, or threatening content
+- QR codes, phone numbers, external links, ads, scam/spam promotions, or attempts to redirect users off-platform
+- readable private information such as full address, payment card, bank account, ID card, access token, or private messages
+- content clearly unrelated to food reviews and unsafe for a public commerce platform
+
+Return JSON only with this exact shape:
+{
+  "action": "allow" | "reject",
+  "category": "none" | "sexual" | "violence" | "hate" | "self_harm" | "illegal" | "spam" | "private_info" | "other",
+  "confidence": number,
+  "reason": "short Vietnamese reason"
+}`;
+
+  let lastError: unknown = null;
+
+  for (const modelName of REVIEW_IMAGE_MODEL_CANDIDATES) {
+    try {
+      const imageModel = genAI.getGenerativeModel({ model: modelName });
+      const result = await withTimeout(
+        imageModel.generateContent([
+          prompt,
+          {
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType,
+            },
+          },
+        ]),
+        10000
+      );
+
+      const raw = result.response.text() || '{}';
+      const parsed = reviewImageModerationSchema.safeParse(parseJsonObject(raw));
+      if (!parsed.success) throw new Error('Invalid review image moderation shape');
+
+      if (parsed.data.action === 'reject' && parsed.data.confidence < 0.65) {
+        return {
+          action: 'allow',
+          category: 'none',
+          confidence: parsed.data.confidence,
+          reason: 'AI confidence below reject threshold',
+        };
+      }
+
+      return parsed.data;
+    } catch (error) {
+      lastError = error;
+      console.warn('[ReviewImageModeration] Model attempt failed', {
+        model: modelName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        mimeType,
+        bytes,
+      });
+    }
+  }
+
+  console.error('[ReviewImageModeration] All model attempts failed', {
+    error: lastError instanceof Error ? lastError.message : 'Unknown error',
+    mimeType,
+    bytes,
+  });
+  return fallbackRejectReviewImage('Khong the kiem duyet anh luc nay');
+};
+
+export const moderateReviewImage = async (file: Express.Multer.File): Promise<ReviewImageModerationResult> =>
+  moderateReviewImageData({
+    buffer: file.buffer,
+    mimeType: file.mimetype,
+    bytes: file.size,
+  });
+
+export const moderateReviewImageFromUrl = async (
+  imageUrl: string,
+  fallbackMimeType = 'image/jpeg',
+  bytes?: number
+): Promise<ReviewImageModerationResult> => {
+  try {
+    const response = await axios.get<ArrayBuffer>(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      maxContentLength: 10 * 1024 * 1024,
+    });
+
+    const contentType = String(response.headers['content-type'] || fallbackMimeType).split(';')[0].trim();
+    return moderateReviewImageData({
+      buffer: Buffer.from(response.data),
+      mimeType: contentType || fallbackMimeType,
+      bytes,
+    });
+  } catch (error) {
+    console.error('[ReviewImageModeration] Failed to fetch image for moderation', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      bytes,
+    });
+    return fallbackRejectReviewImage('Khong the tai anh de kiem duyet');
+  }
+};
 export const moderateReviewComment = async (comment?: string | null): Promise<ReviewModerationResult> => {
   const normalizedComment = comment?.trim();
   if (!normalizedComment) {
@@ -225,6 +399,7 @@ interface Preferences {
   dietary: string[];
   allergies: string[];
   healthGoals: string[];
+  tastes?: string[];
 }
 
 export interface AIRecommendation {
@@ -600,89 +775,6 @@ Bắt buộc trả về thuần JSON, không có text giải thích bên ngoài.
   }
 };
 
-export const getAIResponseForChat = async (
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[],
-  message: string,
-  userContext?: {
-    fullName: string;
-    preferences: Preferences;
-    safeProducts: { name: string; description: string }[]
-  } | null
-): Promise<string> => {
-
-  // ── 1. Try Custom AI Microservice ─────────────────────────────────────────
-  if (await isMicroserviceAvailable()) {
-    try {
-      const res = await axios.post(`${AI_MICROSERVICE_URL}/chat/message`, {
-        message,
-        history,
-        userContext,
-      }, { timeout: 30000 });
-
-      const response = res.data?.response as string;
-      if (response) {
-        console.log('[AI] Using Microservice for chat');
-        return response;
-      }
-    } catch (err) {
-      console.warn('[AI] Microservice chat failed, falling back to Groq:', err);
-    }
-  }
-
-  // ── 2. Fallback: Groq ─────────────────────────────────────────────────────
-  const messages = history.map((h) => ({
-    role: h.role === 'model' ? 'assistant' : 'user',
-    content: h.parts[0].text,
-  }));
-
-  let contextSnippet = '';
-  if (userContext) {
-    const { fullName, preferences, safeProducts } = userContext;
-    contextSnippet = `
-            THÔNG TIN NGƯỜI DÙNG HIỆN TẠI:
-            - Tên: ${fullName}
-            - Dị ứng: ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'Không có'}
-            - Chế độ ăn kiêng: ${preferences.dietary.length > 0 ? preferences.dietary.join(', ') : 'Không có'}
-            - Mục tiêu sức khỏe: ${preferences.healthGoals.length > 0 ? preferences.healthGoals.join(', ') : 'Không có'}
-            
-            DANH SÁCH MÓN ĂN AN TOÀN GỢI Ý (Bạn hãy ưu tiên nhắc đến những món này):
-            ${safeProducts.map(p => `- ${p.name}: ${p.description}`).join('\n')}
-            
-            HƯỚNG DẪN: hãy chào ${fullName} một cách thân thiện. Sử dụng thông tin sức khỏe trên để tư vấn món ăn. 
-            Nếu người dùng hỏi về món ăn không nằm trong danh sách an toàn, hãy nhắc nhở họ kiểm tra kỹ thành phần.`;
-  }
-
-  const systemPrompt = {
-    role: 'system',
-    content: `Bạn là Chatbot hỗ trợ thông minh của FOA (Food Order App). 
-            FOA là ứng dụng gọi món ăn tập trung vào sức khỏe người dùng, 
-            giúp gợi ý món ăn dựa trên hồ sơ sức khỏe, dị ứng và mục tiêu dinh dưỡng.
-            
-            QUY TẮC CỐT LÕI:
-            1. Bạn PHẢI nhận diện và chào người dùng bằng tên nếu được cung cấp ở phần THÔNG TIN NGƯỜI DÙNG bên dưới.
-            2. Bạn đã nắm rõ Dị ứng, Chế độ ăn và Mục tiêu của họ. Tuyệt đối không nói "Tôi không biết bạn là ai" nếu có thông tin bên dưới.
-            3. Trả lời bằng Tiếng Việt, lịch sự, thân thiện và hữu ích.${contextSnippet}
-            
-            Nếu được hỏi về các món ăn ngoài danh sách gợi ý an toàn, hãy nhắc nhở người dùng kiểm tra kỹ thành phần và khuyến khích họ cập nhật hồ sơ sức khỏe trong phần cài đặt.`,
-  };
-
-  try {
-    const completion = await groq.chat.completions.create({
-      messages: [systemPrompt, ...messages, { role: 'user', content: message }] as any,
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.7,
-      max_tokens: 1024,
-    });
-
-    return completion.choices[0]?.message?.content || 'Xin lỗi, tôi không nhận được phản hồi.';
-  } catch (err: any) {
-    console.error('Groq Chat error:', err);
-    if (err.status === 429) {
-      return 'Hệ thống AI hiện đang bận do quá tải yêu cầu. Vui lòng thử lại sau 1 phút nhé! 🕒';
-    }
-    return 'Xin lỗi, tôi đang gặp lỗi kỹ thuật. Vui lòng thử lại sau nhé!';
-  }
-};
 // ── AI Campaign Suggestions ──────────────────────────────────────────────────
 // Accept both 'summary' and 'tagline' from AI output, coerce null→undefined for optional numbers
 export const aiCampaignSuggestionResponseSchema = z.object({
