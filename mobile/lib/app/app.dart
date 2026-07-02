@@ -5,6 +5,15 @@ import 'package:foa_mobile/app/routes/app_router.dart';
 import 'package:foa_mobile/core/theme/app_theme.dart';
 import 'package:foa_mobile/core/services/socket_service.dart';
 import 'package:foa_mobile/core/di/injection.dart';
+import 'package:foa_mobile/features/stores/presentation/cubit/store_cubit.dart';
+
+
+// Import Staff Blocs
+import 'package:foa_mobile/features/staff_orders/presentation/blocs/staff_orders_bloc.dart';
+import 'package:foa_mobile/features/staff_delivery/presentation/blocs/staff_delivery_bloc.dart';
+import 'package:foa_mobile/features/staff_menu/presentation/blocs/staff_menu_bloc.dart';
+import 'package:foa_mobile/features/staff_chat/presentation/blocs/staff_chat_bloc.dart';
+import 'package:foa_mobile/features/staff_customers/presentation/blocs/staff_customers_bloc.dart';
 
 /// Root application widget.
 /// Provides global BLoC providers, theme, and GoRouter.
@@ -59,6 +68,18 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<StoreCubit>(
+          create: (context) => sl<StoreCubit>()
+            ..hydrateStore()
+            ..fetchStores(),
+        ),
+        // Add Staff Blocs globally to share states and socket listeners
+        BlocProvider<StaffOrdersBloc>(create: (context) => sl<StaffOrdersBloc>()),
+
+        BlocProvider<StaffDeliveryBloc>(create: (context) => sl<StaffDeliveryBloc>()),
+        BlocProvider<StaffMenuBloc>(create: (context) => sl<StaffMenuBloc>()),
+        BlocProvider<StaffChatBloc>(create: (context) => sl<StaffChatBloc>()),
+        BlocProvider<StaffCustomersBloc>(create: (context) => sl<StaffCustomersBloc>()),
       ],
       child: MaterialApp.router(
         title: 'FoodieDash',

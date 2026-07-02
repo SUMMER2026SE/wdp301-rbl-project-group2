@@ -20,12 +20,13 @@ class ApiEndpoints {
   static const String resetPassword = '/auth/password/reset';
 
   // ── Users / Profile ──
-  static const String userProfile = '/users/profile';
-  static const String changePassword = '/users/change-password';
-  static const String userAddresses = '/users/addresses';
-  static const String userPreferences = '/users/preferences';
-  static const String userMembership = '/users/membership';
-  static const String userPoints = '/users/points';
+  static const String userProfile = '/users/me';
+  static const String changePassword = '/users/me/password';
+  static const String userAddresses = '/users/me';
+  static const String userPreferences = '/users/me';
+  static const String userMembership = '/users/me/membership';
+  static const String userPoints = '/users/me/points';
+  static const String userPointsHistory = '/users/me/points';
 
   // ── Products / Menu ──
   static const String products = '/products';
@@ -38,10 +39,10 @@ class ApiEndpoints {
 
   // ── Cart ──
   static const String cart = '/cart';
-  static const String cartAdd = '/cart/add';
-  static const String cartUpdate = '/cart/update';
-  static const String cartRemove = '/cart/remove';
-  static const String cartClear = '/cart/clear';
+  static const String cartAdd = '/cart/items';
+  static const String cartUpdate = '/cart/items';
+  static const String cartRemove = '/cart/items';
+  static const String cartClear = '/cart';
   static const String cartMerge = '/cart/merge';
 
   // ── Orders ──
@@ -63,7 +64,7 @@ class ApiEndpoints {
   // ── Vouchers ──
   static const String vouchers = '/vouchers';
   static String voucherById(String id) => '/vouchers/$id';
-  static const String voucherWallet = '/vouchers/wallet';
+  static const String voucherWallet = '/vouchers';
   static const String voucherRedeem = '/vouchers/redeem';
   static const String voucherValidate = '/vouchers/validate';
 
@@ -73,9 +74,14 @@ class ApiEndpoints {
 
   // ── Reviews ──
   static const String reviews = '/reviews';
+  static const String featuredReviews = '/reviews/featured';
+  static String reviewByOrder(String id) => '/reviews/order/$id';
+  static String productReviews(String id) => '/reviews/product/$id';
 
   // ── Notifications ──
   static const String notifications = '/notifications';
+  static const String notificationsUnreadCount = '/notifications/unread-count';
+  static String notificationRead(String id) => '/notifications/$id/read';
   static const String notificationsReadAll = '/notifications/read-all';
 
   // ── Support Chat ──
@@ -91,6 +97,9 @@ class ApiEndpoints {
 
   // ── Stores ──
   static const String stores = '/stores';
+
+  // ── Settings ──
+  static const String settings = '/settings';
 
   // ── Location ──
   static const String location = '/location';

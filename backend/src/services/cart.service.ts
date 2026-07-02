@@ -1,5 +1,6 @@
 import CartModel from '@/models/cart.model';
 import ProductModel from '@/models/product.model';
+import { DEFAULT_PUBLIC_STORE_ID } from '@/services/product.service';
 import mongoose from 'mongoose';
 import { AddToCartInput } from '@/validators/cart.validator';
 import { ICartItem } from '@/types/cart.type';
@@ -10,7 +11,7 @@ type CartVariation = { name: string; choice: string; extraPrice: number };
 
 const normalizeVariations = (vars: { name: string; choice: string }[]) =>
   (vars || [])
-    .map(v => ({ name: v.name.trim(), choice: v.choice.trim() }))
+    .map((v) => ({ name: v.name.trim(), choice: v.choice.trim() }))
     .sort((a, b) => (a.name + a.choice).localeCompare(b.name + b.choice));
 
 const sameVariations = (a: any[], b: any[]) =>
@@ -36,7 +37,7 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
   if (!product) throw new Error('Product not found');
   if (product.isAvailable === false) throw new Error('Product is not available');
 
-  const mappedVariations: CartVariation[] = (variations as InputVariation[]).map(v => {
+  const mappedVariations: CartVariation[] = (variations as InputVariation[]).map((v) => {
     const extra = findVariantExtraPrice(product, v.name, v.choice);
     if (extra === null) throw new Error(`Invalid variation ${v.name}:${v.choice}`);
 
@@ -49,7 +50,11 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
 
   const cart =
     (await CartModel.findOne({ cusId: userId })) ??
-    (await CartModel.create({ cusId: userId, items: [] }));
+    (await CartModel.create({
+      storeId: new mongoose.Types.ObjectId(DEFAULT_PUBLIC_STORE_ID),
+      cusId: userId,
+      items: [],
+    }));
 
   const existed = cart.items.find((it: any) => {
     const sameProduct = String(it.productId) === String(productId);
@@ -75,13 +80,12 @@ export const addToCart = async (userId: mongoose.Types.ObjectId, input: AddToCar
 
 export const getCart = async (userId: mongoose.Types.ObjectId) => {
   if (!userId) throw new Error('Unauthorized');
-  
-  const cart = await CartModel.findOne({ cusId: userId })
-    .populate({
-      path: 'items.productId',
-      select: 'name image price isAvailable variants',
-    });
-    
+
+  const cart = await CartModel.findOne({ cusId: userId }).populate({
+    path: 'items.productId',
+    select: 'name image price isAvailable variants',
+  });
+
   return cart || { cusId: userId, items: [] as ICartItem[] };
 };
 
@@ -100,7 +104,11 @@ export const mergeCart = async (userId: mongoose.Types.ObjectId, guestItems: any
 
   let cart = await CartModel.findOne({ cusId: userId });
   if (!cart) {
-    cart = await CartModel.create({ cusId: userId, items: [] });
+    cart = await CartModel.create({
+      storeId: new mongoose.Types.ObjectId(DEFAULT_PUBLIC_STORE_ID),
+      cusId: userId,
+      items: [],
+    });
   }
 
   for (const guestItem of guestItems) {
@@ -167,11 +175,7 @@ export const updateItemQuantity = async (
   return cart;
 };
 
-export const removeItem = async (
-  userId: mongoose.Types.ObjectId,
-  productId: string,
-  variations: any[]
-) => {
+export const removeItem = async (userId: mongoose.Types.ObjectId, productId: string, variations: any[]) => {
   if (!userId) throw new Error('Unauthorized');
   const cart = await CartModel.findOne({ cusId: userId });
   if (!cart) throw new Error('Cart not found');
@@ -185,4 +189,3 @@ export const removeItem = async (
   await cart.save();
   return cart;
 };
-

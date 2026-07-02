@@ -17,9 +17,12 @@ class AllergyOptionData {
   });
 }
 
-/// Redesigned Onboarding Screen matching Web Frontend health profile setup.
+/// Redesigned Onboarding Screen — shown after first-time registration.
+/// Receives [email] from the register page to navigate to verify-email on completion.
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key});
+  final String? email;
+
+  const OnboardingPage({super.key, this.email});
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
@@ -76,14 +79,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await LocalStorage.setSelectedAllergies(_selectedAllergies);
     await LocalStorage.setOnboardingComplete();
     if (mounted) {
-      context.go('/login');
+      if (widget.email != null && widget.email!.isNotEmpty) {
+        context.pushReplacement('/verify-email', extra: widget.email);
+      } else {
+        context.go('/login');
+      }
     }
   }
 
   void _handleSkip() {
     LocalStorage.setSelectedAllergies([]);
     LocalStorage.setOnboardingComplete();
-    context.go('/login');
+    if (mounted) {
+      if (widget.email != null && widget.email!.isNotEmpty) {
+        context.pushReplacement('/verify-email', extra: widget.email);
+      } else {
+        context.go('/login');
+      }
+    }
   }
 
   @override

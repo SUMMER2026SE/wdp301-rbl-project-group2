@@ -49,6 +49,25 @@ class UserEntity {
         'verifiedAt': verifiedAt,
         'storeId': storeId,
         'collectedPoints': collectedPoints,
+        'addresses': addresses
+            .map((a) => {
+                  'label': a.label,
+                  'receiverName': a.receiverName,
+                  'phone': a.phone,
+                  'detail': a.detail,
+                  'ward': a.ward,
+                  'district': a.district,
+                  'city': a.city,
+                  'isDefault': a.isDefault,
+                })
+            .toList(),
+        'preferences': preferences != null
+            ? {
+                'dietary': preferences!.dietary,
+                'allergies': preferences!.allergies,
+                'healthGoals': preferences!.healthGoals,
+              }
+            : null,
       };
 }
 

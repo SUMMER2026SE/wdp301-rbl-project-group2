@@ -483,9 +483,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
     const [order] = await OrderModel.create(
       [
         {
-          storeId: input.storeId
-            ? new mongoose.Types.ObjectId(input.storeId)
-            : new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          storeId: new mongoose.Types.ObjectId(input.storeId),
           cusId: userId,
           payment: {
             method: paymentMethod ?? PaymentMethod.CASH,

@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
-import 'package:foa_mobile/core/storage/local_storage.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
+import 'package:foa_mobile/core/models/chat_model.dart';
 import 'package:foa_mobile/features/auth/presentation/pages/splash_page.dart';
 import 'package:foa_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:foa_mobile/features/auth/presentation/pages/register_page.dart';
@@ -24,20 +25,28 @@ import 'package:foa_mobile/features/profile/presentation/pages/address_page.dart
 import 'package:foa_mobile/features/profile/presentation/pages/health_preferences_page.dart';
 import 'package:foa_mobile/features/vouchers/presentation/pages/voucher_list_page.dart';
 import 'package:foa_mobile/features/vouchers/presentation/pages/voucher_wallet_page.dart';
+import 'package:foa_mobile/features/vouchers/presentation/pages/voucher_detail_page.dart';
+import 'package:foa_mobile/features/campaigns/presentation/pages/campaign_products_page.dart';
 import 'package:foa_mobile/features/membership/presentation/pages/membership_page.dart';
 import 'package:foa_mobile/features/notifications/presentation/pages/notification_list_page.dart';
 import 'package:foa_mobile/features/support_chat/presentation/pages/chat_list_page.dart';
+import 'package:foa_mobile/features/support_chat/presentation/pages/chat_detail_page.dart';
 import 'package:foa_mobile/features/reviews/presentation/pages/order_rating_page.dart';
+import 'package:foa_mobile/features/about/presentation/pages/about_page.dart';
 import 'package:foa_mobile/features/ai_suggestions/presentation/pages/ai_suggestions_page.dart';
 import 'package:foa_mobile/features/staff_orders/presentation/pages/staff_order_list_page.dart';
 import 'package:foa_mobile/features/staff_orders/presentation/pages/staff_order_detail_page.dart';
 import 'package:foa_mobile/features/staff_delivery/presentation/pages/staff_delivery_page.dart';
 import 'package:foa_mobile/features/staff_menu/presentation/pages/staff_menu_page.dart';
 import 'package:foa_mobile/features/staff_chat/presentation/pages/staff_chat_list_page.dart';
-import 'package:foa_mobile/features/staff_chat/presentation/pages/staff_chat_detail_page.dart';
+import 'package:foa_mobile/features/staff_chat/presentation/pages/staff_chat_page.dart';
 import 'package:foa_mobile/features/staff_chat/presentation/pages/staff_settings_page.dart';
-import 'package:foa_mobile/features/staff_chat/presentation/pages/staff_no_store_page.dart';
-import 'package:foa_mobile/shared/widgets/coming_soon_page.dart';
+import 'package:foa_mobile/features/staff_orders/presentation/pages/staff_no_store_page.dart';
+import 'package:foa_mobile/features/staff_customers/presentation/pages/customer_search_page.dart';
+import 'package:foa_mobile/features/staff_customers/presentation/pages/customer_detail_page.dart';
+import 'package:foa_mobile/features/orders/presentation/pages/order_success_page.dart';
+import 'package:foa_mobile/features/orders/presentation/pages/order_failed_page.dart';
+import 'package:foa_mobile/shared/widgets/payos_webview.dart';
 /// GoRouter configuration with auth and role-based guards.
 class AppRouter {
   final AuthBloc authBloc;
@@ -46,7 +55,7 @@ class AppRouter {
 
   late final GoRouter router = GoRouter(
     initialLocation: '/splash',
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: false,
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: _globalRedirect,
     routes: [
@@ -85,7 +94,9 @@ class AppRouter {
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingPage(),
+        builder: (context, state) => OnboardingPage(
+          email: state.extra as String?,
+        ),
       ),
 
       // ── Customer Shell (Bottom Nav) ──
@@ -98,7 +109,14 @@ class AppRouter {
           ),
           GoRoute(
             path: '/menu',
-            builder: (context, state) => const MenuPage(),
+            builder: (context, state) {
+              final category = state.uri.queryParameters['category'];
+              final search = state.uri.queryParameters['search'];
+              return MenuPage(
+                initialCategory: category,
+                initialSearch: search,
+              );
+            },
           ),
           GoRoute(
             path: '/cart',
@@ -122,7 +140,20 @@ class AppRouter {
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => const CheckoutPage(),
+        builder: (context, state) {
+          final extra = state.extra;
+          List<String>? selectedItemIds;
+          String? note;
+          if (extra is List<String>) {
+            selectedItemIds = extra;
+          } else if (extra is Map<String, dynamic>) {
+            selectedItemIds = (extra['selectedItemIds'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList();
+            note = extra['note'] as String?;
+          }
+          return CheckoutPage(selectedItemIds: selectedItemIds, note: note);
+        },
       ),
       GoRoute(
         path: '/orders/:id',
@@ -134,15 +165,29 @@ class AppRouter {
       ),
       GoRoute(
         path: '/payment-webview',
-        builder: (context, state) => const ComingSoonPage(title: 'Thanh toán', icon: Icons.payment),
+        builder: (context, state) {
+          final paymentUrl = state.extra as String? ?? '';
+          return WebViewPage(
+            paymentUrl: paymentUrl,
+            onSuccess: () {
+              // The PayOSWebView handles navigation via redirect URL detection.
+              // After a success redirect, the onSuccess callback is called.
+              // We pop back and let the caller handle the navigation.
+              if (context.mounted) context.pop(true);
+            },
+            onFailed: () {
+              if (context.mounted) context.pop(false);
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/order-success/:id',
-        builder: (context, state) => const ComingSoonPage(title: 'Đặt hàng thành công', icon: Icons.check_circle),
+        builder: (context, state) => OrderSuccessPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/order-failed/:id',
-        builder: (context, state) => const ComingSoonPage(title: 'Đặt hàng thất bại', icon: Icons.error),
+        builder: (context, state) => OrderFailedPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/vouchers',
@@ -151,6 +196,10 @@ class AppRouter {
       GoRoute(
         path: '/voucher-wallet',
         builder: (context, state) => const VoucherWalletPage(),
+      ),
+      GoRoute(
+        path: '/vouchers/:id',
+        builder: (context, state) => VoucherDetailPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/membership',
@@ -162,11 +211,25 @@ class AppRouter {
       ),
       GoRoute(
         path: '/chat',
-        builder: (context, state) => const ChatListPage(),
+        builder: (context, state) => ChatListPage(
+          initialOrderId: state.uri.queryParameters['orderId'],
+        ),
+      ),
+      GoRoute(
+        path: '/chat/:conversationId',
+        builder: (context, state) => ChatDetailPage(
+          conversationId: state.pathParameters['conversationId'] ?? '',
+          title: state.extra as String? ?? 'Hỗ trợ',
+        ),
       ),
       GoRoute(
         path: '/rating/:orderId',
         builder: (context, state) => OrderRatingPage(orderId: state.pathParameters['orderId'] ?? ''),
+      ),
+      GoRoute(
+        path: '/campaign/:id',
+        builder: (context, state) =>
+            CampaignProductsPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/ai-suggestions',
@@ -183,6 +246,10 @@ class AppRouter {
       GoRoute(
         path: '/profile/health',
         builder: (context, state) => const HealthPreferencesPage(),
+      ),
+      GoRoute(
+        path: '/profile/about',
+        builder: (context, state) => const AboutPage(),
       ),
 
       // ── Staff Shell (Bottom Nav) ──
@@ -219,8 +286,21 @@ class AppRouter {
       ),
       GoRoute(
         path: '/staff/chat/:conversationId',
-        builder: (context, state) => StaffChatDetailPage(
+        builder: (context, state) => StaffChatPage(
           conversationId: state.pathParameters['conversationId'] ?? '',
+          initialConversation: state.extra is ConversationModel
+              ? state.extra as ConversationModel
+              : null,
+        ),
+      ),
+      GoRoute(
+        path: '/staff/customers',
+        builder: (context, state) => const CustomerSearchPage(),
+      ),
+      GoRoute(
+        path: '/staff/customers/:customerId',
+        builder: (context, state) => CustomerDetailPage(
+          customerId: state.pathParameters['customerId'] ?? '',
         ),
       ),
       GoRoute(
@@ -255,9 +335,9 @@ class AppRouter {
     }
 
     if (authState is AuthUnauthenticated) {
-      // Redirect splash to login (or onboarding if first launch).
+      // Redirect splash to login (onboarding happens after register).
       if (currentPath == '/splash') {
-        return LocalStorage.isOnboardingComplete ? '/login' : '/onboarding';
+        return '/login';
       }
       return isPublicRoute ? null : '/login';
     }
@@ -294,9 +374,24 @@ class AppRouter {
 }
 
 /// Converts a BLoC stream into a Listenable for GoRouter refresh.
+/// Debounces rapid state changes to avoid cascading re-evaluations.
 class GoRouterRefreshStream extends ChangeNotifier {
+  Timer? _debounce;
+
   GoRouterRefreshStream(Stream stream) {
-    stream.listen((_) => notifyListeners());
+    stream.listen((_) {
+      // Debounce: wait 150ms of silence before refreshing the router.
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 150), () {
+        notifyListeners();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 }
 
@@ -307,25 +402,80 @@ class _CustomerShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = _currentIndex(context);
     return Scaffold(
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: AppColors.divider, width: 1),
-          ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SizedBox(
+        width: 50,
+        height: 50,
+        child: FloatingActionButton(
+          onPressed: () => _onTabTapped(context, 2),
+          elevation: 4,
+          shape: const CircleBorder(),
+          backgroundColor: AppColors.primary,
+          child: const Icon(Icons.shopping_cart, color: Colors.white, size: 24),
         ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex(context),
-          onDestinationSelected: (index) => _onTabTapped(context, index),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Trang chủ'),
-            NavigationDestination(icon: Icon(Icons.restaurant_menu_outlined), selectedIcon: Icon(Icons.restaurant_menu), label: 'Thực đơn'),
-            NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), selectedIcon: Icon(Icons.shopping_cart), label: 'Giỏ hàng'),
-            NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Đơn hàng'),
-            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Tài khoản'),
+      ),
+      bottomNavigationBar: BottomAppBar(
+        height: 54,
+        color: AppColors.primary,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        elevation: 8,
+        padding: EdgeInsets.zero,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(context, 0, Icons.home_outlined, Icons.home, currentIndex),
+            _buildNavItem(context, 1, Icons.restaurant_menu_outlined, Icons.restaurant_menu, currentIndex),
+            
+            // Spacer for the center FAB
+            const SizedBox(width: 48),
+            
+            _buildNavItem(context, 3, Icons.receipt_long_outlined, Icons.receipt_long, currentIndex),
+            _buildNavItem(context, 4, Icons.person_outline, Icons.person, currentIndex),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    BuildContext context,
+    int index,
+    IconData icon,
+    IconData selectedIcon,
+    int currentIndex,
+  ) {
+    final isSelected = index == currentIndex;
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _onTabTapped(context, index),
+          customBorder: const CircleBorder(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? selectedIcon : icon,
+                color: Colors.white.withValues(alpha: isSelected ? 1.0 : 0.65),
+                size: 26,
+              ),
+              const SizedBox(height: 2),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: isSelected ? 4 : 0,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

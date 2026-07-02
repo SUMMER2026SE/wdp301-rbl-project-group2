@@ -77,6 +77,10 @@ const CartItemVariationDocSchema = new mongoose.Schema<ICartItemVariationDoc>(
 
 CartItemVariationDocSchema.index({ cartItemId: 1 });
 
-export const CartItemVariationModel = mongoose.model<ICartItemVariationDoc>('CartItemVariation', CartItemVariationDocSchema, 'cart_item_variations');
+export const CartItemVariationModel = mongoose.model<ICartItemVariationDoc>(
+  'CartItemVariation',
+  CartItemVariationDocSchema,
+  'cart_item_variations'
+);
 
 export default CartModel;

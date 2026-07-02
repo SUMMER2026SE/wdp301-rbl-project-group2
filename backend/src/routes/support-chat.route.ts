@@ -11,6 +11,7 @@ import {
     closeConversation,
     getSupportSettings,
     updateSupportSettings,
+    updateSupportStatus,
     listUserConversations
 } from '@/controllers/support-chat.controller';
 
@@ -30,6 +31,9 @@ supportChatRoutes.get('/conversations', listUserConversations);
 // Settings
 supportChatRoutes.get('/settings', authorize(Role.STAFF, Role.ADMIN), getSupportSettings);
 supportChatRoutes.post('/settings', authorize(Role.STAFF, Role.ADMIN), updateSupportSettings);
+supportChatRoutes.put('/settings', authorize(Role.STAFF, Role.ADMIN), updateSupportSettings);
+supportChatRoutes.post('/settings/status', authorize(Role.STAFF, Role.ADMIN), updateSupportStatus);
+supportChatRoutes.put('/settings/status', authorize(Role.STAFF, Role.ADMIN), updateSupportStatus);
 
 // Staff only
 supportChatRoutes.get('/staff/conversations', authorize(Role.STAFF, Role.ADMIN), listStaffConversations);

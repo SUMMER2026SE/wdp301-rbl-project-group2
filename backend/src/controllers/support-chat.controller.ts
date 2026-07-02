@@ -12,6 +12,7 @@ const serializeSupportSettings = (settings: any) => {
   return {
     id: obj?._id?.toString(),
     userId: obj?.user_id?.toString(),
+    isOnline: obj?.isOnline ?? false,
     welcomeMessage: obj?.welcomeMessage,
     outOfOffice: obj?.outOfOffice,
     quickReplies: obj?.quickReplies ?? [],
@@ -165,7 +166,27 @@ export const getSupportSettings = catchErrors(async (req: Request, res: Response
 
 export const updateSupportSettings = catchErrors(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId);
-  const settings = await supportSettingsService.updateSettings(userId, req.body);
+  let updateData = { ...req.body };
+
+  // Convert flat mobile body format to nested model format
+  if ('autoReply' in updateData || 'greetingMessage' in updateData) {
+    updateData.welcomeMessage = {
+      enabled: updateData.autoReply ?? false,
+      content: updateData.greetingMessage ?? '',
+    };
+    delete updateData.autoReply;
+    delete updateData.greetingMessage;
+  }
+
+  const settings = await supportSettingsService.updateSettings(userId, updateData);
+  return res.json({ settings: serializeSupportSettings(settings) });
+});
+
+export const updateSupportStatus = catchErrors(async (req: Request, res: Response) => {
+  const userId = new mongoose.Types.ObjectId(req.userId);
+  const { isOnline } = req.body as { isOnline?: boolean };
+
+  const settings = await supportSettingsService.updateSettings(userId, { isOnline: isOnline ?? false });
   return res.json({ settings: serializeSupportSettings(settings) });
 });
 

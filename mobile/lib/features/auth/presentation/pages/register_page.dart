@@ -77,33 +77,8 @@ class _RegisterPageState extends State<RegisterPage> {
         }
 
         if (state is AuthRegisterSuccess) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text('Đăng ký thành công'),
-              content: const Text(
-                'Vui lòng xác thực địa chỉ email của bạn trước khi tiến hành đăng nhập.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    context.push('/verify-email', extra: state.email);
-                  },
-                  child: const Text('Xác thực ngay'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    context.go('/login');
-                  },
-                  child: const Text('Để sau', style: TextStyle(color: AppColors.textSecondary)),
-                ),
-              ],
-            ),
-          );
+          // Navigate to onboarding first, then verify-email after completion.
+          context.pushReplacement('/onboarding', extra: state.email);
         }
       },
       builder: (context, state) {

@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import dns from 'dns';
+dns.setServers(['8.8.8.8']);
 import mongoose from 'mongoose';
 import ProductModel from '@/models/product.model';
 import { CampaignModel, CampaignProductModel } from '@/models/campaign.model';

@@ -25,7 +25,7 @@ export const orderItemValidator = z.object({
 });
 
 export const placeOrderValidator = z.object({
-  storeId: z.string().length(24, 'Store id không hợp lệ').optional(),
+  storeId: z.string().length(24, 'Vui lòng chọn cửa hàng'),
   voucher: voucherIdValidator,
   paymentMethod: z.enum(Object.values(PaymentMethod) as [string, ...string[]]).default(PaymentMethod.CASH),
   items: z.array(orderItemValidator).min(1, 'Phải có ít nhất một sản phẩm'),

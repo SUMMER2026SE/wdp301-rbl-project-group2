@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 export interface ISupportSettings {
     user_id: mongoose.Types.ObjectId; // Shop owner or system admin
+    isOnline?: boolean;
     welcomeMessage: {
         enabled: boolean;
         content: string;
@@ -24,6 +25,7 @@ export interface ISupportSettings {
 const SupportSettingsSchema = new mongoose.Schema<ISupportSettings>(
     {
         user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+        isOnline: { type: Boolean, default: false },
         welcomeMessage: {
             enabled: { type: Boolean, default: false },
             content: { type: String, default: '' },

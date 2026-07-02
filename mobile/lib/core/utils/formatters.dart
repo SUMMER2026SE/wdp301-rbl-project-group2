@@ -11,6 +11,20 @@ class Formatters {
     return '${formatter.format(amount)}₫';
   }
 
+  /// Compact price format (shorter) for card/layout use.
+  /// e.g. 150000 → "150k", 49000 → "49k"
+  static String compactCurrency(num amount) {
+    if (amount >= 1000000) {
+      final formatted = (amount / 1000000).toStringAsFixed(amount % 1000000 == 0 ? 0 : 1);
+      return '${formatted}tr₫';
+    }
+    if (amount >= 1000) {
+      final formatted = (amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 0);
+      return '${formatted}k₫';
+    }
+    return currency(amount);
+  }
+
   /// Format a DateTime to Vietnamese date string.
   /// e.g. "25/06/2026"
   static String date(DateTime dt) {
