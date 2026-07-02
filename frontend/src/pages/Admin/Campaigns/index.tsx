@@ -52,6 +52,13 @@ import {
   AreaChart,
 } from "recharts";
 
+type AIGoal = "boost_sales" | "clear_stock" | "contextual";
+
+type AISuggestionContext = {
+  goal: AIGoal;
+  days: number;
+};
+
 const AdminCampaigns = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -111,12 +118,12 @@ const AdminCampaigns = () => {
     null,
   );
   const [aiDays, setAiDays] = useState(14);
-  const [aiGoal, setAiGoal] = useState<"boost_sales" | "clear_stock" | "contextual">(
-    "boost_sales",
-  );
+  const [aiGoal, setAiGoal] = useState<AIGoal>("boost_sales");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] =
     useState<CampaignSuggestionResponse | null>(null);
+  const [aiSuggestionContext, setAiSuggestionContext] =
+    useState<AISuggestionContext | null>(null);
   const [aiProductCount, setAiProductCount] = useState(3);
   const [aiWeather, setAiWeather] = useState<
     "auto" | "rainy" | "hot" | "cold" | "sunny" | "normal"
@@ -127,6 +134,8 @@ const AdminCampaigns = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAICampaign, setPendingAICampaign] =
     useState<CampaignSuggestionResponse | null>(null);
+  const [pendingAIContext, setPendingAIContext] =
+    useState<AISuggestionContext | null>(null);
   const [confirmingAiCampaign, setConfirmingAiCampaign] = useState(false);
   const [aiCampaignName, setAiCampaignName] = useState("Chiến dịch Ưu đãi Đặc biệt");
   const [aiStartTime, setAiStartTime] = useState("");
@@ -214,9 +223,11 @@ const AdminCampaigns = () => {
 
   const handleOpenAIModal = () => {
     setAiSuggestion(null);
+    setAiSuggestionContext(null);
     setPendingAICampaign(null);
+    setPendingAIContext(null);
     setAiDays(14);
-    setAiGoal("boost_sales" as "boost_sales" | "clear_stock" | "contextual");
+    setAiGoal("boost_sales");
     setAiProductCount(3);
     setAiWeather("auto");
     setAiOccasion("auto");
@@ -226,17 +237,23 @@ const AdminCampaigns = () => {
 
   const handleGenerateAISuggestion = async () => {
     setAiSuggestion(null); // Xóa kết quả cũ ngay lập tức trước khi gọi API mới
+    setAiSuggestionContext(null);
     setAiLoading(true);
+    const requestContext: AISuggestionContext = {
+      goal: aiGoal,
+      days: aiDays,
+    };
     try {
       const res = await campaignAPI.suggestCampaign({
-        days: aiDays,
-        goal: aiGoal,
+        days: requestContext.days,
+        goal: requestContext.goal,
         productCount: aiProductCount,
         ...(aiWeather !== "auto" && { weather: aiWeather }),
         ...(aiOccasion !== "auto" && { occasion: aiOccasion }),
       });
       if (res.success) {
         setAiSuggestion(res.data);
+        setAiSuggestionContext(requestContext);
         toast.success("Đã tạo gợi ý chiến dịch thành công");
       } else {
         toast.error(res.message || "Không thể tạo gợi ý chiến dịch");
@@ -253,6 +270,7 @@ const AdminCampaigns = () => {
     if (!aiSuggestion) return;
 
     setPendingAICampaign(aiSuggestion);
+    setPendingAIContext(aiSuggestionContext);
     // Use the AI-generated contextual name as default (based on occasion/weather/goal)
     // User can still edit it before confirming
     setAiCampaignName(aiSuggestion.name || "Chiến dịch Ưu đãi Đặc biệt");
@@ -335,6 +353,7 @@ const AdminCampaigns = () => {
         fetchCampaigns();
         setShowConfirmModal(false);
         setPendingAICampaign(null);
+        setPendingAIContext(null);
       } else {
         toast.error(res.message || "Không thể tạo chiến dịch từ gợi ý AI");
       }
@@ -1250,6 +1269,10 @@ const AdminCampaigns = () => {
     campaignProducts.length === 0
       ? "Chiến dịch phải có ít nhất một sản phẩm"
       : "";
+
+  const renderedAISuggestionGoal = aiSuggestionContext?.goal ?? aiGoal;
+  const renderedAISuggestionDays = aiSuggestionContext?.days ?? aiDays;
+  const renderedPendingDays = pendingAIContext?.days ?? aiDays;
 
   const getProductError = (cp: {
     productId: string;
@@ -2221,15 +2244,15 @@ const AdminCampaigns = () => {
                       </p>
                       {/* Goal context banner */}
                       <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-                        aiGoal === "boost_sales"
+                        renderedAISuggestionGoal === "boost_sales"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : aiGoal === "clear_stock"
+                          : renderedAISuggestionGoal === "clear_stock"
                           ? "bg-amber-50 text-amber-700 border border-amber-200"
                           : "bg-sky-50 text-sky-700 border border-sky-200"
                       }`}>
-                        {aiGoal === "boost_sales" && "📈 Tập trung hàng bán chạy"}
-                        {aiGoal === "clear_stock" && "📦 Giải phóng tồn kho / bán chậm"}
-                        {aiGoal === "contextual" && "🌤 Theo mùa / thời tiết / dịp lễ"}
+                        {renderedAISuggestionGoal === "boost_sales" && "📈 Tập trung hàng bán chạy"}
+                        {renderedAISuggestionGoal === "clear_stock" && "📦 Giải phóng tồn kho / bán chậm"}
+                        {renderedAISuggestionGoal === "contextual" && "🌤 Theo mùa / thời tiết / dịp lễ"}
                       </div>
                     </div>
                     <button
@@ -2246,9 +2269,9 @@ const AdminCampaigns = () => {
                       <div
                         key={product.productId}
                         className={`rounded-xl border bg-white p-3 ${
-                          aiGoal === "clear_stock"
+                          renderedAISuggestionGoal === "clear_stock"
                             ? "border-amber-100"
-                            : aiGoal === "boost_sales"
+                            : renderedAISuggestionGoal === "boost_sales"
                             ? "border-emerald-100"
                             : "border-slate-200"
                         }`}
@@ -2262,26 +2285,26 @@ const AdminCampaigns = () => {
                               {product.reason}
                             </p>
                             {/* Goal-aware sales label */}
-                            {aiGoal === "boost_sales" && (
+                            {renderedAISuggestionGoal === "boost_sales" && (
                               <p className="mt-1 text-xs font-semibold text-emerald-600">
-                                📈 Đã bán {product.soldQuantity ?? 0} suất trong {aiDays} ngày — bán chạy
+                                📈 Đã bán {product.soldQuantity ?? 0} suất trong {renderedAISuggestionDays} ngày — bán chạy
                               </p>
                             )}
-                            {aiGoal === "clear_stock" && (
+                            {renderedAISuggestionGoal === "clear_stock" && (
                               <p className="mt-1 text-xs font-semibold text-amber-600">
-                                📦 Chỉ bán {product.soldQuantity ?? 0} suất trong {aiDays} ngày — cần giải phóng tồn kho
+                                📦 Chỉ bán {product.soldQuantity ?? 0} suất trong {renderedAISuggestionDays} ngày — cần giải phóng tồn kho
                               </p>
                             )}
-                            {aiGoal === "contextual" && (
+                            {renderedAISuggestionGoal === "contextual" && (
                               <p className="mt-1 text-xs font-semibold text-sky-600">
-                                🌤 Phù hợp theo mùa / thời tiết · {product.soldQuantity ?? 0} suất/{aiDays}n
+                                🌤 Phù hợp theo mùa / thời tiết · {product.soldQuantity ?? 0} suất/{renderedAISuggestionDays}n
                               </p>
                             )}
                           </div>
                           <span className={`rounded-full px-2.5 py-1 text-sm font-bold flex-shrink-0 ${
-                            aiGoal === "clear_stock"
+                            renderedAISuggestionGoal === "clear_stock"
                               ? "bg-amber-50 text-amber-600"
-                              : aiGoal === "boost_sales"
+                              : renderedAISuggestionGoal === "boost_sales"
                               ? "bg-emerald-50 text-emerald-600"
                               : "bg-orange-50 text-orange-600"
                           }`}>
@@ -2449,7 +2472,7 @@ const AdminCampaigns = () => {
                           {product.reason}
                         </p>
                         <p className="mt-1 text-[11px] font-semibold text-orange-600">
-                          Đã bán {product.soldQuantity ?? 0} suất trong {aiDays}{" "}
+                          Đã bán {product.soldQuantity ?? 0} suất trong {renderedPendingDays}{" "}
                           ngày gần nhất
                         </p>
                       </div>
