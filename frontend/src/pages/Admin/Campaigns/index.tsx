@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import campaignAPI, { CampaignStatus } from "@/services/campaign.service";
-import type { Campaign } from "@/services/campaign.service";
+import type {
+  Campaign,
+  CampaignSuggestionResponse,
+} from "@/services/campaign.service";
 import productAPI from "@/services/product.service";
 import type { Product } from "@/types/product";
 import {
@@ -49,6 +52,13 @@ import {
   AreaChart,
 } from "recharts";
 
+type AIGoal = "boost_sales" | "clear_stock" | "contextual";
+
+type AISuggestionContext = {
+  goal: AIGoal;
+  days: number;
+};
+
 const AdminCampaigns = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,6 +77,7 @@ const AdminCampaigns = () => {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
 
   // Form Fields
@@ -106,6 +117,29 @@ const AdminCampaigns = () => {
   const [campaignDraft, setCampaignDraft] = useState<CampaignDraft | null>(
     null,
   );
+  const [aiDays, setAiDays] = useState(14);
+  const [aiGoal, setAiGoal] = useState<AIGoal>("boost_sales");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] =
+    useState<CampaignSuggestionResponse | null>(null);
+  const [aiSuggestionContext, setAiSuggestionContext] =
+    useState<AISuggestionContext | null>(null);
+  const [aiProductCount, setAiProductCount] = useState(3);
+  const [aiWeather, setAiWeather] = useState<
+    "auto" | "rainy" | "hot" | "cold" | "sunny" | "normal"
+  >("auto");
+  const [aiOccasion, setAiOccasion] = useState<
+    "auto" | "summer" | "christmas" | "tet" | "valentine" | "none"
+  >("auto");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAICampaign, setPendingAICampaign] =
+    useState<CampaignSuggestionResponse | null>(null);
+  const [pendingAIContext, setPendingAIContext] =
+    useState<AISuggestionContext | null>(null);
+  const [confirmingAiCampaign, setConfirmingAiCampaign] = useState(false);
+  const [aiCampaignName, setAiCampaignName] = useState("Chiến dịch Ưu đãi Đặc biệt");
+  const [aiStartTime, setAiStartTime] = useState("");
+  const [aiEndTime, setAiEndTime] = useState("");
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -157,7 +191,12 @@ const AdminCampaigns = () => {
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
-    if (showModal || selectedProductDetails) {
+    if (
+      showModal ||
+      showAIModal ||
+      showConfirmModal ||
+      selectedProductDetails
+    ) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -165,7 +204,7 @@ const AdminCampaigns = () => {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [showModal, selectedProductDetails]);
+  }, [showModal, showAIModal, showConfirmModal, selectedProductDetails]);
 
   const handleOpenCreateModal = () => {
     setCampaignDraft(null);
@@ -180,6 +219,151 @@ const AdminCampaigns = () => {
     setShowCalendar(false);
     setShowTypeDropdown(false);
     setShowModal(true);
+  };
+
+  const handleOpenAIModal = () => {
+    setAiSuggestion(null);
+    setAiSuggestionContext(null);
+    setPendingAICampaign(null);
+    setPendingAIContext(null);
+    setAiDays(14);
+    setAiGoal("boost_sales");
+    setAiProductCount(3);
+    setAiWeather("auto");
+    setAiOccasion("auto");
+    setShowConfirmModal(false);
+    setShowAIModal(true);
+  };
+
+  const handleGenerateAISuggestion = async () => {
+    setAiSuggestion(null); // Xóa kết quả cũ ngay lập tức trước khi gọi API mới
+    setAiSuggestionContext(null);
+    setAiLoading(true);
+    const requestContext: AISuggestionContext = {
+      goal: aiGoal,
+      days: aiDays,
+    };
+    try {
+      const res = await campaignAPI.suggestCampaign({
+        days: requestContext.days,
+        goal: requestContext.goal,
+        productCount: aiProductCount,
+        ...(aiWeather !== "auto" && { weather: aiWeather }),
+        ...(aiOccasion !== "auto" && { occasion: aiOccasion }),
+      });
+      if (res.success) {
+        setAiSuggestion(res.data);
+        setAiSuggestionContext(requestContext);
+        toast.success("Đã tạo gợi ý chiến dịch thành công");
+      } else {
+        toast.error(res.message || "Không thể tạo gợi ý chiến dịch");
+      }
+    } catch (error) {
+      console.error("Error generating AI campaign suggestion:", error);
+      toast.error("Không thể tạo gợi ý chiến dịch lúc này");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAISuggestion = () => {
+    if (!aiSuggestion) return;
+
+    setPendingAICampaign(aiSuggestion);
+    setPendingAIContext(aiSuggestionContext);
+    // Use the AI-generated contextual name as default (based on occasion/weather/goal)
+    // User can still edit it before confirming
+    setAiCampaignName(aiSuggestion.name || "Chiến dịch Ưu đãi Đặc biệt");
+
+    const startVal = aiSuggestion.startTime
+      ? toLocalDatetimeInput(aiSuggestion.startTime)
+      : toLocalDatetimeInput(new Date().toISOString());
+
+    const endVal = aiSuggestion.endTime
+      ? toLocalDatetimeInput(aiSuggestion.endTime)
+      : toLocalDatetimeInput(
+          new Date(new Date(startVal).getTime() + (aiSuggestion.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString()
+        );
+
+    setAiStartTime(startVal);
+    setAiEndTime(endVal);
+
+    setShowAIModal(false);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmAICampaign = async () => {
+    if (!pendingAICampaign) return;
+
+    if (!aiCampaignName.trim()) {
+      toast.error("Vui lòng nhập tên chiến dịch");
+      return;
+    }
+    if (!aiStartTime || !aiEndTime) {
+      toast.error("Vui lòng chọn thời gian bắt đầu và kết thúc");
+      return;
+    }
+
+    const startDate = new Date(aiStartTime);
+    const endDate = new Date(aiEndTime);
+
+    if (startDate >= endDate) {
+      toast.error("Thời gian kết thúc phải sau thời gian bắt đầu");
+      return;
+    }
+
+    // Frontend uniqueness check against already-loaded campaigns
+    const trimmedName = aiCampaignName.trim();
+    const isDuplicateName = campaigns.some(
+      (c) =>
+        c.name.toLowerCase() === trimmedName.toLowerCase() &&
+        new Date(c.startTime).getTime() < endDate.getTime() &&
+        new Date(c.endTime).getTime() > startDate.getTime()
+    );
+    if (isDuplicateName) {
+      toast.error(
+        "Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này. Vui lòng đặt tên khác."
+      );
+      return;
+    }
+
+    const payload = {
+      name: aiCampaignName.trim(),
+      type: pendingAICampaign.type || "discount",
+      products: pendingAICampaign.products.map((product) => ({
+        productId: product.productId,
+        fixedPrice:
+          pendingAICampaign.type === "fixed_price"
+            ? (product.fixedPrice ?? null)
+            : null,
+        discount:
+          pendingAICampaign.type === "discount"
+            ? (product.discount ?? 10)
+            : null,
+      })),
+      startTime: startDate.toISOString(),
+      endTime: endDate.toISOString(),
+    };
+
+    setConfirmingAiCampaign(true);
+    try {
+      const res = await campaignAPI.createCampaign(payload);
+      if (res.success) {
+        toast.success("Đã tạo chiến dịch từ gợi ý AI thành công");
+        fetchCampaigns();
+        setShowConfirmModal(false);
+        setPendingAICampaign(null);
+        setPendingAIContext(null);
+      } else {
+        toast.error(res.message || "Không thể tạo chiến dịch từ gợi ý AI");
+      }
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "Đã xảy ra lỗi",
+      );
+    } finally {
+      setConfirmingAiCampaign(false);
+    }
   };
 
   useEffect(() => {
@@ -368,7 +552,7 @@ const AdminCampaigns = () => {
     const isStartTimeModified =
       editingCampaign &&
       new Date(startTime).getTime() !==
-        new Date(editingCampaign.startTime).getTime();
+      new Date(editingCampaign.startTime).getTime();
     if ((isNewCampaign || isStartTimeModified) && new Date(startTime) < today) {
       return toast.error("Thời gian bắt đầu phải từ ngày hôm nay trở đi");
     }
@@ -480,8 +664,8 @@ const AdminCampaigns = () => {
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message ||
-          err?.message ||
-          "Cập nhật trạng thái thất bại",
+        err?.message ||
+        "Cập nhật trạng thái thất bại",
       );
     }
   };
@@ -808,7 +992,7 @@ const AdminCampaigns = () => {
           avgDiscount:
             c.type === "discount"
               ? c.products.reduce((acc, p) => acc + (p.discount || 10), 0) /
-                (c.products.length || 1)
+              (c.products.length || 1)
               : 15,
           multiplier,
           conversionRate,
@@ -1066,7 +1250,7 @@ const AdminCampaigns = () => {
     if (
       editingCampaign &&
       new Date(startTime).getTime() ===
-        new Date(editingCampaign.startTime).getTime()
+      new Date(editingCampaign.startTime).getTime()
     ) {
       return false;
     }
@@ -1085,6 +1269,10 @@ const AdminCampaigns = () => {
     campaignProducts.length === 0
       ? "Chiến dịch phải có ít nhất một sản phẩm"
       : "";
+
+  const renderedAISuggestionGoal = aiSuggestionContext?.goal ?? aiGoal;
+  const renderedAISuggestionDays = aiSuggestionContext?.days ?? aiDays;
+  const renderedPendingDays = pendingAIContext?.days ?? aiDays;
 
   const getProductError = (cp: {
     productId: string;
@@ -1138,11 +1326,10 @@ const AdminCampaigns = () => {
             <button
               type="button"
               onClick={() => setViewMode("list")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                viewMode === "list"
-                  ? "bg-[#ee8c2b] text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "list"
+                ? "bg-[#ee8c2b] text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+                }`}
             >
               <Layers className="w-3.5 h-3.5" />
               Danh sách
@@ -1150,16 +1337,24 @@ const AdminCampaigns = () => {
             <button
               type="button"
               onClick={() => setViewMode("analytics")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                viewMode === "analytics"
-                  ? "bg-[#ee8c2b] text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "analytics"
+                ? "bg-[#ee8c2b] text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+                }`}
             >
               <Activity className="w-3.5 h-3.5" />
               Báo cáo hiệu quả
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={handleOpenAIModal}
+            className="flex items-center justify-center gap-2 h-10 px-5 border border-[#ee8c2b] text-[#ee8c2b] bg-white hover:bg-orange-50 text-xs font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Lightbulb className="w-4 h-4" />
+            AI gợi ý
+          </button>
 
           <button
             type="button"
@@ -1251,23 +1446,21 @@ const AdminCampaigns = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${
-                  isActive
-                    ? "bg-[#ee8c2b]/10 text-[#ee8c2b] shadow-sm border border-[#ee8c2b]/20"
-                    : tab.highlight && tab.count > 0
-                      ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${isActive
+                  ? "bg-[#ee8c2b]/10 text-[#ee8c2b] shadow-sm border border-[#ee8c2b]/20"
+                  : tab.highlight && tab.count > 0
+                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive
-                      ? "bg-[#ee8c2b] text-white"
-                      : tab.highlight && tab.count > 0
-                        ? "bg-amber-500 text-white"
-                        : "bg-slate-100 text-slate-600"
-                  }`}
+                  className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isActive
+                    ? "bg-[#ee8c2b] text-white"
+                    : tab.highlight && tab.count > 0
+                      ? "bg-amber-500 text-white"
+                      : "bg-slate-100 text-slate-600"
+                    }`}
                 >
                   {tab.count}
                 </span>
@@ -1552,11 +1745,10 @@ const AdminCampaigns = () => {
                       key={period}
                       type="button"
                       onClick={() => setAnalyticsPeriod(period)}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        analyticsPeriod === period
-                          ? "bg-[#ee8c2b] text-white shadow-sm"
-                          : "text-slate-600 hover:text-slate-800"
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${analyticsPeriod === period
+                        ? "bg-[#ee8c2b] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-800"
+                        }`}
                     >
                       {period === "week"
                         ? "Tuần này"
@@ -1904,6 +2096,425 @@ const AdminCampaigns = () => {
         </div>
       )}
 
+      {showAIModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowAIModal(false)}
+          />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-slate-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 flex-shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">
+                  Trợ lý AI tạo chiến dịch
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Dựa trên dữ liệu bán hàng gần đây để đề xuất tên, sản phẩm và
+                  mức ưu đãi.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAIModal(false)}
+                className="rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Khoảng thời gian phân tích
+                  </label>
+                  <select
+                    value={aiDays}
+                    onChange={(e) => setAiDays(Number(e.target.value))}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  >
+                    <option value={7}>7 ngày gần nhất</option>
+                    <option value={14}>14 ngày gần nhất</option>
+                    <option value={30}>30 ngày gần nhất</option>
+                  </select>
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-[#ee8c2b]/5 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Mục tiêu chiến dịch
+                  </label>
+                  <select
+                    value={aiGoal}
+                    onChange={(e) => setAiGoal(e.target.value as any)}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  >
+                    <option value="boost_sales">📈 Tập trung hàng bán chạy</option>
+                    <option value="clear_stock">📦 Tập trung hàng tồn / bán chậm</option>
+                    <option value="contextual">🌤 Theo mùa / thời tiết / dịp lễ</option>
+                  </select>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {aiGoal === "boost_sales" && "Chọn đúng top sản phẩm bán chạy nhất. Thời tiết/dịp lễ chỉ ảnh hưởng tên và nội dung chiến dịch."}
+                    {aiGoal === "clear_stock" && "Ưu tiên các món ít bán, giúp giải phóng tồn kho. Thời tiết/dịp lễ hỗ trợ chọn thêm."}
+                    {aiGoal === "contextual" && "Chọn sản phẩm phù hợp nhất với thời tiết và dịp lễ bạn chọn. Sales là tiebreaker."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    🌤 Thời tiết
+                  </label>
+                  <select
+                    value={aiWeather}
+                    onChange={(e) => setAiWeather(e.target.value as any)}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  >
+                    <option value="auto">Tự động (lấy từ API)</option>
+                    <option value="hot">🌡 Nắng nóng</option>
+                    <option value="sunny">☀️ Nắng đẹp</option>
+                    <option value="rainy">🌧 Mưa</option>
+                    <option value="cold">🧊 Lạnh</option>
+                    <option value="normal">🌤 Bình thường</option>
+                  </select>
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-[#ee8c2b]/5 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    🎉 Dịp lễ / Mùa
+                  </label>
+                  <select
+                    value={aiOccasion}
+                    onChange={(e) => setAiOccasion(e.target.value as any)}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  >
+                    <option value="auto">Tự động (theo ngày hiện tại)</option>
+                    <option value="none">Không có dịp lễ</option>
+                    <option value="summer">☀️ Mùa hè</option>
+                    <option value="tet">🧧 Tết Nguyên Đán</option>
+                    <option value="christmas">🎄 Giáng Sinh</option>
+                    <option value="valentine">💝 Valentine</option>
+                  </select>
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 md:col-span-2">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    Số món AI nên đề xuất
+                  </label>
+                  <select
+                    value={aiProductCount}
+                    onChange={(e) => setAiProductCount(Number(e.target.value))}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                  >
+                    <option value={2}>2 món</option>
+                    <option value={3}>3 món</option>
+                    <option value={4}>4 món</option>
+                    <option value={5}>5 món</option>
+                    <option value={6}>6 món</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleGenerateAISuggestion}
+                  disabled={aiLoading}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#ee8c2b] px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                  {aiLoading ? "Đang tạo gợi ý..." : "Tạo gợi ý"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAIModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Đóng
+                </button>
+              </div>
+
+              {aiSuggestion ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-black text-slate-800">
+                        {aiSuggestion.name}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {aiSuggestion.summary}
+                      </p>
+                      {/* Goal context banner */}
+                      <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                        renderedAISuggestionGoal === "boost_sales"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : renderedAISuggestionGoal === "clear_stock"
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-sky-50 text-sky-700 border border-sky-200"
+                      }`}>
+                        {renderedAISuggestionGoal === "boost_sales" && "📈 Tập trung hàng bán chạy"}
+                        {renderedAISuggestionGoal === "clear_stock" && "📦 Giải phóng tồn kho / bán chậm"}
+                        {renderedAISuggestionGoal === "contextual" && "🌤 Theo mùa / thời tiết / dịp lễ"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplyAISuggestion}
+                      className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-emerald-700 flex-shrink-0"
+                    >
+                      Áp dụng
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {aiSuggestion.products.map((product) => (
+                      <div
+                        key={product.productId}
+                        className={`rounded-xl border bg-white p-3 ${
+                          renderedAISuggestionGoal === "clear_stock"
+                            ? "border-amber-100"
+                            : renderedAISuggestionGoal === "boost_sales"
+                            ? "border-emerald-100"
+                            : "border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-slate-800">
+                              {product.name}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {product.reason}
+                            </p>
+                            {/* Goal-aware sales label */}
+                            {renderedAISuggestionGoal === "boost_sales" && (
+                              <p className="mt-1 text-xs font-semibold text-emerald-600">
+                                📈 Đã bán {product.soldQuantity ?? 0} suất trong {renderedAISuggestionDays} ngày — bán chạy
+                              </p>
+                            )}
+                            {renderedAISuggestionGoal === "clear_stock" && (
+                              <p className="mt-1 text-xs font-semibold text-amber-600">
+                                📦 Chỉ bán {product.soldQuantity ?? 0} suất trong {renderedAISuggestionDays} ngày — cần giải phóng tồn kho
+                              </p>
+                            )}
+                            {renderedAISuggestionGoal === "contextual" && (
+                              <p className="mt-1 text-xs font-semibold text-sky-600">
+                                🌤 Phù hợp theo mùa / thời tiết · {product.soldQuantity ?? 0} suất/{renderedAISuggestionDays}n
+                              </p>
+                            )}
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-sm font-bold flex-shrink-0 ${
+                            renderedAISuggestionGoal === "clear_stock"
+                              ? "bg-amber-50 text-amber-600"
+                              : renderedAISuggestionGoal === "boost_sales"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-orange-50 text-orange-600"
+                          }`}>
+                            {aiSuggestion.type === "fixed_price"
+                              ? `${product.fixedPrice?.toLocaleString("vi-VN")}đ`
+                              : `-${product.discount ?? 10}%`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {aiSuggestion.rationale && (
+                    <div className="mt-4 p-3.5 bg-orange-50/40 border border-orange-100 rounded-xl text-xs text-slate-600 italic">
+                      <strong>Lý do hiệu quả:</strong> {aiSuggestion.rationale}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                  Chưa có gợi ý nào. Nhấn “Tạo gợi ý” để xem đề xuất chiến dịch
+                  từ dữ liệu bán hàng gần đây.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal && pendingAICampaign && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowConfirmModal(false)}
+          />
+          <div className="relative z-10 flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="min-w-0 pr-3">
+                <h3 className="text-lg font-black text-slate-800 sm:text-xl">
+                  Xác nhận chiến dịch từ AI
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Kiểm tra lại thông tin trước khi tạo chiến dịch
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:space-y-5 sm:px-6 sm:py-6">
+              <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-orange-700 mb-1.5">
+                      Tên chiến dịch
+                    </label>
+                    <input
+                      type="text"
+                      value={aiCampaignName}
+                      onChange={(e) => setAiCampaignName(e.target.value)}
+                      className={`w-full rounded-xl border bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:ring-1 transition-colors ${
+                        (() => {
+                          const nm = aiCampaignName.trim().toLowerCase();
+                          const start = aiStartTime ? new Date(aiStartTime) : null;
+                          const end = aiEndTime ? new Date(aiEndTime) : null;
+                          return nm && start && end && campaigns.some(
+                            (c) =>
+                              c.name.toLowerCase() === nm &&
+                              new Date(c.startTime).getTime() < end.getTime() &&
+                              new Date(c.endTime).getTime() > start.getTime()
+                          )
+                            ? "border-rose-400 focus:border-rose-500 focus:ring-rose-400"
+                            : "border-orange-200 focus:border-[#ee8c2b] focus:ring-[#ee8c2b]";
+                        })()
+                      }`}
+                      placeholder="Nhập tên chiến dịch"
+                    />
+                    {(() => {
+                      const nm = aiCampaignName.trim().toLowerCase();
+                      const start = aiStartTime ? new Date(aiStartTime) : null;
+                      const end = aiEndTime ? new Date(aiEndTime) : null;
+                      const isDup = nm && start && end && campaigns.some(
+                        (c) =>
+                          c.name.toLowerCase() === nm &&
+                          new Date(c.startTime).getTime() < end.getTime() &&
+                          new Date(c.endTime).getTime() > start.getTime()
+                      );
+                      return isDup ? (
+                        <p className="mt-1 text-xs font-semibold text-rose-500">
+                          ⚠ Đã có chiến dịch cùng tên trong khoảng thời gian này. Vui lòng đặt tên khác.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-400">
+                          ✨ Tên gợi ý từ AI dựa theo dịp lễ, mùa và thời tiết. Bạn có thể chỉnh sửa.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-orange-700 mb-1">
+                      Mô tả đề xuất từ AI
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {pendingAICampaign.summary}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-orange-700">
+                      Loại ưu đãi
+                    </span>
+                    <span className="shrink-0 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
+                      {pendingAICampaign.type === "fixed_price"
+                        ? "Giá cố định"
+                        : "Giảm giá"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Thời gian bắt đầu
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={aiStartTime}
+                    onChange={(e) => setAiStartTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-[#ee8c2b] focus:ring-1 focus:ring-[#ee8c2b]"
+                  />
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Thời gian kết thúc
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={aiEndTime}
+                    onChange={(e) => setAiEndTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-[#ee8c2b] focus:ring-1 focus:ring-[#ee8c2b]"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <p className="mb-3 text-sm font-bold text-slate-700">
+                  Danh sách món được đề xuất
+                </p>
+                <div className="space-y-2">
+                  {pendingAICampaign.products.map((product) => (
+                    <div
+                      key={product.productId}
+                      className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-800">
+                          {product.name}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500 break-words">
+                          {product.reason}
+                        </p>
+                        <p className="mt-1 text-[11px] font-semibold text-orange-600">
+                          Đã bán {product.soldQuantity ?? 0} suất trong {renderedPendingDays}{" "}
+                          ngày gần nhất
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-sm font-bold text-orange-600">
+                        {pendingAICampaign.type === "fixed_price"
+                          ? `${product.fixedPrice?.toLocaleString("vi-VN") || 0}đ`
+                          : `-${product.discount ?? 10}%`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setPendingAICampaign(null);
+                    setShowAIModal(true);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Quay lại
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAICampaign}
+                  disabled={confirmingAiCampaign}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#ee8c2b] px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <Check className="h-4 w-4" />
+                  {confirmingAiCampaign
+                    ? "Đang tạo..."
+                    : "Xác nhận & Tạo chiến dịch"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Creation/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -2056,13 +2667,12 @@ const AdminCampaigns = () => {
 
                                     <td className="px-3 py-2">
                                       <span
-                                        className={`inline-flex rounded-full px-2 py-0.5 font-bold ${
-                                          store.readiness === "ready"
-                                            ? "bg-emerald-50 text-emerald-700"
-                                            : store.readiness === "watch"
-                                              ? "bg-amber-50 text-amber-700"
-                                              : "bg-rose-50 text-rose-700"
-                                        }`}
+                                        className={`inline-flex rounded-full px-2 py-0.5 font-bold ${store.readiness === "ready"
+                                          ? "bg-emerald-50 text-emerald-700"
+                                          : store.readiness === "watch"
+                                            ? "bg-amber-50 text-amber-700"
+                                            : "bg-rose-50 text-rose-700"
+                                          }`}
                                       >
                                         {store.reason}
                                       </span>
@@ -2090,11 +2700,10 @@ const AdminCampaigns = () => {
                             type="text"
                             value={formName}
                             onChange={(e) => setFormName(e.target.value)}
-                            className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs ${
-                              wasSubmitted && nameError
-                                ? "border-rose-500 focus:ring-rose-500 bg-rose-50/10"
-                                : "border-slate-200"
-                            }`}
+                            className={`w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white text-slate-800 transition-all text-xs ${wasSubmitted && nameError
+                              ? "border-rose-500 focus:ring-rose-500 bg-rose-50/10"
+                              : "border-slate-200"
+                              }`}
                             placeholder="Ví dụ: Khuyến mãi Hè Rực Rỡ"
                           />
                         </div>
@@ -2151,11 +2760,10 @@ const AdminCampaigns = () => {
                                     setFormType("discount");
                                     setShowTypeDropdown(false);
                                   }}
-                                  className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${
-                                    formType === "discount"
-                                      ? "text-orange-700 font-bold bg-orange-50/30"
-                                      : "text-slate-700"
-                                  }`}
+                                  className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${formType === "discount"
+                                    ? "text-orange-700 font-bold bg-orange-50/30"
+                                    : "text-slate-700"
+                                    }`}
                                 >
                                   <span className="flex items-center gap-2">
                                     <Percent className="w-3.5 h-3.5 text-slate-400" />
@@ -2171,11 +2779,10 @@ const AdminCampaigns = () => {
                                     setFormType("fixed_price");
                                     setShowTypeDropdown(false);
                                   }}
-                                  className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${
-                                    formType === "fixed_price"
-                                      ? "text-orange-700 font-bold bg-orange-50/30"
-                                      : "text-slate-700"
-                                  }`}
+                                  className={`w-full flex items-center justify-between px-3.5 py-2 text-xs transition-colors hover:bg-orange-50/50 text-left ${formType === "fixed_price"
+                                    ? "text-orange-700 font-bold bg-orange-50/30"
+                                    : "text-slate-700"
+                                    }`}
                                 >
                                   <span className="flex items-center gap-2">
                                     <Coins className="w-3.5 h-3.5 text-slate-400" />
@@ -2204,14 +2811,13 @@ const AdminCampaigns = () => {
                           <button
                             type="button"
                             onClick={() => setShowCalendar(!showCalendar)}
-                            className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-left text-xs text-slate-800 flex items-center justify-between transition-all ${
-                              (wasSubmitted && timeError) ||
+                            className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-left text-xs text-slate-800 flex items-center justify-between transition-all ${(wasSubmitted && timeError) ||
                               (startTime &&
                                 endTime &&
                                 new Date(startTime) >= new Date(endTime))
-                                ? "border-rose-500 ring-rose-200"
-                                : "border-slate-200"
-                            }`}
+                              ? "border-rose-500 ring-rose-200"
+                              : "border-slate-200"
+                              }`}
                           >
                             <span className="truncate">
                               {startTime && endTime
@@ -2285,11 +2891,11 @@ const AdminCampaigns = () => {
                                   const isStart =
                                     startTime &&
                                     d.toDateString() ===
-                                      new Date(startTime).toDateString();
+                                    new Date(startTime).toDateString();
                                   const isEnd =
                                     endTime &&
                                     d.toDateString() ===
-                                      new Date(endTime).toDateString();
+                                    new Date(endTime).toDateString();
                                   const isInBetween =
                                     startTime &&
                                     endTime &&
@@ -2303,13 +2909,12 @@ const AdminCampaigns = () => {
                                       onClick={() =>
                                         handleCalendarDayClick(d.getDate())
                                       }
-                                      className={`text-[10px] p-1.5 text-center transition-all ${
-                                        isStart || isEnd
-                                          ? "bg-orange-600 text-white rounded-lg font-bold"
-                                          : isInBetween
-                                            ? "bg-orange-50 text-orange-700"
-                                            : "hover:bg-slate-100 text-slate-700 rounded-lg"
-                                      }`}
+                                      className={`text-[10px] p-1.5 text-center transition-all ${isStart || isEnd
+                                        ? "bg-orange-600 text-white rounded-lg font-bold"
+                                        : isInBetween
+                                          ? "bg-orange-50 text-orange-700"
+                                          : "hover:bg-slate-100 text-slate-700 rounded-lg"
+                                        }`}
                                     >
                                       {d.getDate()}
                                     </button>
@@ -2322,13 +2927,13 @@ const AdminCampaigns = () => {
 
                         <div className="min-h-[16px]">
                           {(wasSubmitted && timeError) ||
-                          (startTime &&
-                            endTime &&
-                            new Date(startTime) >= new Date(endTime)) ? (
+                            (startTime &&
+                              endTime &&
+                              new Date(startTime) >= new Date(endTime)) ? (
                             <p className="text-[11px] text-rose-500 font-bold">
                               {startTime &&
-                              endTime &&
-                              new Date(startTime) >= new Date(endTime)
+                                endTime &&
+                                new Date(startTime) >= new Date(endTime)
                                 ? "Thời gian bắt đầu phải trước kết thúc"
                                 : timeError}
                             </p>
@@ -2359,11 +2964,10 @@ const AdminCampaigns = () => {
 
                       {/* Bulk discount/price applier */}
                       <div
-                        className={`flex items-center justify-between gap-2 bg-[#fcfaf8] p-2 rounded-xl border border-[#e7dbcf] shadow-sm transition-all duration-200 ${
-                          campaignProducts.length === 0
-                            ? "opacity-50 pointer-events-none select-none"
-                            : ""
-                        }`}
+                        className={`flex items-center justify-between gap-2 bg-[#fcfaf8] p-2 rounded-xl border border-[#e7dbcf] shadow-sm transition-all duration-200 ${campaignProducts.length === 0
+                          ? "opacity-50 pointer-events-none select-none"
+                          : ""
+                          }`}
                       >
                         <span className="text-[10px] font-bold text-slate-700">
                           Áp dụng nhanh tất cả đã chọn:
@@ -2445,13 +3049,12 @@ const AdminCampaigns = () => {
                               return (
                                 <div
                                   key={p._id}
-                                  className={`flex items-center gap-2 px-3 py-2 transition-colors ${
-                                    isOccupied
-                                      ? "opacity-50 cursor-not-allowed bg-slate-50"
-                                      : isSelected
-                                        ? "bg-orange-50/40 cursor-pointer"
-                                        : "hover:bg-slate-50 cursor-pointer"
-                                  }`}
+                                  className={`flex items-center gap-2 px-3 py-2 transition-colors ${isOccupied
+                                    ? "opacity-50 cursor-not-allowed bg-slate-50"
+                                    : isSelected
+                                      ? "bg-orange-50/40 cursor-pointer"
+                                      : "hover:bg-slate-50 cursor-pointer"
+                                    }`}
                                   onClick={() =>
                                     !isOccupied && handleToggleProduct(p._id)
                                   }
@@ -2474,11 +3077,10 @@ const AdminCampaigns = () => {
                                           e.stopPropagation();
                                           setSelectedProductDetails(p);
                                         }}
-                                        className={`text-xs truncate text-left hover:text-orange-600 hover:underline focus:outline-none transition-colors ${
-                                          isSelected
-                                            ? "font-bold text-slate-800"
-                                            : "font-medium text-slate-600"
-                                        }`}
+                                        className={`text-xs truncate text-left hover:text-orange-600 hover:underline focus:outline-none transition-colors ${isSelected
+                                          ? "font-bold text-slate-800"
+                                          : "font-medium text-slate-600"
+                                          }`}
                                       >
                                         {p.name}
                                       </button>
@@ -2530,11 +3132,10 @@ const AdminCampaigns = () => {
                                                   Number(e.target.value),
                                                 )
                                               }
-                                              className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${
-                                                getProductError(rule)
-                                                  ? "border-rose-500 focus:ring-rose-500"
-                                                  : "border-slate-200 focus:ring-orange-500"
-                                              }`}
+                                              className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${getProductError(rule)
+                                                ? "border-rose-500 focus:ring-rose-500"
+                                                : "border-slate-200 focus:ring-orange-500"
+                                                }`}
                                               placeholder="Giảm"
                                             />
                                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
@@ -2563,11 +3164,10 @@ const AdminCampaigns = () => {
                                                   Number(e.target.value),
                                                 )
                                               }
-                                              className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${
-                                                getProductError(rule)
-                                                  ? "border-rose-500 focus:ring-rose-500"
-                                                  : "border-slate-200 focus:ring-orange-500"
-                                              }`}
+                                              className={`w-full px-2 py-1 bg-white border rounded-lg focus:outline-none focus:ring-2 text-slate-800 text-[11px] pr-6 ${getProductError(rule)
+                                                ? "border-rose-500 focus:ring-rose-500"
+                                                : "border-slate-200 focus:ring-orange-500"
+                                                }`}
                                               placeholder="Giá"
                                             />
                                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
@@ -2669,15 +3269,14 @@ const AdminCampaigns = () => {
                     </span>
                   )}
                   <span
-                    className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      selectedProductDetails.isAvailable &&
+                    className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedProductDetails.isAvailable &&
                       selectedProductDetails.status === "active"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-rose-50 text-rose-700 border border-rose-200"
-                    }`}
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                      }`}
                   >
                     {selectedProductDetails.isAvailable &&
-                    selectedProductDetails.status === "active"
+                      selectedProductDetails.status === "active"
                       ? "Đang phục vụ"
                       : "Tạm ngưng"}
                   </span>
@@ -2758,7 +3357,7 @@ const AdminCampaigns = () => {
                     Công thức / Nguyên liệu chính
                   </span>
                   {selectedProductDetails.recipe &&
-                  selectedProductDetails.recipe.length > 0 ? (
+                    selectedProductDetails.recipe.length > 0 ? (
                     <div className="bg-slate-50 rounded-xl border border-slate-100/50 p-3 max-h-36 overflow-y-auto custom-scrollbar space-y-2">
                       {selectedProductDetails.recipe.map((r, idx) => {
                         const ingName =
@@ -2802,7 +3401,7 @@ const AdminCampaigns = () => {
 
                   {/* Health Tags */}
                   {selectedProductDetails.healthTags &&
-                  selectedProductDetails.healthTags.length > 0 ? (
+                    selectedProductDetails.healthTags.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {selectedProductDetails.healthTags.map((tag) => (
                         <span

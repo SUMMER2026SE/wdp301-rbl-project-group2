@@ -67,3 +67,7 @@ export const GROQ_API_KEY = getEnv('GROQ_API_KEY');
 export const PAYOS_CLIENT_ID = getEnv('PAYOS_CLIENT_ID');
 export const PAYOS_API_KEY = getEnv('PAYOS_API_KEY');
 export const PAYOS_CHECKSUM_KEY = getEnv('PAYOS_CHECKSUM_KEY');
+
+// weather
+export const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || '';
+

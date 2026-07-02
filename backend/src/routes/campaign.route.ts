@@ -6,6 +6,7 @@ import {
   deleteCampaignHandler,
   getCampaignByIdHandler,
   getCampaignsHandler,
+  suggestCampaignWithAIHandler,
   updateCampaignHandler,
   updateCampaignStatusHandler,
   trackCampaignActivityHandler,
@@ -15,6 +16,9 @@ const campaignRoutes = Router();
 
 // GET /api/campaigns - Available to logged-in users or guest (filters differently in controller)
 campaignRoutes.get('/', optionalAuthenticate, getCampaignsHandler);
+
+// POST /api/campaigns/ai-suggest - AI-assisted campaign suggestions (Admin/Manager)
+campaignRoutes.post('/ai-suggest', authenticate, authorize(Role.ADMIN, Role.MANAGER), suggestCampaignWithAIHandler);
 
 // GET /api/campaigns/:id - Detail view (Public for guests to view landing page)
 campaignRoutes.get('/:id', optionalAuthenticate, getCampaignByIdHandler);
