@@ -3,11 +3,6 @@ import Groq from 'groq-sdk';
 import { GEMINI_API_KEY, GROQ_API_KEY } from '@/constants/env';
 import axios from 'axios';
 import { z } from 'zod';
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
-const groq = new Groq({ apiKey: GROQ_API_KEY });
 import ProductModel from '@/models/product.model';
 import { CampaignModel } from '@/models/campaign.model';
 import OrderModel from '@/models/order.model';
@@ -17,7 +12,8 @@ import { StoreModel } from '@/models/store.model';
 import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
 
 export const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-export const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+export const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+export const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
 export const groq = new Groq({ apiKey: GROQ_API_KEY });
 export const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
 
