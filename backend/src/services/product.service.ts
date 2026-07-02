@@ -12,6 +12,7 @@ import {
   attachSharedToppingVariantsToProducts,
 } from '@/services/shared-topping.service';
 import { evaluateProductHealthRisk } from '@/services/health-risk.service';
+import { applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
 export const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
 
@@ -68,38 +69,6 @@ const attachHealthRisk = <T extends Record<string, any>>(product: T, preferences
   };
 };
 
-const getScopedProductFilter = (storeId: mongoose.Types.ObjectId) => ({
-  $or: [{ storeId }, { storeId: { $exists: false } }, { storeId: null }],
-});
-
-const getProductKey = (product: { category?: unknown; name?: unknown }) =>
-  `${String(product.category ?? '').trim().toLowerCase()}::${String(product.name ?? '').trim().toLowerCase()}`;
-
-const preferStoreOverrides = <T extends { storeId?: unknown; name?: string; category?: string }>(
-  products: T[],
-  storeId: mongoose.Types.ObjectId
-) => {
-  const currentStoreId = storeId.toString();
-  const byKey = new Map<string, T>();
-
-  for (const product of products) {
-    const key = getProductKey(product);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, product);
-      continue;
-    }
-
-    const productStoreId = (product as any).storeId?.toString();
-    const existingStoreId = (existing as any).storeId?.toString();
-    if (productStoreId === currentStoreId && existingStoreId !== currentStoreId) {
-      byKey.set(key, product);
-    }
-  }
-
-  return Array.from(byKey.values());
-};
-
 const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredientName?: string; quantity: number; unit: string }>) => {
   const resolved = [] as Array<{ ingredientId: mongoose.Types.ObjectId; quantity: number; unit: string }>;
   for (const item of recipe) {
@@ -129,7 +98,7 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
   return resolved;
 };
 
-async function applyCampaignPricing<T extends { _id: any; price: number }>(
+export async function applyCampaignPricing<T extends { _id: any; price: number }>(
   products: T[]
 ): Promise<(T & { campaignPrice?: number })[]> {
   if (!products.length) return products;
@@ -189,25 +158,21 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
   if (storeId) {
     appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'Store id không hợp lệ');
     requestedStoreId = new mongoose.Types.ObjectId(storeId);
-    Object.assign(query, getScopedProductFilter(requestedStoreId));
   }
 
-  // Default: only show available & active products to customers.
+  // Default: only show available products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
   const shouldFilterCustomerVisibilityAfterStoreOverride = Boolean(requestedStoreId && !filters.showAll);
 
   if (filters.showAll) {
-    // Staff/admin management: show everything except deleted
-    query.status = { $ne: 'deleted' };
     if (isAvailable !== undefined) {
       query.isAvailable = isAvailable;
     }
   } else if (shouldFilterCustomerVisibilityAfterStoreOverride) {
     // Store override rows must win before customer visibility filtering.
   } else {
-    // Customer view: only show available & active products
+    // Customer view: only show available products.
     query.isAvailable = isAvailable !== undefined ? isAvailable : true;
-    query.status = { $nin: ['deleted', 'inactive', 'out_of_stock'] };
   }
   if (healthTags?.length) {
     query.healthTags = { $in: healthTags };
@@ -268,14 +233,14 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 
   const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
   const scopedProducts = requestedStoreId
-    ? preferStoreOverrides(productsWithCampaign, requestedStoreId)
+    ? applyStoreAvailabilityToProducts(productsWithCampaign, requestedStoreId)
     : productsWithCampaign;
   const visibleProducts = shouldFilterCustomerVisibilityAfterStoreOverride
     ? scopedProducts.filter((product: any) => {
         const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
         return (
           product.isAvailable === expectedAvailability &&
-          !['deleted', 'inactive', 'out_of_stock'].includes(String(product.status))
+          !['inactive', 'out_of_stock'].includes(String(product.status))
         );
       })
     : scopedProducts;

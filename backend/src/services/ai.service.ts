@@ -8,6 +8,28 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
 const groq = new Groq({ apiKey: GROQ_API_KEY });
+import ProductModel from '@/models/product.model';
+import { CampaignModel } from '@/models/campaign.model';
+import OrderModel from '@/models/order.model';
+import VoucherModel from '@/models/voucher.model';
+import UserVoucherModel from '@/models/user-voucher.model';
+import { StoreModel } from '@/models/store.model';
+import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
+
+export const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+export const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+export const groq = new Groq({ apiKey: GROQ_API_KEY });
+export const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
+
+const dotProduct = (a: number[], b: number[]) => a.reduce((sum, val, i) => sum + val * b[i], 0);
+const magnitude = (a: number[]) => Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+export const cosineSimilarity = (a: number[], b: number[]) => {
+  if (!a || !b || a.length !== b.length) return 0;
+  const magA = magnitude(a);
+  const magB = magnitude(b);
+  if (magA === 0 || magB === 0) return 0;
+  return dotProduct(a, b) / (magA * magB);
+};
 
 const reviewModerationSchema = z.object({
   action: z.enum(['allow', 'delete']),
@@ -353,6 +375,7 @@ interface Preferences {
   dietary: string[];
   allergies: string[];
   healthGoals: string[];
+  tastes?: string[];
 }
 
 export interface AIRecommendation {
@@ -615,86 +638,3 @@ Bắt buộc trả về thuần JSON, không có text giải thích bên ngoài.
   }
 };
 
-export const getAIResponseForChat = async (
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[],
-  message: string,
-  userContext?: {
-    fullName: string;
-    preferences: Preferences;
-    safeProducts: { name: string; description: string }[]
-  } | null
-): Promise<string> => {
-
-  // ── 1. Try Custom AI Microservice ─────────────────────────────────────────
-  if (await isMicroserviceAvailable()) {
-    try {
-      const res = await axios.post(`${AI_MICROSERVICE_URL}/chat/message`, {
-        message,
-        history,
-        userContext,
-      }, { timeout: 30000 });
-
-      const response = res.data?.response as string;
-      if (response) {
-        console.log('[AI] Using Microservice for chat');
-        return response;
-      }
-    } catch (err) {
-      console.warn('[AI] Microservice chat failed, falling back to Groq:', err);
-    }
-  }
-
-  // ── 2. Fallback: Groq ─────────────────────────────────────────────────────
-  const messages = history.map((h) => ({
-    role: h.role === 'model' ? 'assistant' : 'user',
-    content: h.parts[0].text,
-  }));
-
-  let contextSnippet = '';
-  if (userContext) {
-    const { fullName, preferences, safeProducts } = userContext;
-    contextSnippet = `
-            THÔNG TIN NGƯỜI DÙNG HIỆN TẠI:
-            - Tên: ${fullName}
-            - Dị ứng: ${preferences.allergies.length > 0 ? preferences.allergies.join(', ') : 'Không có'}
-            - Chế độ ăn kiêng: ${preferences.dietary.length > 0 ? preferences.dietary.join(', ') : 'Không có'}
-            - Mục tiêu sức khỏe: ${preferences.healthGoals.length > 0 ? preferences.healthGoals.join(', ') : 'Không có'}
-            
-            DANH SÁCH MÓN ĂN AN TOÀN GỢI Ý (Bạn hãy ưu tiên nhắc đến những món này):
-            ${safeProducts.map(p => `- ${p.name}: ${p.description}`).join('\n')}
-            
-            HƯỚNG DẪN: hãy chào ${fullName} một cách thân thiện. Sử dụng thông tin sức khỏe trên để tư vấn món ăn. 
-            Nếu người dùng hỏi về món ăn không nằm trong danh sách an toàn, hãy nhắc nhở họ kiểm tra kỹ thành phần.`;
-  }
-
-  const systemPrompt = {
-    role: 'system',
-    content: `Bạn là Chatbot hỗ trợ thông minh của FOA (Food Order App). 
-            FOA là ứng dụng gọi món ăn tập trung vào sức khỏe người dùng, 
-            giúp gợi ý món ăn dựa trên hồ sơ sức khỏe, dị ứng và mục tiêu dinh dưỡng.
-            
-            QUY TẮC CỐT LÕI:
-            1. Bạn PHẢI nhận diện và chào người dùng bằng tên nếu được cung cấp ở phần THÔNG TIN NGƯỜI DÙNG bên dưới.
-            2. Bạn đã nắm rõ Dị ứng, Chế độ ăn và Mục tiêu của họ. Tuyệt đối không nói "Tôi không biết bạn là ai" nếu có thông tin bên dưới.
-            3. Trả lời bằng Tiếng Việt, lịch sự, thân thiện và hữu ích.${contextSnippet}
-            
-            Nếu được hỏi về các món ăn ngoài danh sách gợi ý an toàn, hãy nhắc nhở người dùng kiểm tra kỹ thành phần và khuyến khích họ cập nhật hồ sơ sức khỏe trong phần cài đặt.`,
-  };
-
-  try {
-    const completion = await groq.chat.completions.create({
-      messages: [systemPrompt, ...messages, { role: 'user', content: message }] as any,
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.7,
-      max_tokens: 1024,
-    });
-
-    return completion.choices[0]?.message?.content || 'Xin lỗi, tôi không nhận được phản hồi.';
-  } catch (err: any) {
-    console.error('Groq Chat error:', err);
-    if (err.status === 429) {
-      return 'Hệ thống AI hiện đang bận do quá tải yêu cầu. Vui lòng thử lại sau 1 phút nhé! 🕒';
-    }
-    return 'Xin lỗi, tôi đang gặp lỗi kỹ thuật. Vui lòng thử lại sau nhé!';
-  }
-};

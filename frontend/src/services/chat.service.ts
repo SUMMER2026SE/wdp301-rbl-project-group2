@@ -10,5 +10,8 @@ export const sendChatMessage = async (message: string, history: ChatMessage[]) =
         message,
         history,
     });
-    return response.data.response;
+    return {
+        response: response.data.response,
+        recommendedProducts: response.data.recommendedProducts || []
+    };
 };

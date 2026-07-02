@@ -219,8 +219,10 @@ export const useCheckout = () => {
         ),
       ]);
 
+      const visibleProductById = new Map<string, Product>();
       const visibleProductByKey = new Map<string, Product>();
       for (const product of visibleProductsRes.data ?? []) {
+        visibleProductById.set(product._id, product);
         visibleProductByKey.set(productAvailabilityKey(product), product);
       }
 
@@ -230,7 +232,8 @@ export const useCheckout = () => {
 
         const product = result?.success ? result.data : null;
         const visibleProduct = product
-          ? visibleProductByKey.get(productAvailabilityKey(product))
+          ? visibleProductById.get(cartItem.productId) ??
+            visibleProductByKey.get(productAvailabilityKey(product))
           : undefined;
         const unavailable = !visibleProduct;
 

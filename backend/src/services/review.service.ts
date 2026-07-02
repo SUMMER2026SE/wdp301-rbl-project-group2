@@ -274,8 +274,8 @@ export const getFeaturedReviews = async (limit = 3) => {
     .populate('userId', 'username avatar')
     .populate({
       path: 'productId',
-      select: 'name image status',
-      match: { status: ProductStatus.ACTIVE },
+      select: 'name image isAvailable',
+      match: { isAvailable: true },
     })
     .lean();
 
