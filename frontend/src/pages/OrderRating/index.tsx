@@ -38,6 +38,7 @@ interface ProductRating {
   comment: string;
   images: ProductImage[];
   isUploading: boolean;
+  uploadError: string;
   isSubmitted: boolean;
   isSubmitting: boolean;
 }
@@ -140,6 +141,7 @@ const OrderRatingPage = () => {
             comment: existing?.comment ?? "",
             images: existing ? existing.images.map(normalizeReviewImage).filter(Boolean) as ProductImage[] : [],
             isUploading: false,
+            uploadError: "",
             isSubmitted: !!existing,
             isSubmitting: false
           };
@@ -223,7 +225,7 @@ const OrderRatingPage = () => {
   };
 
   const handleFileUpload = async (index: number, file: File) => {
-    updateRating(index, { isUploading: true });
+    updateRating(index, { isUploading: true, uploadError: "" });
     const formData = new FormData();
     formData.append("file", file);
 
@@ -238,13 +240,15 @@ const OrderRatingPage = () => {
           const next = [...prev];
           next[index] = {
             ...next[index],
-            images: [...next[index].images, { id: fileData._id, url: fileData.secureUrl }]
+            images: [...next[index].images, { id: fileData._id, url: fileData.secureUrl }],
+            uploadError: ""
           };
           return next;
         });
       }
     } catch (err) {
       console.error("Upload failed", err);
+      updateRating(index, { uploadError: getApiErrorMessage(err) || "Anh khong phu hop voi chinh sach noi dung. Vui long chon anh khac." });
     } finally {
       updateRating(index, { isUploading: false });
     }
@@ -669,7 +673,7 @@ const OrderRatingPage = () => {
                         <label className={`flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-all ${rating.isUploading ? "opacity-50 pointer-events-none" : "hover:border-orange-600 hover:bg-orange-600/5 border-gray-200 dark:border-gray-800"}`}>
                           <input 
                             type="file" 
-                            accept="image/*" 
+                            accept="image/jpeg,image/png,image/webp" 
                             className="hidden" 
                             onChange={(e) => e.target.files?.[0] && handleFileUpload(idx, e.target.files[0])}
                           />
@@ -684,6 +688,12 @@ const OrderRatingPage = () => {
                         </label>
                       )}
                     </div>
+                    {rating.uploadError && (
+                      <p className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
+                        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        {rating.uploadError}
+                      </p>
+                    )}
                   </div>
 
                   <button

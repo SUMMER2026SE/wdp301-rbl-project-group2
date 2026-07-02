@@ -1,4 +1,4 @@
-import IFile, { ResourceType } from '@/types/file.type';
+import IFile, { FileModerationCategory, FileModerationStatus, ResourceType } from '@/types/file.type';
 import mongoose from 'mongoose';
 
 const FileSchema = new mongoose.Schema<IFile>(
@@ -13,6 +13,19 @@ const FileSchema = new mongoose.Schema<IFile>(
     folder: { type: String, required: true },
     owner_id: { type: mongoose.Schema.Types.ObjectId, required: true },
     owner_type: { type: String, required: true },
+    moderationStatus: {
+      type: String,
+      enum: FileModerationStatus,
+      default: FileModerationStatus.APPROVED,
+    },
+    moderationCategory: {
+      type: String,
+      enum: FileModerationCategory,
+      default: FileModerationCategory.NONE,
+    },
+    moderationConfidence: { type: Number, min: 0, max: 1, default: 0 },
+    moderationReason: { type: String, default: '' },
+    moderatedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -22,6 +35,7 @@ const FileSchema = new mongoose.Schema<IFile>(
 //indexes
 FileSchema.index({ public_id: 1 }, { unique: true });
 FileSchema.index({ resource_type: 1, owner_id: 1, owner_type: 1 });
+FileSchema.index({ owner_type: 1, moderationStatus: 1 });
 
 const FileModel = mongoose.model<IFile>('File', FileSchema, 'files');
 

@@ -5,7 +5,8 @@ import axios from 'axios';
 import { z } from 'zod';
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
 const reviewModerationSchema = z.object({
@@ -98,6 +99,168 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 };
 
+
+const REVIEW_IMAGE_MODERATION_CATEGORIES = [
+  'none',
+  'sexual',
+  'violence',
+  'hate',
+  'self_harm',
+  'illegal',
+  'spam',
+  'private_info',
+  'other',
+] as const;
+
+const reviewImageModerationSchema = z.object({
+  action: z.enum(['allow', 'reject']),
+  category: z.enum(REVIEW_IMAGE_MODERATION_CATEGORIES).default('none'),
+  confidence: z.number().min(0).max(1).default(0),
+  reason: z.string().max(200).default(''),
+});
+
+export type ReviewImageModerationResult = z.infer<typeof reviewImageModerationSchema>;
+
+const fallbackRejectReviewImage = (reason: string): ReviewImageModerationResult => ({
+  action: 'reject',
+  category: 'other',
+  confidence: 1,
+  reason,
+});
+
+const REVIEW_IMAGE_MODEL_CANDIDATES = Array.from(
+  new Set(
+    (process.env.GEMINI_VISION_MODELS || `${DEFAULT_GEMINI_MODEL},gemini-2.5-flash,gemini-2.0-flash`)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )
+);
+const parseJsonObject = (raw: string) => {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON object in AI response');
+  return JSON.parse(jsonMatch[0]);
+};
+
+interface ReviewImageModerationInput {
+  buffer: Buffer;
+  mimeType: string;
+  bytes?: number;
+}
+
+const moderateReviewImageData = async ({ buffer, mimeType, bytes }: ReviewImageModerationInput): Promise<ReviewImageModerationResult> => {
+  if (!buffer?.length) {
+    return fallbackRejectReviewImage('Image file is empty');
+  }
+
+  const prompt = `You are an image content moderation classifier for customer food-order reviews.
+Inspect ONLY the provided image. Do not infer identity, demographics, or private traits.
+
+ALLOW images that are clearly safe for a food review, including:
+- food, drinks, packaging, delivery bags, restaurant/store context
+- damaged, spoiled, undercooked, messy, or low-quality food when shown as customer feedback
+- receipts only when no sensitive personal/payment details are readable
+
+REJECT images containing:
+- nudity, sexual content, or explicit body exposure
+- graphic violence, blood, gore, self-harm, weapons, drugs, or illegal activity
+- hate symbols, extremist content, harassment, or threatening content
+- QR codes, phone numbers, external links, ads, scam/spam promotions, or attempts to redirect users off-platform
+- readable private information such as full address, payment card, bank account, ID card, access token, or private messages
+- content clearly unrelated to food reviews and unsafe for a public commerce platform
+
+Return JSON only with this exact shape:
+{
+  "action": "allow" | "reject",
+  "category": "none" | "sexual" | "violence" | "hate" | "self_harm" | "illegal" | "spam" | "private_info" | "other",
+  "confidence": number,
+  "reason": "short Vietnamese reason"
+}`;
+
+  let lastError: unknown = null;
+
+  for (const modelName of REVIEW_IMAGE_MODEL_CANDIDATES) {
+    try {
+      const imageModel = genAI.getGenerativeModel({ model: modelName });
+      const result = await withTimeout(
+        imageModel.generateContent([
+          prompt,
+          {
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType,
+            },
+          },
+        ]),
+        10000
+      );
+
+      const raw = result.response.text() || '{}';
+      const parsed = reviewImageModerationSchema.safeParse(parseJsonObject(raw));
+      if (!parsed.success) throw new Error('Invalid review image moderation shape');
+
+      if (parsed.data.action === 'reject' && parsed.data.confidence < 0.65) {
+        return {
+          action: 'allow',
+          category: 'none',
+          confidence: parsed.data.confidence,
+          reason: 'AI confidence below reject threshold',
+        };
+      }
+
+      return parsed.data;
+    } catch (error) {
+      lastError = error;
+      console.warn('[ReviewImageModeration] Model attempt failed', {
+        model: modelName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        mimeType,
+        bytes,
+      });
+    }
+  }
+
+  console.error('[ReviewImageModeration] All model attempts failed', {
+    error: lastError instanceof Error ? lastError.message : 'Unknown error',
+    mimeType,
+    bytes,
+  });
+  return fallbackRejectReviewImage('Khong the kiem duyet anh luc nay');
+};
+
+export const moderateReviewImage = async (file: Express.Multer.File): Promise<ReviewImageModerationResult> =>
+  moderateReviewImageData({
+    buffer: file.buffer,
+    mimeType: file.mimetype,
+    bytes: file.size,
+  });
+
+export const moderateReviewImageFromUrl = async (
+  imageUrl: string,
+  fallbackMimeType = 'image/jpeg',
+  bytes?: number
+): Promise<ReviewImageModerationResult> => {
+  try {
+    const response = await axios.get<ArrayBuffer>(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      maxContentLength: 10 * 1024 * 1024,
+    });
+
+    const contentType = String(response.headers['content-type'] || fallbackMimeType).split(';')[0].trim();
+    return moderateReviewImageData({
+      buffer: Buffer.from(response.data),
+      mimeType: contentType || fallbackMimeType,
+      bytes,
+    });
+  } catch (error) {
+    console.error('[ReviewImageModeration] Failed to fetch image for moderation', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      bytes,
+    });
+    return fallbackRejectReviewImage('Khong the tai anh de kiem duyet');
+  }
+};
 export const moderateReviewComment = async (comment?: string | null): Promise<ReviewModerationResult> => {
   const normalizedComment = comment?.trim();
   if (!normalizedComment) {

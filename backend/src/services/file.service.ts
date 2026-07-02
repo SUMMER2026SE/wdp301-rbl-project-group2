@@ -1,9 +1,12 @@
 import { FileModel } from '@/models';
-import { FileOwnerType, ResourceType } from '@/types/file.type';
+import { FileModerationCategory, FileModerationStatus, FileOwnerType, ResourceType } from '@/types/file.type';
 import { uploadBuffer, deleteFile } from '@/utils/upload-file';
 import { NOT_FOUND, BAD_REQUEST } from '@/constants/http';
 import appAssert from '@/utils/app-assert';
 import mongoose from 'mongoose';
+
+const REVIEW_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 interface UploadFileParams {
   file: Express.Multer.File;
   ownerType: FileOwnerType;
@@ -12,10 +15,14 @@ interface UploadFileParams {
   prefix?: string;
 }
 
-/**
- * Upload file lên Cloudinary rồi lưu metadata vào MongoDB.
- * Trả về document IFile với _id để gán vào các entity khác (Product, User,...).
- */
+const assertReviewImageMimeType = (file: Express.Multer.File) => {
+  appAssert(
+    REVIEW_IMAGE_MIME_TYPES.has(file.mimetype),
+    BAD_REQUEST,
+    'Anh review chi ho tro dinh dang JPEG, PNG hoac WebP'
+  );
+};
+
 export const uploadAndSaveFile = async ({
   file,
   ownerType,
@@ -23,10 +30,12 @@ export const uploadAndSaveFile = async ({
   folder = 'products',
   prefix = 'product',
 }: UploadFileParams) => {
-  // Validate file exists
-  appAssert(file, BAD_REQUEST, 'Không tìm thấy file để upload');
+  appAssert(file, BAD_REQUEST, 'Khong tim thay file de upload');
 
-  // Upload lên Cloudinary — uploadBuffer trả về raw cloudinary response
+  if (ownerType === FileOwnerType.REVIEW) {
+    assertReviewImageMimeType(file);
+  }
+
   const cloudinaryResult = (await uploadBuffer({ file, folder, prefix })) as {
     public_id: string;
     secure_url: string;
@@ -38,7 +47,7 @@ export const uploadAndSaveFile = async ({
     folder: string;
   };
 
-  // Lưu metadata vào MongoDB File collection
+  const isReviewImage = ownerType === FileOwnerType.REVIEW;
   const fileDoc = await FileModel.create({
     public_id: cloudinaryResult.public_id,
     secure_url: cloudinaryResult.secure_url,
@@ -50,32 +59,27 @@ export const uploadAndSaveFile = async ({
     folder: cloudinaryResult.folder ?? folder,
     owner_id: ownerId ? new mongoose.Types.ObjectId(ownerId) : new mongoose.Types.ObjectId(),
     owner_type: ownerType,
+    moderationStatus: isReviewImage ? FileModerationStatus.PENDING : FileModerationStatus.APPROVED,
+    moderationCategory: FileModerationCategory.NONE,
+    moderationConfidence: 0,
+    moderationReason: '',
+    moderatedAt: null,
   });
 
   return fileDoc;
 };
 
-/**
- * Lấy thông tin file theo ID
- */
 export const getFileById = async (id: string) => {
   const file = await FileModel.findById(id).lean();
-  appAssert(file, NOT_FOUND, 'Không tìm thấy file');
+  appAssert(file, NOT_FOUND, 'Khong tim thay file');
   return file;
 };
 
-/**
- * Xoá file khỏi cả Cloudinary lẫn MongoDB.
- * Dùng khi delete product hoặc thay thế ảnh.
- */
 export const removeFile = async (fileId: string) => {
   const file = await FileModel.findById(fileId);
-  appAssert(file, NOT_FOUND, 'Không tìm thấy file để xoá');
+  appAssert(file, NOT_FOUND, 'Khong tim thay file de xoa');
 
-  // Xoá trên Cloudinary
   await deleteFile(file.public_id, file.resource_type);
-
-  // Xoá trong DB
   await FileModel.findByIdAndDelete(fileId);
 
   return { deleted: true };
