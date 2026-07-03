@@ -163,11 +163,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 Map<String, dynamic>.from(data))
           : null;
       if (riskData != null) {
-        final level = riskData['level'] as String?;
-        if (level == 'warning' || level == 'danger') {
-          if (mounted) {
-            setState(() => _healthRisk = riskData);
-          }
+        if (mounted) {
+          setState(() => _healthRisk = riskData);
         }
       }
     } on DioException catch (e) {
