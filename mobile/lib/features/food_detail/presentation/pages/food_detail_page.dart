@@ -443,8 +443,28 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           backgroundColor: Colors.white,
           flexibleSpace: FlexibleSpaceBar(
             background: Stack(
+              fit: StackFit.expand,
               children: [
                 _buildProductImage(),
+                // Gradient overlay for brand feel
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 80,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AppColors.primary.withValues(alpha: 0.15),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 8,
                   left: 8,
@@ -1074,10 +1094,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.05),
+                  color: AppColors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                   ),
                 ),
                 child: Text(
@@ -1369,6 +1389,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.orange.shade100, width: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
