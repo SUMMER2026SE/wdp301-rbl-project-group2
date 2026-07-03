@@ -175,63 +175,6 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
     }
   }
 
-  Widget _buildHealthRisk() {
-    if (_healthRisk == null) return const SizedBox.shrink();
-    final level = _healthRisk!['level'] as String? ?? 'warning';
-    final matchedAllergens =
-        _healthRisk!['matchedAllergens'] as List<dynamic>? ?? [];
-    final isDanger = level == 'danger';
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDanger ? Colors.red[50] : Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDanger ? Colors.red[200]! : Colors.orange[200]!,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isDanger ? Icons.gpp_bad : Icons.warning_amber_rounded,
-            color: isDanger ? Colors.red : Colors.orange,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isDanger ? 'Không phù hợp' : 'Cảnh báo sức khỏe',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: isDanger ? Colors.red[800] : Colors.orange[900],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (isDanger)
-                  Text(
-                    'Món này không phù hợp với bạn',
-                    style: TextStyle(fontSize: 12, color: Colors.red[700]),
-                  )
-                else
-                  Text(
-                    'Món này có thể chứa: ${matchedAllergens.join(", ")}',
-                    style: TextStyle(fontSize: 12, color: Colors.orange[800]),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _addToCart() async {
     setState(() => _isAddingToCart = true);
 
@@ -1150,45 +1093,6 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAllergenWarning() {
-    final tags = (_product!['allergenTags'] as List).cast<String>();
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange[200]!),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.orange,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cảnh báo dị ứng',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Món này có thể chứa: ${tags.join(", ")}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
