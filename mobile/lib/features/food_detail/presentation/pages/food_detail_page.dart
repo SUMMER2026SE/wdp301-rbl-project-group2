@@ -876,6 +876,125 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
     );
   }
 
+  Widget _buildUnifiedHealthAlert() {
+    final riskLevel = _healthRisk?['level'] as String?;
+    final matchedAllergens =
+        _healthRisk?['matchedAllergens'] as List<dynamic>? ?? [];
+    final allergenTags =
+        (_product?['allergenTags'] as List<dynamic>?)?.cast<String>() ?? [];
+
+    // State 1: Personalized health risk (warning or danger)
+    if (_healthRisk != null &&
+        (riskLevel == 'warning' || riskLevel == 'danger')) {
+      final isDanger = riskLevel == 'danger';
+      final bgColor = isDanger ? Colors.red.shade50 : Colors.orange.shade50;
+      final accentColor =
+          isDanger ? Colors.red.shade300 : Colors.orange.shade300;
+      final iconColor =
+          isDanger ? Colors.red.shade400 : Colors.orange.shade400;
+      final titleColor =
+          isDanger ? Colors.red.shade700 : Colors.orange.shade700;
+      final icon =
+          isDanger ? Icons.shield_outlined : Icons.warning_amber_rounded;
+      final title = isDanger
+          ? 'Món này không phù hợp với hồ sơ sức khỏe của bạn'
+          : 'Cảnh báo dị ứng';
+      final body = isDanger
+          ? 'Chứa: ${matchedAllergens.join(", ")} — bạn đã khai báo dị ứng với các thành phần này'
+          : 'Món này có thể chứa: ${matchedAllergens.join(", ")}. Vui lòng cân nhắc trước khi đặt.';
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border(
+            left: BorderSide(color: accentColor, width: 3),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    body,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // State 2: General allergen tags (no personalized health risk)
+    if (allergenTags.isNotEmpty) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border(
+            left: BorderSide(color: Colors.orange.shade200, width: 3),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange.shade300, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Lưu ý dị ứng',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Món này có chứa: ${allergenTags.join(", ")}. Kiểm tra kỹ nếu bạn có tiền sử dị ứng.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // State 3: Nothing to show
+    return const SizedBox.shrink();
+  }
+
   Widget _buildAICard() {
     final healthTags = _product?['healthTags'] as List<dynamic>?;
     if (healthTags == null || healthTags.isEmpty) {
