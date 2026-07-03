@@ -535,14 +535,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: _buildProductInfo(),
                 ),
+                _buildUnifiedHealthAlert(),
                 _buildAICard(),
-                _buildHealthRisk(),
-                if (_product?['allergenTags'] != null &&
-                    (_product!['allergenTags'] as List).isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: _buildAllergenWarning(),
-                  ),
                 if (_product?['description'] != null &&
                     (_product!['description'] as String).isNotEmpty)
                   Padding(
@@ -1001,8 +995,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       return const SizedBox.shrink();
     }
 
-    final riskLevel = _healthRisk?['level'] as String? ?? 'safe';
-    if (riskLevel != 'safe') return const SizedBox.shrink();
+    final riskLevel = _healthRisk?['level'] as String?;
+    if (riskLevel == 'warning' || riskLevel == 'danger') {
+      return const SizedBox.shrink();
+    }
 
     const Color emerald50 = Color(0xFFECFDF5);
     const Color emerald100 = Color(0xFFD1FAE5);
