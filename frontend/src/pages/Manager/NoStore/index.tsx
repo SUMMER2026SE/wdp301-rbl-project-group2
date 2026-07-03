@@ -13,7 +13,7 @@ const ManagerNoStore = () => {
     try {
       await getUser();
       toast.success("Đã làm mới thông tin tài khoản!", { id: toastId });
-    } catch (error) {
+    } catch {
       toast.error("Không thể làm mới thông tin. Vui lòng thử lại sau.", { id: toastId });
     } finally {
       setChecking(false);
@@ -24,7 +24,7 @@ const ManagerNoStore = () => {
     try {
       await logout();
       toast.success("Đăng xuất thành công");
-    } catch (error) {
+    } catch {
       toast.error("Không thể đăng xuất. Vui lòng tải lại trang.");
     }
   };

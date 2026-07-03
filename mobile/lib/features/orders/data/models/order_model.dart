@@ -57,7 +57,8 @@ class OrderModel {
       cusId: json['cusId'] as String? ?? '',
       staffId: json['staffId'] as String?,
       status: json['status'] as String? ?? 'pending',
-      items: (json['items'] as List<dynamic>?)
+      items:
+          (json['items'] as List<dynamic>?)
               ?.map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -70,73 +71,79 @@ class OrderModel {
       paidAt: _parsePaidAt(json),
       deliveryAddress: json['deliveryAddress'] != null
           ? DeliveryAddressModel.fromJson(
-              json['deliveryAddress'] as Map<String, dynamic>)
+              json['deliveryAddress'] as Map<String, dynamic>,
+            )
           : null,
       note: json['note'] as String?,
       voucherCode: json['voucherCode'] as String?,
-      statusHistory: (json['statusHistory'] as List<dynamic>?)
-              ?.map((e) =>
-                  StatusHistoryModel.fromJson(e as Map<String, dynamic>))
+      statusHistory:
+          (json['statusHistory'] as List<dynamic>?)
+              ?.map(
+                (e) => StatusHistoryModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       cancellation: json['cancellation'] != null
           ? CancellationInfoModel.fromJson(
-              json['cancellation'] as Map<String, dynamic>)
+              json['cancellation'] as Map<String, dynamic>,
+            )
           : null,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
+      updatedAt:
+          DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
           DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'code': code,
-        'storeId': storeId,
-        'cusId': cusId,
-        'staffId': staffId,
-        'status': status,
-        'items': items.map((i) => i.toJson()).toList(),
-        'subTotal': subTotal,
-        'shippingFee': shippingFee,
-        'discountAmount': discountAmount,
-        'totalPrice': totalPrice,
-        'paymentMethod': paymentMethod,
-        'paid': paid,
-        'paidAt': paidAt,
-        'deliveryAddress': deliveryAddress?.toJson(),
-        'note': note,
-        'voucherCode': voucherCode,
-        'statusHistory': statusHistory.map((s) => s.toJson()).toList(),
-        'cancellation': cancellation?.toJson(),
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    '_id': id,
+    'code': code,
+    'storeId': storeId,
+    'cusId': cusId,
+    'staffId': staffId,
+    'status': status,
+    'items': items.map((i) => i.toJson()).toList(),
+    'subTotal': subTotal,
+    'shippingFee': shippingFee,
+    'discountAmount': discountAmount,
+    'totalPrice': totalPrice,
+    'paymentMethod': paymentMethod,
+    'paid': paid,
+    'paidAt': paidAt,
+    'deliveryAddress': deliveryAddress?.toJson(),
+    'note': note,
+    'voucherCode': voucherCode,
+    'statusHistory': statusHistory.map((s) => s.toJson()).toList(),
+    'cancellation': cancellation?.toJson(),
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   OrderEntity toEntity() => OrderEntity(
-        id: id,
-        code: code,
-        storeId: storeId,
-        cusId: cusId,
-        staffId: staffId,
-        status: status,
-        items: items.map((i) => i.toEntity()).toList(),
-        subTotal: subTotal,
-        shippingFee: shippingFee,
-        discountAmount: discountAmount,
-        totalPrice: totalPrice,
-        paymentMethod: paymentMethod,
-        paid: paid,
-        paidAt: paidAt,
-        deliveryAddress: deliveryAddress?.toEntity(),
-        note: note,
-        voucherCode: voucherCode,
-        statusHistory: statusHistory.map((s) => s.toEntity()).toList(),
-        cancellation: cancellation?.toEntity(),
-        createdAt: createdAt.toIso8601String(),
-        updatedAt: updatedAt.toIso8601String(),
-      );
+    id: id,
+    code: code,
+    storeId: storeId,
+    cusId: cusId,
+    staffId: staffId,
+    status: status,
+    items: items.map((i) => i.toEntity()).toList(),
+    subTotal: subTotal,
+    shippingFee: shippingFee,
+    discountAmount: discountAmount,
+    totalPrice: totalPrice,
+    paymentMethod: paymentMethod,
+    paid: paid,
+    paidAt: paidAt,
+    deliveryAddress: deliveryAddress?.toEntity(),
+    note: note,
+    voucherCode: voucherCode,
+    statusHistory: statusHistory.map((s) => s.toEntity()).toList(),
+    cancellation: cancellation?.toEntity(),
+    createdAt: createdAt.toIso8601String(),
+    updatedAt: updatedAt.toIso8601String(),
+  );
 
   /// Extract paymentMethod from either root or nested payment.method.
   static String _parsePaymentMethod(Map<String, dynamic> json) {
@@ -185,22 +192,22 @@ class DeliveryAddressModel {
       );
 
   Map<String, dynamic> toJson() => {
-        'receiverName': receiverName,
-        'phone': phone,
-        'detail': detail,
-        'ward': ward,
-        'district': district,
-        'city': city,
-      };
+    'receiverName': receiverName,
+    'phone': phone,
+    'detail': detail,
+    'ward': ward,
+    'district': district,
+    'city': city,
+  };
 
   DeliveryAddressEntity toEntity() => DeliveryAddressEntity(
-        receiverName: receiverName,
-        phone: phone,
-        detail: detail,
-        ward: ward,
-        district: district,
-        city: city,
-      );
+    receiverName: receiverName,
+    phone: phone,
+    detail: detail,
+    ward: ward,
+    district: district,
+    city: city,
+  );
 }
 
 class StatusHistoryModel {
@@ -224,25 +231,26 @@ class StatusHistoryModel {
         changedBy: json['changedBy'] as String?,
         actorRole: json['actorRole'] as String?,
         reason: json['reason'] as String?,
-        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+        createdAt:
+            DateTime.tryParse(json['createdAt'] as String? ?? '') ??
             DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {
-        'status': status,
-        'changedBy': changedBy,
-        'actorRole': actorRole,
-        'reason': reason,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'status': status,
+    'changedBy': changedBy,
+    'actorRole': actorRole,
+    'reason': reason,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   StatusHistoryEntity toEntity() => StatusHistoryEntity(
-        status: status,
-        changedBy: changedBy,
-        actorRole: actorRole,
-        reason: reason,
-        createdAt: createdAt.toIso8601String(),
-      );
+    status: status,
+    changedBy: changedBy,
+    actorRole: actorRole,
+    reason: reason,
+    createdAt: createdAt.toIso8601String(),
+  );
 }
 
 class CancellationInfoModel {
@@ -267,16 +275,16 @@ class CancellationInfoModel {
       );
 
   Map<String, dynamic> toJson() => {
-        'reason': reason,
-        'cancelledBy': cancelledBy,
-        'refundRequired': refundRequired,
-        'refundedAt': refundedAt,
-      };
+    'reason': reason,
+    'cancelledBy': cancelledBy,
+    'refundRequired': refundRequired,
+    'refundedAt': refundedAt,
+  };
 
   CancellationInfoEntity toEntity() => CancellationInfoEntity(
-        reason: reason,
-        cancelledBy: cancelledBy,
-        refundRequired: refundRequired,
-        refundedAt: refundedAt,
-      );
+    reason: reason,
+    cancelledBy: cancelledBy,
+    refundRequired: refundRequired,
+    refundedAt: refundedAt,
+  );
 }

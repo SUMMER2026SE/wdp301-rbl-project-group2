@@ -7,11 +7,7 @@ class OrderStatusBadge extends StatelessWidget {
   final OrderStatus status;
   final double fontSize;
 
-  const OrderStatusBadge({
-    super.key,
-    required this.status,
-    this.fontSize = 12,
-  });
+  const OrderStatusBadge({super.key, required this.status, this.fontSize = 12});
 
   @override
   Widget build(BuildContext context) {

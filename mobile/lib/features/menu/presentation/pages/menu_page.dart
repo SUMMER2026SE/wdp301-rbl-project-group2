@@ -26,11 +26,7 @@ class MenuPage extends StatelessWidget {
   final String? initialCategory;
   final String? initialSearch;
 
-  const MenuPage({
-    super.key,
-    this.initialCategory,
-    this.initialSearch,
-  });
+  const MenuPage({super.key, this.initialCategory, this.initialSearch});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +67,6 @@ class _MenuPageContentState extends State<MenuPageContent> {
   // New section data
   List<Map<String, dynamic>> _vouchers = [];
   List<ProductEntity> _specials = [];
-  bool _isLoadingSpecials = true;
 
   @override
   void initState() {
@@ -106,7 +101,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
     try {
       final results = await Future.wait([
         _dio.get(ApiEndpoints.vouchers),
-        _dio.get(ApiEndpoints.products, queryParameters: {'sort': 'salesCount', 'limit': 6}),
+        _dio.get(
+          ApiEndpoints.products,
+          queryParameters: {'sort': 'salesCount', 'limit': 6},
+        ),
       ]);
 
       // Parse vouchers
@@ -114,7 +112,7 @@ class _MenuPageContentState extends State<MenuPageContent> {
       final voucherRaw = voucherData is Map
           ? (voucherData['data'] as List<dynamic>? ?? [])
           : (voucherData as List<dynamic>? ?? []);
-      
+
       // Parse specials (Best sellers)
       final specialsData = results[1].data;
       final specialsRaw = specialsData is Map
@@ -125,18 +123,16 @@ class _MenuPageContentState extends State<MenuPageContent> {
         setState(() {
           _vouchers = voucherRaw.map((e) => e as Map<String, dynamic>).toList();
           _specials = specialsRaw
-              .map((e) => ProductModel.fromJson(e as Map<String, dynamic>).toEntity())
+              .map(
+                (e) =>
+                    ProductModel.fromJson(e as Map<String, dynamic>).toEntity(),
+              )
               .where((p) => p.status == 'active')
               .toList();
-          _isLoadingSpecials = false;
         });
       }
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingSpecials = false;
-        });
-      }
+      // Specials are optional; keep the menu usable when this side-load fails.
     }
   }
 
@@ -150,7 +146,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
   void _onScroll() {
     if (_isNearBottom) {
       final state = context.read<MenuBloc>().state;
-      if (!state.isLoadingMore && state.hasMore && !state.isLoading && state.error == null) {
+      if (!state.isLoadingMore &&
+          state.hasMore &&
+          !state.isLoading &&
+          state.error == null) {
         context.read<MenuBloc>().add(const LoadMoreMenu());
       }
     }
@@ -165,15 +164,35 @@ class _MenuPageContentState extends State<MenuPageContent> {
     });
   }
 
-  String _getCategoryEmoji(String name) {
+  String getCategoryEmoji(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains('bún') || lower.contains('phở') || lower.contains('nước')) return '🍲 ';
-    if (lower.contains('khô') || lower.contains('mì') || lower.contains('trộn')) return '🍝 ';
+    if (lower.contains('bún') ||
+        lower.contains('phở') ||
+        lower.contains('nước')) {
+      return '🍲 ';
+    }
+    if (lower.contains('khô') ||
+        lower.contains('mì') ||
+        lower.contains('trộn')) {
+      return '🍝 ';
+    }
     if (lower.contains('cơm')) return '🍛 ';
-    if (lower.contains('salad') || lower.contains('rau') || lower.contains('chay')) return '🥗 ';
-    if (lower.contains('uống') || lower.contains('nước sâm') || lower.contains('sữa')) return '🥤 ';
+    if (lower.contains('salad') ||
+        lower.contains('rau') ||
+        lower.contains('chay')) {
+      return '🥗 ';
+    }
+    if (lower.contains('uống') ||
+        lower.contains('nước sâm') ||
+        lower.contains('sữa')) {
+      return '🥤 ';
+    }
     if (lower.contains('bánh') || lower.contains('bao')) return '🥟 ';
-    if (lower.contains('tráng miệng') || lower.contains('flan') || lower.contains('ngọt')) return '🍰 ';
+    if (lower.contains('tráng miệng') ||
+        lower.contains('flan') ||
+        lower.contains('ngọt')) {
+      return '🍰 ';
+    }
     if (lower.contains('ăn kèm') || lower.contains('tóp mỡ')) return '🥓 ';
     return '🍽️ ';
   }
@@ -184,7 +203,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
       listenWhen: (previous, current) =>
           previous.selectedStore?['_id'] != current.selectedStore?['_id'],
       listener: (context, state) {
-        context.read<MenuBloc>().add(const FetchMenu()); // Re-fetch products when store changes
+        context.read<MenuBloc>().add(
+          const FetchMenu(),
+        ); // Re-fetch products when store changes
         _loadSpecialsAndVouchers(); // Re-fetch recommendations
       },
       child: Scaffold(
@@ -203,7 +224,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                     if (state.error != null) {
                       return AppErrorWidget(
                         message: state.error!,
-                        onRetry: () => context.read<MenuBloc>().add(const FetchMenu()),
+                        onRetry: () =>
+                            context.read<MenuBloc>().add(const FetchMenu()),
                       );
                     }
 
@@ -217,21 +239,15 @@ class _MenuPageContentState extends State<MenuPageContent> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           // 1. Premium Brand Header
-                          SliverToBoxAdapter(
-                            child: _buildBrandHeader(),
-                          ),
+                          SliverToBoxAdapter(child: _buildBrandHeader()),
 
                           // 2. Hot Promotions Carousel
                           if (_vouchers.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: _buildPromoCarousel(),
-                            ),
+                            SliverToBoxAdapter(child: _buildPromoCarousel()),
 
                           // 3. Today's Specials Carousel
                           if (_specials.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: _buildSpecialsCarousel(),
-                            ),
+                            SliverToBoxAdapter(child: _buildSpecialsCarousel()),
 
                           // 4. Sticky Filter & Category Header (Pinned)
                           SliverPersistentHeader(
@@ -310,11 +326,15 @@ class _MenuPageContentState extends State<MenuPageContent> {
           // Branch Pill
           BlocBuilder<StoreCubit, StoreState>(
             builder: (context, state) {
-              final storeName = state.selectedStore?['name'] as String? ?? 'Chi nhánh chính';
+              final storeName =
+                  state.selectedStore?['name'] as String? ?? 'Chi nhánh chính';
               return ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(16),
@@ -323,7 +343,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.location_on, color: AppColors.primary, size: 10),
+                      const Icon(
+                        Icons.location_on,
+                        color: AppColors.primary,
+                        size: 10,
+                      ),
                       const SizedBox(width: 3),
                       Flexible(
                         child: Text(
@@ -356,7 +380,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
           padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Text(
             'Khuyến mãi hot 🎁',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(
@@ -368,7 +396,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
             itemBuilder: (context, index) {
               final voucher = _vouchers[index];
               final code = voucher['code'] as String? ?? 'DISCOUNT';
-              final desc = voucher['description'] as String? ?? 'Giảm giá cực tốt';
+              final desc =
+                  voucher['description'] as String? ?? 'Giảm giá cực tốt';
               return Container(
                 width: 200,
                 margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -387,7 +416,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
                           color: AppColors.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.confirmation_num_outlined, color: Colors.white, size: 14),
+                        child: const Icon(
+                          Icons.confirmation_num_outlined,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -397,13 +430,20 @@ class _MenuPageContentState extends State<MenuPageContent> {
                           children: [
                             Text(
                               code,
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               desc,
-                              style: TextStyle(fontSize: 9.5, color: Colors.grey[600]),
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: Colors.grey[600],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -429,7 +469,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
           padding: EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Text(
             'Món ăn nổi bật hôm nay 🔥',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(
@@ -472,7 +516,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
               onChanged: _onSearch,
               decoration: InputDecoration(
                 hintText: 'Tìm món ngon hoặc nguyên liệu...',
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textHint),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textHint,
+                ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 20),
@@ -496,9 +543,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
   Widget _buildFilterIconButton(BuildContext context) {
     return BlocBuilder<MenuBloc, MenuState>(
       builder: (context, state) {
-        final hasActiveFilter = state.minPrice != null || 
-            state.maxPrice != null || 
-            state.filterAllergies || 
+        final hasActiveFilter =
+            state.minPrice != null ||
+            state.maxPrice != null ||
+            state.filterAllergies ||
             state.sortBy != 'salesCount';
 
         return InkWell(
@@ -553,7 +601,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
                 fontSize: 11,
               ),
               side: BorderSide(color: Colors.grey[200]!, width: 1),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             ),
           ),
@@ -564,12 +614,14 @@ class _MenuPageContentState extends State<MenuPageContent> {
               icon: Icons.shield_outlined,
               isSelected: state.filterAllergies,
               onTap: () {
-                context.read<MenuBloc>().add(ApplyFilters(
-                  sortBy: state.sortBy,
-                  minPrice: state.minPrice,
-                  maxPrice: state.maxPrice,
-                  filterAllergies: !state.filterAllergies,
-                ));
+                context.read<MenuBloc>().add(
+                  ApplyFilters(
+                    sortBy: state.sortBy,
+                    minPrice: state.minPrice,
+                    maxPrice: state.maxPrice,
+                    filterAllergies: !state.filterAllergies,
+                  ),
+                );
               },
             ),
           // Quick Under 50k
@@ -578,13 +630,16 @@ class _MenuPageContentState extends State<MenuPageContent> {
             icon: Icons.monetization_on_outlined,
             isSelected: state.maxPrice == 50000 && state.minPrice == null,
             onTap: () {
-              final isSelected = state.maxPrice == 50000 && state.minPrice == null;
-              context.read<MenuBloc>().add(ApplyFilters(
-                sortBy: state.sortBy,
-                minPrice: null,
-                maxPrice: isSelected ? null : 50000,
-                filterAllergies: state.filterAllergies,
-              ));
+              final isSelected =
+                  state.maxPrice == 50000 && state.minPrice == null;
+              context.read<MenuBloc>().add(
+                ApplyFilters(
+                  sortBy: state.sortBy,
+                  minPrice: null,
+                  maxPrice: isSelected ? null : 50000,
+                  filterAllergies: state.filterAllergies,
+                ),
+              );
             },
           ),
         ],
@@ -654,7 +709,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
             searchQuery.isNotEmpty
                 ? 'Không tìm thấy món "$searchQuery"'
                 : 'Không có món ăn nào',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -692,8 +751,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
           onPressed: () => context.read<MenuBloc>().add(const LoadMoreMenu()),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: const Text(
             'Xem thêm',
@@ -733,15 +794,21 @@ class _MenuPageContentState extends State<MenuPageContent> {
             backgroundColor: Colors.grey[100],
             selectedColor: AppColors.primary,
             labelStyle: TextStyle(
-              color: state.selectedCategory == null ? Colors.white : AppColors.textPrimary,
+              color: state.selectedCategory == null
+                  ? Colors.white
+                  : AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 11.5,
             ),
             side: BorderSide(
-              color: state.selectedCategory == null ? AppColors.primary : Colors.grey[200]!,
+              color: state.selectedCategory == null
+                  ? AppColors.primary
+                  : Colors.grey[200]!,
               width: 1,
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           ),
           const SizedBox(width: 8),
@@ -769,10 +836,14 @@ class _MenuPageContentState extends State<MenuPageContent> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: isCategorySelected ? AppColors.primary : Colors.grey[100],
+                color: isCategorySelected
+                    ? AppColors.primary
+                    : Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isCategorySelected ? AppColors.primary : Colors.grey[200]!,
+                  color: isCategorySelected
+                      ? AppColors.primary
+                      : Colors.grey[200]!,
                   width: 1,
                 ),
               ),
@@ -782,7 +853,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
                   Text(
                     activeCategoryName,
                     style: TextStyle(
-                      color: isCategorySelected ? Colors.white : AppColors.textPrimary,
+                      color: isCategorySelected
+                          ? Colors.white
+                          : AppColors.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 11.5,
                     ),
@@ -790,7 +863,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
                   const SizedBox(width: 4),
                   Icon(
                     Icons.arrow_drop_down_rounded,
-                    color: isCategorySelected ? Colors.white : AppColors.textSecondary,
+                    color: isCategorySelected
+                        ? Colors.white
+                        : AppColors.textSecondary,
                     size: 16,
                   ),
                 ],
@@ -804,20 +879,28 @@ class _MenuPageContentState extends State<MenuPageContent> {
             label: const Text('4★+'),
             selected: state.selectedRating == 4.0,
             onSelected: (_) {
-              context.read<MenuBloc>().add(ChangeRatingFilter(state.selectedRating == 4.0 ? null : 4.0));
+              context.read<MenuBloc>().add(
+                ChangeRatingFilter(state.selectedRating == 4.0 ? null : 4.0),
+              );
             },
             backgroundColor: Colors.grey[100],
             selectedColor: AppColors.primary,
             labelStyle: TextStyle(
-              color: state.selectedRating == 4.0 ? Colors.white : AppColors.textPrimary,
+              color: state.selectedRating == 4.0
+                  ? Colors.white
+                  : AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 11.5,
             ),
             side: BorderSide(
-              color: state.selectedRating == 4.0 ? AppColors.primary : Colors.grey[200]!,
+              color: state.selectedRating == 4.0
+                  ? AppColors.primary
+                  : Colors.grey[200]!,
               width: 1,
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           ),
           const SizedBox(width: 6),
@@ -825,20 +908,28 @@ class _MenuPageContentState extends State<MenuPageContent> {
             label: const Text('3★+'),
             selected: state.selectedRating == 3.0,
             onSelected: (_) {
-              context.read<MenuBloc>().add(ChangeRatingFilter(state.selectedRating == 3.0 ? null : 3.0));
+              context.read<MenuBloc>().add(
+                ChangeRatingFilter(state.selectedRating == 3.0 ? null : 3.0),
+              );
             },
             backgroundColor: Colors.grey[100],
             selectedColor: AppColors.primary,
             labelStyle: TextStyle(
-              color: state.selectedRating == 3.0 ? Colors.white : AppColors.textPrimary,
+              color: state.selectedRating == 3.0
+                  ? Colors.white
+                  : AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 11.5,
             ),
             side: BorderSide(
-              color: state.selectedRating == 3.0 ? AppColors.primary : Colors.grey[200]!,
+              color: state.selectedRating == 3.0
+                  ? AppColors.primary
+                  : Colors.grey[200]!,
               width: 1,
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           ),
         ],
@@ -881,7 +972,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
                     children: [
                       const Text(
                         'Bộ lọc tìm kiếm',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -893,7 +988,11 @@ class _MenuPageContentState extends State<MenuPageContent> {
                   const SizedBox(height: 16),
                   const Text(
                     'Sắp xếp theo',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -903,7 +1002,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                       _buildFilterChip(
                         label: 'Phổ biến',
                         isSelected: tempSortBy == 'salesCount',
-                        onTap: () => setModalState(() => tempSortBy = 'salesCount'),
+                        onTap: () =>
+                            setModalState(() => tempSortBy = 'salesCount'),
                       ),
                       _buildFilterChip(
                         label: 'Đánh giá cao',
@@ -913,19 +1013,25 @@ class _MenuPageContentState extends State<MenuPageContent> {
                       _buildFilterChip(
                         label: 'Giá thấp → cao',
                         isSelected: tempSortBy == 'price_asc',
-                        onTap: () => setModalState(() => tempSortBy = 'price_asc'),
+                        onTap: () =>
+                            setModalState(() => tempSortBy = 'price_asc'),
                       ),
                       _buildFilterChip(
                         label: 'Giá cao → thấp',
                         isSelected: tempSortBy == 'price_desc',
-                        onTap: () => setModalState(() => tempSortBy = 'price_desc'),
+                        onTap: () =>
+                            setModalState(() => tempSortBy = 'price_desc'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   const Text(
                     'Khoảng giá',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -934,7 +1040,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                     children: [
                       _buildFilterChip(
                         label: 'Tất cả',
-                        isSelected: tempMinPrice == null && tempMaxPrice == null,
+                        isSelected:
+                            tempMinPrice == null && tempMaxPrice == null,
                         onTap: () => setModalState(() {
                           tempMinPrice = null;
                           tempMaxPrice = null;
@@ -942,7 +1049,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                       ),
                       _buildFilterChip(
                         label: 'Dưới 50k',
-                        isSelected: tempMinPrice == null && tempMaxPrice == 50000,
+                        isSelected:
+                            tempMinPrice == null && tempMaxPrice == 50000,
                         onTap: () => setModalState(() {
                           tempMinPrice = null;
                           tempMaxPrice = 50000;
@@ -950,7 +1058,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                       ),
                       _buildFilterChip(
                         label: '50k - 100k',
-                        isSelected: tempMinPrice == 50000 && tempMaxPrice == 100000,
+                        isSelected:
+                            tempMinPrice == 50000 && tempMaxPrice == 100000,
                         onTap: () => setModalState(() {
                           tempMinPrice = 50000;
                           tempMaxPrice = 100000;
@@ -958,7 +1067,8 @@ class _MenuPageContentState extends State<MenuPageContent> {
                       ),
                       _buildFilterChip(
                         label: 'Trên 100k',
-                        isSelected: tempMinPrice == 100000 && tempMaxPrice == null,
+                        isSelected:
+                            tempMinPrice == 100000 && tempMaxPrice == null,
                         onTap: () => setModalState(() {
                           tempMinPrice = 100000;
                           tempMaxPrice = null;
@@ -977,12 +1087,19 @@ class _MenuPageContentState extends State<MenuPageContent> {
                             children: [
                               Text(
                                 'Lọc dị ứng',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                               SizedBox(height: 2),
                               Text(
                                 'Ẩn các món chứa chất gây dị ứng của bạn',
-                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -990,7 +1107,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
                         Switch(
                           value: tempFilterAllergies,
                           activeThumbColor: AppColors.primary,
-                          activeTrackColor: AppColors.primary.withOpacity(0.5),
+                          activeTrackColor: AppColors.primary.withValues(
+                            alpha: 0.5,
+                          ),
                           onChanged: (val) {
                             setModalState(() => tempFilterAllergies = val);
                           },
@@ -1014,9 +1133,14 @@ class _MenuPageContentState extends State<MenuPageContent> {
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(0, 48),
                             side: const BorderSide(color: AppColors.divider),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Thiết lập lại', style: TextStyle(color: AppColors.textSecondary)),
+                          child: const Text(
+                            'Thiết lập lại',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1024,19 +1148,29 @@ class _MenuPageContentState extends State<MenuPageContent> {
                         child: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(context);
-                            menuBloc.add(ApplyFilters(
-                              sortBy: tempSortBy,
-                              minPrice: tempMinPrice,
-                              maxPrice: tempMaxPrice,
-                              filterAllergies: tempFilterAllergies,
-                            ));
+                            menuBloc.add(
+                              ApplyFilters(
+                                sortBy: tempSortBy,
+                                minPrice: tempMinPrice,
+                                maxPrice: tempMaxPrice,
+                                filterAllergies: tempFilterAllergies,
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(0, 48),
                             backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Áp dụng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'Áp dụng',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -1060,7 +1194,9 @@ class _MenuPageContentState extends State<MenuPageContent> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.white,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.divider,
@@ -1089,22 +1225,19 @@ class _MenuPageContentState extends State<MenuPageContent> {
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final product = products[index];
-            final conflictingAllergies = product.allergenTags
-                .where((a) => _userAllergies.contains(a))
-                .toList();
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final product = products[index];
+          final conflictingAllergies = product.allergenTags
+              .where((a) => _userAllergies.contains(a))
+              .toList();
 
-            return ProductGridCard(
-              product: product,
-              isAllergic: conflictingAllergies.isNotEmpty,
-              onTap: () => context.push('/food/${product.id}'),
-              onAddToCart: () => _handleAddToCart(product),
-            );
-          },
-          childCount: products.length,
-        ),
+          return ProductGridCard(
+            product: product,
+            isAllergic: conflictingAllergies.isNotEmpty,
+            onTap: () => context.push('/food/${product.id}'),
+            onAddToCart: () => _handleAddToCart(product),
+          );
+        }, childCount: products.length),
       ),
     );
   }
@@ -1142,14 +1275,14 @@ class _MenuPageContentState extends State<MenuPageContent> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(
           color: conflictingAllergies.isNotEmpty
-              ? Colors.red.withOpacity(0.5)
+              ? Colors.red.withValues(alpha: 0.5)
               : Colors.transparent,
           width: conflictingAllergies.isNotEmpty ? 1.0 : 0.0,
         ),
@@ -1173,15 +1306,24 @@ class _MenuPageContentState extends State<MenuPageContent> {
                           ? CachedNetworkImage(
                               imageUrl: image,
                               fit: BoxFit.cover,
-                              placeholder: (_, _) => Container(color: Colors.grey[200]),
+                              placeholder: (_, _) =>
+                                  Container(color: Colors.grey[200]),
                               errorWidget: (_, _, _) => Container(
                                 color: Colors.orange[50],
-                                child: const Icon(Icons.restaurant, color: AppColors.primary, size: 32),
+                                child: const Icon(
+                                  Icons.restaurant,
+                                  color: AppColors.primary,
+                                  size: 32,
+                                ),
                               ),
                             )
                           : Container(
                               color: Colors.orange[50],
-                              child: const Icon(Icons.restaurant, color: AppColors.primary, size: 32),
+                              child: const Icon(
+                                Icons.restaurant,
+                                color: AppColors.primary,
+                                size: 32,
+                              ),
                             ),
                     ),
                     if (!isAvailable)
@@ -1213,34 +1355,51 @@ class _MenuPageContentState extends State<MenuPageContent> {
                         Expanded(
                           child: Text(
                             name,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (conflictingAllergies.isNotEmpty)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             margin: const EdgeInsets.only(right: 6),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
+                              color: Colors.red.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'DỊ ỨNG',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.red),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.red,
+                              ),
                             ),
                           ),
                         if (!isAvailable)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.grey[200],
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'Hết hàng',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                       ],
@@ -1282,7 +1441,10 @@ class _MenuPageContentState extends State<MenuPageContent> {
                           const SizedBox(width: 2),
                           Text(
                             rating.toStringAsFixed(1),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ],
@@ -1321,12 +1483,17 @@ class _MenuPageContentState extends State<MenuPageContent> {
       showDialog(
         context: context,
         builder: (dialogCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
               SizedBox(width: 8),
-              Text('Cảnh báo dị ứng', style: TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                'Cảnh báo dị ứng',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ],
           ),
           content: Text(
@@ -1337,18 +1504,32 @@ class _MenuPageContentState extends State<MenuPageContent> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Hủy',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () {
                 Navigator.pop(dialogCtx);
                 _executeAddToCart(product);
               },
-              child: const Text('Vẫn thêm', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              child: const Text(
+                'Vẫn thêm',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),
@@ -1360,31 +1541,36 @@ class _MenuPageContentState extends State<MenuPageContent> {
 
   void _executeAddToCart(ProductEntity product) async {
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': product.id,
-        'quantity': 1,
-        'price': product.price,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {'productId': product.id, 'quantity': 1, 'price': product.price},
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã thêm "${product.name}" vào giỏ hàng'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ?? 'Không thể thêm vào giỏ hàng';
+      final msg =
+          e.response?.data?['message'] as String? ??
+          'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -1405,13 +1591,14 @@ class _StickyMenuHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox(
       height: height,
-      child: Material(
-        color: Colors.white,
-        child: child,
-      ),
+      child: Material(color: Colors.white, child: child),
     );
   }
 

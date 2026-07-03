@@ -47,6 +47,7 @@ import 'package:foa_mobile/features/staff_customers/presentation/pages/customer_
 import 'package:foa_mobile/features/orders/presentation/pages/order_success_page.dart';
 import 'package:foa_mobile/features/orders/presentation/pages/order_failed_page.dart';
 import 'package:foa_mobile/shared/widgets/payos_webview.dart';
+
 /// GoRouter configuration with auth and role-based guards.
 class AppRouter {
   final AuthBloc authBloc;
@@ -60,16 +61,10 @@ class AppRouter {
     redirect: _globalRedirect,
     routes: [
       // ── Splash / Loading ──
-      GoRoute(
-        path: '/splash',
-        builder: (context, state) => const SplashPage(),
-      ),
+      GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
 
       // ── Auth Routes ──
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginPage(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterPage(),
@@ -94,34 +89,24 @@ class AppRouter {
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => OnboardingPage(
-          email: state.extra as String?,
-        ),
+        builder: (context, state) =>
+            OnboardingPage(email: state.extra as String?),
       ),
 
       // ── Customer Shell (Bottom Nav) ──
       ShellRoute(
         builder: (context, state, child) => _CustomerShell(child: child),
         routes: [
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => const HomePage(),
-          ),
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/menu',
             builder: (context, state) {
               final category = state.uri.queryParameters['category'];
               final search = state.uri.queryParameters['search'];
-              return MenuPage(
-                initialCategory: category,
-                initialSearch: search,
-              );
+              return MenuPage(initialCategory: category, initialSearch: search);
             },
           ),
-          GoRoute(
-            path: '/cart',
-            builder: (context, state) => const CartPage(),
-          ),
+          GoRoute(path: '/cart', builder: (context, state) => const CartPage()),
           GoRoute(
             path: '/orders',
             builder: (context, state) => const OrderHistoryPage(),
@@ -136,7 +121,8 @@ class AppRouter {
       // ── Customer Detail Routes ──
       GoRoute(
         path: '/food/:id',
-        builder: (context, state) => FoodDetailPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            FoodDetailPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/checkout',
@@ -157,11 +143,13 @@ class AppRouter {
       ),
       GoRoute(
         path: '/orders/:id',
-        builder: (context, state) => OrderDetailPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            OrderDetailPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/track-order/:id',
-        builder: (context, state) => TrackOrderPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            TrackOrderPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/payment-webview',
@@ -183,11 +171,13 @@ class AppRouter {
       ),
       GoRoute(
         path: '/order-success/:id',
-        builder: (context, state) => OrderSuccessPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            OrderSuccessPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/order-failed/:id',
-        builder: (context, state) => OrderFailedPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            OrderFailedPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/vouchers',
@@ -199,7 +189,8 @@ class AppRouter {
       ),
       GoRoute(
         path: '/vouchers/:id',
-        builder: (context, state) => VoucherDetailPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            VoucherDetailPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/membership',
@@ -211,9 +202,8 @@ class AppRouter {
       ),
       GoRoute(
         path: '/chat',
-        builder: (context, state) => ChatListPage(
-          initialOrderId: state.uri.queryParameters['orderId'],
-        ),
+        builder: (context, state) =>
+            ChatListPage(initialOrderId: state.uri.queryParameters['orderId']),
       ),
       GoRoute(
         path: '/chat/:conversationId',
@@ -224,7 +214,8 @@ class AppRouter {
       ),
       GoRoute(
         path: '/rating/:orderId',
-        builder: (context, state) => OrderRatingPage(orderId: state.pathParameters['orderId'] ?? ''),
+        builder: (context, state) =>
+            OrderRatingPage(orderId: state.pathParameters['orderId'] ?? ''),
       ),
       GoRoute(
         path: '/campaign/:id',
@@ -282,7 +273,8 @@ class AppRouter {
       // ── Staff Detail Routes ──
       GoRoute(
         path: '/staff/orders/:id',
-        builder: (context, state) => StaffOrderDetailPage(id: state.pathParameters['id'] ?? ''),
+        builder: (context, state) =>
+            StaffOrderDetailPage(id: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: '/staff/chat/:conversationId',
@@ -317,8 +309,13 @@ class AppRouter {
 
     // Public routes that don't require auth.
     const publicPaths = [
-      '/splash', '/login', '/register', '/verify-email',
-      '/forgot-password', '/reset-password', '/onboarding',
+      '/splash',
+      '/login',
+      '/register',
+      '/verify-email',
+      '/forgot-password',
+      '/reset-password',
+      '/onboarding',
     ];
     final isPublicRoute = publicPaths.contains(currentPath);
 
@@ -427,14 +424,38 @@ class _CustomerShell extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(context, 0, Icons.home_outlined, Icons.home, currentIndex),
-            _buildNavItem(context, 1, Icons.restaurant_menu_outlined, Icons.restaurant_menu, currentIndex),
-            
+            _buildNavItem(
+              context,
+              0,
+              Icons.home_outlined,
+              Icons.home,
+              currentIndex,
+            ),
+            _buildNavItem(
+              context,
+              1,
+              Icons.restaurant_menu_outlined,
+              Icons.restaurant_menu,
+              currentIndex,
+            ),
+
             // Spacer for the center FAB
             const SizedBox(width: 48),
-            
-            _buildNavItem(context, 3, Icons.receipt_long_outlined, Icons.receipt_long, currentIndex),
-            _buildNavItem(context, 4, Icons.person_outline, Icons.person, currentIndex),
+
+            _buildNavItem(
+              context,
+              3,
+              Icons.receipt_long_outlined,
+              Icons.receipt_long,
+              currentIndex,
+            ),
+            _buildNavItem(
+              context,
+              4,
+              Icons.person_outline,
+              Icons.person,
+              currentIndex,
+            ),
           ],
         ),
       ),
@@ -492,11 +513,21 @@ class _CustomerShell extends StatelessWidget {
 
   void _onTabTapped(BuildContext context, int index) {
     switch (index) {
-      case 0: context.go('/home'); break;
-      case 1: context.go('/menu'); break;
-      case 2: context.go('/cart'); break;
-      case 3: context.go('/orders'); break;
-      case 4: context.go('/profile'); break;
+      case 0:
+        context.go('/home');
+        break;
+      case 1:
+        context.go('/menu');
+        break;
+      case 2:
+        context.go('/cart');
+        break;
+      case 3:
+        context.go('/orders');
+        break;
+      case 4:
+        context.go('/profile');
+        break;
     }
   }
 }
@@ -513,19 +544,37 @@ class _StaffShell extends StatelessWidget {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(
-            top: BorderSide(color: AppColors.divider, width: 1),
-          ),
+          border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
         ),
         child: NavigationBar(
           selectedIndex: _currentIndex(context),
           onDestinationSelected: (index) => _onTabTapped(context, index),
           destinations: const [
-            NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Đơn hàng'),
-            NavigationDestination(icon: Icon(Icons.delivery_dining_outlined), selectedIcon: Icon(Icons.delivery_dining), label: 'Giao hàng'),
-            NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Thực đơn'),
-            NavigationDestination(icon: Icon(Icons.chat_outlined), selectedIcon: Icon(Icons.chat), label: 'Hỗ trợ'),
-            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Cài đặt'),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Đơn hàng',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.delivery_dining_outlined),
+              selectedIcon: Icon(Icons.delivery_dining),
+              label: 'Giao hàng',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.menu_book_outlined),
+              selectedIcon: Icon(Icons.menu_book),
+              label: 'Thực đơn',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.chat_outlined),
+              selectedIcon: Icon(Icons.chat),
+              label: 'Hỗ trợ',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: 'Cài đặt',
+            ),
           ],
         ),
       ),
@@ -543,11 +592,21 @@ class _StaffShell extends StatelessWidget {
 
   void _onTabTapped(BuildContext context, int index) {
     switch (index) {
-      case 0: context.go('/staff/orders'); break;
-      case 1: context.go('/staff/delivery'); break;
-      case 2: context.go('/staff/menu'); break;
-      case 3: context.go('/staff/chat'); break;
-      case 4: context.go('/staff/settings'); break;
+      case 0:
+        context.go('/staff/orders');
+        break;
+      case 1:
+        context.go('/staff/delivery');
+        break;
+      case 2:
+        context.go('/staff/menu');
+        break;
+      case 3:
+        context.go('/staff/chat');
+        break;
+      case 4:
+        context.go('/staff/settings');
+        break;
     }
   }
 }

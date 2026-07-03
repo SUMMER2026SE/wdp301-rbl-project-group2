@@ -208,14 +208,10 @@ class AuthRepositoryImpl implements AuthRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 
     return ServerFailure(message: error.toString());
   }
 }
-

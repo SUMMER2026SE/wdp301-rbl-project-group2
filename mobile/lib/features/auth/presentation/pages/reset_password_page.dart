@@ -46,8 +46,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       return;
     }
     context.read<AuthBloc>().add(
-          AuthVerifyPasswordOtpRequested(email: email, code: _otpController.text.trim()),
-        );
+      AuthVerifyPasswordOtpRequested(
+        email: email,
+        code: _otpController.text.trim(),
+      ),
+    );
   }
 
   void _onResetPassword() {
@@ -56,12 +59,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     if (email == null || email.isEmpty) return;
 
     context.read<AuthBloc>().add(
-          AuthResetPasswordRequested(
-            email: email,
-            code: _otpController.text.trim(),
-            password: _passwordController.text,
-          ),
-        );
+      AuthResetPasswordRequested(
+        email: email,
+        code: _otpController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
   }
 
   @override
@@ -80,11 +83,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               content: Text(state.message),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
 
-          if (state.message.contains('OTP chính xác') || state.message.contains('Mã OTP chính xác')) {
+          if (state.message.contains('OTP chính xác') ||
+              state.message.contains('Mã OTP chính xác')) {
             setState(() => _otpVerified = true);
           } else {
             context.go('/login');
@@ -102,7 +108,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -178,7 +187,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
@@ -199,13 +212,19 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             // OTP Field
                             const Text(
                               'Nhập mã OTP 6 số',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: _otpController,
                               keyboardType: TextInputType.number,
-                              textInputAction: _otpVerified ? TextInputAction.next : TextInputAction.done,
+                              textInputAction: _otpVerified
+                                  ? TextInputAction.next
+                                  : TextInputAction.done,
                               maxLength: 6,
                               textAlign: TextAlign.center,
                               readOnly: _otpVerified,
@@ -213,15 +232,23 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 4,
-                                color: _otpVerified ? AppColors.textSecondary : AppColors.primary,
+                                color: _otpVerified
+                                    ? AppColors.textSecondary
+                                    : AppColors.primary,
                               ),
                               decoration: InputDecoration(
                                 hintText: '000000',
-                                hintStyle: const TextStyle(fontSize: 20, letterSpacing: 4, color: AppColors.textHint),
+                                hintStyle: const TextStyle(
+                                  fontSize: 20,
+                                  letterSpacing: 4,
+                                  color: AppColors.textHint,
+                                ),
                                 prefixIcon: const Icon(Icons.pin_outlined),
                                 counterText: '',
                                 filled: _otpVerified,
-                                fillColor: _otpVerified ? AppColors.surfaceVariant : Colors.white,
+                                fillColor: _otpVerified
+                                    ? AppColors.surfaceVariant
+                                    : Colors.white,
                               ),
                               validator: Validators.otp,
                             ),
@@ -231,7 +258,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                               // New Password
                               const Text(
                                 'Mật khẩu mới',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               TextFormField(
@@ -243,8 +274,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   hintText: '••••••••',
                                   prefixIcon: const Icon(Icons.lock_outlined),
                                   suffixIcon: IconButton(
-                                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                                   ),
                                 ),
                                 validator: Validators.password,
@@ -252,13 +290,19 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                               const SizedBox(height: 6),
 
                               // Password strength checker
-                              _PasswordStrengthIndicator(password: _passwordController.text),
+                              _PasswordStrengthIndicator(
+                                password: _passwordController.text,
+                              ),
                               const SizedBox(height: 14),
 
                               // Confirm Password
                               const Text(
                                 'Xác nhận mật khẩu mới',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               TextFormField(
@@ -270,11 +314,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   hintText: '••••••••',
                                   prefixIcon: const Icon(Icons.lock_outlined),
                                   suffixIcon: IconButton(
-                                    icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                    icon: Icon(
+                                      _obscureConfirm
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _obscureConfirm = !_obscureConfirm,
+                                    ),
                                   ),
                                 ),
-                                validator: (value) => Validators.confirmPassword(value, _passwordController.text),
+                                validator: (value) =>
+                                    Validators.confirmPassword(
+                                      value,
+                                      _passwordController.text,
+                                    ),
                               ),
                               const SizedBox(height: 24),
                             ],
@@ -282,7 +336,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             ElevatedButton(
                               onPressed: _isLoading
                                   ? null
-                                  : (_otpVerified ? _onResetPassword : _onVerifyOtp),
+                                  : (_otpVerified
+                                        ? _onResetPassword
+                                        : _onVerifyOtp),
                               child: _isLoading
                                   ? const SizedBox(
                                       height: 20,
@@ -292,7 +348,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : Text(_otpVerified ? 'Đặt lại mật khẩu' : 'Xác thực mã OTP'),
+                                  : Text(
+                                      _otpVerified
+                                          ? 'Đặt lại mật khẩu'
+                                          : 'Xác thực mã OTP',
+                                    ),
                             ),
                           ],
                         ),
@@ -331,7 +391,10 @@ class _PasswordStrengthIndicator extends StatelessWidget {
       _Check('Tối thiểu 8 ký tự', password.length >= 8),
       _Check('Ít nhất 1 chữ viết hoa', RegExp(r'[A-Z]').hasMatch(password)),
       _Check('Ít nhất 1 chữ số', RegExp(r'[0-9]').hasMatch(password)),
-      _Check('Ít nhất 1 ký tự đặc biệt', RegExp(r'[^a-zA-Z0-9]').hasMatch(password)),
+      _Check(
+        'Ít nhất 1 ký tự đặc biệt',
+        RegExp(r'[^a-zA-Z0-9]').hasMatch(password),
+      ),
     ];
 
     return Column(
@@ -340,30 +403,36 @@ class _PasswordStrengthIndicator extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'Yêu cầu mật khẩu:',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textHint),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textHint,
+          ),
         ),
         const SizedBox(height: 4),
-        ...checks.map((c) => Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    c.passed ? Icons.check_circle : Icons.circle_outlined,
-                    size: 13,
+        ...checks.map(
+          (c) => Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              children: [
+                Icon(
+                  c.passed ? Icons.check_circle : Icons.circle_outlined,
+                  size: 13,
+                  color: c.passed ? AppColors.success : AppColors.textHint,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  c.label,
+                  style: TextStyle(
+                    fontSize: 10.5,
                     color: c.passed ? AppColors.success : AppColors.textHint,
+                    fontWeight: c.passed ? FontWeight.w600 : FontWeight.w400,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    c.label,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: c.passed ? AppColors.success : AppColors.textHint,
-                      fontWeight: c.passed ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
-            )),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -35,28 +35,108 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   static const List<AllergyOptionData> _allergyOptions = [
     // Seafood
-    AllergyOptionData(id: 'fish', label: 'Cá', icon: Icons.set_meal, subtitle: 'Cá hồi, cá ngừ, cá thu...'),
-    AllergyOptionData(id: 'shrimp', label: 'Tôm', icon: Icons.water, subtitle: 'Tôm sú, tôm hùm, tôm khô...'),
-    AllergyOptionData(id: 'crab', label: 'Cua', icon: Icons.waves, subtitle: 'Cua biển, ghẹ, gạch cua...'),
-    AllergyOptionData(id: 'shellfish', label: 'Hải sản có vỏ', icon: Icons.bubble_chart, subtitle: 'Nghêu, sò, ốc, hàu...'),
-    AllergyOptionData(id: 'squid', label: 'Mực / Bạch tuộc', icon: Icons.water_drop, subtitle: 'Mực ống, mực khô, bạch tuộc...'),
-    
+    AllergyOptionData(
+      id: 'fish',
+      label: 'Cá',
+      icon: Icons.set_meal,
+      subtitle: 'Cá hồi, cá ngừ, cá thu...',
+    ),
+    AllergyOptionData(
+      id: 'shrimp',
+      label: 'Tôm',
+      icon: Icons.water,
+      subtitle: 'Tôm sú, tôm hùm, tôm khô...',
+    ),
+    AllergyOptionData(
+      id: 'crab',
+      label: 'Cua',
+      icon: Icons.waves,
+      subtitle: 'Cua biển, ghẹ, gạch cua...',
+    ),
+    AllergyOptionData(
+      id: 'shellfish',
+      label: 'Hải sản có vỏ',
+      icon: Icons.bubble_chart,
+      subtitle: 'Nghêu, sò, ốc, hàu...',
+    ),
+    AllergyOptionData(
+      id: 'squid',
+      label: 'Mực / Bạch tuộc',
+      icon: Icons.water_drop,
+      subtitle: 'Mực ống, mực khô, bạch tuộc...',
+    ),
+
     // Meat
-    AllergyOptionData(id: 'beef', label: 'Thịt Bò', icon: Icons.restaurant, subtitle: 'Thịt bò phi lê, nạm bò...'),
-    AllergyOptionData(id: 'pork', label: 'Thịt Heo', icon: Icons.savings, subtitle: 'Thịt heo, mỡ heo, sườn...'),
-    AllergyOptionData(id: 'chicken', label: 'Thịt Gà / Gia cầm', icon: Icons.dining, subtitle: 'Thịt gà, thịt vịt, thịt ngan...'),
-    
+    AllergyOptionData(
+      id: 'beef',
+      label: 'Thịt Bò',
+      icon: Icons.restaurant,
+      subtitle: 'Thịt bò phi lê, nạm bò...',
+    ),
+    AllergyOptionData(
+      id: 'pork',
+      label: 'Thịt Heo',
+      icon: Icons.savings,
+      subtitle: 'Thịt heo, mỡ heo, sườn...',
+    ),
+    AllergyOptionData(
+      id: 'chicken',
+      label: 'Thịt Gà / Gia cầm',
+      icon: Icons.dining,
+      subtitle: 'Thịt gà, thịt vịt, thịt ngan...',
+    ),
+
     // Plants & Nuts
-    AllergyOptionData(id: 'peanuts', label: 'Đậu phộng (Lạc)', icon: Icons.grain, subtitle: 'Hạt đậu phộng, dầu phộng...'),
-    AllergyOptionData(id: 'tree_nuts', label: 'Các loại hạt', icon: Icons.forest, subtitle: 'Macca, hạnh nhân, hạt dẻ...'),
-    AllergyOptionData(id: 'soy', label: 'Đậu nành', icon: Icons.eco, subtitle: 'Đậu phụ, nước tương, sữa đậu...'),
-    AllergyOptionData(id: 'gluten', label: 'Gluten / Lúa mì', icon: Icons.bakery_dining, subtitle: 'Bột mì, bánh mì, mì sợi...'),
-    AllergyOptionData(id: 'allium', label: 'Hành / Tỏi', icon: Icons.spa, subtitle: 'Hành lá, hành tây, tỏi củ...'),
-    
+    AllergyOptionData(
+      id: 'peanuts',
+      label: 'Đậu phộng (Lạc)',
+      icon: Icons.grain,
+      subtitle: 'Hạt đậu phộng, dầu phộng...',
+    ),
+    AllergyOptionData(
+      id: 'tree_nuts',
+      label: 'Các loại hạt',
+      icon: Icons.forest,
+      subtitle: 'Macca, hạnh nhân, hạt dẻ...',
+    ),
+    AllergyOptionData(
+      id: 'soy',
+      label: 'Đậu nành',
+      icon: Icons.eco,
+      subtitle: 'Đậu phụ, nước tương, sữa đậu...',
+    ),
+    AllergyOptionData(
+      id: 'gluten',
+      label: 'Gluten / Lúa mì',
+      icon: Icons.bakery_dining,
+      subtitle: 'Bột mì, bánh mì, mì sợi...',
+    ),
+    AllergyOptionData(
+      id: 'allium',
+      label: 'Hành / Tỏi',
+      icon: Icons.spa,
+      subtitle: 'Hành lá, hành tây, tỏi củ...',
+    ),
+
     // Dairy & Others
-    AllergyOptionData(id: 'eggs', label: 'Trứng', icon: Icons.egg, subtitle: 'Trứng gà, trứng vịt, sốt bơ...'),
-    AllergyOptionData(id: 'dairy', label: 'Sữa & Lactose', icon: Icons.local_drink, subtitle: 'Sữa tươi, phô mai, bơ sữa...'),
-    AllergyOptionData(id: 'msg', label: 'Bột ngọt (MSG)', icon: Icons.science, subtitle: 'Mì chính, hạt nêm chứa MSG...'),
+    AllergyOptionData(
+      id: 'eggs',
+      label: 'Trứng',
+      icon: Icons.egg,
+      subtitle: 'Trứng gà, trứng vịt, sốt bơ...',
+    ),
+    AllergyOptionData(
+      id: 'dairy',
+      label: 'Sữa & Lactose',
+      icon: Icons.local_drink,
+      subtitle: 'Sữa tươi, phô mai, bơ sữa...',
+    ),
+    AllergyOptionData(
+      id: 'msg',
+      label: 'Bột ngọt (MSG)',
+      icon: Icons.science,
+      subtitle: 'Mì chính, hạt nêm chứa MSG...',
+    ),
   ];
 
   @override
@@ -115,10 +195,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         elevation: 0,
         backgroundColor: Colors.white,
         actions: [
-          TextButton(
-            onPressed: _handleSkip,
-            child: const Text('Bỏ qua'),
-          ),
+          TextButton(onPressed: _handleSkip, child: const Text('Bỏ qua')),
         ],
       ),
       body: SafeArea(
@@ -162,7 +239,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.health_and_safety, color: AppColors.primary, size: 20),
+                        Icon(
+                          Icons.health_and_safety,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -230,27 +311,37 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                          Icon(
+                            Icons.search_off,
+                            size: 48,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Không tìm thấy nguyên liệu phù hợp',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
                     )
                   : GridView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 2.1,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 2.1,
+                          ),
                       itemCount: filteredOptions.length,
                       itemBuilder: (context, index) {
                         final option = filteredOptions[index];
-                        final isSelected = _selectedAllergies.contains(option.id);
+                        final isSelected = _selectedAllergies.contains(
+                          option.id,
+                        );
 
                         return InkWell(
                           onTap: () => _toggleAllergy(option.id),
@@ -261,7 +352,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               color: isSelected ? Colors.red[50] : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSelected ? Colors.red[300]! : AppColors.divider,
+                                color: isSelected
+                                    ? Colors.red[300]!
+                                    : AppColors.divider,
                                 width: isSelected ? 1.5 : 1.0,
                               ),
                             ),
@@ -272,19 +365,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: isSelected ? Colors.red[100] : AppColors.surfaceVariant,
+                                    color: isSelected
+                                        ? Colors.red[100]
+                                        : AppColors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(
                                     option.icon,
-                                    color: isSelected ? Colors.red : AppColors.textSecondary,
+                                    color: isSelected
+                                        ? Colors.red
+                                        : AppColors.textSecondary,
                                     size: 20,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
@@ -292,7 +390,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
-                                          color: isSelected ? Colors.red[900] : AppColors.textPrimary,
+                                          color: isSelected
+                                              ? Colors.red[900]
+                                              : AppColors.textPrimary,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -302,7 +402,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                         option.subtitle,
                                         style: TextStyle(
                                           fontSize: 10,
-                                          color: isSelected ? Colors.red[700] : AppColors.textSecondary,
+                                          color: isSelected
+                                              ? Colors.red[700]
+                                              : AppColors.textSecondary,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -345,7 +447,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 18),
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red[700],
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(

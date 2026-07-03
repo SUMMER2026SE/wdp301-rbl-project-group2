@@ -29,10 +29,12 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
   void _fetchMenu({bool showLoader = true}) {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.storeId != null) {
-      context.read<StaffMenuBloc>().add(FetchStaffMenuEvent(
-            storeId: authState.storeId!,
-            showLoader: showLoader,
-          ));
+      context.read<StaffMenuBloc>().add(
+        FetchStaffMenuEvent(
+          storeId: authState.storeId!,
+          showLoader: showLoader,
+        ),
+      );
     }
   }
 
@@ -76,7 +78,10 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(state.message, style: const TextStyle(color: Colors.red)),
+                  Text(
+                    state.message,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => _fetchMenu(),
@@ -92,19 +97,32 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
 
             // Stats
             final totalItems = products.length;
-            final inStock = products.where((p) => p.isAvailable && p.status == 'active').length;
+            final inStock = products
+                .where((p) => p.isAvailable && p.status == 'active')
+                .length;
             final outOfStock = totalItems - inStock;
 
             // Apply Filters Locally
             final filteredProducts = products.where((product) {
-              final matchesSearch = product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                  product.description.toLowerCase().contains(_searchQuery.toLowerCase());
+              final matchesSearch =
+                  product.name.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  ) ||
+                  product.description.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  );
 
-              final matchesCategory = _selectedCategory == 'Tất cả' || product.category == _selectedCategory;
+              final matchesCategory =
+                  _selectedCategory == 'Tất cả' ||
+                  product.category == _selectedCategory;
 
-              final matchesStatus = _selectedStatusFilter == 'all' ||
-                  (_selectedStatusFilter == 'available' && product.isAvailable && product.status == 'active') ||
-                  (_selectedStatusFilter == 'suspended' && (!product.isAvailable || product.status != 'active'));
+              final matchesStatus =
+                  _selectedStatusFilter == 'all' ||
+                  (_selectedStatusFilter == 'available' &&
+                      product.isAvailable &&
+                      product.status == 'active') ||
+                  (_selectedStatusFilter == 'suspended' &&
+                      (!product.isAvailable || product.status != 'active'));
 
               return matchesSearch && matchesCategory && matchesStatus;
             }).toList();
@@ -128,17 +146,21 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                           ),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
                             children: [
-                              Expanded(
-                                child: _buildSearchField(),
-                              ),
+                              Expanded(child: _buildSearchField()),
                               const SizedBox(width: 8),
-                              _buildCategorySelector(state.categories, products),
+                              _buildCategorySelector(
+                                state.categories,
+                                products,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -163,29 +185,31 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                       child: EmptyStateWidget(
                         icon: Icons.search_off,
                         title: 'Không tìm thấy món ăn',
-                        subtitle: 'Vui lòng thay đổi bộ lọc tìm kiếm hoặc danh mục.',
+                        subtitle:
+                            'Vui lòng thay đổi bộ lọc tìm kiếm hoặc danh mục.',
                       ),
                     ),
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final product = filteredProducts[index];
-                          final isActioning = state.actioningProductId == product.id;
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final product = filteredProducts[index];
+                        final isActioning =
+                            state.actioningProductId == product.id;
 
-                          return Column(
-                            children: [
-                              _buildMenuItemRow(product, isActioning),
-                              if (index < filteredProducts.length - 1)
-                                const Divider(height: 1, thickness: 0.5),
-                            ],
-                          );
-                        },
-                        childCount: filteredProducts.length,
-                      ),
+                        return Column(
+                          children: [
+                            _buildMenuItemRow(product, isActioning),
+                            if (index < filteredProducts.length - 1)
+                              const Divider(height: 1, thickness: 0.5),
+                          ],
+                        );
+                      }, childCount: filteredProducts.length),
                     ),
                   ),
               ],
@@ -231,7 +255,10 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
     );
   }
 
-  Widget _buildCategorySelector(List<String> categories, List<ProductModel> products) {
+  Widget _buildCategorySelector(
+    List<String> categories,
+    List<ProductModel> products,
+  ) {
     return InkWell(
       onTap: () => _showCategoryBottomSheet(categories, products),
       borderRadius: BorderRadius.circular(12),
@@ -240,9 +267,7 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
         decoration: BoxDecoration(
           color: AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.15),
-          ),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -278,7 +303,10 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
     );
   }
 
-  void _showCategoryBottomSheet(List<String> categories, List<ProductModel> products) {
+  void _showCategoryBottomSheet(
+    List<String> categories,
+    List<ProductModel> products,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -290,7 +318,10 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -326,20 +357,29 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                         cat == 'Tất cả'
                             ? Icons.grid_view_rounded
                             : Icons.restaurant_menu_rounded,
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                       ),
                       title: Text(
                         cat,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
                         ),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.primary.withValues(alpha: 0.1)
@@ -351,13 +391,19 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
                           if (isSelected) ...[
                             const SizedBox(width: 8),
-                            const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                           ],
                         ],
                       ),
@@ -386,15 +432,29 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
       child: Row(
         children: [
           Expanded(
-            child: _KpiStatBox(value: '$total', label: 'TỔNG MÓN', color: AppColors.textPrimary),
+            child: _KpiStatBox(
+              value: '$total',
+              label: 'TỔNG MÓN',
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _KpiStatBox(value: '$active', label: 'ĐANG BÁN', color: Colors.green.shade800, bgColor: Colors.green.shade50),
+            child: _KpiStatBox(
+              value: '$active',
+              label: 'ĐANG BÁN',
+              color: Colors.green.shade800,
+              bgColor: Colors.green.shade50,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _KpiStatBox(value: '$suspended', label: 'TẠM NGƯNG', color: Colors.red.shade800, bgColor: Colors.red.shade50),
+            child: _KpiStatBox(
+              value: '$suspended',
+              label: 'TẠM NGƯNG',
+              color: Colors.red.shade800,
+              bgColor: Colors.red.shade50,
+            ),
           ),
         ],
       ),
@@ -462,21 +522,31 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                     Expanded(
                       child: Text(
                         product.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         product.category.toUpperCase(),
-                        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -484,7 +554,11 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                 const SizedBox(height: 4),
                 Text(
                   product.description,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.3,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -493,12 +567,20 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                   children: [
                     Text(
                       Formatters.currency(product.price),
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                    if (product.healthWarning != null && product.healthWarning!.isNotEmpty) ...[
+                    if (product.healthWarning != null &&
+                        product.healthWarning!.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
                           borderRadius: BorderRadius.circular(4),
@@ -506,11 +588,19 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning, color: Colors.red.shade700, size: 10),
+                            Icon(
+                              Icons.warning,
+                              color: Colors.red.shade700,
+                              size: 10,
+                            ),
                             const SizedBox(width: 2),
                             Text(
                               'Dị ứng',
-                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade700,
+                              ),
                             ),
                           ],
                         ),
@@ -534,11 +624,13 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                   value: isProductActive,
                   activeThumbColor: Colors.green,
                   onChanged: (val) {
-                    context.read<StaffMenuBloc>().add(ToggleProductAvailabilityEvent(
-                          productId: product.id,
-                          isAvailable: val,
-                          status: val ? 'active' : 'inactive',
-                        ));
+                    context.read<StaffMenuBloc>().add(
+                      ToggleProductAvailabilityEvent(
+                        productId: product.id,
+                        isAvailable: val,
+                        status: val ? 'active' : 'inactive',
+                      ),
+                    );
                   },
                 ),
         ],
@@ -573,12 +665,21 @@ class _KpiStatBox extends StatelessWidget {
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: color.withValues(alpha: 0.7), letterSpacing: 0.5),
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: color.withValues(alpha: 0.7),
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
@@ -590,19 +691,17 @@ class _StickyFilterHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double height;
   final Widget child;
 
-  _StickyFilterHeaderDelegate({
-    required this.height,
-    required this.child,
-  });
+  _StickyFilterHeaderDelegate({required this.height, required this.child});
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox(
       height: height,
-      child: Material(
-        color: Colors.transparent,
-        child: child,
-      ),
+      child: Material(color: Colors.transparent, child: child),
     );
   }
 

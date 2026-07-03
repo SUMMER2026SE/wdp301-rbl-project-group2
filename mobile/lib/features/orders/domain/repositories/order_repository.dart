@@ -16,10 +16,7 @@ abstract class OrderRepository {
   Future<Either<Failure, OrderEntity>> getOrderById(String id);
 
   /// Cancel an order (customer-initiated).
-  Future<Either<Failure, OrderEntity>> cancelOrder(
-    String id, {
-    String? reason,
-  });
+  Future<Either<Failure, OrderEntity>> cancelOrder(String id, {String? reason});
 
   /// Customer confirms they have received the order.
   Future<Either<Failure, OrderEntity>> customerConfirmReceived(String id);

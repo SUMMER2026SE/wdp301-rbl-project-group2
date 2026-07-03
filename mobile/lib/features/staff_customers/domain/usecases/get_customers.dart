@@ -13,10 +13,6 @@ class GetCustomersUseCase {
     int? limit,
     String? search,
   }) {
-    return _repository.getCustomers(
-      page: page,
-      limit: limit,
-      search: search,
-    );
+    return _repository.getCustomers(page: page, limit: limit, search: search);
   }
 }

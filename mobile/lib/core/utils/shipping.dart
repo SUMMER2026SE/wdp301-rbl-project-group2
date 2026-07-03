@@ -7,23 +7,64 @@ import 'dart:math';
 const String deliverableCity = 'Đà Nẵng';
 
 const List<String> innerWards = [
-  'Hải Châu I', 'Hải Châu II', 'Thạch Thang', 'Thanh Bình',
-  'Thuận Phước', 'Hòa Thuận Đông', 'Hòa Thuận Tây', 'Nam Dương',
-  'Phước Ninh', 'Bình Hiên', 'Bình Thuận', 'Hòa Cường Bắc',
-  'Hòa Cường Nam', 'Hải Châu', 'Hòa Cường',
-  'Vĩnh Trung', 'Tân Chính', 'Thạc Gián', 'Chính Gián',
-  'Tam Thuận', 'Xuân Hà', 'An Khê', 'Hòa Khê',
-  'Thanh Khê Đông', 'Thanh Khê Tây', 'Thanh Khê',
-  'An Hải Bắc', 'An Hải Tây', 'An Hải Đông', 'Phước Mỹ',
-  'Nại Hiên Đông', 'Mân Thái', 'Thọ Quang', 'Sơn Trà', 'An Hải',
-  'Mỹ An', 'Khuê Mỹ', 'Hòa Hải', 'Hòa Quý', 'Ngũ Hành Sơn',
-  'Khuê Trung', 'Hòa Thọ Đông', 'Hòa An', 'Hòa Phát', 'Cẩm Lệ',
+  'Hải Châu I',
+  'Hải Châu II',
+  'Thạch Thang',
+  'Thanh Bình',
+  'Thuận Phước',
+  'Hòa Thuận Đông',
+  'Hòa Thuận Tây',
+  'Nam Dương',
+  'Phước Ninh',
+  'Bình Hiên',
+  'Bình Thuận',
+  'Hòa Cường Bắc',
+  'Hòa Cường Nam',
+  'Hải Châu',
+  'Hòa Cường',
+  'Vĩnh Trung',
+  'Tân Chính',
+  'Thạc Gián',
+  'Chính Gián',
+  'Tam Thuận',
+  'Xuân Hà',
+  'An Khê',
+  'Hòa Khê',
+  'Thanh Khê Đông',
+  'Thanh Khê Tây',
+  'Thanh Khê',
+  'An Hải Bắc',
+  'An Hải Tây',
+  'An Hải Đông',
+  'Phước Mỹ',
+  'Nại Hiên Đông',
+  'Mân Thái',
+  'Thọ Quang',
+  'Sơn Trà',
+  'An Hải',
+  'Mỹ An',
+  'Khuê Mỹ',
+  'Hòa Hải',
+  'Hòa Quý',
+  'Ngũ Hành Sơn',
+  'Khuê Trung',
+  'Hòa Thọ Đông',
+  'Hòa An',
+  'Hòa Phát',
+  'Cẩm Lệ',
 ];
 
 const List<String> outerWards = [
-  'Hòa Thọ Tây', 'Hòa Xuân', 'Hòa Minh',
-  'Hòa Khánh Nam', 'Hòa Khánh Bắc', 'Hòa Hiệp Nam',
-  'Hòa Hiệp Bắc', 'Liên Chiểu', 'Hòa Khánh', 'Hải Vân',
+  'Hòa Thọ Tây',
+  'Hòa Xuân',
+  'Hòa Minh',
+  'Hòa Khánh Nam',
+  'Hòa Khánh Bắc',
+  'Hòa Hiệp Nam',
+  'Hòa Hiệp Bắc',
+  'Liên Chiểu',
+  'Hòa Khánh',
+  'Hải Vân',
 ];
 
 const List<String> deliverableWards = [...innerWards, ...outerWards];
@@ -122,13 +163,12 @@ class ShippingResult {
   });
 }
 
-double calculateDistance(
-  double lat1, double lon1, double lat2, double lon2,
-) {
+double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371.0;
   final dLat = (lat2 - lat1) * pi / 180;
   final dLon = (lon2 - lon1) * pi / 180;
-  final a = sin(dLat / 2) * sin(dLat / 2) +
+  final a =
+      sin(dLat / 2) * sin(dLat / 2) +
       cos(lat1 * pi / 180) *
           cos(lat2 * pi / 180) *
           sin(dLon / 2) *
@@ -188,16 +228,27 @@ ShippingResult calculateShippingFee({
       final storeLat = storeCoordinates[1];
       final wardLng = wardCentroid[0];
       final wardLat = wardCentroid[1];
-      final rawDistance = calculateDistance(storeLat, storeLng, wardLat, wardLng);
+      final rawDistance = calculateDistance(
+        storeLat,
+        storeLng,
+        wardLat,
+        wardLng,
+      );
       distance = (rawDistance * 10).roundToDouble() / 10;
     }
   }
 
   if (config.freeDeliveryEnabled && subtotal >= config.freeDeliveryThreshold) {
-    return ShippingResult(fee: 0, blocked: false, zone: 'free', distance: distance);
+    return ShippingResult(
+      fee: 0,
+      blocked: false,
+      zone: 'free',
+      distance: distance,
+    );
   }
 
-  final fee = ((config.baseDeliveryFee + config.feePerKm * distance) / 2).round();
+  final fee = ((config.baseDeliveryFee + config.feePerKm * distance) / 2)
+      .round();
   return ShippingResult(
     fee: fee.toDouble(),
     blocked: false,

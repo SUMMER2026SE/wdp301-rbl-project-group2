@@ -44,9 +44,9 @@ class _ReviewItem {
     String existingComment = '',
     List<File>? images,
     Set<String>? feedbackTags,
-  })  : commentController = TextEditingController(text: existingComment),
-        images = images ?? [],
-        feedbackTags = feedbackTags ?? {};
+  }) : commentController = TextEditingController(text: existingComment),
+       images = images ?? [],
+       feedbackTags = feedbackTags ?? {};
 }
 
 /// Order rating page — rate each product in a completed order.
@@ -103,8 +103,9 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
       // Load existing reviews if any
       final existingReviews = <String, Map<String, dynamic>>{};
       try {
-        final reviewResponse =
-            await _dio.get(ApiEndpoints.reviewByOrder(widget.orderId));
+        final reviewResponse = await _dio.get(
+          ApiEndpoints.reviewByOrder(widget.orderId),
+        );
         final reviewBody = reviewResponse.data as Map<String, dynamic>;
         final reviewData = reviewBody['data'] as List<dynamic>? ?? [];
         for (final r in reviewData) {
@@ -240,15 +241,11 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
         ),
       });
 
-      final response = await _dio.post(
-        ApiEndpoints.fileUpload,
-        data: formData,
-      );
+      final response = await _dio.post(ApiEndpoints.fileUpload, data: formData);
 
       final responseData = response.data['data'] as Map<String, dynamic>;
-      final fileId = responseData['_id'] as String? ??
-          responseData['id'] as String? ??
-          '';
+      final fileId =
+          responseData['_id'] as String? ?? responseData['id'] as String? ?? '';
       if (fileId.isNotEmpty) {
         _uploadedImageIds[file.path] = fileId;
         uploadedIds.add(fileId);
@@ -352,10 +349,10 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
       }
 
       // Send JSON body (not FormData) matching the backend validator
-      await _dio.post(ApiEndpoints.reviews, data: {
-        'orderId': widget.orderId,
-        'reviews': reviewsPayload,
-      });
+      await _dio.post(
+        ApiEndpoints.reviews,
+        data: {'orderId': widget.orderId, 'reviews': reviewsPayload},
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -364,13 +361,15 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12))),
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
           ),
         );
         Navigator.of(context).pop();
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ??
+      final msg =
+          e.response?.data?['message'] as String? ??
           'Không thể gửi đánh giá. Vui lòng thử lại.';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -379,7 +378,8 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12))),
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
           ),
         );
       }
@@ -396,8 +396,8 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
       body: _isLoading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadOrder)
-              : _buildContent(),
+          ? AppErrorWidget(message: _error!, onRetry: _loadOrder)
+          : _buildContent(),
       bottomNavigationBar: _isLoading || _error != null
           ? null
           : _buildBottomBar(),
@@ -424,8 +424,7 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
   }
 
   Widget _buildContent() {
-    final hasUnreviewed =
-        _reviewItems.values.any((r) => !r.existingReviewed);
+    final hasUnreviewed = _reviewItems.values.any((r) => !r.existingReviewed);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -443,15 +442,19 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.receipt_outlined,
-                      color: AppColors.primary, size: 20),
+                  Icon(
+                    Icons.receipt_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'Đơn hàng #$_orderCode',
                     style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -472,9 +475,10 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                 const Text(
                   'Đánh giá tổng quan',
                   style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 RatingBar.builder(
@@ -485,10 +489,8 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                   itemCount: 5,
                   itemSize: 36,
                   unratedColor: Colors.grey[300],
-                  itemBuilder: (context, _) => const Icon(
-                    Icons.star_rounded,
-                    color: Colors.amber,
-                  ),
+                  itemBuilder: (context, _) =>
+                      const Icon(Icons.star_rounded, color: Colors.amber),
                   onRatingUpdate: (rating) {
                     setState(() => _overallRating = rating);
                   },
@@ -499,10 +501,10 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                     _overallRating >= 4.5
                         ? 'Tuyệt vời!'
                         : _overallRating >= 3.5
-                            ? 'Tốt'
-                            : _overallRating >= 2.5
-                                ? 'Tạm ổn'
-                                : 'Cần cải thiện',
+                        ? 'Tốt'
+                        : _overallRating >= 2.5
+                        ? 'Tạm ổn'
+                        : 'Cần cải thiện',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey[500],
@@ -546,9 +548,10 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
           const Text(
             'Đánh giá từng sản phẩm',
             style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -559,17 +562,21 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
             final key = productId.isNotEmpty
                 ? productId
                 : 'item_${item["productId"]}';
-            final imageRaw = item['image'] as String? ??
+            final imageRaw =
+                item['image'] as String? ??
                 (item['productId'] is Map
                     ? (item['productId']['image'] as String?)
                     : null);
             final reviewItem = _reviewItems[key];
             if (reviewItem == null) return const SizedBox.shrink();
 
-            final isMaster = _rateAll && key == _reviewItems.keys.firstWhere(
-                  (k) => !_reviewItems[k]!.existingReviewed,
-                  orElse: () => key,
-                );
+            final isMaster =
+                _rateAll &&
+                key ==
+                    _reviewItems.keys.firstWhere(
+                      (k) => !_reviewItems[k]!.existingReviewed,
+                      orElse: () => key,
+                    );
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -595,18 +602,24 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                                 ? CachedNetworkImage(
                                     imageUrl: imageRaw,
                                     fit: BoxFit.cover,
-                                    placeholder: (_, _) => Container(
-                                        color: Colors.grey[200]),
+                                    placeholder: (_, _) =>
+                                        Container(color: Colors.grey[200]),
                                     errorWidget: (_, _, _) => Container(
                                       color: Colors.orange[50],
-                                      child: const Icon(Icons.restaurant,
-                                          color: AppColors.primary, size: 24),
+                                      child: const Icon(
+                                        Icons.restaurant,
+                                        color: AppColors.primary,
+                                        size: 24,
+                                      ),
                                     ),
                                   )
                                 : Container(
                                     color: Colors.orange[50],
-                                    child: const Icon(Icons.restaurant,
-                                        color: AppColors.primary, size: 24),
+                                    child: const Icon(
+                                      Icons.restaurant,
+                                      color: AppColors.primary,
+                                      size: 24,
+                                    ),
                                   ),
                           ),
                         ),
@@ -618,9 +631,10 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                               Text(
                                 name,
                                 style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -628,7 +642,9 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                               Text(
                                 'Số lượng: ${item['quantity'] ?? 1}',
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[500]),
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
                               ),
                             ],
                           ),
@@ -637,7 +653,9 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                         if (_rateAll && isMaster)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -666,8 +684,11 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check_circle,
-                                color: AppColors.success, size: 16),
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                              size: 16,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Đã đánh giá',
@@ -709,8 +730,11 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.sync,
-                                    color: AppColors.primary, size: 16),
+                                const Icon(
+                                  Icons.sync,
+                                  color: AppColors.primary,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -753,10 +777,11 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                         TextField(
                           controller: reviewItem.commentController,
                           decoration: const InputDecoration(
-                            hintText:
-                                'Nhận xét của bạn về sản phẩm này...',
+                            hintText: 'Nhận xét của bạn về sản phẩm này...',
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             isDense: true,
                           ),
                           maxLines: 3,
@@ -764,8 +789,7 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                         ),
 
                         // Feedback tags (only when rating < 3)
-                        if (reviewItem.rating > 0 &&
-                            reviewItem.rating < 3) ...[
+                        if (reviewItem.rating > 0 && reviewItem.rating < 3) ...[
                           const SizedBox(height: 8),
                           _buildFeedbackTags(key),
                         ],
@@ -824,18 +848,14 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
               selectedColor: AppColors.primary.withValues(alpha: 0.15),
               checkmarkColor: AppColors.primary,
               labelStyle: TextStyle(
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.textPrimary,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 12,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color:
-                      isSelected ? AppColors.primary : AppColors.divider,
+                  color: isSelected ? AppColors.primary : AppColors.divider,
                   width: isSelected ? 1.5 : 1,
                 ),
               ),
@@ -867,10 +887,7 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
             const SizedBox(width: 6),
             Text(
               '${images.length}/4',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
             ),
           ],
         ),
@@ -904,12 +921,7 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              file,
-              fit: BoxFit.cover,
-              width: 72,
-              height: 72,
-            ),
+            child: Image.file(file, fit: BoxFit.cover, width: 72, height: 72),
           ),
         ),
         // Delete button
@@ -924,11 +936,7 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                 color: AppColors.error,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.close,
-                size: 14,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
             ),
           ),
         ),
@@ -945,18 +953,19 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
         decoration: BoxDecoration(
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.divider, style: BorderStyle.solid),
+          border: Border.all(
+            color: AppColors.divider,
+            style: BorderStyle.solid,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_a_photo_outlined,
-                color: Colors.grey[400], size: 22),
+            Icon(Icons.add_a_photo_outlined, color: Colors.grey[400], size: 22),
             const SizedBox(height: 2),
             Text(
               remaining > 1 ? '+$remaining ảnh' : '+1 ảnh',
-              style: TextStyle(
-                  fontSize: 9, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 9, color: Colors.grey[400]),
             ),
           ],
         ),
@@ -967,7 +976,11 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
   Widget _buildBottomBar() {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+        16,
+        12,
+        16,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1019,12 +1032,16 @@ class _OrderRatingPageState extends State<OrderRatingPage> {
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text(
                       'Gửi đánh giá',
                       style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
             ),
           ),

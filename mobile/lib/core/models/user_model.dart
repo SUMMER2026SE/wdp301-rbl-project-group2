@@ -54,11 +54,15 @@ class UserModel {
       cancelledOrders: json['cancelledOrders'] as int?,
       addresses: json['addresses'] != null
           ? (json['addresses'] as List)
-              .map((e) => UserAddressModel.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map(
+                  (e) => UserAddressModel.fromJson(e as Map<String, dynamic>),
+                )
+                .toList()
           : null,
       preferences: json['preferences'] != null
-          ? UserPreferencesModel.fromJson(json['preferences'] as Map<String, dynamic>)
+          ? UserPreferencesModel.fromJson(
+              json['preferences'] as Map<String, dynamic>,
+            )
           : null,
       health: json['health'] != null
           ? UserHealthModel.fromJson(json['health'] as Map<String, dynamic>)
@@ -157,9 +161,13 @@ class UserPreferencesModel {
 
   factory UserPreferencesModel.fromJson(Map<String, dynamic> json) {
     return UserPreferencesModel(
-      allergies: (json['allergies'] as List?)?.map((e) => e as String).toList() ?? [],
-      dietary: (json['dietary'] as List?)?.map((e) => e as String).toList() ?? [],
-      healthGoals: (json['healthGoals'] as List?)?.map((e) => e as String).toList() ?? [],
+      allergies:
+          (json['allergies'] as List?)?.map((e) => e as String).toList() ?? [],
+      dietary:
+          (json['dietary'] as List?)?.map((e) => e as String).toList() ?? [],
+      healthGoals:
+          (json['healthGoals'] as List?)?.map((e) => e as String).toList() ??
+          [],
     );
   }
 
@@ -179,13 +187,12 @@ class UserHealthModel {
 
   factory UserHealthModel.fromJson(Map<String, dynamic> json) {
     return UserHealthModel(
-      allergies: (json['allergies'] as List?)?.map((e) => e as String).toList() ?? [],
+      allergies:
+          (json['allergies'] as List?)?.map((e) => e as String).toList() ?? [],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'allergies': allergies,
-    };
+    return {'allergies': allergies};
   }
 }

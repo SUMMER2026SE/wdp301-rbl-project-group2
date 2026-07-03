@@ -54,9 +54,13 @@ class MenuState extends Equatable {
     return MenuState(
       products: products ?? this.products,
       categories: categories ?? this.categories,
-      selectedCategory: selectedCategory == '' ? null : (selectedCategory ?? this.selectedCategory),
+      selectedCategory: selectedCategory == ''
+          ? null
+          : (selectedCategory ?? this.selectedCategory),
       searchQuery: searchQuery ?? this.searchQuery,
-      selectedRating: selectedRating == -1 ? null : (selectedRating ?? this.selectedRating),
+      selectedRating: selectedRating == -1
+          ? null
+          : (selectedRating ?? this.selectedRating),
       sortBy: sortBy ?? this.sortBy,
       minPrice: minPrice == -1 ? null : (minPrice ?? this.minPrice),
       maxPrice: maxPrice == -1 ? null : (maxPrice ?? this.maxPrice),
@@ -71,19 +75,19 @@ class MenuState extends Equatable {
 
   @override
   List<Object?> get props => [
-        products,
-        categories,
-        selectedCategory,
-        searchQuery,
-        selectedRating,
-        sortBy,
-        minPrice,
-        maxPrice,
-        filterAllergies,
-        page,
-        hasMore,
-        isLoading,
-        isLoadingMore,
-        error,
-      ];
+    products,
+    categories,
+    selectedCategory,
+    searchQuery,
+    selectedRating,
+    sortBy,
+    minPrice,
+    maxPrice,
+    filterAllergies,
+    page,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    error,
+  ];
 }

@@ -45,49 +45,51 @@ class UserModel {
       verifiedAt: json['verifiedAt'] as String?,
       storeId: json['storeId'] as String?,
       collectedPoints: json['collectedPoints'] as int? ?? 0,
-      addresses: (json['addresses'] as List<dynamic>?)
+      addresses:
+          (json['addresses'] as List<dynamic>?)
               ?.map((e) => AddressModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       preferences: json['preferences'] != null
           ? UserPreferencesModel.fromJson(
-              json['preferences'] as Map<String, dynamic>)
+              json['preferences'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'username': username,
-        'fullName': fullName,
-        'email': email,
-        'phone': phone,
-        'avatar': avatar,
-        'role': role,
-        'isActive': isActive,
-        'verifiedAt': verifiedAt,
-        'storeId': storeId,
-        'collectedPoints': collectedPoints,
-        'addresses': addresses.map((a) => a.toJson()).toList(),
-        'preferences': preferences?.toJson(),
-      };
+    '_id': id,
+    'username': username,
+    'fullName': fullName,
+    'email': email,
+    'phone': phone,
+    'avatar': avatar,
+    'role': role,
+    'isActive': isActive,
+    'verifiedAt': verifiedAt,
+    'storeId': storeId,
+    'collectedPoints': collectedPoints,
+    'addresses': addresses.map((a) => a.toJson()).toList(),
+    'preferences': preferences?.toJson(),
+  };
 
   /// Convert to domain entity.
   UserEntity toEntity() => UserEntity(
-        id: id,
-        username: username,
-        fullName: fullName,
-        email: email,
-        phone: phone,
-        avatar: avatar,
-        role: role,
-        isActive: isActive,
-        verifiedAt: verifiedAt,
-        storeId: storeId,
-        collectedPoints: collectedPoints,
-        addresses: addresses.map((a) => a.toEntity()).toList(),
-        preferences: preferences?.toEntity(),
-      );
+    id: id,
+    username: username,
+    fullName: fullName,
+    email: email,
+    phone: phone,
+    avatar: avatar,
+    role: role,
+    isActive: isActive,
+    verifiedAt: verifiedAt,
+    storeId: storeId,
+    collectedPoints: collectedPoints,
+    addresses: addresses.map((a) => a.toEntity()).toList(),
+    preferences: preferences?.toEntity(),
+  );
 }
 
 class AddressModel {
@@ -112,37 +114,37 @@ class AddressModel {
   });
 
   factory AddressModel.fromJson(Map<String, dynamic> json) => AddressModel(
-        label: json['label'] as String?,
-        receiverName: json['receiverName'] as String? ?? '',
-        phone: json['phone'] as String? ?? '',
-        detail: json['detail'] as String? ?? '',
-        ward: json['ward'] as String? ?? '',
-        district: json['district'] as String?,
-        city: json['city'] as String? ?? '',
-        isDefault: json['isDefault'] as bool? ?? false,
-      );
+    label: json['label'] as String?,
+    receiverName: json['receiverName'] as String? ?? '',
+    phone: json['phone'] as String? ?? '',
+    detail: json['detail'] as String? ?? '',
+    ward: json['ward'] as String? ?? '',
+    district: json['district'] as String?,
+    city: json['city'] as String? ?? '',
+    isDefault: json['isDefault'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'receiverName': receiverName,
-        'phone': phone,
-        'detail': detail,
-        'ward': ward,
-        'district': district,
-        'city': city,
-        'isDefault': isDefault,
-      };
+    'label': label,
+    'receiverName': receiverName,
+    'phone': phone,
+    'detail': detail,
+    'ward': ward,
+    'district': district,
+    'city': city,
+    'isDefault': isDefault,
+  };
 
   UserAddressEntity toEntity() => UserAddressEntity(
-        label: label,
-        receiverName: receiverName,
-        phone: phone,
-        detail: detail,
-        ward: ward,
-        district: district,
-        city: city,
-        isDefault: isDefault,
-      );
+    label: label,
+    receiverName: receiverName,
+    phone: phone,
+    detail: detail,
+    ward: ward,
+    district: district,
+    city: city,
+    isDefault: isDefault,
+  );
 }
 
 class UserPreferencesModel {
@@ -158,29 +160,32 @@ class UserPreferencesModel {
 
   factory UserPreferencesModel.fromJson(Map<String, dynamic> json) =>
       UserPreferencesModel(
-        dietary: (json['dietary'] as List<dynamic>?)
+        dietary:
+            (json['dietary'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
             [],
-        allergies: (json['allergies'] as List<dynamic>?)
+        allergies:
+            (json['allergies'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
             [],
-        healthGoals: (json['healthGoals'] as List<dynamic>?)
+        healthGoals:
+            (json['healthGoals'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
             [],
       );
 
   Map<String, dynamic> toJson() => {
-        'dietary': dietary,
-        'allergies': allergies,
-        'healthGoals': healthGoals,
-      };
+    'dietary': dietary,
+    'allergies': allergies,
+    'healthGoals': healthGoals,
+  };
 
   UserPreferencesEntity toEntity() => UserPreferencesEntity(
-        dietary: dietary,
-        allergies: allergies,
-        healthGoals: healthGoals,
-      );
+    dietary: dietary,
+    allergies: allergies,
+    healthGoals: healthGoals,
+  );
 }

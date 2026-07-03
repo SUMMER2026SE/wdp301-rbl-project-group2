@@ -46,12 +46,14 @@ class _NotificationListPageState extends State<NotificationListPage> {
     try {
       final res = await _dio.get(ApiEndpoints.notifications);
       setState(() {
-        _notifications = res.data['data'] as List<dynamic>? ?? res.data as List<dynamic>;
+        _notifications =
+            res.data['data'] as List<dynamic>? ?? res.data as List<dynamic>;
         _loading = false;
       });
     } on DioException catch (e) {
       setState(() {
-        _error = e.response?.data['message'] as String? ?? 'Không thể tải thông báo';
+        _error =
+            e.response?.data['message'] as String? ?? 'Không thể tải thông báo';
         _loading = false;
       });
     } catch (_) {
@@ -136,17 +138,26 @@ class _NotificationListPageState extends State<NotificationListPage> {
                 ),
                 child: Text(
                   '$_unreadCount',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
           ],
         ),
         actions: [
-          if (_notifications.any((n) => (n as Map<String, dynamic>)['read'] != true))
+          if (_notifications.any(
+            (n) => (n as Map<String, dynamic>)['read'] != true,
+          ))
             TextButton(
               onPressed: _markAllRead,
-              child: const Text('Đã đọc tất cả', style: TextStyle(fontSize: 13)),
+              child: const Text(
+                'Đã đọc tất cả',
+                style: TextStyle(fontSize: 13),
+              ),
             ),
         ],
       ),
@@ -156,7 +167,9 @@ class _NotificationListPageState extends State<NotificationListPage> {
 
   Widget _buildBody() {
     if (_loading) return _buildShimmer();
-    if (_error != null) return AppErrorWidget(message: _error!, onRetry: _loadNotifications);
+    if (_error != null) {
+      return AppErrorWidget(message: _error!, onRetry: _loadNotifications);
+    }
     if (_notifications.isEmpty) {
       return Center(
         child: Column(
@@ -164,7 +177,12 @@ class _NotificationListPageState extends State<NotificationListPage> {
           children: [
             Icon(Icons.notifications_none, size: 72, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('Chưa có thông báo', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary)),
+            Text(
+              'Chưa có thông báo',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary),
+            ),
           ],
         ),
       );
@@ -183,13 +201,16 @@ class _NotificationListPageState extends State<NotificationListPage> {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 6,
-      itemBuilder: (_, __) => Shimmer.fromColors(
+      itemBuilder: (_, _) => Shimmer.fromColors(
         baseColor: AppColors.shimmerBase,
         highlightColor: AppColors.shimmerHighlight,
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           height: 80,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -201,7 +222,9 @@ class _NotificationListPageState extends State<NotificationListPage> {
     final type = n['type'] as String?;
     final title = n['title'] as String? ?? '';
     final body = n['body'] as String? ?? n['message'] as String? ?? '';
-    final timeAgo = Formatters.timeAgo(Formatters.parseDate(n['createdAt'] as String?) ?? DateTime.now());
+    final timeAgo = Formatters.timeAgo(
+      Formatters.parseDate(n['createdAt'] as String?) ?? DateTime.now(),
+    );
 
     return Dismissible(
       key: ValueKey(n['_id'] ?? n['id'] ?? index),
@@ -218,8 +241,14 @@ class _NotificationListPageState extends State<NotificationListPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isRead ? Colors.transparent : AppColors.primary.withValues(alpha: 0.04),
-            border: Border(bottom: BorderSide(color: AppColors.divider.withValues(alpha: 0.5))),
+            color: isRead
+                ? Colors.transparent
+                : AppColors.primary.withValues(alpha: 0.04),
+            border: Border(
+              bottom: BorderSide(
+                color: AppColors.divider.withValues(alpha: 0.5),
+              ),
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +260,11 @@ class _NotificationListPageState extends State<NotificationListPage> {
                   color: _colorForType(type).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(_iconForType(type), color: _colorForType(type), size: 22),
+                child: Icon(
+                  _iconForType(type),
+                  color: _colorForType(type),
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -244,7 +277,9 @@ class _NotificationListPageState extends State<NotificationListPage> {
                           child: Text(
                             title,
                             style: TextStyle(
-                              fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
+                              fontWeight: isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.w700,
                               fontSize: 14,
                               color: AppColors.textPrimary,
                             ),
@@ -253,7 +288,13 @@ class _NotificationListPageState extends State<NotificationListPage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(timeAgo, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                        Text(
+                          timeAgo,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textHint,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -261,7 +302,9 @@ class _NotificationListPageState extends State<NotificationListPage> {
                       body,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isRead ? AppColors.textSecondary : AppColors.textPrimary,
+                        color: isRead
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

@@ -140,7 +140,7 @@ const FoodDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [suggestedFoods, setSuggestedFoods] = useState<Product[]>([]);
-  const [loadingSuggested, setLoadingSuggested] = useState(false);
+  const [, setLoadingSuggested] = useState(false);
   const [openVariantModal, setOpenVariantModal] = useState(false);
   const [allergyBannerDismissed, setAllergyBannerDismissed] = useState(false);
   const [serverRisk, setServerRisk] = useState<{
@@ -298,7 +298,7 @@ const FoodDetailPage = () => {
       if (!group.multiple) return { ...prev, [group.name]: [choice] };
 
       const exists = current.includes(choice);
-      let next = exists ? current.filter((c) => c !== choice) : [...current, choice];
+      const next = exists ? current.filter((c) => c !== choice) : [...current, choice];
       if (group.maxChoices && next.length > group.maxChoices) {
         toast.error(`Bạn chỉ có thể chọn tối đa ${group.maxChoices} ${isToppingGroup(group) ? "topping" : "lựa chọn"}`);
         return prev;

@@ -20,11 +20,7 @@ class CheckoutPage extends StatefulWidget {
   final List<String>? selectedItemIds;
   final String? note;
 
-  const CheckoutPage({
-    super.key,
-    this.selectedItemIds,
-    this.note,
-  });
+  const CheckoutPage({super.key, this.selectedItemIds, this.note});
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -110,7 +106,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final voucherList = vd is Map
           ? (vd['data'] as List<dynamic>? ?? [])
           : (vd as List<dynamic>? ?? []);
-      final vouchers = voucherList.map((e) => e as Map<String, dynamic>).toList();
+      final vouchers = voucherList
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
 
       // Parse settings (shipping config)
       final settingsRes = results[2];
@@ -119,14 +117,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ? (sd['data'] as Map<String, dynamic>? ?? sd)
           : <String, dynamic>{};
       final shippingConfig = ShippingConfig(
-        baseDeliveryFee: double.tryParse(
-            (settingsData['baseDeliveryFee'] as String? ?? '15000')) ?? 15000,
-        feePerKm: double.tryParse(
-            (settingsData['feePerKm'] as String? ?? '5000')) ?? 5000,
+        baseDeliveryFee:
+            double.tryParse(
+              (settingsData['baseDeliveryFee'] as String? ?? '15000'),
+            ) ??
+            15000,
+        feePerKm:
+            double.tryParse((settingsData['feePerKm'] as String? ?? '5000')) ??
+            5000,
         freeDeliveryEnabled:
             settingsData['freeDeliveryEnabled'] as bool? ?? true,
-        freeDeliveryThreshold: double.tryParse(
-            (settingsData['freeDeliveryThreshold'] as String? ?? '300000')) ??
+        freeDeliveryThreshold:
+            double.tryParse(
+              (settingsData['freeDeliveryThreshold'] as String? ?? '300000'),
+            ) ??
             300000,
       );
 
@@ -173,7 +177,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final user = authState is AuthAuthenticated
           ? authState.user
           : <String, dynamic>{};
-      final addresses = (user['addresses'] as List<dynamic>?)
+      final addresses =
+          (user['addresses'] as List<dynamic>?)
               ?.whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList() ??
@@ -181,8 +186,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final defaultAddr = addresses.isEmpty
           ? null
           : (addresses.indexWhere((a) => a['isDefault'] == true) >= 0
-              ? addresses.firstWhere((a) => a['isDefault'] == true)
-              : addresses.first);
+                ? addresses.firstWhere((a) => a['isDefault'] == true)
+                : addresses.first);
 
       setState(() {
         _items = items;
@@ -202,7 +207,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.type == DioExceptionType.connectionError ||
+        _error =
+            e.type == DioExceptionType.connectionError ||
                 e.type == DioExceptionType.connectionTimeout
             ? 'Không có kết nối mạng'
             : 'Không thể tải thông tin thanh toán';
@@ -226,10 +232,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (loc != null && loc['coordinates'] is List) {
       final raw = loc['coordinates'] as List;
       if (raw.length >= 2) {
-        coords = [
-          (raw[0] as num).toDouble(),
-          (raw[1] as num).toDouble(),
-        ];
+        coords = [(raw[0] as num).toDouble(), (raw[1] as num).toDouble()];
       }
     }
     _shippingResult = calculateShippingFee(
@@ -253,22 +256,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
       return;
     }
+    if (!mounted) return;
 
     // Capture user info before async gap
     final authState = context.read<AuthBloc>().state;
-    final user = authState is AuthAuthenticated ? authState.user : <String, dynamic>{};
-    final userName = user['fullName'] as String? ?? user['username'] as String? ?? '';
+    final user = authState is AuthAuthenticated
+        ? authState.user
+        : <String, dynamic>{};
+    final userName =
+        user['fullName'] as String? ?? user['username'] as String? ?? '';
     final userPhone = user['phone'] as String? ?? '';
 
     setState(() => _isLocating = true);
     try {
       final position = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 6)),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 6),
+        ),
       );
 
       // Find nearest ward by distance (same approach as web frontend)
-      final nearestWard = _findNearestWard(position.latitude, position.longitude);
+      final nearestWard = _findNearestWard(
+        position.latitude,
+        position.longitude,
+      );
 
       // Auto-select GPS address immediately (like web)
       final gpsAddr = <String, dynamic>{
@@ -308,12 +320,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
           String resolvedDetail = houseNumber != null && street != null
               ? '$houseNumber $street'
               : street != null
-                  ? '$placeName, $street'
-                  : placeName ?? 'Vị trí GPS';
+              ? '$placeName, $street'
+              : placeName ?? 'Vị trí GPS';
 
           // Match ward from Photon
           String resolvedWard = nearestWard;
-          final photonWard = props['locality'] as String? ?? props['district'] as String? ?? '';
+          final photonWard =
+              props['locality'] as String? ??
+              props['district'] as String? ??
+              '';
           if (photonWard.isNotEmpty) {
             final normalizedPhoton = photonWard
                 .replaceAll(RegExp(r'^(phường|xã)\s+', multiLine: true), '')
@@ -365,7 +380,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         nearest = entry.key;
       }
     }
-    return nearest.isNotEmpty ? nearest : DanangLocations.deliverableWards.first;
+    return nearest.isNotEmpty
+        ? nearest
+        : DanangLocations.deliverableWards.first;
   }
 
   Future<void> _showAddressPicker() async {
@@ -436,8 +453,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check_circle,
-                            color: AppColors.primary)
+                        ? const Icon(
+                            Icons.check_circle,
+                            color: AppColors.primary,
+                          )
                         : null,
                     onTap: () => Navigator.pop(ctx, addr),
                   );
@@ -458,12 +477,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _showAddAddressModal({Map<String, dynamic>? prefill}) {
-    final nameCtrl =
-        TextEditingController(text: prefill?['receiverName'] as String? ?? '');
-    final phoneCtrl =
-        TextEditingController(text: prefill?['phone'] as String? ?? '');
-    final detailCtrl =
-        TextEditingController(text: prefill?['detail'] as String? ?? '');
+    final nameCtrl = TextEditingController(
+      text: prefill?['receiverName'] as String? ?? '',
+    );
+    final phoneCtrl = TextEditingController(
+      text: prefill?['phone'] as String? ?? '',
+    );
+    final detailCtrl = TextEditingController(
+      text: prefill?['detail'] as String? ?? '',
+    );
     var selectedWard = prefill?['ward'] as String? ?? '';
     var isDefault = false;
 
@@ -525,19 +547,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     initialValue: const [DanangLocations.deliverableCity].first,
                     decoration: const InputDecoration(labelText: 'Thành phố'),
                     items: const [DanangLocations.deliverableCity]
-                        .map((c) =>
-                            DropdownMenuItem(value: c, child: Text(c)))
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
                     onChanged: saving ? null : (_) {},
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: selectedWard.isEmpty ? null : selectedWard,
-                    decoration:
-                        const InputDecoration(labelText: 'Phường/Xã *'),
+                    decoration: const InputDecoration(labelText: 'Phường/Xã *'),
                     items: DanangLocations.deliverableWards
-                        .map((w) =>
-                            DropdownMenuItem(value: w, child: Text(w)))
+                        .map((w) => DropdownMenuItem(value: w, child: Text(w)))
                         .toList(),
                     onChanged: saving
                         ? null
@@ -560,8 +579,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     value: isDefault,
                     onChanged: (value) =>
                         setSheetState(() => isDefault = value ?? false),
-                    title: const Text('Đặt làm địa chỉ mặc định',
-                        style: TextStyle(fontSize: 14)),
+                    title: const Text(
+                      'Đặt làm địa chỉ mặc định',
+                      style: TextStyle(fontSize: 14),
+                    ),
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
                     dense: true,
@@ -575,16 +596,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           : () async {
                               setSheetState(() => saving = true);
                               final receiverName = nameCtrl.text.trim();
-                              final phone = phoneCtrl.text
-                                  .replaceAll(RegExp(r'\s+'), '');
+                              final phone = phoneCtrl.text.replaceAll(
+                                RegExp(r'\s+'),
+                                '',
+                              );
                               final detail = detailCtrl.text.trim();
                               final ward = selectedWard;
 
                               String? msg;
                               if (receiverName.isEmpty) {
                                 msg = 'Vui lòng nhập người nhận';
-                              } else if (!RegExp(r'^0\d{8,10}$')
-                                  .hasMatch(phone)) {
+                              } else if (!RegExp(
+                                r'^0\d{8,10}$',
+                              ).hasMatch(phone)) {
                                 msg = 'Số điện thoại không hợp lệ';
                               } else if (ward.isEmpty) {
                                 msg = 'Vui lòng chọn phường/xã';
@@ -593,9 +617,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               }
                               if (msg != null) {
                                 setSheetState(() => saving = false);
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text(msg)),
-                                );
+                                ScaffoldMessenger.of(
+                                  ctx,
+                                ).showSnackBar(SnackBar(content: Text(msg)));
                                 return;
                               }
 
@@ -611,8 +635,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                               try {
                                 final updated = [..._addresses, newAddr];
-                                await _dio.patch(ApiEndpoints.userAddresses,
-                                    data: {'addresses': updated});
+                                await _dio.patch(
+                                  ApiEndpoints.userAddresses,
+                                  data: {'addresses': updated},
+                                );
                                 if (!ctx.mounted) return;
                                 Navigator.pop(ctx);
                                 if (mounted) {
@@ -626,17 +652,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 if (!ctx.mounted) return;
                                 final msg2 =
                                     e.response?.data['message'] as String? ??
-                                        'Lưu thất bại';
+                                    'Lưu thất bại';
                                 setSheetState(() => saving = false);
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  SnackBar(content: Text(msg2)),
-                                );
+                                ScaffoldMessenger.of(
+                                  ctx,
+                                ).showSnackBar(SnackBar(content: Text(msg2)));
                               } catch (_) {
                                 if (!ctx.mounted) return;
                                 setSheetState(() => saving = false);
                                 ScaffoldMessenger.of(ctx).showSnackBar(
                                   const SnackBar(
-                                      content: Text('Đã xảy ra lỗi')),
+                                    content: Text('Đã xảy ra lỗi'),
+                                  ),
                                 );
                               }
                             },
@@ -645,7 +672,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text('Thêm địa chỉ'),
                     ),
@@ -671,14 +700,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _voucherMessage = null;
     });
     try {
-      final r = await _dio.post(ApiEndpoints.voucherValidate, data: {
-        'code': voucherCode,
-        'orderTotal': _subtotal,
-        'userId': context.read<AuthBloc>().state is AuthAuthenticated
-            ? (context.read<AuthBloc>().state as AuthAuthenticated)
-                .user['_id'] as String?
-            : null,
-      });
+      final r = await _dio.post(
+        ApiEndpoints.voucherValidate,
+        data: {
+          'code': voucherCode,
+          'orderAmount': _subtotal,
+          'userId': context.read<AuthBloc>().state is AuthAuthenticated
+              ? (context.read<AuthBloc>().state as AuthAuthenticated)
+                        .user['_id']
+                    as String?
+              : null,
+        },
+      );
       final d = r.data;
       final vd = d is Map
           ? (d['data'] as Map<String, dynamic>? ?? Map<String, dynamic>.from(d))
@@ -699,7 +732,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!mounted) return;
       final msg = e.response?.data is Map
           ? ((e.response!.data as Map)['message'] as String? ??
-              'Mã giảm giá không hợp lệ')
+                'Mã giảm giá không hợp lệ')
           : 'Mã giảm giá không hợp lệ';
       setState(() {
         _voucherError = msg;
@@ -729,35 +762,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> _removeCheckedOutItemsFromCart() async {
     try {
-      await Future.wait(_items.map((item) {
-        final productIdRaw = item['productId'];
-        final prod = productIdRaw is Map<String, dynamic>
-            ? productIdRaw
-            : (item['product'] as Map<String, dynamic>? ?? item);
-        final productId = productIdRaw is String
-            ? productIdRaw
-            : (prod['_id'] as String? ?? '');
-        if (productId.isEmpty) return Future<void>.value();
+      await Future.wait(
+        _items.map((item) {
+          final productIdRaw = item['productId'];
+          final prod = productIdRaw is Map<String, dynamic>
+              ? productIdRaw
+              : (item['product'] as Map<String, dynamic>? ?? item);
+          final productId = productIdRaw is String
+              ? productIdRaw
+              : (prod['_id'] as String? ?? '');
+          if (productId.isEmpty) return Future<void>.value();
 
-        final rawVariations = item['variations'] as List<dynamic>?;
-        final variations = rawVariations
-                ?.whereType<Map<String, dynamic>>()
-                .map((v) => {
+          final rawVariations = item['variations'] as List<dynamic>?;
+          final variations =
+              rawVariations
+                  ?.whereType<Map<String, dynamic>>()
+                  .map(
+                    (v) => {
                       'name': v['name'] as String? ?? '',
                       'choice': v['choice'] as String? ?? '',
-                    })
-                .where((v) => v['name']!.isNotEmpty)
-                .toList() ??
-            <Map<String, String>>[];
+                    },
+                  )
+                  .where((v) => v['name']!.isNotEmpty)
+                  .toList() ??
+              <Map<String, String>>[];
 
-        return _dio.delete(
-          ApiEndpoints.cartRemove,
-          data: {
-            'productId': productId,
-            'variations': variations,
-          },
-        );
-      }));
+          return _dio.delete(
+            ApiEndpoints.cartRemove,
+            data: {'productId': productId, 'variations': variations},
+          );
+        }),
+      );
     } catch (e) {
       debugPrint('CHECKOUT_REMOVE_CART_ITEMS_ERROR: $e');
     }
@@ -797,10 +832,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           final rawVariations = item['variations'] as List<dynamic>?;
           final variations = rawVariations
               ?.whereType<Map<String, dynamic>>()
-              .map((v) => {
-                    'name': v['name'] as String? ?? '',
-                    'choice': v['choice'] as String? ?? '',
-                  })
+              .map(
+                (v) => {
+                  'name': v['name'] as String? ?? '',
+                  'choice': v['choice'] as String? ?? '',
+                },
+              )
               .where((v) => v['name']!.isNotEmpty)
               .toList();
           return <String, dynamic>{
@@ -826,8 +863,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!mounted) return;
 
       if (checkoutUrl != null && checkoutUrl.isNotEmpty) {
-        final result =
-            await context.push<bool>('/payment-webview', extra: checkoutUrl);
+        final result = await context.push<bool>(
+          '/payment-webview',
+          extra: checkoutUrl,
+        );
         if (result == true && mounted && id.isNotEmpty) {
           await _removeCheckedOutItemsFromCart();
           if (!mounted) return;
@@ -850,7 +889,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final statusCode = e.response?.statusCode;
       var msg = e.response?.data is Map
           ? ((e.response!.data as Map)['message'] as String? ??
-              'Không thể đặt hàng')
+                'Không thể đặt hàng')
           : 'Không thể đặt hàng';
 
       if (statusCode == 400) {
@@ -918,12 +957,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _snack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   // ── Build ──
@@ -957,19 +998,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
               }
             },
           ),
-          title: const Text('Thanh toán',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          title: const Text(
+            'Thanh toán',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
           backgroundColor: Colors.white,
           elevation: 0,
         ),
         body: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary))
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
             : _error != null
-                ? _buildError()
-                : _items.isEmpty
-                    ? const Center(child: Text('Giỏ hàng trống'))
-                    : _buildForm(),
+            ? _buildError()
+            : _items.isEmpty
+            ? const Center(child: Text('Giỏ hàng trống'))
+            : _buildForm(),
         bottomNavigationBar: _items.isEmpty ? null : _buildBottomBar(),
       );
     } catch (e, stack) {
@@ -999,7 +1043,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               _error!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 15, color: AppColors.textSecondary),
+                fontSize: 15,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -1032,8 +1078,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline,
-                  color: AppColors.error, size: 48),
+              const Icon(Icons.error_outline, color: AppColors.error, size: 48),
               const SizedBox(height: 12),
               const Text(
                 'Không thể hiển thị màn hình thanh toán',
@@ -1045,7 +1090,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 '$error',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12),
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -1125,8 +1172,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _selectedStore?['name'] as String? ??
-                            'Chọn cửa hàng',
+                        _selectedStore?['name'] as String? ?? 'Chọn cửa hàng',
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -1242,14 +1288,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   )
                 : const Icon(Icons.gps_fixed, size: 18),
             label: Text(
-                _isLocating ? 'Đang định vị...' : 'Định vị địa chỉ của tôi'),
+              _isLocating ? 'Đang định vị...' : 'Định vị địa chỉ của tôi',
+            ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: _selectedAddress != null &&
+              foregroundColor:
+                  _selectedAddress != null &&
                       _selectedAddress!['label'] == 'Vị trí hiện tại'
                   ? AppColors.success
                   : AppColors.primary,
               side: BorderSide(
-                color: _selectedAddress != null &&
+                color:
+                    _selectedAddress != null &&
                         _selectedAddress!['label'] == 'Vị trí hiện tại'
                     ? AppColors.success
                     : AppColors.primary,
@@ -1277,9 +1326,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
         side: BorderSide(color: AppColors.primary.withValues(alpha: 0.5)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
     );
@@ -1332,7 +1379,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     if (isDefault)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
@@ -1372,7 +1421,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return _sectionCard(
       children: [
         _sectionTitle(
-            Icons.shopping_bag_outlined, 'Món đã chọn (${_items.length})'),
+          Icons.shopping_bag_outlined,
+          'Món đã chọn (${_items.length})',
+        ),
         const SizedBox(height: 10),
         ..._items.take(4).map(_itemTile),
         if (_items.length > 4)
@@ -1394,12 +1445,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final p = prodRaw is Map<String, dynamic>
         ? prodRaw
         : (item['product'] as Map<String, dynamic>? ?? item);
-    final n = p['name'] as String? ??
+    final n =
+        p['name'] as String? ??
         item['productName'] as String? ??
         item['name'] as String? ??
         'Món';
     final q = (item['quantity'] as num?)?.toInt() ?? 1;
-    final pr = (item['price'] as num?)?.toDouble() ??
+    final pr =
+        (item['price'] as num?)?.toDouble() ??
         (p['price'] as num?)?.toDouble() ??
         0;
 
@@ -1432,19 +1485,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       fit: BoxFit.cover,
                       placeholder: (_, _) => Container(
                         color: Colors.grey[200],
-                        child: const Icon(Icons.image_outlined,
-                            color: Colors.grey, size: 20),
+                        child: const Icon(
+                          Icons.image_outlined,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
                       ),
                       errorWidget: (_, _, _) => Container(
                         color: Colors.grey[200],
-                        child: const Icon(Icons.fastfood_outlined,
-                            color: AppColors.primary, size: 22),
+                        child: const Icon(
+                          Icons.fastfood_outlined,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
                       ),
                     )
                   : Container(
                       color: AppColors.primary.withValues(alpha: 0.08),
-                      child: const Icon(Icons.fastfood_outlined,
-                          color: AppColors.primary, size: 22),
+                      child: const Icon(
+                        Icons.fastfood_outlined,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
                     ),
             ),
           ),
@@ -1472,7 +1534,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       final vChoice = v['choice'] as String? ?? '';
                       return Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(10),
@@ -1570,8 +1634,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               child: _availableVouchers.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.all(32),
-                      child: Text('Không có mã giảm giá khả dụng',
-                          style: TextStyle(color: AppColors.textSecondary)),
+                      child: Text(
+                        'Không có mã giảm giá khả dụng',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
                     )
                   : ListView.separated(
                       shrinkWrap: true,
@@ -1582,15 +1648,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         final v = _availableVouchers[index];
                         final code = v['code'] as String? ?? '';
                         final title = v['title'] as String? ?? '';
-                        final isPct = v['discountPercent'] != null &&
+                        final isPct =
+                            v['discountPercent'] != null &&
                             (v['discountPercent'] as num) > 0;
                         final discountLabel = isPct
                             ? 'Giảm ${v['discountPercent']}%'
                             : 'Giảm ${Formatters.currency(v['discountAmount'] as num? ?? 0)}';
-                        final minOrder = (v['minOrderAmount'] as num?)?.toDouble() ??
-                            (v['minOrderValue'] as num?)?.toDouble() ?? 0;
+                        final minOrder =
+                            (v['minOrderAmount'] as num?)?.toDouble() ??
+                            (v['minOrderValue'] as num?)?.toDouble() ??
+                            0;
                         final canApply = _subtotal >= minOrder;
-                        final maxDiscount = v['maxDiscountAmount'] as num? ?? v['maxDiscount'] as num?;
+                        final maxDiscount =
+                            v['maxDiscountAmount'] as num? ??
+                            v['maxDiscount'] as num?;
 
                         return Opacity(
                           opacity: canApply ? 1.0 : 0.5,
@@ -1604,7 +1675,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            tileColor: AppColors.primary.withValues(alpha: 0.04),
+                            tileColor: AppColors.primary.withValues(
+                              alpha: 0.04,
+                            ),
                             leading: Container(
                               width: 44,
                               height: 44,
@@ -1616,7 +1689,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               ),
                               child: Icon(
                                 Icons.local_offer,
-                                color: canApply ? AppColors.primary : Colors.grey,
+                                color: canApply
+                                    ? AppColors.primary
+                                    : Colors.grey,
                                 size: 22,
                               ),
                             ),
@@ -1675,8 +1750,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 if (!canApply)
                                   const Padding(
                                     padding: EdgeInsets.only(left: 4),
-                                    child: Icon(Icons.lock,
-                                        size: 14, color: Colors.grey),
+                                    child: Icon(
+                                      Icons.lock,
+                                      size: 14,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                               ],
                             ),
@@ -1694,7 +1772,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _buildVoucherSection() {
     final applicableVouchers = _availableVouchers.where((v) {
-      final minOrder = (v['minOrderAmount'] as num?)?.toDouble() ??
+      final minOrder =
+          (v['minOrderAmount'] as num?)?.toDouble() ??
           (v['minOrderValue'] as num?)?.toDouble() ??
           0;
       return _subtotal >= minOrder;
@@ -1704,11 +1783,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
       children: [
         Row(
           children: [
-            Expanded(child: _sectionTitle(Icons.local_offer_outlined, 'Mã giảm giá')),
+            Expanded(
+              child: _sectionTitle(Icons.local_offer_outlined, 'Mã giảm giá'),
+            ),
             TextButton.icon(
               onPressed: _showVoucherPicker,
               icon: const Icon(Icons.confirmation_number_outlined, size: 16),
-              label: const Text('Chọn mã', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              label: const Text(
+                'Chọn mã',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1732,7 +1816,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         itemBuilder: (context, index) {
                           final v = applicableVouchers[index];
                           final title = v['title'] as String? ?? '';
-                          final isPct = v['discountPercent'] != null &&
+                          final isPct =
+                              v['discountPercent'] != null &&
                               (v['discountPercent'] as num) > 0;
                           final label = isPct
                               ? '-${v['discountPercent']}%'
@@ -1741,7 +1826,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             onTap: () => _selectVoucherChip(v),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -1751,15 +1838,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.25),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.25,
+                                  ),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.local_offer,
-                                      color: AppColors.primary, size: 14),
+                                  const Icon(
+                                    Icons.local_offer,
+                                    color: AppColors.primary,
+                                    size: 14,
+                                  ),
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
@@ -1777,8 +1868,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   Text(
                                     label,
                                     style: TextStyle(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.7),
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.7,
+                                      ),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1812,7 +1904,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   filled: true,
                   fillColor: const Color(0xFFF5F5F5),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   isDense: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1825,13 +1919,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(
-                        color: AppColors.primary, width: 1.5),
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
                   errorText: _voucherError,
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(
-                        color: AppColors.error, width: 1.5),
+                      color: AppColors.error,
+                      width: 1.5,
+                    ),
                   ),
                 ),
                 style: const TextStyle(fontSize: 14),
@@ -1844,8 +1942,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               width: 96,
               height: 46,
               child: ElevatedButton(
-                onPressed:
-                    _isApplyingVoucher ? null : () => _applyVoucher(),
+                onPressed: _isApplyingVoucher ? null : () => _applyVoucher(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -1864,8 +1961,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Áp dụng',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    : const Text(
+                        'Áp dụng',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
               ),
             ),
           ],
@@ -1899,8 +1998,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               color: AppColors.success.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.check_circle,
-                color: AppColors.success, size: 22),
+            child: const Icon(
+              Icons.check_circle,
+              color: AppColors.success,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1933,8 +2035,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
             ),
-            child: const Text('Hủy',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -1978,8 +2082,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       onTap: () {
         if (value == 'bank_transfer' && !_canUsePayos) {
           _snack(
-              'PayOS chỉ áp dụng cho đơn hàng từ 2,000₫ trở lên. Đã chuyển sang COD.',
-              AppColors.warning);
+            'PayOS chỉ áp dụng cho đơn hàng từ 2,000₫ trở lên. Đã chuyển sang COD.',
+            AppColors.warning,
+          );
           setState(() => _paymentMethod = 'cash');
         } else {
           setState(() => _paymentMethod = value);
@@ -2033,10 +2138,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -2077,8 +2179,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             hintText: 'Ghi chú cho cửa hàng (không bắt buộc)',
             filled: true,
             fillColor: const Color(0xFFF5F5F5),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -2090,8 +2194,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
             ),
           ),
           style: const TextStyle(fontSize: 14),
@@ -2108,12 +2214,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final shippingLabel = _selectedAddress == null
         ? 'Vui lòng chọn địa chỉ'
         : _deliveryFee == 0
-            ? 'Miễn phí'
-            : Formatters.currency(_deliveryFee);
+        ? 'Miễn phí'
+        : Formatters.currency(_deliveryFee);
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-          20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+        20,
+        12,
+        20,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -2130,25 +2240,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _summaryRow('Tạm tính', Formatters.currency(_subtotal)),
           if (_discountAmount > 0) ...[
             const SizedBox(height: 4),
-            _summaryRow('Giảm giá', '-${Formatters.currency(_discountAmount)}',
-                valueColor: AppColors.success),
+            _summaryRow(
+              'Giảm giá',
+              '-${Formatters.currency(_discountAmount)}',
+              valueColor: AppColors.success,
+            ),
           ],
           const SizedBox(height: 4),
           _summaryRow(
             'Phí giao hàng',
             shippingLabel,
-            valueColor:
-                _deliveryFee == 0 && _selectedAddress != null
-                    ? AppColors.success
-                    : AppColors.textPrimary,
+            valueColor: _deliveryFee == 0 && _selectedAddress != null
+                ? AppColors.success
+                : AppColors.textPrimary,
           ),
           const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tổng cộng',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const Text(
+                'Tổng cộng',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
               Text(
                 Formatters.currency(_total),
                 style: const TextStyle(
@@ -2165,8 +2278,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 validationMsg,
-                style: const TextStyle(
-                    color: AppColors.warning, fontSize: 12),
+                style: const TextStyle(color: AppColors.warning, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -2174,8 +2286,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed:
-                  _isPlacing || validationMsg != null ? null : _placeOrder,
+              onPressed: _isPlacing || validationMsg != null
+                  ? null
+                  : _placeOrder,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -2211,9 +2324,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
         Text(
           value,
           style: TextStyle(

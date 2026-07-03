@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
@@ -52,12 +54,11 @@ class _OrderFailedPageState extends State<OrderFailedPage>
         _isLoading = false;
         _failureReason = 'Không thể tạo đơn hàng. Vui lòng thử lại.';
       });
-      _animController.forward();
+      unawaited(_animController.forward());
       return;
     }
     try {
-      final response =
-          await _dio.get(ApiEndpoints.orderById(widget.id));
+      final response = await _dio.get(ApiEndpoints.orderById(widget.id));
       final body = response.data is Map<String, dynamic>
           ? (response.data as Map<String, dynamic>)
           : <String, dynamic>{};
@@ -67,11 +68,12 @@ class _OrderFailedPageState extends State<OrderFailedPage>
 
       setState(() {
         _orderCode = data['code'] as String? ?? '';
-        _failureReason = data['failureReason'] as String? ??
+        _failureReason =
+            data['failureReason'] as String? ??
             data['cancellation']?['reason'] as String?;
         _isLoading = false;
       });
-      _animController.forward();
+      unawaited(_animController.forward());
     } on DioException catch (e) {
       setState(() {
         _isLoading = false;
@@ -97,8 +99,8 @@ class _OrderFailedPageState extends State<OrderFailedPage>
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? AppErrorWidget(message: _error!, onRetry: _loadOrder)
-                : _buildContent(),
+            ? AppErrorWidget(message: _error!, onRetry: _loadOrder)
+            : _buildContent(),
       ),
     );
   }
@@ -114,10 +116,8 @@ class _OrderFailedPageState extends State<OrderFailedPage>
             // Failed icon with animation
             AnimatedBuilder(
               animation: _scaleAnim,
-              builder: (context, child) => Transform.scale(
-                scale: _scaleAnim.value,
-                child: child,
-              ),
+              builder: (context, child) =>
+                  Transform.scale(scale: _scaleAnim.value, child: child),
               child: const Icon(
                 Icons.cancel_rounded,
                 size: 100,
@@ -199,8 +199,11 @@ class _OrderFailedPageState extends State<OrderFailedPage>
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.red[400], size: 18),
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red[400],
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(

@@ -51,9 +51,15 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
       dynamic recResponse;
       dynamic safeResponse;
       dynamic prodResponse;
-      try { recResponse = await _dio.get(ApiEndpoints.recommendations); } catch (_) {}
-      try { safeResponse = await _dio.get(ApiEndpoints.safeFoods); } catch (_) {}
-      try { prodResponse = await _dio.get(ApiEndpoints.products); } catch (_) {}
+      try {
+        recResponse = await _dio.get(ApiEndpoints.recommendations);
+      } catch (_) {}
+      try {
+        safeResponse = await _dio.get(ApiEndpoints.safeFoods);
+      } catch (_) {}
+      try {
+        prodResponse = await _dio.get(ApiEndpoints.products);
+      } catch (_) {}
 
       // Parse recommendations
       List<Map<String, dynamic>> recommendations = [];
@@ -132,23 +138,40 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
 
   String _getAllergenLabel(String id) {
     switch (id) {
-      case 'fish': return 'Cá';
-      case 'shrimp': return 'Tôm';
-      case 'crab': return 'Cua';
-      case 'shellfish': return 'Hải sản có vỏ';
-      case 'squid': return 'Mực';
-      case 'beef': return 'Thịt bò';
-      case 'pork': return 'Thịt heo';
-      case 'chicken': return 'Gia cầm';
-      case 'peanuts': return 'Đậu phộng';
-      case 'tree_nuts': return 'Hạt cây';
-      case 'soy': return 'Đậu nành';
-      case 'gluten': return 'Gluten';
-      case 'allium': return 'Hành/Tỏi';
-      case 'eggs': return 'Trứng';
-      case 'dairy': return 'Sữa';
-      case 'msg': return 'Bột ngọt';
-      default: return id;
+      case 'fish':
+        return 'Cá';
+      case 'shrimp':
+        return 'Tôm';
+      case 'crab':
+        return 'Cua';
+      case 'shellfish':
+        return 'Hải sản có vỏ';
+      case 'squid':
+        return 'Mực';
+      case 'beef':
+        return 'Thịt bò';
+      case 'pork':
+        return 'Thịt heo';
+      case 'chicken':
+        return 'Gia cầm';
+      case 'peanuts':
+        return 'Đậu phộng';
+      case 'tree_nuts':
+        return 'Hạt cây';
+      case 'soy':
+        return 'Đậu nành';
+      case 'gluten':
+        return 'Gluten';
+      case 'allium':
+        return 'Hành/Tỏi';
+      case 'eggs':
+        return 'Trứng';
+      case 'dairy':
+        return 'Sữa';
+      case 'msg':
+        return 'Bột ngọt';
+      default:
+        return id;
     }
   }
 
@@ -159,11 +182,14 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
     setState(() => _addingToCart.add(productId));
 
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': productId,
-        'quantity': 1,
-        'price': product['price'],
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {
+          'productId': productId,
+          'quantity': 1,
+          'price': product['price'],
+        },
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -171,13 +197,15 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ??
+      final msg =
+          e.response?.data?['message'] as String? ??
           'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -186,7 +214,8 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -203,11 +232,8 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
       body: _isLoading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadData)
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: _buildContent(),
-                ),
+          ? AppErrorWidget(message: _error!, onRetry: _loadData)
+          : RefreshIndicator(onRefresh: _loadData, child: _buildContent()),
     );
   }
 
@@ -220,43 +246,60 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 80, decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(16))),
+            Container(
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
             const SizedBox(height: 24),
             Container(
-                height: 20, width: 150,
-                decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(8))),
+              height: 20,
+              width: 150,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 200,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: 3,
-                itemBuilder: (_, __) => Container(
+                itemBuilder: (_, _) => Container(
                   width: 150,
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 24),
             Container(
-                height: 20, width: 150,
-                decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(8))),
+              height: 20,
+              width: 150,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 200,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: 3,
-                itemBuilder: (_, __) => Container(
+                itemBuilder: (_, _) => Container(
                   width: 150,
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
@@ -333,31 +376,31 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.08),
-            Colors.white,
-          ],
+          colors: [AppColors.primary.withValues(alpha: 0.08), Colors.white],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.15)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.favorite_outline_rounded,
-                  color: AppColors.primary, size: 20),
+              Icon(
+                Icons.favorite_outline_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Hồ sơ sức khỏe của bạn',
                 style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -366,22 +409,29 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: _userAllergies.map((a) => Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange[100]!),
-                ),
-                child: Text(
-                  'Dị ứng: ${_getAllergenLabel(a)}',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.orange[800]),
-                ),
-              )).toList(),
+              children: _userAllergies
+                  .map(
+                    (a) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange[100]!),
+                      ),
+                      child: Text(
+                        'Dị ứng: ${_getAllergenLabel(a)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange[800],
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ],
           const SizedBox(height: 8),
@@ -401,8 +451,11 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios_rounded,
-                      size: 12, color: AppColors.primary.withValues(alpha: 0.6)),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: AppColors.primary.withValues(alpha: 0.6),
+                  ),
                 ],
               ),
             ),
@@ -422,8 +475,11 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
       ),
       child: Column(
         children: [
-          Icon(Icons.tune_rounded,
-              size: 48, color: AppColors.primary.withValues(alpha: 0.5)),
+          Icon(
+            Icons.tune_rounded,
+            size: 48,
+            color: AppColors.primary.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 12),
           const Text(
             'Cài đặt sở thích để nhận gợi ý',
@@ -526,8 +582,9 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
             Expanded(
               flex: 5,
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -539,14 +596,20 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                                 Container(color: Colors.grey[200]),
                             errorWidget: (_, _, _) => Container(
                               color: Colors.orange[50],
-                              child: const Icon(Icons.restaurant,
-                                  color: AppColors.primary, size: 32),
+                              child: const Icon(
+                                Icons.restaurant,
+                                color: AppColors.primary,
+                                size: 32,
+                              ),
                             ),
                           )
                         : Container(
                             color: Colors.orange[50],
-                            child: const Icon(Icons.restaurant,
-                                color: AppColors.primary, size: 32),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                              size: 32,
+                            ),
                           ),
                     if (!isAvailable)
                       Container(
@@ -568,7 +631,9 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                         left: 6,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(6),
@@ -589,7 +654,9 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                         right: 4,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(8),
@@ -597,8 +664,11 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star,
-                                  color: Colors.amber, size: 10),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 10,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 rating.toStringAsFixed(1),
@@ -627,9 +697,10 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                     Text(
                       name,
                       style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -679,11 +750,15 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
                                 ? const Padding(
                                     padding: EdgeInsets.all(6),
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white),
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
-                                : const Icon(Icons.add,
-                                    color: Colors.white, size: 18),
+                                : const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
                           ),
                         ),
                       ),

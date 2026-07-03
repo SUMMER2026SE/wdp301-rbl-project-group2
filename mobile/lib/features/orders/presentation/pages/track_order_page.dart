@@ -48,7 +48,7 @@ class _RawStatusEntry {
         actorRole: json['actorRole'] as String?,
         createdAt:
             DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-                DateTime.now(),
+            DateTime.now(),
       );
 }
 
@@ -182,9 +182,11 @@ class _TrackOrderPageState extends State<TrackOrderPage>
       if (mounted) {
         setState(() {
           _order = OrderModel.fromJson(json);
-          _rawHistory = (json['statusHistory'] as List<dynamic>?)
+          _rawHistory =
+              (json['statusHistory'] as List<dynamic>?)
                   ?.map(
-                      (e) => _RawStatusEntry.fromJson(e as Map<String, dynamic>))
+                    (e) => _RawStatusEntry.fromJson(e as Map<String, dynamic>),
+                  )
                   .toList() ??
               [];
           if (_rawHistory.isEmpty && _order != null) {
@@ -231,16 +233,12 @@ class _TrackOrderPageState extends State<TrackOrderPage>
         final status = OrderStatus.fromString(h.status);
         final stepDef = _allTimelineSteps.firstWhere(
           (s) => s.status == status,
-          orElse: () => const _TimelineStep(
-            status: OrderStatus.pending,
-            label: '',
-          ),
+          orElse: () =>
+              const _TimelineStep(status: OrderStatus.pending, label: ''),
         );
         return _TimelineStep(
           status: status,
-          label: stepDef.label.isNotEmpty
-              ? stepDef.label
-              : status.label,
+          label: stepDef.label.isNotEmpty ? stepDef.label : status.label,
           description: stepDef.description,
           actor: h.actorRole,
           timestamp: h.createdAt,
@@ -251,9 +249,11 @@ class _TrackOrderPageState extends State<TrackOrderPage>
     // No raw history — build from current status.
     if (currentStatus == OrderStatus.cancelled) {
       return _allTimelineSteps
-          .where((s) =>
-              s.status == OrderStatus.pending ||
-              s.status == OrderStatus.cancelled)
+          .where(
+            (s) =>
+                s.status == OrderStatus.pending ||
+                s.status == OrderStatus.cancelled,
+          )
           .toList();
     }
 
@@ -277,7 +277,10 @@ class _TrackOrderPageState extends State<TrackOrderPage>
   }
 
   Color _dotColor(
-      List<_TimelineStep> steps, int index, OrderStatus currentStatus) {
+    List<_TimelineStep> steps,
+    int index,
+    OrderStatus currentStatus,
+  ) {
     if (currentStatus == OrderStatus.cancelled) {
       final s = steps[index];
       return s.status == OrderStatus.cancelled
@@ -362,7 +365,11 @@ class _TrackOrderPageState extends State<TrackOrderPage>
         children: [
           Row(
             children: [
-              Icon(_iconForStatus(order.status), color: AppColors.primary, size: 30),
+              Icon(
+                _iconForStatus(order.status),
+                color: AppColors.primary,
+                size: 30,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -370,7 +377,10 @@ class _TrackOrderPageState extends State<TrackOrderPage>
                   children: [
                     Text(
                       order.status.label,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     Text(
                       'Đơn #${order.code}',
@@ -386,10 +396,17 @@ class _TrackOrderPageState extends State<TrackOrderPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tổng tiền', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              const Text(
+                'Tổng tiền',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
               Text(
                 Formatters.currency(order.totalPrice.toDouble()),
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: AppColors.primary),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
@@ -430,8 +447,7 @@ class _TrackOrderPageState extends State<TrackOrderPage>
     }
   }
 
-  Widget _buildTimeline(
-      List<_TimelineStep> steps, OrderStatus currentStatus) {
+  Widget _buildTimeline(List<_TimelineStep> steps, OrderStatus currentStatus) {
     if (steps.isEmpty) return const SizedBox();
 
     final isCancelled = currentStatus == OrderStatus.cancelled;
@@ -445,10 +461,7 @@ class _TrackOrderPageState extends State<TrackOrderPage>
             SizedBox(width: 8),
             Text(
               'Tiến trình đơn hàng',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ],
         ),
@@ -481,8 +494,7 @@ class _TrackOrderPageState extends State<TrackOrderPage>
                         Expanded(
                           child: Container(
                             width: 2,
-                            margin:
-                                const EdgeInsets.symmetric(vertical: 2),
+                            margin: const EdgeInsets.symmetric(vertical: 2),
                             color: dotColor.withValues(alpha: 0.4),
                           ),
                         ),
@@ -502,17 +514,19 @@ class _TrackOrderPageState extends State<TrackOrderPage>
                         Text(
                           step.label,
                           style: TextStyle(
-                            fontWeight:
-                                isCurrent ? FontWeight.bold : FontWeight.w500,
+                            fontWeight: isCurrent
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                             fontSize: 14,
-                            color: isCancelled &&
+                            color:
+                                isCancelled &&
                                     step.status == OrderStatus.cancelled
                                 ? AppColors.statusCancelled
                                 : (isCurrent
-                                    ? AppColors.primary
-                                    : (isCompleted
-                                        ? AppColors.textPrimary
-                                        : AppColors.textHint)),
+                                      ? AppColors.primary
+                                      : (isCompleted
+                                            ? AppColors.textPrimary
+                                            : AppColors.textHint)),
                           ),
                         ),
                         if (step.description != null) ...[
@@ -589,10 +603,7 @@ class _TrackOrderPageState extends State<TrackOrderPage>
 
     if (!isPulsing) return dot;
 
-    return FadeTransition(
-      opacity: _pulseAnimation,
-      child: dot,
-    );
+    return FadeTransition(opacity: _pulseAnimation, child: dot);
   }
 
   Widget _buildDeliveryInfo(OrderDeliveryInfoModel deliveryInfo) {
@@ -615,26 +626,35 @@ class _TrackOrderPageState extends State<TrackOrderPage>
         children: [
           const Row(
             children: [
-              Icon(Icons.local_shipping_rounded, color: AppColors.primary, size: 20),
+              Icon(
+                Icons.local_shipping_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
               SizedBox(width: 8),
               Text(
                 'Thông tin giao hàng',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ],
           ),
-          if (deliveryInfo.driverId != null && deliveryInfo.driverId!.isNotEmpty) ...[
+          if (deliveryInfo.driverId != null &&
+              deliveryInfo.driverId!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.person_outline,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Mã tài xế: ${deliveryInfo.driverId}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -643,11 +663,18 @@ class _TrackOrderPageState extends State<TrackOrderPage>
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.schedule, size: 16, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Đã giao cho tài xế: ${Formatters.dateTime(deliveryInfo.shippedAt!)}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ],
             ),
@@ -656,7 +683,11 @@ class _TrackOrderPageState extends State<TrackOrderPage>
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 16,
+                  color: Colors.green,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Đã giao hàng: ${Formatters.dateTime(deliveryInfo.deliveredAt!)}',
@@ -677,9 +708,7 @@ class _TrackOrderPageState extends State<TrackOrderPage>
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

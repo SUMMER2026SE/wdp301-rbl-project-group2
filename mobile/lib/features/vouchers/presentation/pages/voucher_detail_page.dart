@@ -46,7 +46,8 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
       });
     } on DioException catch (e) {
       setState(() {
-        _error = e.response?.data['message'] as String? ??
+        _error =
+            e.response?.data['message'] as String? ??
             'Không thể tải thông tin voucher';
         _loading = false;
       });
@@ -107,10 +108,10 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
       body: _loading
           ? _buildLoading()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadVoucher)
-              : _voucher != null
-                  ? _buildContent()
-                  : const SizedBox.shrink(),
+          ? AppErrorWidget(message: _error!, onRetry: _loadVoucher)
+          : _voucher != null
+          ? _buildContent()
+          : const SizedBox.shrink(),
     );
   }
 
@@ -155,7 +156,9 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
     final v = _voucher!;
     final expired = _isExpired();
     final isPct = _isPercentage();
-    final heroColor = expired ? Colors.grey[400]! : (isPct ? AppColors.primary : AppColors.success);
+    final heroColor = expired
+        ? Colors.grey[400]!
+        : (isPct ? AppColors.primary : AppColors.success);
     final validUntil = Formatters.parseDate(v['validUntil'] as String?);
     final usedCount = v['usedCount'] as num? ?? 0;
     final usageLimit = v['usageLimit'] as num?;
@@ -187,12 +190,18 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                   Positioned(
                     top: -40,
                     right: -40,
-                    child: _buildDecoCircle(120, Colors.white.withValues(alpha: 0.1)),
+                    child: _buildDecoCircle(
+                      120,
+                      Colors.white.withValues(alpha: 0.1),
+                    ),
                   ),
                   Positioned(
                     bottom: -30,
                     left: -30,
-                    child: _buildDecoCircle(100, Colors.white.withValues(alpha: 0.08)),
+                    child: _buildDecoCircle(
+                      100,
+                      Colors.white.withValues(alpha: 0.08),
+                    ),
                   ),
                   // Content
                   Positioned(
@@ -204,7 +213,10 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                       children: [
                         // Discount badge
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
@@ -212,7 +224,11 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.local_offer, color: Colors.white.withValues(alpha: 0.9), size: 22),
+                              Icon(
+                                Icons.local_offer,
+                                color: Colors.white.withValues(alpha: 0.9),
+                                size: 22,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 _discountLabel(),
@@ -251,14 +267,21 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                     right: 16,
                     child: expired
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
                               'Đã hết hạn',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -282,14 +305,19 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                 const SizedBox(height: 16),
 
                 // Description
-                if (v['description'] != null && (v['description'] as String).isNotEmpty)
+                if (v['description'] != null &&
+                    (v['description'] as String).isNotEmpty)
                   _buildInfoCard(
                     icon: Icons.description_outlined,
                     title: 'Mô tả',
                     children: [
                       Text(
                         v['description'] as String,
-                        style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
@@ -302,9 +330,15 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                   children: [
                     _buildInfoRow('Giá trị giảm', _discountDescription()),
                     if (minOrder > 0)
-                      _buildInfoRow('Đơn tối thiểu', Formatters.compactCurrency(minOrder)),
+                      _buildInfoRow(
+                        'Đơn tối thiểu',
+                        Formatters.compactCurrency(minOrder),
+                      ),
                     if (validUntil != null)
-                      _buildInfoRow('Hạn sử dụng', Formatters.dateTime(validUntil)),
+                      _buildInfoRow(
+                        'Hạn sử dụng',
+                        Formatters.dateTime(validUntil),
+                      ),
                     if (usageLimit != null)
                       _buildInfoRow('Đã dùng', '$usedCount / $usageLimit lượt'),
                   ],
@@ -312,14 +346,19 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                 const SizedBox(height: 12),
 
                 // How to use
-                if (v['howToUse'] != null && (v['howToUse'] as String).isNotEmpty)
+                if (v['howToUse'] != null &&
+                    (v['howToUse'] as String).isNotEmpty)
                   _buildInfoCard(
                     icon: Icons.lightbulb_outline,
                     title: 'Cách sử dụng',
                     children: [
                       Text(
                         v['howToUse'] as String,
-                        style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
@@ -333,7 +372,11 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                     children: [
                       Text(
                         v['terms'] as String,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textHint, height: 1.5),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textHint,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
@@ -346,7 +389,9 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: v['code'] as String));
+                        Clipboard.setData(
+                          ClipboardData(text: v['code'] as String),
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Đã sao chép mã giảm giá!'),
@@ -358,7 +403,10 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
                       label: const Text('Sao chép mã giảm giá'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 48),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -374,10 +422,7 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 
@@ -385,10 +430,14 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: expired ? Colors.grey[100] : AppColors.primary.withValues(alpha: 0.08),
+        color: expired
+            ? Colors.grey[100]
+            : AppColors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: expired ? Colors.grey[300]! : AppColors.primary.withValues(alpha: 0.25),
+          color: expired
+              ? Colors.grey[300]!
+              : AppColors.primary.withValues(alpha: 0.25),
           width: 1.5,
         ),
       ),
@@ -425,7 +474,10 @@ class _VoucherDetailPageState extends State<VoucherDetailPage> {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: code));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã sao chép mã!'), duration: Duration(seconds: 2)),
+                  const SnackBar(
+                    content: Text('Đã sao chép mã!'),
+                    duration: Duration(seconds: 2),
+                  ),
                 );
               },
               icon: const Icon(Icons.copy, size: 16),

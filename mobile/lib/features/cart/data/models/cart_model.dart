@@ -29,24 +29,27 @@ class CartItemModel {
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       quantity: json['quantity'] as int? ?? 1,
       note: json['note'] as String?,
-      variations: (json['variations'] as List<dynamic>?)
-              ?.map((e) => CartItemVariationModel.fromJson(
-                  e as Map<String, dynamic>))
+      variations:
+          (json['variations'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    CartItemVariationModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'itemId': itemId,
-        'productId': productId,
-        'productName': productName,
-        'productImage': productImage,
-        'price': price,
-        'quantity': quantity,
-        'note': note,
-        'variations': variations.map((v) => v.toJson()).toList(),
-      };
+    'itemId': itemId,
+    'productId': productId,
+    'productName': productName,
+    'productImage': productImage,
+    'price': price,
+    'quantity': quantity,
+    'note': note,
+    'variations': variations.map((v) => v.toJson()).toList(),
+  };
 }
 
 /// JSON-serializable cart item variation model.
@@ -70,8 +73,8 @@ class CartItemVariationModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'choice': choice,
-        'extraPrice': extraPrice,
-      };
+    'name': name,
+    'choice': choice,
+    'extraPrice': extraPrice,
+  };
 }

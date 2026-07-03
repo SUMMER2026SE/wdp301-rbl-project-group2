@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import voucherService from "@/services/voucher.service";
-import productAPI from "@/services/product.service";
 import { userService, type MembershipInfo, type PointTransaction } from "@/services/profile.service";
 import { useAuth } from "@/hooks/useAuth";
 import toast from 'react-hot-toast';
 import type { Voucher } from "@/types/voucher";
-import type { Product } from "@/types/product";
 import { DiscountType } from "@/types/voucher";
 import { ChevronDown, ChevronUp, Copy, Loader2, Share2, X } from "lucide-react";
 
@@ -1044,7 +1042,6 @@ export const VoucherWalletContent = () => {
 
 const VoucherWalletPage = () => {
     const { t } = useTranslation(["customer", "common"]);
-    const { getUser } = useAuth();
     
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-[#1b140d] dark:text-gray-100 transition-colors duration-200 min-h-screen">

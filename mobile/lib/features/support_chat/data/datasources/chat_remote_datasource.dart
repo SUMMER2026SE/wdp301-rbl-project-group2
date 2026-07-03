@@ -51,11 +51,11 @@ class ChatRemoteDataSource {
 
   /// Mark conversation as read.
   Future<void> markConversationAsRead(String conversationId) async {
-    await _dio.put(ApiEndpoints.supportMarkRead(conversationId));
+    await _dio.patch(ApiEndpoints.supportMarkRead(conversationId));
   }
 
   /// Close a support conversation.
   Future<void> closeConversation(String conversationId) async {
-    await _dio.put(ApiEndpoints.supportClose(conversationId));
+    await _dio.patch(ApiEndpoints.supportClose(conversationId));
   }
 }

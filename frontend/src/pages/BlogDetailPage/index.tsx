@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, Clock, ArrowRight, ChefHat, Sparkles, Flame, LayoutGrid } from "lucide-react";
-import { useTranslation } from "react-i18next";
 
 // --- MOCK DATA (Thay bằng API thật sau này) ---
 const BLOG_POSTS = [
@@ -43,7 +42,6 @@ const BLOG_POSTS = [
 const CATEGORIES = ["Tất cả", "Bí quyết Bếp trưởng", "Sức khỏe & AI", "Chuyện Quán Xá"];
 
 const BlogPage = () => {
-    const { t } = useTranslation();
     const [activeCategory, setActiveCategory] = useState("Tất cả");
 
     // Lọc bài viết

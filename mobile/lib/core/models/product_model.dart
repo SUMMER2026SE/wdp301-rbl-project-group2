@@ -62,19 +62,26 @@ class ProductModel {
       reviewCount: json['reviewCount'] as int? ?? 0,
       tags: (json['tags'] as List?)?.map((e) => e as String).toList() ?? [],
       healthWarning: json['healthWarning'] as String?,
-      healthTags: (json['healthTags'] as List?)?.map((e) => e as String).toList() ?? [],
+      healthTags:
+          (json['healthTags'] as List?)?.map((e) => e as String).toList() ?? [],
       campaignPrice: json['campaignPrice'] as int?,
       isAvailable: json['isAvailable'] as bool? ?? true,
       status: json['status'] as String? ?? 'active',
       variants: json['variants'] != null
           ? (json['variants'] as List)
-              .map((e) => VariantGroupModel.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map(
+                  (e) => VariantGroupModel.fromJson(e as Map<String, dynamic>),
+                )
+                .toList()
           : (json['variationIds'] != null
-              ? (json['variationIds'] as List)
-                  .map((e) => VariantGroupModel.fromJson(e as Map<String, dynamic>))
-                  .toList()
-              : null),
+                ? (json['variationIds'] as List)
+                      .map(
+                        (e) => VariantGroupModel.fromJson(
+                          e as Map<String, dynamic>,
+                        ),
+                      )
+                      .toList()
+                : null),
     );
   }
 
@@ -125,8 +132,10 @@ class VariantGroupModel {
       maxChoices: json['maxChoices'] as int?,
       options: json['options'] != null
           ? (json['options'] as List)
-              .map((e) => VariantOptionModel.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map(
+                  (e) => VariantOptionModel.fromJson(e as Map<String, dynamic>),
+                )
+                .toList()
           : const [],
     );
   }
@@ -146,10 +155,7 @@ class VariantOptionModel {
   final String choice;
   final int extraPrice;
 
-  VariantOptionModel({
-    required this.choice,
-    required this.extraPrice,
-  });
+  VariantOptionModel({required this.choice, required this.extraPrice});
 
   factory VariantOptionModel.fromJson(Map<String, dynamic> json) {
     return VariantOptionModel(
@@ -159,9 +165,6 @@ class VariantOptionModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'choice': choice,
-      'extraPrice': extraPrice,
-    };
+    return {'choice': choice, 'extraPrice': extraPrice};
   }
 }

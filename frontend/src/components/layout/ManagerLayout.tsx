@@ -15,7 +15,6 @@ import {
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { getStores } from "@/services/store.service";
 

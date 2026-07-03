@@ -46,13 +46,19 @@ class _MembershipPageState extends State<MembershipPage> {
         _dio.get(ApiEndpoints.userPointsHistory),
       ]);
       setState(() {
-        _membership = results[0].data['data'] as Map<String, dynamic>? ?? results[0].data as Map<String, dynamic>;
-        _pointsHistory = results[1].data['data'] as List<dynamic>? ?? results[1].data as List<dynamic>;
+        _membership =
+            results[0].data['data'] as Map<String, dynamic>? ??
+            results[0].data as Map<String, dynamic>;
+        _pointsHistory =
+            results[1].data['data'] as List<dynamic>? ??
+            results[1].data as List<dynamic>;
         _loading = false;
       });
     } on DioException catch (e) {
       setState(() {
-        _error = e.response?.data['message'] as String? ?? 'Không thể tải thông tin thành viên';
+        _error =
+            e.response?.data['message'] as String? ??
+            'Không thể tải thông tin thành viên';
         _loading = false;
       });
     } catch (_) {
@@ -72,8 +78,11 @@ class _MembershipPageState extends State<MembershipPage> {
   }
 
   int get _currentPoints => (_membership?['points'] as num? ?? 0).toInt();
-  int get _nextTierPoints => (_membership?['nextTierPoints'] as num? ?? 1000).toInt();
-  double get _progress => _nextTierPoints > 0 ? (_currentPoints / _nextTierPoints).clamp(0.0, 1.0) : 1.0;
+  int get _nextTierPoints =>
+      (_membership?['nextTierPoints'] as num? ?? 1000).toInt();
+  double get _progress => _nextTierPoints > 0
+      ? (_currentPoints / _nextTierPoints).clamp(0.0, 1.0)
+      : 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -83,49 +92,56 @@ class _MembershipPageState extends State<MembershipPage> {
       body: _loading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadData)
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildMembershipCard(),
-                        const SizedBox(height: 20),
-                        _buildTierSteps(),
-                        const SizedBox(height: 20),
-                        _buildBenefits(),
-                        const SizedBox(height: 20),
-                        _buildPointsHistory(),
-                        const SizedBox(height: 12),
-                        _buildReferralButton(),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
+          ? AppErrorWidget(message: _error!, onRetry: _loadData)
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMembershipCard(),
+                    const SizedBox(height: 20),
+                    _buildTierSteps(),
+                    const SizedBox(height: 20),
+                    _buildBenefits(),
+                    const SizedBox(height: 20),
+                    _buildPointsHistory(),
+                    const SizedBox(height: 12),
+                    _buildReferralButton(),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
   Widget _buildShimmer() {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: List.generate(4, (_) => Shimmer.fromColors(
-        baseColor: AppColors.shimmerBase,
-        highlightColor: AppColors.shimmerHighlight,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          height: 120,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      children: List.generate(
+        4,
+        (_) => Shimmer.fromColors(
+          baseColor: AppColors.shimmerBase,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
         ),
-      )),
+      ),
     );
   }
 
   Widget _buildMembershipCard() {
-    final tierName = (_membership?['tier'] as String? ?? 'Bronze').toUpperCase();
+    final tierName = (_membership?['tier'] as String? ?? 'Bronze')
+        .toUpperCase();
     final tierColor = _tierColors[_currentTierIndex];
 
     return Container(
@@ -139,7 +155,11 @@ class _MembershipPageState extends State<MembershipPage> {
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: tierColor.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: tierColor.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -147,11 +167,19 @@ class _MembershipPageState extends State<MembershipPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.card_membership, color: Colors.white.withValues(alpha: 0.9), size: 28),
+              Icon(
+                Icons.card_membership,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: 28,
+              ),
               const SizedBox(width: 8),
               Text(
                 tierName,
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -161,12 +189,23 @@ class _MembershipPageState extends State<MembershipPage> {
             children: [
               Text(
                 '$_currentPoints',
-                style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(width: 6),
               const Padding(
                 padding: EdgeInsets.only(bottom: 6),
-                child: Text('điểm', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                child: Text(
+                  'điểm',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
@@ -209,11 +248,20 @@ class _MembershipPageState extends State<MembershipPage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isActive ? _tierColors[i] : AppColors.surfaceVariant,
+                      color: isActive
+                          ? _tierColors[i]
+                          : AppColors.surfaceVariant,
                       shape: BoxShape.circle,
-                      border: isCurrent ? Border.all(color: _tierColors[i], width: 3) : null,
+                      border: isCurrent
+                          ? Border.all(color: _tierColors[i], width: 3)
+                          : null,
                       boxShadow: isCurrent
-                          ? [BoxShadow(color: _tierColors[i].withValues(alpha: 0.4), blurRadius: 8)]
+                          ? [
+                              BoxShadow(
+                                color: _tierColors[i].withValues(alpha: 0.4),
+                                blurRadius: 8,
+                              ),
+                            ]
                           : null,
                     ),
                     child: Center(
@@ -239,7 +287,9 @@ class _MembershipPageState extends State<MembershipPage> {
                       height: 2,
                       margin: const EdgeInsets.only(top: -19, left: 18),
                       decoration: BoxDecoration(
-                        color: i < _currentTierIndex ? _tierColors[i] : AppColors.divider,
+                        color: i < _currentTierIndex
+                            ? _tierColors[i]
+                            : AppColors.divider,
                       ),
                     ),
                 ],
@@ -275,13 +325,20 @@ class _MembershipPageState extends State<MembershipPage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.check_circle, color: AppColors.primary, size: 18),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     m['description'] as String? ?? m['name'] as String? ?? '',
-                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -304,7 +361,9 @@ class _MembershipPageState extends State<MembershipPage> {
           final m = item as Map<String, dynamic>;
           final pts = (m['points'] as num?)?.toInt() ?? 0;
           final isEarned = pts > 0;
-          final date = Formatters.parseDate(m['createdAt'] as String? ?? m['date'] as String?);
+          final date = Formatters.parseDate(
+            m['createdAt'] as String? ?? m['date'] as String?,
+          );
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -319,11 +378,15 @@ class _MembershipPageState extends State<MembershipPage> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: isEarned ? AppColors.success.withValues(alpha: 0.1) : AppColors.error.withValues(alpha: 0.1),
+                    color: isEarned
+                        ? AppColors.success.withValues(alpha: 0.1)
+                        : AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isEarned ? Icons.add_circle_outline : Icons.remove_circle_outline,
+                    isEarned
+                        ? Icons.add_circle_outline
+                        : Icons.remove_circle_outline,
                     color: isEarned ? AppColors.success : AppColors.error,
                     size: 20,
                   ),
@@ -334,11 +397,22 @@ class _MembershipPageState extends State<MembershipPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        m['description'] as String? ?? m['reason'] as String? ?? '',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        m['description'] as String? ??
+                            m['reason'] as String? ??
+                            '',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       if (date != null)
-                        Text(Formatters.date(date), style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                        Text(
+                          Formatters.date(date),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textHint,
+                          ),
+                        ),
                     ],
                   ),
                 ),

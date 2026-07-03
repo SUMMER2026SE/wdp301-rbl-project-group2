@@ -12,9 +12,6 @@ class GetStoreProductsUseCase {
     required String storeId,
     bool showAll = true,
   }) {
-    return _repository.getStoreProducts(
-      storeId: storeId,
-      showAll: showAll,
-    );
+    return _repository.getStoreProducts(storeId: storeId, showAll: showAll);
   }
 }

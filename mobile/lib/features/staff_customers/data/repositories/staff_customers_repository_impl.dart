@@ -38,7 +38,9 @@ class StaffCustomersRepositoryImpl implements StaffCustomersRepository {
     required String customerId,
   }) async {
     try {
-      final customer = await _remoteDataSource.getCustomerById(customerId: customerId);
+      final customer = await _remoteDataSource.getCustomerById(
+        customerId: customerId,
+      );
       return Right(customer);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));
@@ -54,7 +56,9 @@ class StaffCustomersRepositoryImpl implements StaffCustomersRepository {
     required String customerId,
   }) async {
     try {
-      final orders = await _remoteDataSource.getCustomerOrders(customerId: customerId);
+      final orders = await _remoteDataSource.getCustomerOrders(
+        customerId: customerId,
+      );
       return Right(orders);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));

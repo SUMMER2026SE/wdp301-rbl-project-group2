@@ -6,11 +6,7 @@ class CategoryModel {
   final String name;
   final String? imageUrl;
 
-  const CategoryModel({
-    required this.id,
-    required this.name,
-    this.imageUrl,
-  });
+  const CategoryModel({required this.id, required this.name, this.imageUrl});
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
@@ -21,15 +17,12 @@ class CategoryModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'name': name,
-        'imageUrl': imageUrl,
-      };
+    '_id': id,
+    'name': name,
+    'imageUrl': imageUrl,
+  };
 
   /// Convert to domain entity.
-  CategoryEntity toEntity() => CategoryEntity(
-        id: id,
-        name: name,
-        imageUrl: imageUrl,
-      );
+  CategoryEntity toEntity() =>
+      CategoryEntity(id: id, name: name, imageUrl: imageUrl);
 }

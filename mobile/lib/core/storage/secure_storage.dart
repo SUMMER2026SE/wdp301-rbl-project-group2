@@ -5,8 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Token storage — uses FlutterSecureStorage on mobile,
 /// falls back to SharedPreferences on web (which doesn't support flutter_secure_storage).
 class TokenStorage {
-  static final FlutterSecureStorage? _secureStorage =
-      kIsWeb ? null : const FlutterSecureStorage();
+  static final FlutterSecureStorage? _secureStorage = kIsWeb
+      ? null
+      : const FlutterSecureStorage();
 
   static const _accessTokenKey = 'foa_access_token';
   static const _refreshTokenKey = 'foa_refresh_token';
@@ -60,10 +61,7 @@ class TokenStorage {
     required String userId,
     required String role,
   }) async {
-    await Future.wait([
-      _write(_userIdKey, userId),
-      _write(_userRoleKey, role),
-    ]);
+    await Future.wait([_write(_userIdKey, userId), _write(_userRoleKey, role)]);
   }
 
   static Future<String?> getAccessToken() => _read(_accessTokenKey);

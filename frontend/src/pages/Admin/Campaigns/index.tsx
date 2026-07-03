@@ -28,8 +28,6 @@ import {
   ChevronDown,
   Percent,
   Coins,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
   Activity,
   Award,
@@ -45,8 +43,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Area,
-  AreaChart,
 } from "recharts";
 
 const AdminCampaigns = () => {

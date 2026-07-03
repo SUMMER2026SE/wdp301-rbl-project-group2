@@ -7,9 +7,7 @@ Future<String?> getGoogleAccessToken(String clientId) async {
   try {
     // 1. Initialize the plugin with Google Client ID (Only once)
     if (!_isInitialized) {
-      await GoogleSignIn.instance.initialize(
-        clientId: clientId,
-      );
+      await GoogleSignIn.instance.initialize(clientId: clientId);
       _isInitialized = true;
     }
 
@@ -17,17 +15,20 @@ Future<String?> getGoogleAccessToken(String clientId) async {
     final googleUser = await GoogleSignIn.instance.authenticate();
 
     // 3. Request authorization to get the accessToken
-    final authorization = await googleUser.authorizationClient.authorizationForScopes([
-      'email',
-      'profile',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ]);
-    
+    final authorization = await googleUser.authorizationClient
+        .authorizationForScopes([
+          'email',
+          'profile',
+          'https://www.googleapis.com/auth/userinfo.profile',
+        ]);
+
     final token = authorization?.accessToken;
     if (token == null || token.isEmpty) {
-      throw Exception('Google Sign-in succeeded but accessToken is missing or empty.');
+      throw Exception(
+        'Google Sign-in succeeded but accessToken is missing or empty.',
+      );
     }
-    
+
     return token;
   } catch (e) {
     rethrow;

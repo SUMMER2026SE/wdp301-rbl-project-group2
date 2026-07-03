@@ -57,10 +57,7 @@ class StaffOrderRepositoryImpl implements StaffOrderRepository {
     String? reason,
   }) async {
     try {
-      final order = await _remoteDataSource.rejectOrder(
-        id,
-        reason: reason,
-      );
+      final order = await _remoteDataSource.rejectOrder(id, reason: reason);
       return Right(order.toEntity());
     } catch (e) {
       return Left(_mapErrorToFailure(e));
@@ -115,10 +112,7 @@ class StaffOrderRepositoryImpl implements StaffOrderRepository {
         if (code == 403) return const ForbiddenFailure();
         if (code == 404) return const NotFoundFailure();
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
@@ -50,15 +52,18 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
     });
     try {
       final results = await Future.wait([
-        _dio.get(ApiEndpoints.voucherWallet, queryParameters: {'ownerId': 'me'}),
+        _dio.get(
+          ApiEndpoints.voucherWallet,
+          queryParameters: {'ownerId': 'me'},
+        ),
         _dio.get(ApiEndpoints.userMembership),
-        _dio.get(ApiEndpoints.vouchers,
-            queryParameters: {'isReward': true}),
+        _dio.get(ApiEndpoints.vouchers, queryParameters: {'isReward': true}),
         _dio.get(ApiEndpoints.userMembership),
       ]);
 
       // ── Wallet (tab 1-3) ──
-      final walletData = results[0].data['data'] as List<dynamic>? ??
+      final walletData =
+          results[0].data['data'] as List<dynamic>? ??
           results[0].data as List<dynamic>;
       final now = DateTime.now();
       final available = <dynamic>[];
@@ -72,8 +77,7 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         } else if (status == 'expired') {
           expired.add(item);
         } else {
-          final validUntil =
-              Formatters.parseDate(m['validUntil'] as String?);
+          final validUntil = Formatters.parseDate(m['validUntil'] as String?);
           if (validUntil != null && validUntil.isBefore(now)) {
             expired.add(item);
           } else {
@@ -86,21 +90,21 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
       final pointsData = results[1].data['data'];
       int points = 0;
       if (pointsData is Map<String, dynamic>) {
-        points = (pointsData['collectedPoints'] ??
-                pointsData['points'] ??
-                0) as int;
+        points =
+            (pointsData['collectedPoints'] ?? pointsData['points'] ?? 0) as int;
       } else if (pointsData is int) {
         points = pointsData;
       }
 
       // ── Reward vouchers (tab 4) ──
-      final rewardData = results[2].data['data'] as List<dynamic>? ??
+      final rewardData =
+          results[2].data['data'] as List<dynamic>? ??
           results[2].data as List<dynamic>;
 
       // ── Membership / referral code ──
       final membershipData =
           results[3].data['data'] as Map<String, dynamic>? ??
-              results[3].data as Map<String, dynamic>;
+          results[3].data as Map<String, dynamic>;
       final referralCode = membershipData['referralCode'] as String?;
 
       setState(() {
@@ -114,7 +118,8 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
       });
     } on DioException catch (e) {
       setState(() {
-        _error = e.response?.data['message'] as String? ??
+        _error =
+            e.response?.data['message'] as String? ??
             'Không thể tải ví voucher';
         _loading = false;
       });
@@ -131,9 +136,9 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
     final link = 'https://foa.app/refer?code=$code';
     Clipboard.setData(ClipboardData(text: link));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã copy link giới thiệu')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã copy link giới thiệu')));
     }
   }
 
@@ -145,15 +150,15 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đổi voucher thành công!')),
         );
-        _loadWallet();
+        unawaited(_loadWallet());
       }
     } on DioException catch (e) {
-      final msg = e.response?.data['message'] as String? ??
-          'Không thể đổi voucher';
+      final msg =
+          e.response?.data['message'] as String? ?? 'Không thể đổi voucher';
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _redeemingId = null);
@@ -183,40 +188,34 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
       body: _loading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(
-                  message: _error!, onRetry: _loadWallet)
-              : Column(
-                  children: [
-                    _buildPointsHeader(),
-                    _buildReferralCard(),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildTabContent(_available,
-                              'Chưa có voucher nào'),
-                          _buildTabContent(_used,
-                              'Chưa có voucher nào'),
-                          _buildTabContent(_expired,
-                              'Chưa có voucher nào'),
-                          _buildRewardShop(),
-                        ],
-                      ),
-                    ),
-                  ],
+          ? AppErrorWidget(message: _error!, onRetry: _loadWallet)
+          : Column(
+              children: [
+                _buildPointsHeader(),
+                _buildReferralCard(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTabContent(_available, 'Chưa có voucher nào'),
+                      _buildTabContent(_used, 'Chưa có voucher nào'),
+                      _buildTabContent(_expired, 'Chưa có voucher nào'),
+                      _buildRewardShop(),
+                    ],
+                  ),
                 ),
+              ],
+            ),
     );
   }
 
   Widget _buildPointsHeader() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppColors.primary.withValues(alpha: 0.08),
       child: Row(
         children: [
-          Icon(Icons.monetization_on,
-              color: AppColors.primary, size: 28),
+          Icon(Icons.monetization_on, color: AppColors.primary, size: 28),
           const SizedBox(width: 10),
           const Text(
             'Điểm thưởng:',
@@ -264,8 +263,11 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
               color: AppColors.secondary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.people_alt_outlined,
-                color: AppColors.secondary, size: 24),
+            child: Icon(
+              Icons.people_alt_outlined,
+              color: AppColors.secondary,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -281,12 +283,13 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
           TextButton.icon(
             onPressed: _shareReferral,
             icon: const Icon(Icons.share, size: 18),
-            label: const Text('Chia sẻ',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            label: const Text(
+              'Chia sẻ',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.secondary,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
@@ -302,13 +305,11 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.card_giftcard_outlined,
-                size: 64, color: Colors.black26),
+            Icon(Icons.card_giftcard_outlined, size: 64, color: Colors.black26),
             SizedBox(height: 12),
             Text(
               'Chưa có voucher đổi thưởng',
-              style: TextStyle(
-                  fontSize: 14, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -325,8 +326,8 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
             scrollDirection: Axis.horizontal,
             itemCount: _rewardVouchers.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) => _buildRewardCard(
-                _rewardVouchers[i] as Map<String, dynamic>),
+            itemBuilder: (_, i) =>
+                _buildRewardCard(_rewardVouchers[i] as Map<String, dynamic>),
           ),
         ),
       ),
@@ -349,9 +350,10 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 6,
-              offset: const Offset(0, 2)),
+            color: AppColors.shadow,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -364,14 +366,16 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.card_giftcard,
-                color: AppColors.primary, size: 26),
+            child: Icon(
+              Icons.card_giftcard,
+              color: AppColors.primary,
+              size: 26,
+            ),
           ),
           const Spacer(),
           Text(
             title,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 13),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -380,7 +384,9 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
             Text(
               description,
               style: const TextStyle(
-                  fontSize: 11, color: AppColors.textSecondary),
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -389,28 +395,35 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
           Text(
             '$pointCost điểm',
             style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed:
-                  canAfford && !isRedeeming ? () => _redeemVoucher(id) : null,
+              onPressed: canAfford && !isRedeeming
+                  ? () => _redeemVoucher(id)
+                  : null,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 32),
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                textStyle:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               child: isRedeeming
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(canAfford ? 'Đổi' : 'Thiếu điểm'),
             ),
           ),
@@ -425,15 +438,13 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wallet_outlined,
-                size: 64, color: Colors.grey[300]),
+            Icon(Icons.wallet_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 12),
             Text(
               emptyMsg,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -444,8 +455,7 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: items.length,
-        itemBuilder: (_, i) =>
-            _buildCard(items[i] as Map<String, dynamic>),
+        itemBuilder: (_, i) => _buildCard(items[i] as Map<String, dynamic>),
       ),
     );
   }
@@ -474,8 +484,7 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
     final isUsed = status == 'used';
     final isExpired = status == 'expired';
     final isAvailable = !isUsed && !isExpired;
-    final validUntil =
-        Formatters.parseDate(v['validUntil'] as String?);
+    final validUntil = Formatters.parseDate(v['validUntil'] as String?);
 
     final Color bgColor;
     final Color textColor;
@@ -501,9 +510,10 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 6,
-              offset: const Offset(0, 2)),
+            color: AppColors.shadow,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Stack(
@@ -521,11 +531,11 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                         : Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.local_offer,
-                      color: isAvailable
-                          ? AppColors.primary
-                          : Colors.grey[400],
-                      size: 28),
+                  child: Icon(
+                    Icons.local_offer,
+                    color: isAvailable ? AppColors.primary : Colors.grey[400],
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -535,9 +545,10 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                       Text(
                         v['title'] as String? ?? '',
                         style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: textColor),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: textColor,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -545,10 +556,11 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                       Text(
                         v['description'] as String? ?? '',
                         style: TextStyle(
-                            fontSize: 12,
-                            color: isAvailable
-                                ? AppColors.textSecondary
-                                : Colors.grey[400]),
+                          fontSize: 12,
+                          color: isAvailable
+                              ? AppColors.textSecondary
+                              : Colors.grey[400],
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -557,10 +569,11 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                         Text(
                           'HSD: ${Formatters.date(validUntil)}',
                           style: TextStyle(
-                              fontSize: 11,
-                              color: isAvailable
-                                  ? AppColors.textHint
-                                  : Colors.grey[400]),
+                            fontSize: 11,
+                            color: isAvailable
+                                ? AppColors.textHint
+                                : Colors.grey[400],
+                          ),
                         ),
                       ],
                     ],
@@ -572,10 +585,13 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(80, 32),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       textStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     child: const Text('Dùng ngay'),
                   ),
@@ -587,8 +603,7 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
               top: 8,
               right: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: isUsed ? AppColors.info : Colors.grey[400],
                   borderRadius: BorderRadius.circular(8),
@@ -596,9 +611,10 @@ class _VoucherWalletPageState extends State<VoucherWalletPage>
                 child: Text(
                   overlayLabel,
                   style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

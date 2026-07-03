@@ -12,9 +12,6 @@ class GetStaffOrderByIdUseCase {
     required String orderId,
     required String storeId,
   }) {
-    return _repository.getStaffOrderById(
-      orderId: orderId,
-      storeId: storeId,
-    );
+    return _repository.getStaffOrderById(orderId: orderId, storeId: storeId);
   }
 }

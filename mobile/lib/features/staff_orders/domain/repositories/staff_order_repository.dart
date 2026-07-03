@@ -19,10 +19,7 @@ abstract class StaffOrderRepository {
   Future<Either<Failure, OrderEntity>> confirmOrder(String id);
 
   /// Reject a pending order.
-  Future<Either<Failure, OrderEntity>> rejectOrder(
-    String id, {
-    String? reason,
-  });
+  Future<Either<Failure, OrderEntity>> rejectOrder(String id, {String? reason});
 
   /// Mark an order as ready for delivery.
   Future<Either<Failure, OrderEntity>> readyOrder(String id);

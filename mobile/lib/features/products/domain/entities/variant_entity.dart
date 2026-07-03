@@ -3,10 +3,7 @@ class VariantOptionEntity {
   final String choice;
   final double extraPrice;
 
-  const VariantOptionEntity({
-    required this.choice,
-    this.extraPrice = 0.0,
-  });
+  const VariantOptionEntity({required this.choice, this.extraPrice = 0.0});
 }
 
 /// Pure domain entity for a variant group (e.g. "Size", "Toppings").

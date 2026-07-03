@@ -119,10 +119,10 @@ class StaffDeliveryBloc extends Bloc<StaffDeliveryEvent, StaffDeliveryState> {
     required GetAssignedDeliveriesUseCase getAssignedDeliveriesUseCase,
     required AssignDeliveryUseCase assignDeliveryUseCase,
     required CompleteDeliveryUseCase completeDeliveryUseCase,
-  })  : _getAssignedDeliveriesUseCase = getAssignedDeliveriesUseCase,
-        _assignDeliveryUseCase = assignDeliveryUseCase,
-        _completeDeliveryUseCase = completeDeliveryUseCase,
-        super(const StaffDeliveryInitial()) {
+  }) : _getAssignedDeliveriesUseCase = getAssignedDeliveriesUseCase,
+       _assignDeliveryUseCase = assignDeliveryUseCase,
+       _completeDeliveryUseCase = completeDeliveryUseCase,
+       super(const StaffDeliveryInitial()) {
     on<FetchAssignedDeliveriesEvent>(_onFetchDeliveries);
     on<AssignDeliveryEvent>(_onAssignDelivery);
     on<CompleteDeliveryEvent>(_onCompleteDelivery);
@@ -171,11 +171,13 @@ class StaffDeliveryBloc extends Bloc<StaffDeliveryEvent, StaffDeliveryState> {
       },
       (_) {
         // Automatically fetch delivery list again to add the newly assigned order
-        add(FetchAssignedDeliveriesEvent(
-          storeId: event.storeId,
-          driverId: event.driverId,
-          showLoader: false,
-        ));
+        add(
+          FetchAssignedDeliveriesEvent(
+            storeId: event.storeId,
+            driverId: event.driverId,
+            showLoader: false,
+          ),
+        );
       },
     );
   }
@@ -198,11 +200,15 @@ class StaffDeliveryBloc extends Bloc<StaffDeliveryEvent, StaffDeliveryState> {
       (failure) => emit(currentState.copyWith(message: failure.message)),
       (_) {
         // Remove locally or trigger reload
-        final updatedList = currentState.deliveries.where((o) => o.id != event.orderId).toList();
-        emit(StaffDeliveryLoaded(
-          deliveries: updatedList,
-          message: 'Đã hoàn thành chuyến giao hàng thành công! 🎉',
-        ));
+        final updatedList = currentState.deliveries
+            .where((o) => o.id != event.orderId)
+            .toList();
+        emit(
+          StaffDeliveryLoaded(
+            deliveries: updatedList,
+            message: 'Đã hoàn thành chuyến giao hàng thành công! 🎉',
+          ),
+        );
       },
     );
   }

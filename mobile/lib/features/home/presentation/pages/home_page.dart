@@ -21,7 +21,6 @@ import 'package:foa_mobile/features/home/presentation/widgets/review_highlights_
 import 'package:foa_mobile/features/home/presentation/widgets/voucher_ticket_section.dart';
 import 'package:foa_mobile/features/home/presentation/widgets/ai_recommendation_section.dart';
 
-
 class BannerData {
   final String title;
   final String highlight;
@@ -49,7 +48,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final PageController _bannerController = PageController(viewportFraction: 0.88, initialPage: 1000);
+  final PageController _bannerController = PageController(
+    viewportFraction: 0.88,
+    initialPage: 1000,
+  );
   int _currentBanner = 1000;
   Timer? _bannerTimer;
 
@@ -66,7 +68,6 @@ class _HomePageState extends State<HomePage> {
   List<String> _userAllergies = [];
   Map<String, dynamic>? _selectedStore;
   final Dio _dio = ApiClient().dio;
-
 
   // API data
   List<Map<String, dynamic>> _categories = [];
@@ -88,34 +89,40 @@ class _HomePageState extends State<HomePage> {
   String? _error;
 
   // Sorting and filtering state
-  String _sortBy = 'salesCount';
+  final String _sortBy = 'salesCount';
   double? _minPrice;
   double? _maxPrice;
-  bool _filterAllergies = false;
+  final bool _filterAllergies = false;
 
   static const List<BannerData> _banners = [
     BannerData(
       title: 'Trứ danh',
       highlight: 'Đặc Sản Phố Hội',
-      description: 'Thưởng thức Cao Lầu, Mì Quảng chuẩn vị miền Trung ngay tại nhà. Giảm ngay 20%.',
+      description:
+          'Thưởng thức Cao Lầu, Mì Quảng chuẩn vị miền Trung ngay tại nhà. Giảm ngay 20%.',
       tag: 'Best Seller',
-      image: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&fit=crop',
+      image:
+          'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&fit=crop',
       highlightColor: Colors.orange,
     ),
     BannerData(
       title: 'Ăn Ngon',
       highlight: 'Dáng Thon - Eo Gọn',
-      description: 'Thực đơn Eat-clean được thiết kế riêng. Trợ lý AI tự động cảnh báo dị ứng.',
+      description:
+          'Thực đơn Eat-clean được thiết kế riêng. Trợ lý AI tự động cảnh báo dị ứng.',
       tag: 'Healthy & AI',
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&fit=crop',
+      image:
+          'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&fit=crop',
       highlightColor: Colors.teal,
     ),
     BannerData(
       title: 'Giao Hàng',
       highlight: 'Thần Tốc 0đ',
-      description: 'Shipper nội bộ giao ngay món nóng hổi trong 30 phút. Miễn phí ship bán kính 3km.',
+      description:
+          'Shipper nội bộ giao ngay món nóng hổi trong 30 phút. Miễn phí ship bán kính 3km.',
       tag: 'In-house Delivery',
-      image: 'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&fit=crop',
+      image:
+          'https://images.unsplash.com/photo-1526367790999-0150786686a2?w=800&fit=crop',
       highlightColor: Colors.amber,
     ),
   ];
@@ -165,10 +172,10 @@ class _HomePageState extends State<HomePage> {
     if (productId.isEmpty) return;
 
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': productId,
-        'quantity': 1,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {'productId': productId, 'quantity': 1},
+      );
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -176,7 +183,9 @@ class _HomePageState extends State<HomePage> {
           content: Text('Đã thêm "${product['name'] ?? ''}" vào giỏ hàng!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           action: SnackBarAction(
             label: 'Xem giỏ',
             textColor: Colors.white,
@@ -186,7 +195,8 @@ class _HomePageState extends State<HomePage> {
       );
     } on DioException catch (e) {
       final msg = e.response?.data is Map
-          ? ((e.response!.data as Map)['message'] as String? ?? 'Không thể thêm vào giỏ hàng')
+          ? ((e.response!.data as Map)['message'] as String? ??
+                'Không thể thêm vào giỏ hàng')
           : 'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -194,7 +204,9 @@ class _HomePageState extends State<HomePage> {
             content: Text(msg),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -205,7 +217,9 @@ class _HomePageState extends State<HomePage> {
             content: const Text('Không thể thêm vào giỏ hàng'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -235,14 +249,39 @@ class _HomePageState extends State<HomePage> {
 
       final results = await Future.wait([
         safeCall(_dio.get(ApiEndpoints.productCategories)),
-        safeCall(_dio.get(ApiEndpoints.products, queryParameters: {'limit': 20})),
-        safeCall(_dio.get(ApiEndpoints.recommendations, queryParameters: _selectedStore != null ? {'storeId': _selectedStore!['_id']} : null)),
+        safeCall(
+          _dio.get(ApiEndpoints.products, queryParameters: {'limit': 20}),
+        ),
+        safeCall(
+          _dio.get(
+            ApiEndpoints.recommendations,
+            queryParameters: _selectedStore != null
+                ? {'storeId': _selectedStore!['_id']}
+                : null,
+          ),
+        ),
         safeCall(_dio.get(ApiEndpoints.vouchers)),
         safeCall(_dio.get(ApiEndpoints.notificationsUnreadCount)),
-        safeCall(_dio.get(ApiEndpoints.products, queryParameters: {'sort': 'rating', 'limit': 4, 'isAvailable': true})),
+        safeCall(
+          _dio.get(
+            ApiEndpoints.products,
+            queryParameters: {
+              'sort': 'rating',
+              'limit': 4,
+              'isAvailable': true,
+            },
+          ),
+        ),
         safeCall(_dio.get(ApiEndpoints.userMembership)),
-        safeCall(_dio.get(ApiEndpoints.myOrders, queryParameters: {'limit': 3, 'sort': '-createdAt'})),
-        safeCall(_dio.get(ApiEndpoints.featuredReviews, queryParameters: {'limit': 5})),
+        safeCall(
+          _dio.get(
+            ApiEndpoints.myOrders,
+            queryParameters: {'limit': 3, 'sort': '-createdAt'},
+          ),
+        ),
+        safeCall(
+          _dio.get(ApiEndpoints.featuredReviews, queryParameters: {'limit': 5}),
+        ),
       ]);
 
       if (!mounted) return;
@@ -277,9 +316,9 @@ class _HomePageState extends State<HomePage> {
       }).toList();
 
       // Parse products (for flash sale — sort by salesCount)
-      var productsRaw = parseList(results[1])
-          .where((p) => p['status'] == 'active' || p['status'] == null)
-          .toList();
+      var productsRaw = parseList(
+        results[1],
+      ).where((p) => p['status'] == 'active' || p['status'] == null).toList();
       final uniqueProducts = <String, Map<String, dynamic>>{};
       for (final p in productsRaw) {
         final id = p['_id'] as String? ?? '';
@@ -330,9 +369,9 @@ class _HomePageState extends State<HomePage> {
       }
 
       // Parse best sellers
-      final bestSellersRaw = parseList(results[5])
-          .where((p) => p['status'] == 'active' || p['status'] == null)
-          .toList();
+      final bestSellersRaw = parseList(
+        results[5],
+      ).where((p) => p['status'] == 'active' || p['status'] == null).toList();
       final uniqueBestSellers = <String, Map<String, dynamic>>{};
       for (final p in bestSellersRaw) {
         final id = p['_id'] as String? ?? '';
@@ -346,7 +385,9 @@ class _HomePageState extends State<HomePage> {
       Map<String, dynamic>? membership;
       final memRes = results[6];
       if (memRes != null) {
-        membership = memRes.data['data'] as Map<String, dynamic>? ?? memRes.data as Map<String, dynamic>;
+        membership =
+            memRes.data['data'] as Map<String, dynamic>? ??
+            memRes.data as Map<String, dynamic>;
       } else {
         _membershipError = true;
       }
@@ -356,7 +397,9 @@ class _HomePageState extends State<HomePage> {
       final ordersRes = results[7];
       if (ordersRes != null) {
         final data = ordersRes.data;
-        final raw = data is Map ? ((data['data'] ?? data['orders']) as List<dynamic>? ?? []) : (data as List<dynamic>? ?? []);
+        final raw = data is Map
+            ? ((data['data'] ?? data['orders']) as List<dynamic>? ?? [])
+            : (data as List<dynamic>? ?? []);
         recentOrders = raw.map((e) => e as Map<String, dynamic>).toList();
       } else {
         _ordersError = true;
@@ -367,7 +410,9 @@ class _HomePageState extends State<HomePage> {
       final revRes = results[8];
       if (revRes != null) {
         final data = revRes.data;
-        final raw = data is Map ? (data['data'] as List<dynamic>? ?? []) : (data as List<dynamic>? ?? []);
+        final raw = data is Map
+            ? (data['data'] as List<dynamic>? ?? [])
+            : (data as List<dynamic>? ?? []);
         latestReviews = raw.map((e) => e as Map<String, dynamic>).toList();
       } else {
         _reviewsError = true;
@@ -425,7 +470,6 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final filteredProducts = getFilteredProducts(_products);
@@ -456,10 +500,8 @@ class _HomePageState extends State<HomePage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     // Scrollable Brand Header
-                    SliverToBoxAdapter(
-                      child: _buildLogoHeader(),
-                    ),
-                    
+                    SliverToBoxAdapter(child: _buildLogoHeader()),
+
                     // Sticky Location & Search/Filter Header
                     SliverPersistentHeader(
                       pinned: true,
@@ -467,27 +509,24 @@ class _HomePageState extends State<HomePage> {
                         height: 124.0,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildAddressPill(),
-                            _buildSearchBox(),
-                          ],
+                          children: [_buildAddressPill(), _buildSearchBox()],
                         ),
                       ),
                     ),
-                    
+
                     // Main Content
                     SliverToBoxAdapter(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildBannerCarousel(),
-                          
+
                           // Flash Sale (Now displayed below Banner Carousel, above Category Section)
                           if (filteredProducts.isNotEmpty) ...[
                             _buildFlashSaleSectionHeader(),
                             _buildProductGrid(filteredProducts),
                           ],
-                          
+
                           // AI Recommendations
                           if (_recommendations.isNotEmpty)
                             AiRecommendationSection(
@@ -512,7 +551,8 @@ class _HomePageState extends State<HomePage> {
                             VoucherTicketSection(vouchers: _vouchers),
 
                           // Loyalty Preview (only if authenticated)
-                          if (context.read<AuthBloc>().state is AuthAuthenticated)
+                          if (context.read<AuthBloc>().state
+                              is AuthAuthenticated)
                             LoyaltyPreviewSection(
                               membership: _membership,
                               isError: _membershipError,
@@ -556,12 +596,28 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Container(height: 60, color: Colors.white),
-            Container(height: 50, margin: const EdgeInsets.all(16), color: Colors.white),
-            Container(height: 160, margin: const EdgeInsets.symmetric(horizontal: 16), color: Colors.white),
+            Container(
+              height: 50,
+              margin: const EdgeInsets.all(16),
+              color: Colors.white,
+            ),
+            Container(
+              height: 160,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: Colors.white,
+            ),
             const SizedBox(height: 16),
-            Container(height: 80, margin: const EdgeInsets.symmetric(horizontal: 16), color: Colors.white),
+            Container(
+              height: 80,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: Colors.white,
+            ),
             const SizedBox(height: 16),
-            Container(height: 220, margin: const EdgeInsets.symmetric(horizontal: 16), color: Colors.white),
+            Container(
+              height: 220,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: Colors.white,
+            ),
           ],
         ),
       ),
@@ -577,8 +633,14 @@ class _HomePageState extends State<HomePage> {
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(_error!, textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: AppColors.textSecondary)),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _loadData,
@@ -644,21 +706,26 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const Spacer(),
-          
+
           // Notification Icon
           IconButton(
             icon: Badge(
               isLabelVisible: _unreadCount > 0,
               label: _unreadCount > 0
-                  ? Text('$_unreadCount',
-                      style: const TextStyle(fontSize: 10, color: Colors.white))
-                      : null,
-              child: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                  ? Text(
+                      '$_unreadCount',
+                      style: const TextStyle(fontSize: 10, color: Colors.white),
+                    )
+                  : null,
+              child: const Icon(
+                Icons.notifications_outlined,
+                color: AppColors.textPrimary,
+              ),
             ),
             onPressed: () => context.push('/notifications'),
           ),
           const SizedBox(width: 8),
-          
+
           // User Avatar with AuthBloc
           BlocBuilder<AuthBloc, AuthState>(
             builder: (context, authState) {
@@ -671,7 +738,7 @@ class _HomePageState extends State<HomePage> {
                 }
                 avatarUrl = authState.user['avatar'] as String?;
               }
-              
+
               Widget avatarChild = initials.isNotEmpty
                   ? Text(
                       initials,
@@ -681,8 +748,12 @@ class _HomePageState extends State<HomePage> {
                         fontSize: 13,
                       ),
                     )
-                  : const Icon(Icons.person, color: AppColors.primary, size: 18);
-              
+                  : const Icon(
+                      Icons.person,
+                      color: AppColors.primary,
+                      size: 18,
+                    );
+
               return GestureDetector(
                 onTap: () => context.push('/profile'),
                 child: CircleAvatar(
@@ -752,7 +823,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 2),
                   Text(
                     _selectedStore != null
-                        ? (_selectedStore!['address'] ?? 'Chọn chi nhánh giao hàng...')
+                        ? (_selectedStore!['address'] ??
+                              'Chọn chi nhánh giao hàng...')
                         : 'Chọn chi nhánh giao hàng...',
                     style: const TextStyle(
                       fontSize: 14,
@@ -811,7 +883,11 @@ class _HomePageState extends State<HomePage> {
                   color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.search_rounded, color: AppColors.primary, size: 18),
+                child: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -872,9 +948,12 @@ class _HomePageState extends State<HomePage> {
                       CachedNetworkImage(
                         imageUrl: banner.image,
                         fit: BoxFit.cover,
-                        width: double.infinity, height: double.infinity,
-                        placeholder: (_, _) => Container(color: Colors.grey[300]),
-                        errorWidget: (_, _, _) => Container(color: Colors.orange[200]),
+                        width: double.infinity,
+                        height: double.infinity,
+                        placeholder: (_, _) =>
+                            Container(color: Colors.grey[300]),
+                        errorWidget: (_, _, _) =>
+                            Container(color: Colors.orange[200]),
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -883,34 +962,60 @@ class _HomePageState extends State<HomePage> {
                               Colors.black.withValues(alpha: 0.85),
                               Colors.black.withValues(alpha: 0.2),
                             ],
-                            begin: Alignment.centerLeft, end: Alignment.centerRight,
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white24,
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Text(banner.tag,
-                                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                              child: Text(
+                                banner.tag,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 6),
-                            Text(banner.highlight,
-                                style: TextStyle(color: banner.highlightColor, fontSize: 18, fontWeight: FontWeight.w900)),
+                            Text(
+                              banner.highlight,
+                              style: TextStyle(
+                                color: banner.highlightColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             SizedBox(
                               width: 220,
-                              child: Text(banner.description,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.3),
-                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                banner.description,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -922,7 +1027,9 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           Positioned(
-            bottom: 12, left: 0, right: 0,
+            bottom: 12,
+            left: 0,
+            right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -933,7 +1040,9 @@ class _HomePageState extends State<HomePage> {
                   width: (_currentBanner % _banners.length) == i ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                     color: (_currentBanner % _banners.length) == i ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                    color: (_currentBanner % _banners.length) == i
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -986,7 +1095,11 @@ class _HomePageState extends State<HomePage> {
           padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Text(
             'Danh mục món ăn',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(
@@ -999,12 +1112,16 @@ class _HomePageState extends State<HomePage> {
               final cat = _categories[index];
               final name = cat['name'] as String? ?? '';
               final imageUrl = _categoryImage(name);
-              
+
               return GestureDetector(
-                onTap: () => context.push('/menu?category=${Uri.encodeComponent(name)}'),
+                onTap: () =>
+                    context.push('/menu?category=${Uri.encodeComponent(name)}'),
                 child: Container(
                   width: 120,
-                  margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
@@ -1025,8 +1142,10 @@ class _HomePageState extends State<HomePage> {
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.cover,
-                          placeholder: (_, _) => Container(color: Colors.grey[200]),
-                          errorWidget: (_, _, _) => Container(color: Colors.orange[100]),
+                          placeholder: (_, _) =>
+                              Container(color: Colors.grey[200]),
+                          errorWidget: (_, _, _) =>
+                              Container(color: Colors.orange[100]),
                         ),
                         // Dark Gradient Overlay
                         Container(
@@ -1084,8 +1203,14 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.trending_up, color: Colors.red),
               SizedBox(width: 6),
-              Text('Bán chạy',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              Text(
+                'Bán chạy',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
           TextButton(
@@ -1097,14 +1222,17 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildProductGrid(List<Map<String, dynamic>> products, {int maxItems = 6}) {
+  Widget _buildProductGrid(
+    List<Map<String, dynamic>> products, {
+    int maxItems = 6,
+  }) {
     final limit = products.length > maxItems ? maxItems : products.length;
     if (limit == 0) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 20),
           child: Text(
-            'Không tìm thấy món ăn nào phù hợp.', 
+            'Không tìm thấy món ăn nào phù hợp.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ),
@@ -1128,17 +1256,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  List<Map<String, dynamic>> getFilteredProducts(List<Map<String, dynamic>> rawList) {
+  List<Map<String, dynamic>> getFilteredProducts(
+    List<Map<String, dynamic>> rawList,
+  ) {
     var list = List<Map<String, dynamic>>.from(rawList);
-    
+
     // Filter by price range
     if (_minPrice != null) {
-      list = list.where((p) => (p['price'] as num).toDouble() >= _minPrice!).toList();
+      list = list
+          .where((p) => (p['price'] as num).toDouble() >= _minPrice!)
+          .toList();
     }
     if (_maxPrice != null) {
-      list = list.where((p) => (p['price'] as num).toDouble() <= _maxPrice!).toList();
+      list = list
+          .where((p) => (p['price'] as num).toDouble() <= _maxPrice!)
+          .toList();
     }
-    
+
     // Filter allergy tags if requested
     if (_filterAllergies && _userAllergies.isNotEmpty) {
       list = list.where((p) {
@@ -1146,7 +1280,7 @@ class _HomePageState extends State<HomePage> {
         return !allergens.any((a) => _userAllergies.contains(a.toString()));
       }).toList();
     }
-    
+
     // Sort
     if (_sortBy == 'rating') {
       list.sort((a, b) {
@@ -1174,10 +1308,9 @@ class _HomePageState extends State<HomePage> {
         return bSales.compareTo(aSales);
       });
     }
-    
+
     return list;
   }
-
 
   Widget _buildProductCard(Map<String, dynamic> product) {
     final entity = ProductModel.fromJson(product).toEntity();
@@ -1205,8 +1338,14 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.flash_on, color: Colors.red),
               SizedBox(width: 4),
-              Text('Flash Sale',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              Text(
+                'Flash Sale',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
           TextButton(
@@ -1217,10 +1356,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-
-
-
 }
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -1234,7 +1369,11 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox(
       height: height,
       child: Material(

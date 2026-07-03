@@ -52,9 +52,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
       final campaignData = data is Map<String, dynamic>
           ? (data['data'] as Map<String, dynamic>? ?? data)
           : data is Map
-              ? (data['data'] as Map<String, dynamic>? ??
-                  Map<String, dynamic>.from(data))
-              : <String, dynamic>{};
+          ? (data['data'] as Map<String, dynamic>? ??
+                Map<String, dynamic>.from(data))
+          : <String, dynamic>{};
 
       // Parse products from campaign
       final productsRaw = campaignData['products'] as List<dynamic>? ?? [];
@@ -62,12 +62,13 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           .map((e) => e as Map<String, dynamic>)
           .where((p) => p['productId'] != null)
           .map((p) {
-        final product = p['productId'] as Map<String, dynamic>;
-        // Merge campaign pricing into product
-        product['campaignFixedPrice'] = p['fixedPrice'];
-        product['campaignDiscount'] = p['discount'];
-        return product;
-      }).toList();
+            final product = p['productId'] as Map<String, dynamic>;
+            // Merge campaign pricing into product
+            product['campaignFixedPrice'] = p['fixedPrice'];
+            product['campaignDiscount'] = p['discount'];
+            return product;
+          })
+          .toList();
 
       // Calculate remaining time
       final endTimeStr = campaignData['endTime'] as String?;
@@ -138,11 +139,14 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
 
   void _addToCart(Map<String, dynamic> product) async {
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': product['_id'],
-        'quantity': 1,
-        'price': product['price'],
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {
+          'productId': product['_id'],
+          'quantity': 1,
+          'price': product['price'],
+        },
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -150,13 +154,15 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ??
+      final msg =
+          e.response?.data?['message'] as String? ??
           'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -165,7 +171,8 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -179,8 +186,8 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
       body: _isLoading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadCampaign)
-              : _buildContent(),
+          ? AppErrorWidget(message: _error!, onRetry: _loadCampaign)
+          : _buildContent(),
     );
   }
 
@@ -223,9 +230,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           expandedHeight: 220,
           pinned: true,
           backgroundColor: AppColors.primary,
-          flexibleSpace: FlexibleSpaceBar(
-            background: _buildHeader(),
-          ),
+          flexibleSpace: FlexibleSpaceBar(background: _buildHeader()),
           leading: Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -316,8 +321,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.timer_outlined,
-                  color: Colors.white70, size: 16),
+              const Icon(Icons.timer_outlined, color: Colors.white70, size: 16),
               const SizedBox(width: 6),
               Text(
                 _remaining == Duration.zero
@@ -334,10 +338,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           const SizedBox(height: 4),
           Text(
             '${_products.length} sản phẩm',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
         ],
       ),
@@ -362,8 +363,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined,
-              size: 80, color: Colors.grey[300]),
+          Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
             'Chiến dịch chưa có sản phẩm',
@@ -414,7 +414,8 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
               flex: 6,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16)),
+                  top: Radius.circular(16),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -426,14 +427,20 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                                 Container(color: Colors.grey[200]),
                             errorWidget: (_, _, _) => Container(
                               color: Colors.orange[50],
-                              child: const Icon(Icons.restaurant,
-                                  color: AppColors.primary, size: 40),
+                              child: const Icon(
+                                Icons.restaurant,
+                                color: AppColors.primary,
+                                size: 40,
+                              ),
                             ),
                           )
                         : Container(
                             color: Colors.orange[50],
-                            child: const Icon(Icons.restaurant,
-                                color: AppColors.primary, size: 40),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                              size: 40,
+                            ),
                           ),
                     if (!isAvailable)
                       Container(
@@ -455,7 +462,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                         left: 8,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(6),
@@ -476,7 +485,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                         right: 6,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(8),
@@ -484,8 +495,11 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star,
-                                  color: Colors.amber, size: 12),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 12,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 rating.toStringAsFixed(1),
@@ -505,7 +519,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(6),
@@ -513,8 +529,11 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.local_offer,
-                                color: Colors.white, size: 10),
+                            Icon(
+                              Icons.local_offer,
+                              color: Colors.white,
+                              size: 10,
+                            ),
                             SizedBox(width: 2),
                             Text(
                               'KM',
@@ -544,7 +563,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                     Text(
                       name,
                       style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -586,8 +607,11 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.add,
-                                  color: Colors.white, size: 18),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
                       ],

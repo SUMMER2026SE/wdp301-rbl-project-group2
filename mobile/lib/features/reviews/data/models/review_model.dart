@@ -33,7 +33,8 @@ class ReviewModel {
       productName: json['productName'] as String?,
       rating: json['rating'] as int? ?? 5,
       comment: json['comment'] as String?,
-      images: (json['images'] as List<dynamic>?)
+      images:
+          (json['images'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -43,15 +44,15 @@ class ReviewModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'userId': userId,
-        'orderId': orderId,
-        'productId': productId,
-        'productName': productName,
-        'rating': rating,
-        'comment': comment,
-        'images': images,
-        'reply': reply,
-        'createdAt': createdAt,
-      };
+    '_id': id,
+    'userId': userId,
+    'orderId': orderId,
+    'productId': productId,
+    'productName': productName,
+    'rating': rating,
+    'comment': comment,
+    'images': images,
+    'reply': reply,
+    'createdAt': createdAt,
+  };
 }

@@ -26,7 +26,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   final Dio _dio = ApiClient().dio;
   Map<String, dynamic>? _product;
   List<Map<String, dynamic>> _variations = [];
-  Map<String, String> _selectedOptions = {};
+  final Map<String, String> _selectedOptions = {};
   bool _isLoading = true;
   String? _error;
   int _quantity = 1;
@@ -60,25 +60,16 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       final productData = data is Map<String, dynamic>
           ? (data['data'] as Map<String, dynamic>? ?? data)
           : data is Map
-              ? (data['data'] as Map<String, dynamic>? ?? Map<String, dynamic>.from(data))
-              : <String, dynamic>{};
+          ? (data['data'] as Map<String, dynamic>? ??
+                Map<String, dynamic>.from(data))
+          : <String, dynamic>{};
 
-      // Load variations if any
-      List<Map<String, dynamic>> variations = [];
-      final variationIds = productData['variationIds'] as List<dynamic>?;
-      if (variationIds != null && variationIds.isNotEmpty) {
-        try {
-          final allVarResponse = await _dio.get('/products/variations');
-          final varData = allVarResponse.data;
-          final varList = varData is Map
-              ? (varData['data'] as List<dynamic>? ?? [])
-              : (varData as List<dynamic>? ?? []);
-          variations = varList
-              .map((e) => e as Map<String, dynamic>)
-              .where((v) => variationIds.contains(v['_id']))
-              .toList();
-        } catch (_) {}
-      }
+      final variations =
+          (productData['variants'] as List<dynamic>?)
+              ?.whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [];
 
       setState(() {
         _product = productData;
@@ -161,13 +152,16 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
   Future<void> _loadHealthRisk() async {
     try {
-      final response = await _dio.get(ApiEndpoints.productHealthRisk(widget.id));
+      final response = await _dio.get(
+        ApiEndpoints.productHealthRisk(widget.id),
+      );
       final data = response.data;
       final riskData = data is Map<String, dynamic>
           ? (data['data'] as Map<String, dynamic>? ?? data)
           : data is Map
-              ? (data['data'] as Map<String, dynamic>? ?? Map<String, dynamic>.from(data))
-              : null;
+          ? (data['data'] as Map<String, dynamic>? ??
+                Map<String, dynamic>.from(data))
+          : null;
       if (riskData != null) {
         final level = riskData['level'] as String?;
         if (level == 'warning' || level == 'danger') {
@@ -187,7 +181,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   Widget _buildHealthRisk() {
     if (_healthRisk == null) return const SizedBox.shrink();
     final level = _healthRisk!['level'] as String? ?? 'warning';
-    final matchedAllergens = _healthRisk!['matchedAllergens'] as List<dynamic>? ?? [];
+    final matchedAllergens =
+        _healthRisk!['matchedAllergens'] as List<dynamic>? ?? [];
     final isDanger = level == 'danger';
 
     return Container(
@@ -225,18 +220,12 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 if (isDanger)
                   Text(
                     'Món này không phù hợp với bạn',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red[700],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.red[700]),
                   )
                 else
                   Text(
                     'Món này có thể chứa: ${matchedAllergens.join(", ")}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange[800],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.orange[800]),
                   ),
               ],
             ),
@@ -245,43 +234,54 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       ),
     );
   }
+
   Future<void> _addToCart() async {
     setState(() => _isAddingToCart = true);
 
-    final variations = _selectedOptions.entries.map((e) => {
-      'name': e.key,
-      'choice': e.value,
-    }).toList();
+    final variations = _selectedOptions.entries
+        .map((e) => {'name': e.key, 'choice': e.value})
+        .toList();
 
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': widget.id,
-        'quantity': _quantity,
-        'price': (_product?['price'] as num?)?.toDouble() ?? 0,
-        if (variations.isNotEmpty) 'variations': variations,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {
+          'productId': widget.id,
+          'quantity': _quantity,
+          'price': (_product?['price'] as num?)?.toDouble() ?? 0,
+          if (variations.isNotEmpty) 'variations': variations,
+        },
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đã thêm ${_product?['name'] ?? 'món ăn'} vào giỏ hàng'),
+            content: Text(
+              'Đã thêm ${_product?['name'] ?? 'món ăn'} vào giỏ hàng',
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
         context.pop();
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ?? 'Không thể thêm vào giỏ hàng';
+      final msg =
+          e.response?.data?['message'] as String? ??
+          'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -316,18 +316,20 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   Future<void> _buyNow() async {
     setState(() => _isBuyingNow = true);
 
-    final variations = _selectedOptions.entries.map((e) => {
-      'name': e.key,
-      'choice': e.value,
-    }).toList();
+    final variations = _selectedOptions.entries
+        .map((e) => {'name': e.key, 'choice': e.value})
+        .toList();
 
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': widget.id,
-        'quantity': _quantity,
-        'price': (_product?['price'] as num?)?.toDouble() ?? 0,
-        if (variations.isNotEmpty) 'variations': variations,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {
+          'productId': widget.id,
+          'quantity': _quantity,
+          'price': (_product?['price'] as num?)?.toDouble() ?? 0,
+          if (variations.isNotEmpty) 'variations': variations,
+        },
+      );
 
       // Fetch the updated cart items to find the ID of this newly added item
       final cartResponse = await _dio.get(ApiEndpoints.cart);
@@ -350,13 +352,15 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
       if (mounted) {
         if (matchedCartItemId != null) {
-          context.push('/checkout', extra: [matchedCartItemId]);
+          unawaited(context.push('/checkout', extra: [matchedCartItemId]));
         } else {
-          context.push('/checkout');
+          unawaited(context.push('/checkout'));
         }
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ?? 'Không thể thực hiện mua ngay';
+      final msg =
+          e.response?.data?['message'] as String? ??
+          'Không thể thực hiện mua ngay';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -379,9 +383,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           ? categoryData['_id'] as String?
           : categoryData as String?;
 
-      final queryParams = <String, dynamic>{
-        'limit': 5,
-      };
+      final queryParams = <String, dynamic>{'limit': 5};
       if (categoryId != null) {
         queryParams['category'] = categoryId;
       }
@@ -400,8 +402,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       final rawList = data is Map
           ? (data['data'] as List<dynamic>? ?? [])
           : data is List
-              ? data
-              : [];
+          ? data
+          : [];
 
       final products = rawList
           .map((e) => e as Map<String, dynamic>)
@@ -424,11 +426,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
   Future<void> _quickAddToCart(ProductModel product) async {
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': product.id,
-        'quantity': 1,
-        'price': product.price,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {'productId': product.id, 'quantity': 1, 'price': product.price},
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -436,20 +437,26 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             content: Text('Đã thêm ${product.name} vào giỏ hàng'),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] as String? ?? 'Không thể thêm vào giỏ hàng';
+      final msg =
+          e.response?.data?['message'] as String? ??
+          'Không thể thêm vào giỏ hàng';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.error,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -463,8 +470,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       body: _isLoading
           ? _buildShimmer()
           : _error != null
-              ? _buildError()
-              : _buildContent(),
+          ? _buildError()
+          : _buildContent(),
       bottomNavigationBar: _product != null ? _buildBottomBar() : null,
     );
   }
@@ -522,7 +529,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,7 +588,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         placeholder: (_, _) => Container(color: Colors.grey[200]),
         errorWidget: (_, _, _) => Container(
           color: Colors.orange[50],
-          child: const Icon(Icons.restaurant, color: AppColors.primary, size: 60),
+          child: const Icon(
+            Icons.restaurant,
+            color: AppColors.primary,
+            size: 60,
+          ),
         ),
       );
     }
@@ -612,7 +623,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.local_fire_department_rounded, color: Colors.red, size: 12),
+                const Icon(
+                  Icons.local_fire_department_rounded,
+                  color: Colors.red,
+                  size: 12,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'MÓN NỔI BẬT',
@@ -655,7 +670,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Colors.amber,
+                      size: 16,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       rating.toStringAsFixed(1),
@@ -723,7 +742,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _variations.map((v) {
         final name = v['name'] as String? ?? '';
-        final options = (v['options'] as List<dynamic>?)
+        final options =
+            (v['options'] as List<dynamic>?)
                 ?.map((e) => e as Map<String, dynamic>)
                 .toList() ??
             [];
@@ -733,43 +753,66 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: options.map((opt) {
                   final choice = opt['choice'] as String? ?? '';
-                  final extraPrice = (opt['extraPrice'] as num?)?.toDouble() ?? 0;
+                  final extraPrice =
+                      (opt['extraPrice'] as num?)?.toDouble() ?? 0;
                   final isSelected = _selectedOptions[name] == choice;
 
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedOptions[name] = choice),
+                    onTap: () =>
+                        setState(() => _selectedOptions[name] = choice),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? AppColors.primary : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.divider,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.divider,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(choice,
-                              style: TextStyle(
-                                  color: isSelected ? Colors.white : AppColors.textPrimary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13)),
+                          Text(
+                            choice,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
                           if (extraPrice > 0) ...[
                             const SizedBox(width: 4),
-                            Text('+${Formatters.compactCurrency(extraPrice)}',
-                                style: TextStyle(
-                                    color: isSelected ? Colors.white70 : AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12)),
+                            Text(
+                              '+${Formatters.compactCurrency(extraPrice)}',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white70
+                                    : AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ],
                       ),
@@ -791,7 +834,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       children: [
         const Row(
           children: [
-            Icon(Icons.description_outlined, color: AppColors.primary, size: 18),
+            Icon(
+              Icons.description_outlined,
+              color: AppColors.primary,
+              size: 18,
+            ),
             SizedBox(width: 8),
             Text(
               'Mô tả món ăn',
@@ -816,7 +863,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
               ),
             ),
             child: Text(
-              description.isNotEmpty ? description : 'Hương vị tuyệt hảo đang chờ bạn khám phá.',
+              description.isNotEmpty
+                  ? description
+                  : 'Hương vị tuyệt hảo đang chờ bạn khám phá.',
               style: TextStyle(
                 fontSize: 13.5,
                 color: Colors.grey[600],
@@ -832,7 +881,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
   Widget _buildAICard() {
     final healthTags = _product?['healthTags'] as List<dynamic>?;
-    if (healthTags == null || healthTags.isEmpty) return const SizedBox.shrink();
+    if (healthTags == null || healthTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final riskLevel = _healthRisk?['level'] as String? ?? 'safe';
     if (riskLevel != 'safe') return const SizedBox.shrink();
@@ -855,7 +906,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         border: Border.all(color: emerald100),
         boxShadow: [
           BoxShadow(
-            color: emerald500.withOpacity(0.04),
+            color: emerald500.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -872,7 +923,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   color: emerald500,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.shield_outlined, color: Colors.white, size: 14),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  color: Colors.white,
+                  size: 14,
+                ),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -933,7 +988,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       children: [
         const Row(
           children: [
-            Icon(Icons.restaurant_menu_rounded, color: AppColors.primary, size: 18),
+            Icon(
+              Icons.restaurant_menu_rounded,
+              color: AppColors.primary,
+              size: 18,
+            ),
             SizedBox(width: 8),
             Text(
               'Nguyên liệu',
@@ -955,11 +1014,16 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             runSpacing: 8,
             children: names.map((name) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.05),
+                  color: AppColors.primary.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Text(
                   name,
@@ -989,16 +1053,25 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Cảnh báo dị ứng', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const Text(
+                  'Cảnh báo dị ứng',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
                 const SizedBox(height: 4),
-                Text('Món này có thể chứa: ${tags.join(", ")}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                Text(
+                  'Món này có thể chứa: ${tags.join(", ")}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
               ],
             ),
           ),
@@ -1036,10 +1109,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   const SizedBox(width: 4),
                   Text(
                     '(${_reviews.length})',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
                   ),
                 ],
               ),
@@ -1070,7 +1140,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: _isLoadingReviews ? null : () => _loadReviews(loadMore: true),
+                onPressed: _isLoadingReviews
+                    ? null
+                    : () => _loadReviews(loadMore: true),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1082,8 +1154,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Xem thêm đánh giá',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    : const Text(
+                        'Xem thêm đánh giá',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
               ),
             ),
           ),
@@ -1132,10 +1206,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                     ),
                     Text(
                       _formatReviewDate(createdAt),
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 11),
                     ),
                   ],
                 ),
@@ -1215,67 +1286,79 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       baseColor: AppColors.shimmerBase,
       highlightColor: AppColors.shimmerHighlight,
       child: Column(
-        children: List.generate(3, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
+        children: List.generate(
+          3,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 14,
-                      width: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 14,
+                        width: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      height: 12,
-                      width: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      height: 12,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        )),
+        ),
       ),
     );
   }
 
   Widget _buildBottomBar() {
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: Row(
@@ -1290,11 +1373,19 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.remove_rounded, size: 20),
-                  onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                  onPressed: _quantity > 1
+                      ? () => setState(() => _quantity--)
+                      : null,
                   color: _quantity > 1 ? AppColors.primary : AppColors.textHint,
                 ),
-                Text('$_quantity',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(
+                  '$_quantity',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.add_rounded, size: 20),
                   onPressed: () => setState(() => _quantity++),
@@ -1310,17 +1401,32 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             child: SizedBox(
               height: 52,
               child: OutlinedButton(
-                onPressed: (_isAddingToCart || _isBuyingNow) ? null : _addToCart,
+                onPressed: (_isAddingToCart || _isBuyingNow)
+                    ? null
+                    : _addToCart,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.primary, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   foregroundColor: AppColors.primary,
                 ),
                 child: _isAddingToCart
-                    ? const SizedBox(width: 22, height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-                    : const Text('Thêm vào giỏ',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : const Text(
+                        'Thêm vào giỏ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -1335,14 +1441,27 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   elevation: 0,
                 ),
                 child: _isBuyingNow
-                    ? const SizedBox(width: 22, height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Mua ngay - ${Formatters.compactCurrency(_totalPrice)}',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Mua ngay - ${Formatters.compactCurrency(_totalPrice)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -1367,7 +1486,11 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
           child: Row(
             children: [
-              Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 18),
+              Icon(
+                Icons.restaurant_rounded,
+                color: AppColors.primary,
+                size: 18,
+              ),
               SizedBox(width: 8),
               Text(
                 'Món ăn tương tự',

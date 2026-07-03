@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Calendar, MapPin, User, FileText, CreditCard, ShieldAlert, Clock, Bike } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, User, FileText, CreditCard, ShieldAlert, Clock, Bike } from 'lucide-react';
 import orderService, { type Order } from '@/services/order.service';
 import staffRequestService from '@/services/staff-request.service';
 import toast from 'react-hot-toast';
@@ -54,7 +54,7 @@ const ManagerOrderDetail = () => {
   const [assignNote, setAssignNote] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError('');
@@ -74,7 +74,7 @@ const ManagerOrderDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const fetchStaff = async () => {
     try {
@@ -88,7 +88,7 @@ const ManagerOrderDetail = () => {
   useEffect(() => {
     void fetchOrder();
     void fetchStaff();
-  }, [id]);
+  }, [fetchOrder]);
 
   // Check if status change is a sensitive override action (e.g. cancel, complete, or moving backward)
   const isSensitive = useMemo(() => {

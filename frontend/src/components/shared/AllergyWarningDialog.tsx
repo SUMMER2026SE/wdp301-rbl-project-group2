@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * FSS-40: AllergyWarningDialog
  * Modal that warns users about allergen conflicts in their cart items

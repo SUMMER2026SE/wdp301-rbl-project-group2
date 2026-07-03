@@ -23,7 +23,7 @@ class ReviewRemoteDataSource {
         'productId': productId,
         'rating': rating,
         'comment': comment,
-        if (images != null) 'images': images,
+        'images': ?images,
       },
     );
     final data = response.data as Map<String, dynamic>;
@@ -50,7 +50,8 @@ class ReviewRemoteDataSource {
     );
     final data = response.data as Map<String, dynamic>;
     return {
-      'reviews': (data['data'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
+      'reviews':
+          (data['data'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
       'pagination': data['pagination'] as Map<String, dynamic>? ?? {},
     };
   }

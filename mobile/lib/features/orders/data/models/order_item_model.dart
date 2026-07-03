@@ -22,29 +22,32 @@ class OrderItemModel {
       name: json['name'] as String? ?? '',
       quantity: json['quantity'] as int? ?? 0,
       subTotal: (json['subTotal'] as num?)?.toDouble() ?? 0.0,
-      variations: (json['variations'] as List<dynamic>?)
+      variations:
+          (json['variations'] as List<dynamic>?)
               ?.map(
-                  (e) => OrderItemVariationModel.fromJson(e as Map<String, dynamic>))
+                (e) =>
+                    OrderItemVariationModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'productId': productId,
-        'name': name,
-        'quantity': quantity,
-        'subTotal': subTotal,
-        'variations': variations.map((v) => v.toJson()).toList(),
-      };
+    'productId': productId,
+    'name': name,
+    'quantity': quantity,
+    'subTotal': subTotal,
+    'variations': variations.map((v) => v.toJson()).toList(),
+  };
 
   OrderItemEntity toEntity() => OrderItemEntity(
-        productId: productId,
-        name: name,
-        quantity: quantity,
-        subTotal: subTotal,
-        variations: variations.map((v) => v.toEntity()).toList(),
-      );
+    productId: productId,
+    name: name,
+    quantity: quantity,
+    subTotal: subTotal,
+    variations: variations.map((v) => v.toEntity()).toList(),
+  );
 }
 
 class OrderItemVariationModel {
@@ -67,14 +70,14 @@ class OrderItemVariationModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'choice': choice,
-        'extraPrice': extraPrice,
-      };
+    'name': name,
+    'choice': choice,
+    'extraPrice': extraPrice,
+  };
 
   OrderItemVariationEntity toEntity() => OrderItemVariationEntity(
-        name: name,
-        choice: choice,
-        extraPrice: extraPrice,
-      );
+    name: name,
+    choice: choice,
+    extraPrice: extraPrice,
+  );
 }

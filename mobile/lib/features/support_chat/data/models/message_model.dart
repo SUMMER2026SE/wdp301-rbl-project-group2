@@ -36,24 +36,24 @@ class MessageModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'conversationId': conversationId,
-        'senderId': senderId,
-        'senderRole': senderRole,
-        'content': content,
-        'image': image,
-        'read': read,
-        'createdAt': createdAt,
-      };
+    '_id': id,
+    'conversationId': conversationId,
+    'senderId': senderId,
+    'senderRole': senderRole,
+    'content': content,
+    'image': image,
+    'read': read,
+    'createdAt': createdAt,
+  };
 
   MessageEntity toEntity() => MessageEntity(
-        id: id,
-        conversationId: conversationId,
-        senderId: senderId,
-        senderRole: senderRole,
-        content: content,
-        image: image,
-        read: read,
-        createdAt: createdAt,
-      );
+    id: id,
+    conversationId: conversationId,
+    senderId: senderId,
+    senderRole: senderRole,
+    content: content,
+    image: image,
+    read: read,
+    createdAt: createdAt,
+  );
 }

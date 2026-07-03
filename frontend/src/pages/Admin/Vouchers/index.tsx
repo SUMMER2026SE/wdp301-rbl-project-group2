@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { clsx } from "clsx";
 import VoucherAPI from "@/services/voucher.service";
 import type { Voucher } from "@/types/voucher";
@@ -25,7 +25,7 @@ const AdminVouchers = () => {
 
   const LIMIT = 10;
 
-  const fetchVouchers = async () => {
+  const fetchVouchers = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -70,11 +70,11 @@ const AdminVouchers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchVouchers();
-  }, [page]);
+  }, [fetchVouchers]);
 
   const filteredVouchers = vouchers.filter((v) =>
     v.code.toLowerCase().includes(searchQuery.toLowerCase()),

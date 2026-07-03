@@ -89,16 +89,17 @@ class CustomerDetailsError extends StaffCustomersState {
 }
 
 // ── BLoC ──
-class StaffCustomersBloc extends Bloc<StaffCustomersEvent, StaffCustomersState> {
+class StaffCustomersBloc
+    extends Bloc<StaffCustomersEvent, StaffCustomersState> {
   final GetCustomersUseCase _getCustomersUseCase;
   final GetCustomerDetailsUseCase _getCustomerDetailsUseCase;
 
   StaffCustomersBloc({
     required GetCustomersUseCase getCustomersUseCase,
     required GetCustomerDetailsUseCase getCustomerDetailsUseCase,
-  })  : _getCustomersUseCase = getCustomersUseCase,
-        _getCustomerDetailsUseCase = getCustomerDetailsUseCase,
-        super(const StaffCustomersInitial()) {
+  }) : _getCustomersUseCase = getCustomersUseCase,
+       _getCustomerDetailsUseCase = getCustomerDetailsUseCase,
+       super(const StaffCustomersInitial()) {
     on<SearchCustomersEvent>(_onSearch);
     on<LoadCustomerDetailsEvent>(_onLoadDetail);
   }
@@ -123,14 +124,15 @@ class StaffCustomersBloc extends Bloc<StaffCustomersEvent, StaffCustomersState> 
   ) async {
     emit(const CustomerDetailsLoading());
 
-    final result = await _getCustomerDetailsUseCase(customerId: event.customerId);
+    final result = await _getCustomerDetailsUseCase(
+      customerId: event.customerId,
+    );
 
     result.fold(
       (failure) => emit(CustomerDetailsError(failure.message)),
-      (data) => emit(CustomerDetailsLoaded(
-        customer: data.customer,
-        orders: data.orders,
-      )),
+      (data) => emit(
+        CustomerDetailsLoaded(customer: data.customer, orders: data.orders),
+      ),
     );
   }
 }

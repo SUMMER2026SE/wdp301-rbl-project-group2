@@ -36,7 +36,10 @@ class SendChatTextEvent extends StaffChatEvent {
   final String conversationId;
   final String content;
 
-  const SendChatTextEvent({required this.conversationId, required this.content});
+  const SendChatTextEvent({
+    required this.conversationId,
+    required this.content,
+  });
 
   @override
   List<Object?> get props => [conversationId, content];
@@ -46,7 +49,10 @@ class SendChatImageEvent extends StaffChatEvent {
   final String conversationId;
   final File imageFile;
 
-  const SendChatImageEvent({required this.conversationId, required this.imageFile});
+  const SendChatImageEvent({
+    required this.conversationId,
+    required this.imageFile,
+  });
 
   @override
   List<Object?> get props => [conversationId, imageFile];
@@ -164,12 +170,12 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
     required SendChatMessageUseCase sendChatMessageUseCase,
     required UploadChatImageUseCase uploadChatImageUseCase,
     required CloseConversationUseCase closeConversationUseCase,
-  })  : _getConversationsUseCase = getConversationsUseCase,
-        _getConversationMessagesUseCase = getConversationMessagesUseCase,
-        _sendChatMessageUseCase = sendChatMessageUseCase,
-        _uploadChatImageUseCase = uploadChatImageUseCase,
-        _closeConversationUseCase = closeConversationUseCase,
-        super(const StaffChatInitial()) {
+  }) : _getConversationsUseCase = getConversationsUseCase,
+       _getConversationMessagesUseCase = getConversationMessagesUseCase,
+       _sendChatMessageUseCase = sendChatMessageUseCase,
+       _uploadChatImageUseCase = uploadChatImageUseCase,
+       _closeConversationUseCase = closeConversationUseCase,
+       super(const StaffChatInitial()) {
     on<FetchConversationsEvent>(_onFetchConversations);
     on<FetchMessagesEvent>(_onFetchMessages);
     on<SendChatTextEvent>(_onSendText);
@@ -195,13 +201,17 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
     Emitter<StaffChatState> emit,
   ) async {
     emit(const MessagesLoading());
-    final result = await _getConversationMessagesUseCase(conversationId: event.conversationId);
+    final result = await _getConversationMessagesUseCase(
+      conversationId: event.conversationId,
+    );
     result.fold(
       (failure) => emit(MessagesError(failure.message)),
-      (messages) => emit(MessagesLoaded(
-        conversationId: event.conversationId,
-        messages: messages,
-      )),
+      (messages) => emit(
+        MessagesLoaded(
+          conversationId: event.conversationId,
+          messages: messages,
+        ),
+      ),
     );
   }
 
@@ -220,14 +230,17 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
     );
 
     result.fold(
-      (failure) => emit(currentState.copyWith(isSending: false, error: failure.message)),
+      (failure) =>
+          emit(currentState.copyWith(isSending: false, error: failure.message)),
       (newMsg) {
         final updatedList = [...currentState.messages, newMsg];
-        emit(MessagesLoaded(
-          conversationId: event.conversationId,
-          messages: updatedList,
-          isSending: false,
-        ));
+        emit(
+          MessagesLoaded(
+            conversationId: event.conversationId,
+            messages: updatedList,
+            isSending: false,
+          ),
+        );
       },
     );
   }
@@ -257,14 +270,18 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
         );
 
         result.fold(
-          (failure) => emit(currentState.copyWith(isSending: false, error: failure.message)),
+          (failure) => emit(
+            currentState.copyWith(isSending: false, error: failure.message),
+          ),
           (newMsg) {
             final updatedList = [...currentState.messages, newMsg];
-            emit(MessagesLoaded(
-              conversationId: event.conversationId,
-              messages: updatedList,
-              isSending: false,
-            ));
+            emit(
+              MessagesLoaded(
+                conversationId: event.conversationId,
+                messages: updatedList,
+                isSending: false,
+              ),
+            );
           },
         );
       },
@@ -281,10 +298,12 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
       final exists = currentState.messages.any((m) => m.id == event.message.id);
       if (!exists) {
         final updatedList = [...currentState.messages, event.message];
-        emit(MessagesLoaded(
-          conversationId: currentState.conversationId,
-          messages: updatedList,
-        ));
+        emit(
+          MessagesLoaded(
+            conversationId: currentState.conversationId,
+            messages: updatedList,
+          ),
+        );
       }
     }
   }
@@ -293,7 +312,9 @@ class StaffChatBloc extends Bloc<StaffChatEvent, StaffChatState> {
     CloseChatEvent event,
     Emitter<StaffChatState> emit,
   ) async {
-    final result = await _closeConversationUseCase(conversationId: event.conversationId);
+    final result = await _closeConversationUseCase(
+      conversationId: event.conversationId,
+    );
     result.fold(
       (failure) {
         // ignore or update message

@@ -10,13 +10,11 @@ import 'package:foa_mobile/features/stores/presentation/cubit/store_state.dart';
 class StoreSelectorBottomSheet extends StatefulWidget {
   final bool isClosable;
 
-  const StoreSelectorBottomSheet({
-    super.key,
-    this.isClosable = true,
-  });
+  const StoreSelectorBottomSheet({super.key, this.isClosable = true});
 
   @override
-  State<StoreSelectorBottomSheet> createState() => _StoreSelectorBottomSheetState();
+  State<StoreSelectorBottomSheet> createState() =>
+      _StoreSelectorBottomSheetState();
 }
 
 class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
@@ -25,9 +23,15 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
   String? _locationError;
 
   // Haversine formula to compute exact distance in kilometers
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const p = 0.017453292519943295; // Pi / 180
-    final a = 0.5 -
+    final a =
+        0.5 -
         cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
     return 12742 * asin(sqrt(a)); // Diameter of earth: 2 * 6371 km
@@ -44,7 +48,8 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
       if (!granted) {
         setState(() {
           _isLocating = false;
-          _locationError = 'Quyền vị trí bị từ chối. Vui lòng tự chọn chi nhánh.';
+          _locationError =
+              'Quyền vị trí bị từ chối. Vui lòng tự chọn chi nhánh.';
         });
         return;
       }
@@ -107,14 +112,14 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
               if (coordinates.length >= 2) {
                 final double storeLng = (coordinates[0] as num).toDouble();
                 final double storeLat = (coordinates[1] as num).toDouble();
-                
+
                 final distance = _calculateDistance(
                   _currentPosition!.latitude,
                   _currentPosition!.longitude,
                   storeLat,
                   storeLng,
                 );
-                
+
                 if (distance < minDistance) {
                   minDistance = distance;
                   nearestStore = store;
@@ -138,7 +143,11 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
             padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
             child: Column(
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.error,
+                  size: 48,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   state.error!,
@@ -150,9 +159,14 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                   onPressed: () => context.read<StoreCubit>().fetchStores(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Thử lại', style: TextStyle(color: Colors.white)),
+                  child: const Text(
+                    'Thử lại',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
@@ -198,7 +212,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
 
               // Title and close button
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -229,7 +246,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                     ),
                     if (widget.isClosable)
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: AppColors.textHint),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textHint,
+                        ),
                         onPressed: () => Navigator.pop(context),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.grey[100],
@@ -255,7 +275,11 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, color: Colors.amber[800], size: 20),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.amber[800],
+                        size: 20,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -291,21 +315,34 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: _isLocating ? null : () => _handleLocate(stores),
+                      onPressed: _isLocating
+                          ? null
+                          : () => _handleLocate(stores),
                       icon: _isLocating
                           ? const SizedBox(
                               width: 12,
                               height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
                             )
                           : const Icon(Icons.my_location_rounded, size: 14),
                       label: Text(
-                        _currentPosition != null ? 'Định vị lại' : 'Tìm gần nhất',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                        _currentPosition != null
+                            ? 'Định vị lại'
+                            : 'Tìm gần nhất',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -338,10 +375,7 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
 
         if (!widget.isClosable) {
           // If forced selection, intercept Android back button
-          return PopScope(
-            canPop: false,
-            child: mainCard,
-          );
+          return PopScope(canPop: false, child: mainCard);
         }
 
         return mainCard;
@@ -364,7 +398,7 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
             color: Colors.orange.withValues(alpha: 0.25),
             blurRadius: 8,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Stack(
@@ -389,7 +423,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(10),
@@ -405,7 +442,11 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.location_on, color: Colors.amber[50], size: 12),
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.amber[50],
+                            size: 12,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             _formatDistance(distance),
@@ -450,15 +491,23 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.orange[800],
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Chọn',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       SizedBox(width: 4),
                       Icon(Icons.arrow_forward_rounded, size: 14),
@@ -473,7 +522,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
     );
   }
 
-  Widget _buildStoresList(List<Map<String, dynamic>> stores, Map<String, dynamic>? selectedStore) {
+  Widget _buildStoresList(
+    List<Map<String, dynamic>> stores,
+    Map<String, dynamic>? selectedStore,
+  ) {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -482,13 +534,15 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final store = stores[index];
-        final isSelected = selectedStore != null && selectedStore['_id'] == store['_id'];
+        final isSelected =
+            selectedStore != null && selectedStore['_id'] == store['_id'];
         final isActive = store['isActive'] as bool? ?? false;
         final district = store['district'] as String? ?? '';
 
         // Calculate distance if position is available
         double? distance;
-        if (_currentPosition != null && store['location']?['coordinates'] is List) {
+        if (_currentPosition != null &&
+            store['location']?['coordinates'] is List) {
           final coordinates = store['location']['coordinates'] as List;
           if (coordinates.length >= 2) {
             distance = _calculateDistance(
@@ -514,7 +568,9 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                 color: isSelected ? AppColors.primary : Colors.grey[200]!,
                 width: isSelected ? 2 : 1,
               ),
-              color: isSelected ? AppColors.primary.withValues(alpha: 0.03) : Colors.grey[50]?.withValues(alpha: 0.5),
+              color: isSelected
+                  ? AppColors.primary.withValues(alpha: 0.03)
+                  : Colors.grey[50]?.withValues(alpha: 0.5),
             ),
             child: Row(
               children: [
@@ -543,7 +599,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                         children: [
                           if (district.isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               margin: const EdgeInsets.only(right: 6),
                               decoration: BoxDecoration(
                                 color: Colors.orange[50],
@@ -560,7 +619,10 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                             ),
                           if (distance != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green[50],
                                 borderRadius: BorderRadius.circular(6),
@@ -568,7 +630,11 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.navigation_rounded, color: Colors.green[700], size: 8),
+                                  Icon(
+                                    Icons.navigation_rounded,
+                                    color: Colors.green[700],
+                                    size: 8,
+                                  ),
                                   const SizedBox(width: 2),
                                   Text(
                                     _formatDistance(distance),
@@ -595,7 +661,9 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                           Text(
                             isActive ? 'Mở cửa' : 'Đóng cửa',
                             style: TextStyle(
-                              color: isActive ? Colors.green[700] : Colors.red[700],
+                              color: isActive
+                                  ? Colors.green[700]
+                                  : Colors.red[700],
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -631,7 +699,11 @@ class _StoreSelectorBottomSheetState extends State<StoreSelectorBottomSheet> {
                   const CircleAvatar(
                     radius: 10,
                     backgroundColor: AppColors.primary,
-                    child: Icon(Icons.check_rounded, color: Colors.white, size: 12),
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 12,
+                    ),
                   ),
                 ],
               ],

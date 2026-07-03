@@ -27,8 +27,8 @@ class CartRemoteDataSource {
       data: {
         'productId': productId,
         'quantity': quantity,
-        if (variations != null) 'variations': variations,
-        if (note != null) 'note': note,
+        'variations': ?variations,
+        'note': ?note,
       },
     );
     final data = response.data as Map<String, dynamic>;
@@ -47,8 +47,8 @@ class CartRemoteDataSource {
       data: {
         'itemId': itemId,
         'quantity': quantity,
-        if (variations != null) 'variations': variations,
-        if (note != null) 'note': note,
+        'variations': ?variations,
+        'note': ?note,
       },
     );
     final data = response.data as Map<String, dynamic>;
@@ -57,10 +57,7 @@ class CartRemoteDataSource {
 
   /// Remove item from cart.
   Future<void> removeItem(String itemId) async {
-    await _dio.delete(
-      ApiEndpoints.cartRemove,
-      data: {'itemId': itemId},
-    );
+    await _dio.delete(ApiEndpoints.cartRemove, data: {'itemId': itemId});
   }
 
   /// Clear all items from cart.

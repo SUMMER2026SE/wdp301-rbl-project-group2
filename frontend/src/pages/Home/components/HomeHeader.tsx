@@ -174,7 +174,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   //   const fetchActiveOrders = useCallback(async () => {
   //     try {
@@ -186,8 +186,8 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
   //   }, [isAuthenticated]);
   useEffect(() => {
     if (!isAuthenticated) {
-      if (notifications.length > 0) setNotifications([]);
-      if (unreadCount !== 0) setUnreadCount(0);
+      setNotifications([]);
+      setUnreadCount(0);
       if (prevUnreadCountRef.current !== 0) prevUnreadCountRef.current = 0;
       if (hasInitializedNotificationRef.current !== false) hasInitializedNotificationRef.current = false;
       return;

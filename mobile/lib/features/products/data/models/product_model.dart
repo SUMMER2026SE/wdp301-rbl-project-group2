@@ -49,57 +49,57 @@ class ProductModel {
       reviewCount: json['reviewCount'] as int?,
       isAvailable: json['isAvailable'] as bool? ?? true,
       status: json['status'] as String? ?? 'active',
-      allergenTags: (json['allergenTags'] as List<dynamic>?)
+      allergenTags:
+          (json['allergenTags'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
       healthTags: (json['healthTags'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
-      variationIds: (json['variationIds'] as List<dynamic>?)
+      variationIds:
+          (json['variationIds'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      tags: (json['tags'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'name': name,
-        'description': description,
-        'image': image,
-        'price': price,
-        'originalPrice': originalPrice,
-        'category': category,
-        'rating': rating,
-        'reviewCount': reviewCount,
-        'isAvailable': isAvailable,
-        'status': status,
-        'allergenTags': allergenTags,
-        'healthTags': healthTags,
-        'variationIds': variationIds,
-        'tags': tags,
-      };
+    '_id': id,
+    'name': name,
+    'description': description,
+    'image': image,
+    'price': price,
+    'originalPrice': originalPrice,
+    'category': category,
+    'rating': rating,
+    'reviewCount': reviewCount,
+    'isAvailable': isAvailable,
+    'status': status,
+    'allergenTags': allergenTags,
+    'healthTags': healthTags,
+    'variationIds': variationIds,
+    'tags': tags,
+  };
 
   /// Convert to domain entity.
   ProductEntity toEntity() => ProductEntity(
-        id: id,
-        name: name,
-        description: description,
-        image: image,
-        price: price,
-        originalPrice: originalPrice,
-        category: category,
-        rating: rating,
-        reviewCount: reviewCount,
-        isAvailable: isAvailable,
-        status: status,
-        allergenTags: allergenTags,
-        healthTags: healthTags,
-        variationIds: variationIds,
-        tags: tags,
-      );
+    id: id,
+    name: name,
+    description: description,
+    image: image,
+    price: price,
+    originalPrice: originalPrice,
+    category: category,
+    rating: rating,
+    reviewCount: reviewCount,
+    isAvailable: isAvailable,
+    status: status,
+    allergenTags: allergenTags,
+    healthTags: healthTags,
+    variationIds: variationIds,
+    tags: tags,
+  );
 }

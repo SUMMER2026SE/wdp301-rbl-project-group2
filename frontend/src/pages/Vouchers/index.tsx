@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
     Ticket,
     Gift,
@@ -38,7 +38,7 @@ const VouchersPage = () => {
         { id: "special", name: "Đặc biệt" },
     ];
 
-    const fetchVouchers = async () => {
+    const fetchVouchers = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -60,11 +60,11 @@ const VouchersPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeCategory]);
 
     useEffect(() => {
         fetchVouchers();
-    }, [activeCategory]);
+    }, [fetchVouchers]);
 
     const handleCopy = (code: string) => {
         navigator.clipboard.writeText(code);

@@ -47,10 +47,7 @@ class OrderRepositoryImpl implements OrderRepository {
     String? reason,
   }) async {
     try {
-      final order = await _remoteDataSource.cancelOrder(
-        id,
-        reason: reason,
-      );
+      final order = await _remoteDataSource.cancelOrder(id, reason: reason);
       return Right(order.toEntity());
     } catch (e) {
       return Left(_mapErrorToFailure(e));
@@ -59,7 +56,8 @@ class OrderRepositoryImpl implements OrderRepository {
 
   @override
   Future<Either<Failure, OrderEntity>> customerConfirmReceived(
-      String id) async {
+    String id,
+  ) async {
     try {
       final order = await _remoteDataSource.customerConfirmReceived(id);
       return Right(order.toEntity());
@@ -86,10 +84,7 @@ class OrderRepositoryImpl implements OrderRepository {
         if (code == 403) return const ForbiddenFailure();
         if (code == 404) return const NotFoundFailure();
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

@@ -36,7 +36,9 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   }
 
   void _fetchDetails() {
-    context.read<StaffCustomersBloc>().add(LoadCustomerDetailsEvent(customerId: widget.customerId));
+    context.read<StaffCustomersBloc>().add(
+      LoadCustomerDetailsEvent(customerId: widget.customerId),
+    );
   }
 
   Future<void> _fetchConversations() async {
@@ -50,7 +52,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
         queryParameters: {'userId': widget.customerId},
       );
       final data = response.data;
-      final list = data['conversations'] as List<dynamic>? ?? data['data'] as List<dynamic>? ?? [];
+      final list =
+          data['conversations'] as List<dynamic>? ??
+          data['data'] as List<dynamic>? ??
+          [];
       setState(() {
         _conversations = list.map((e) => e as Map<String, dynamic>).toList();
         _conversationsLoading = false;
@@ -58,7 +63,9 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
     } on DioException catch (e) {
       setState(() {
         _conversationsLoading = false;
-        _conversationsError = e.response?.data?['message'] as String? ?? 'Không thể tải hội thoại';
+        _conversationsError =
+            e.response?.data?['message'] as String? ??
+            'Không thể tải hội thoại';
       });
     } catch (e) {
       setState(() {
@@ -76,16 +83,22 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   }
 
   // Tái hiện thuật toán AI Insights offline dựa trên thông số sức khỏe và lịch sử mua hàng
-  List<Map<String, dynamic>> _generateOfflineAIInsights(UserModel customer, List<OrderModel> orders) {
+  List<Map<String, dynamic>> _generateOfflineAIInsights(
+    UserModel customer,
+    List<OrderModel> orders,
+  ) {
     final insights = <Map<String, dynamic>>[];
 
     // VIP check
-    final totalSuccessOrders = orders.where((o) => o.status.toApiString() == 'completed').length;
+    final totalSuccessOrders = orders
+        .where((o) => o.status.toApiString() == 'completed')
+        .length;
     if (totalSuccessOrders > 20) {
       insights.add({
         'icon': '👑',
         'type': 'VIP',
-        'message': 'Khách hàng thân thiết VIP với $totalSuccessOrders đơn hàng thành công.',
+        'message':
+            'Khách hàng thân thiết VIP với $totalSuccessOrders đơn hàng thành công.',
         'color': Colors.amber.shade900,
       });
     } else if (totalSuccessOrders > 5) {
@@ -98,26 +111,31 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
     }
 
     // Cancellation check
-    final cancelledCount = orders.where((o) => o.status.toApiString() == 'cancelled').length;
+    final cancelledCount = orders
+        .where((o) => o.status.toApiString() == 'cancelled')
+        .length;
     if (orders.isNotEmpty) {
       final cancelRate = (cancelledCount / orders.length) * 100;
       if (cancelRate > 30 && orders.length >= 3) {
         insights.add({
           'icon': '⚠️',
           'type': 'Tỷ lệ huỷ cao',
-          'message': 'Chú ý: Khách có tỷ lệ huỷ đơn khá cao (${cancelRate.toStringAsFixed(0)}%). Cần gọi điện xác nhận kỹ trước khi bếp nấu.',
+          'message':
+              'Chú ý: Khách có tỷ lệ huỷ đơn khá cao (${cancelRate.toStringAsFixed(0)}%). Cần gọi điện xác nhận kỹ trước khi bếp nấu.',
           'color': Colors.orange.shade900,
         });
       }
     }
 
     // Allergies check
-    final allergies = customer.health?.allergies ?? customer.preferences?.allergies ?? [];
+    final allergies =
+        customer.health?.allergies ?? customer.preferences?.allergies ?? [];
     if (allergies.isNotEmpty) {
       insights.add({
         'icon': '🚨',
         'type': 'Dị ứng nghiêm trọng',
-        'message': 'CẢNH BÁO DỊ ỨNG: Dị ứng với [${allergies.join(', ')}]. Tuyệt đối tránh nhiễm chéo nguyên liệu.',
+        'message':
+            'CẢNH BÁO DỊ ỨNG: Dị ứng với [${allergies.join(', ')}]. Tuyệt đối tránh nhiễm chéo nguyên liệu.',
         'color': Colors.red.shade900,
       });
     }
@@ -134,7 +152,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
     }
 
     // Common requests check (extract from notes)
-    final notes = orders.map((o) => o.note).where((n) => n != null && n.isNotEmpty).toList();
+    final notes = orders
+        .map((o) => o.note)
+        .where((n) => n != null && n.isNotEmpty)
+        .toList();
     if (notes.isNotEmpty) {
       final notesCount = <String, int>{};
       for (final n in notes) {
@@ -155,7 +176,8 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
           insights.add({
             'icon': '💡',
             'type': 'Thói quen ăn uống',
-            'message': 'Gần như luôn yêu cầu: "$req" (phát hiện trong $count đơn gần nhất).',
+            'message':
+                'Gần như luôn yêu cầu: "$req" (phát hiện trong $count đơn gần nhất).',
             'color': Colors.purple.shade900,
           });
         }
@@ -166,7 +188,8 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
       insights.add({
         'icon': '🤖',
         'type': 'Bình thường',
-        'message': 'Chưa phát hiện hành vi ăn uống đặc thù. Đơn hàng có thể chuẩn bị bình thường.',
+        'message':
+            'Chưa phát hiện hành vi ăn uống đặc thù. Đơn hàng có thể chuẩn bị bình thường.',
         'color': Colors.grey.shade800,
       });
     }
@@ -177,13 +200,13 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hồ sơ khách hàng'),
-      ),
+      appBar: AppBar(title: const Text('Hồ sơ khách hàng')),
       body: BlocBuilder<StaffCustomersBloc, StaffCustomersState>(
         builder: (context, state) {
           if (state is CustomerDetailsLoading) {
-            return const LoadingIndicator(message: 'Đang tải hồ sơ khách hàng...');
+            return const LoadingIndicator(
+              message: 'Đang tải hồ sơ khách hàng...',
+            );
           }
 
           if (state is CustomerDetailsError) {
@@ -202,8 +225,12 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
             final aiInsights = _generateOfflineAIInsights(customer, orders);
 
             // Calc success rates
-            final completedOrders = orders.where((o) => o.status.toApiString() == 'completed').toList();
-            final cancelledOrders = orders.where((o) => o.status.toApiString() == 'cancelled').toList();
+            final completedOrders = orders
+                .where((o) => o.status.toApiString() == 'completed')
+                .toList();
+            final cancelledOrders = orders
+                .where((o) => o.status.toApiString() == 'cancelled')
+                .toList();
             final totalOrdersCount = orders.length;
 
             return SingleChildScrollView(
@@ -216,7 +243,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                   const SizedBox(height: 16),
 
                   // Success and cancel rate KPI
-                  _buildStatsBanner(totalOrdersCount, completedOrders.length, cancelledOrders.length),
+                  _buildStatsBanner(
+                    totalOrdersCount,
+                    completedOrders.length,
+                    cancelledOrders.length,
+                  ),
                   const SizedBox(height: 16),
 
                   // Health profile / Allergies
@@ -254,10 +285,14 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Text(
                 name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -267,18 +302,28 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     customer.email,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                   if (customer.phone != null && customer.phone!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       customer.phone!,
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ],
@@ -333,14 +378,20 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.5),
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textSecondary,
+            letterSpacing: 0.5,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildAllergiesSection(UserModel customer) {
-    final allergies = customer.health?.allergies ?? customer.preferences?.allergies ?? [];
+    final allergies =
+        customer.health?.allergies ?? customer.preferences?.allergies ?? [];
 
     return Card(
       margin: EdgeInsets.zero,
@@ -352,20 +403,35 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
           children: [
             const Row(
               children: [
-                Icon(Icons.health_and_safety_outlined, color: AppColors.primary, size: 22),
+                Icon(
+                  Icons.health_and_safety_outlined,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
                 SizedBox(width: 8),
-                Text('SỨC KHỎE & DỊ ỨNG', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                Text(
+                  'SỨC KHỎE & DỊ ỨNG',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             if (allergies.isEmpty)
               const Row(
                 children: [
-                  Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.green,
+                    size: 18,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Không ghi nhận dị ứng thực phẩm',
-                    style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               )
@@ -375,7 +441,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                 children: [
                   const Text(
                     'Khách hàng có dị ứng với các nguyên liệu sau:',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -383,10 +452,18 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                     runSpacing: 8,
                     children: allergies.map((al) {
                       return Chip(
-                        avatar: const Icon(Icons.warning, color: Colors.white, size: 12),
+                        avatar: const Icon(
+                          Icons.warning,
+                          color: Colors.white,
+                          size: 12,
+                        ),
                         label: Text(
                           al,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                         backgroundColor: Colors.red.shade700,
                         padding: const EdgeInsets.all(4),
@@ -407,16 +484,13 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
-          colors: [
-            Colors.grey.shade900,
-            Colors.grey.shade800,
-          ],
+          colors: [Colors.grey.shade900, Colors.grey.shade800],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -433,7 +507,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
+                    const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.amber,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'AI CUSTOMER INSIGHTS',
@@ -447,11 +525,16 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
+                    color: Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     children: [
@@ -459,7 +542,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                       SizedBox(width: 4),
                       Text(
                         'OFFLINE AI',
-                        style: TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -479,7 +566,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(insight['icon'] as String, style: const TextStyle(fontSize: 16)),
+                    Text(
+                      insight['icon'] as String,
+                      style: const TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -497,7 +587,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                           const SizedBox(height: 2),
                           Text(
                             insight['message'] as String,
-                            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ),
@@ -527,9 +621,16 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.history_outlined, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.history_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('LỊCH SỬ MUA HÀNG', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                Text(
+                  'LỊCH SỬ MUA HÀNG',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -539,7 +640,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               child: Center(
                 child: Text(
                   'Không có lịch sử mua hàng.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             )
@@ -551,16 +655,27 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final order = orders[index];
-                final itemsSummary = order.items.map((i) => '${i.name ?? i.product?.name ?? "Món"} x${i.quantity}').join(', ');
+                final itemsSummary = order.items
+                    .map(
+                      (i) =>
+                          '${i.name ?? i.product?.name ?? "Món"} x${i.quantity}',
+                    )
+                    .join(', ');
 
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Đơn #${order.code}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       OrderStatusBadge(status: order.status),
                     ],
@@ -572,19 +687,29 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                       children: [
                         Text(
                           itemsSummary,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           Formatters.dateTime(order.createdAt),
-                          style: const TextStyle(fontSize: 10, color: AppColors.textHint),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textHint,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  trailing: PriceText(price: order.totalPrice, fontSize: 14, fontWeight: FontWeight.bold),
+                  trailing: PriceText(
+                    price: order.totalPrice,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                   onTap: () => context.push('/staff/orders/${order.id}'),
                 );
               },
@@ -609,9 +734,16 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.support_agent_rounded, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.support_agent_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('HỘI THOẠI HỖ TRỢ', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                Text(
+                  'HỘI THOẠI HỖ TRỢ',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -627,7 +759,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                 children: [
                   Text(
                     _conversationsError!,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
@@ -644,7 +779,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               child: Center(
                 child: Text(
                   'Không có hội thoại hỗ trợ.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             )
@@ -656,29 +794,43 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final conv = _conversations[index];
-                final convId = conv['_id'] as String? ?? conv['id'] as String? ?? '';
+                final convId =
+                    conv['_id'] as String? ?? conv['id'] as String? ?? '';
                 final status = conv['status'] as String? ?? 'active';
                 final lastMsg = conv['lastMessage'] as Map<String, dynamic>?;
-                final lastContent = lastMsg?['content'] as String? ?? lastMsg?['text'] as String? ?? '';
-                final updatedAt = conv['updatedAt'] as String? ?? conv['createdAt'] as String? ?? '';
+                final lastContent =
+                    lastMsg?['content'] as String? ??
+                    lastMsg?['text'] as String? ??
+                    '';
+                final updatedAt =
+                    conv['updatedAt'] as String? ??
+                    conv['createdAt'] as String? ??
+                    '';
                 final timeStr = updatedAt.isNotEmpty
-                    ? Formatters.timeAgo(DateTime.tryParse(updatedAt) ?? DateTime.now())
+                    ? Formatters.timeAgo(
+                        DateTime.tryParse(updatedAt) ?? DateTime.now(),
+                      )
                     : '';
 
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   leading: Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
                       color: status == 'active'
-                          ? AppColors.primary.withOpacity(0.1)
+                          ? AppColors.primary.withValues(alpha: 0.1)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.chat_rounded,
-                      color: status == 'active' ? AppColors.primary : Colors.grey[400],
+                      color: status == 'active'
+                          ? AppColors.primary
+                          : Colors.grey[400],
                       size: 20,
                     ),
                   ),
@@ -690,16 +842,21 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: status == 'active' ? AppColors.textPrimary : AppColors.textSecondary,
+                            color: status == 'active'
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: status == 'active'
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.grey.withOpacity(0.1),
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -707,7 +864,9 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: status == 'active' ? Colors.green : Colors.grey,
+                            color: status == 'active'
+                                ? Colors.green
+                                : Colors.grey,
                           ),
                         ),
                       ),
@@ -719,8 +878,13 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            lastContent.isNotEmpty ? lastContent : 'Chưa có tin nhắn',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            lastContent.isNotEmpty
+                                ? lastContent
+                                : 'Chưa có tin nhắn',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -729,13 +893,20 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                           const SizedBox(width: 8),
                           Text(
                             timeStr,
-                            style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[400],
+                            ),
                           ),
                         ],
                       ],
                     ),
                   ),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textHint,
+                    size: 20,
+                  ),
                   onTap: () => context.push('/staff/chat/$convId'),
                 );
               },

@@ -7,10 +7,7 @@ import 'package:foa_mobile/core/utils/formatters.dart';
 class VoucherTicketSection extends StatelessWidget {
   final List<Map<String, dynamic>> vouchers;
 
-  const VoucherTicketSection({
-    super.key,
-    required this.vouchers,
-  });
+  const VoucherTicketSection({super.key, required this.vouchers});
 
   String _getDiscountLabel(Map<String, dynamic> v) {
     final discountType = v['discountType'] as String?;
@@ -18,10 +15,14 @@ class VoucherTicketSection extends StatelessWidget {
     final discountPercent = v['discountPercent'];
     final discountAmount = v['discountAmount'];
 
-    if (discountType == 'percentage' && discountValue is num && discountValue > 0) {
+    if (discountType == 'percentage' &&
+        discountValue is num &&
+        discountValue > 0) {
       return '-${discountValue.toStringAsFixed(discountValue % 1 == 0 ? 0 : 1)}%';
     }
-    if ((discountType == 'fixed_amount' || discountType == 'freeship') && discountValue is num && discountValue > 0) {
+    if ((discountType == 'fixed_amount' || discountType == 'freeship') &&
+        discountValue is num &&
+        discountValue > 0) {
       return '-${Formatters.compactCurrency(discountValue)}';
     }
     if (discountPercent != null && (discountPercent as num) > 0) {
@@ -76,16 +77,27 @@ class VoucherTicketSection extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.confirmation_number_outlined, color: AppColors.primary, size: 18),
+                    child: const Icon(
+                      Icons.confirmation_number_outlined,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   const Text(
                     'Ví Voucher',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -121,7 +133,9 @@ class VoucherTicketSection extends StatelessWidget {
               final title = v['title'] as String? ?? 'Khuyến mãi';
               final category = v['category'] as String?;
               final validUntilRaw = (v['validUntil'] ?? v['endAt']) as String?;
-              final validUntil = validUntilRaw != null ? DateTime.tryParse(validUntilRaw) : null;
+              final validUntil = validUntilRaw != null
+                  ? DateTime.tryParse(validUntilRaw)
+                  : null;
               final minOrder = v['minOrderValue'] as num?;
 
               final gradientColors = _getCategoryGradient(category);
@@ -137,7 +151,9 @@ class VoucherTicketSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.divider.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: AppColors.divider.withValues(alpha: 0.4),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -157,7 +173,9 @@ class VoucherTicketSection extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(13)),
+                          borderRadius: const BorderRadius.horizontal(
+                            left: Radius.circular(13),
+                          ),
                         ),
                         child: Stack(
                           children: [
@@ -179,7 +197,11 @@ class VoucherTicketSection extends StatelessWidget {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(categoryIcon, color: Colors.white.withValues(alpha: 0.8), size: 20),
+                                  Icon(
+                                    categoryIcon,
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    size: 20,
+                                  ),
                                   const SizedBox(height: 6),
                                   Text(
                                     _getDiscountLabel(v),
@@ -195,7 +217,9 @@ class VoucherTicketSection extends StatelessWidget {
                                   Text(
                                     _getCategoryLabel(category),
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.7,
+                                      ),
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -254,53 +278,84 @@ class VoucherTicketSection extends StatelessWidget {
                                 ),
                               const Spacer(),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   if (validUntil != null)
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.access_time, size: 10, color: AppColors.textHint.withValues(alpha: 0.7)),
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 10,
+                                          color: AppColors.textHint.withValues(
+                                            alpha: 0.7,
+                                          ),
+                                        ),
                                         const SizedBox(width: 3),
                                         Text(
                                           Formatters.date(validUntil),
                                           style: TextStyle(
                                             fontSize: 9,
-                                            color: AppColors.textHint.withValues(alpha: 0.8),
+                                            color: AppColors.textHint
+                                                .withValues(alpha: 0.8),
                                           ),
                                         ),
                                       ],
                                     ),
                                   GestureDetector(
                                     onTap: () {
-                                      Clipboard.setData(ClipboardData(text: code));
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      Clipboard.setData(
+                                        ClipboardData(text: code),
+                                      );
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content: Text('Đã sao chép mã $code!'),
+                                          content: Text(
+                                            'Đã sao chép mã $code!',
+                                          ),
                                           backgroundColor: AppColors.success,
                                           behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
                                           duration: const Duration(seconds: 2),
                                         ),
                                       );
                                     },
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: gradientColors[0].withValues(alpha: 0.08),
+                                        color: gradientColors[0].withValues(
+                                          alpha: 0.08,
+                                        ),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                          color: gradientColors[0].withValues(alpha: 0.2),
+                                          color: gradientColors[0].withValues(
+                                            alpha: 0.2,
+                                          ),
                                           width: 1,
                                         ),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.content_copy, size: 10, color: gradientColors[0]),
+                                          Icon(
+                                            Icons.content_copy,
+                                            size: 10,
+                                            color: gradientColors[0],
+                                          ),
                                           const SizedBox(width: 3),
                                           Text(
-                                            code.length > 8 ? '${code.substring(0, 8)}…' : code,
+                                            code.length > 8
+                                                ? '${code.substring(0, 8)}…'
+                                                : code,
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w700,

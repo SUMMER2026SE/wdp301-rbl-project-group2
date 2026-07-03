@@ -20,7 +20,8 @@ class MembershipModel {
       points: json['points'] as int? ?? 0,
       pointsToNextTier: json['pointsToNextTier'] as int? ?? 0,
       discountRate: (json['discountRate'] as num?)?.toDouble() ?? 0.0,
-      benefits: (json['benefits'] as List<dynamic>?)
+      benefits:
+          (json['benefits'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -28,10 +29,10 @@ class MembershipModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'tier': tier,
-        'points': points,
-        'pointsToNextTier': pointsToNextTier,
-        'discountRate': discountRate,
-        'benefits': benefits,
-      };
+    'tier': tier,
+    'points': points,
+    'pointsToNextTier': pointsToNextTier,
+    'discountRate': discountRate,
+    'benefits': benefits,
+  };
 }

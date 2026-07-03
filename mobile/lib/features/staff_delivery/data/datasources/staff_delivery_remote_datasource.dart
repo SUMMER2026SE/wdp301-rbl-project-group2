@@ -21,7 +21,8 @@ abstract class StaffDeliveryRemoteDataSource {
   });
 }
 
-class StaffDeliveryRemoteDataSourceImpl implements StaffDeliveryRemoteDataSource {
+class StaffDeliveryRemoteDataSourceImpl
+    implements StaffDeliveryRemoteDataSource {
   final ApiClient _apiClient;
 
   StaffDeliveryRemoteDataSourceImpl(this._apiClient);
@@ -35,24 +36,27 @@ class StaffDeliveryRemoteDataSourceImpl implements StaffDeliveryRemoteDataSource
       // First fetch all shipping orders
       final response = await _apiClient.dio.get(
         ApiEndpoints.staffOrders,
-        queryParameters: {
-          'storeId': storeId,
-          'status': 'shipping',
-        },
+        queryParameters: {'storeId': storeId, 'status': 'shipping'},
       );
 
       final data = response.data;
       if (data != null && data['data'] != null) {
         final list = data['data'] as List;
-        final orders = list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
+        final orders = list
+            .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
+            .toList();
         // Filter locally to only those assigned to this driver
-        return orders.where((o) => o.deliveryInfo?.driverId == driverId).toList();
+        return orders
+            .where((o) => o.deliveryInfo?.driverId == driverId)
+            .toList();
       }
       return [];
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải danh sách chuyến giao',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải danh sách chuyến giao',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -73,7 +77,9 @@ class StaffDeliveryRemoteDataSourceImpl implements StaffDeliveryRemoteDataSource
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể nhận chuyến giao hàng',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể nhận chuyến giao hàng',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -94,7 +100,9 @@ class StaffDeliveryRemoteDataSourceImpl implements StaffDeliveryRemoteDataSource
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể hoàn thành chuyến giao',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể hoàn thành chuyến giao',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {

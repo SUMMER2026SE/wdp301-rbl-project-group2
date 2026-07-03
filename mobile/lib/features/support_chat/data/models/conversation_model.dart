@@ -36,24 +36,24 @@ class ConversationModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'userId': userId,
-        'userName': userName,
-        'orderId': orderId,
-        'status': status,
-        'lastMessage': lastMessage,
-        'unreadCount': unreadCount,
-        'updatedAt': updatedAt,
-      };
+    '_id': id,
+    'userId': userId,
+    'userName': userName,
+    'orderId': orderId,
+    'status': status,
+    'lastMessage': lastMessage,
+    'unreadCount': unreadCount,
+    'updatedAt': updatedAt,
+  };
 
   ConversationEntity toEntity() => ConversationEntity(
-        id: id,
-        userId: userId,
-        userName: userName,
-        orderId: orderId,
-        status: status,
-        lastMessage: lastMessage,
-        unreadCount: unreadCount,
-        updatedAt: updatedAt,
-      );
+    id: id,
+    userId: userId,
+    userName: userName,
+    orderId: orderId,
+    status: status,
+    lastMessage: lastMessage,
+    unreadCount: unreadCount,
+    updatedAt: updatedAt,
+  );
 }

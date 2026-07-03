@@ -38,37 +38,39 @@ class UserEntity {
 
   /// Convert to a map compatible with [AuthAuthenticated] state.
   Map<String, dynamic> toMap() => {
-        '_id': id,
-        'username': username,
-        'fullName': fullName,
-        'email': email,
-        'phone': phone,
-        'avatar': avatar,
-        'role': role,
-        'isActive': isActive,
-        'verifiedAt': verifiedAt,
-        'storeId': storeId,
-        'collectedPoints': collectedPoints,
-        'addresses': addresses
-            .map((a) => {
-                  'label': a.label,
-                  'receiverName': a.receiverName,
-                  'phone': a.phone,
-                  'detail': a.detail,
-                  'ward': a.ward,
-                  'district': a.district,
-                  'city': a.city,
-                  'isDefault': a.isDefault,
-                })
-            .toList(),
-        'preferences': preferences != null
-            ? {
-                'dietary': preferences!.dietary,
-                'allergies': preferences!.allergies,
-                'healthGoals': preferences!.healthGoals,
-              }
-            : null,
-      };
+    '_id': id,
+    'username': username,
+    'fullName': fullName,
+    'email': email,
+    'phone': phone,
+    'avatar': avatar,
+    'role': role,
+    'isActive': isActive,
+    'verifiedAt': verifiedAt,
+    'storeId': storeId,
+    'collectedPoints': collectedPoints,
+    'addresses': addresses
+        .map(
+          (a) => {
+            'label': a.label,
+            'receiverName': a.receiverName,
+            'phone': a.phone,
+            'detail': a.detail,
+            'ward': a.ward,
+            'district': a.district,
+            'city': a.city,
+            'isDefault': a.isDefault,
+          },
+        )
+        .toList(),
+    'preferences': preferences != null
+        ? {
+            'dietary': preferences!.dietary,
+            'allergies': preferences!.allergies,
+            'healthGoals': preferences!.healthGoals,
+          }
+        : null,
+  };
 }
 
 class UserAddressEntity {

@@ -82,7 +82,12 @@ class StaffMenuLoaded extends StaffMenuState {
   }
 
   @override
-  List<Object?> get props => [products, categories, actioningProductId, message];
+  List<Object?> get props => [
+    products,
+    categories,
+    actioningProductId,
+    message,
+  ];
 }
 
 class StaffMenuError extends StaffMenuState {
@@ -104,10 +109,10 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
     required GetStoreProductsUseCase getStoreProductsUseCase,
     required GetCategoriesUseCase getCategoriesUseCase,
     required UpdateProductAvailabilityUseCase updateProductAvailabilityUseCase,
-  })  : _getStoreProductsUseCase = getStoreProductsUseCase,
-        _getCategoriesUseCase = getCategoriesUseCase,
-        _updateProductAvailabilityUseCase = updateProductAvailabilityUseCase,
-        super(const StaffMenuInitial()) {
+  }) : _getStoreProductsUseCase = getStoreProductsUseCase,
+       _getCategoriesUseCase = getCategoriesUseCase,
+       _updateProductAvailabilityUseCase = updateProductAvailabilityUseCase,
+       super(const StaffMenuInitial()) {
     on<FetchStaffMenuEvent>(_onFetchMenu);
     on<ToggleProductAvailabilityEvent>(_onToggleAvailability);
   }
@@ -126,18 +131,21 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
     );
     final categoriesResult = await _getCategoriesUseCase();
 
-    productsResult.fold(
-      (failure) => emit(StaffMenuError(failure.message)),
-      (products) {
-        categoriesResult.fold(
-          (failure) => emit(StaffMenuLoaded(products: products, categories: const ['Tất cả'])),
-          (categories) => emit(StaffMenuLoaded(
+    productsResult.fold((failure) => emit(StaffMenuError(failure.message)), (
+      products,
+    ) {
+      categoriesResult.fold(
+        (failure) => emit(
+          StaffMenuLoaded(products: products, categories: const ['Tất cả']),
+        ),
+        (categories) => emit(
+          StaffMenuLoaded(
             products: products,
             categories: ['Tất cả', ...categories],
-          )),
-        );
-      },
-    );
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _onToggleAvailability(
@@ -162,12 +170,16 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
           return p.id == updatedProduct.id ? updatedProduct : p;
         }).toList();
 
-        final statusMsg = event.isAvailable ? 'Mở bán món ăn thành công!' : 'Tạm ngưng bán món ăn.';
-        emit(StaffMenuLoaded(
-          products: updatedProducts,
-          categories: currentState.categories,
-          message: statusMsg,
-        ));
+        final statusMsg = event.isAvailable
+            ? 'Mở bán món ăn thành công!'
+            : 'Tạm ngưng bán món ăn.';
+        emit(
+          StaffMenuLoaded(
+            products: updatedProducts,
+            categories: currentState.categories,
+            message: statusMsg,
+          ),
+        );
       },
     );
   }

@@ -4,9 +4,5 @@ class CategoryEntity {
   final String name;
   final String? imageUrl;
 
-  const CategoryEntity({
-    required this.id,
-    required this.name,
-    this.imageUrl,
-  });
+  const CategoryEntity({required this.id, required this.name, this.imageUrl});
 }

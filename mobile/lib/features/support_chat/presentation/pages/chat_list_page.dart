@@ -36,13 +36,17 @@ class _Conversation {
     final rawStatus = json['status'] as String? ?? 'open';
     return _Conversation(
       id: (json['_id'] ?? json['id']) as String? ?? '',
-      topic: (json['topic'] ?? json['subject']) as String? ?? (
-        json['orderCode'] != null ? 'Hỗ trợ đơn #${json['orderCode']}' : 'Hỗ trợ'
-      ),
+      topic:
+          (json['topic'] ?? json['subject']) as String? ??
+          (json['orderCode'] != null
+              ? 'Hỗ trợ đơn #${json['orderCode']}'
+              : 'Hỗ trợ'),
       orderCode: json['orderCode'] as String?,
       orderId: json['orderId'] as String?,
-      lastMessage: lastMsg?['content'] as String? ?? lastMsg?['text'] as String? ?? '',
-      lastMessageTime: lastMsg?['createdAt'] as String? ?? json['updatedAt'] as String?,
+      lastMessage:
+          lastMsg?['content'] as String? ?? lastMsg?['text'] as String? ?? '',
+      lastMessageTime:
+          lastMsg?['createdAt'] as String? ?? json['updatedAt'] as String?,
       status: rawStatus == 'open' ? 'active' : rawStatus,
       unreadCount: json['unreadCount'] as int? ?? 0,
     );
@@ -82,16 +86,16 @@ class _ChatListPageState extends State<ChatListPage> {
     setState(() => _isDirectOpening = true);
     try {
       // Try to find existing conversation first
-      final existingResponse = await _dio.get(ApiEndpoints.supportConversations);
-      final body = existingResponse.data as Map<String, dynamic>;
-      final existingList = (body['conversations'] ?? body['data'] ?? []) as List<dynamic>;
-      final existing = existingList.firstWhere(
-        (c) {
-          final m = c as Map<String, dynamic>;
-          return (m['orderId'] ?? m['orderCode'])?.toString() == orderId;
-        },
-        orElse: () => null as Map<String, dynamic>?,
+      final existingResponse = await _dio.get(
+        ApiEndpoints.supportConversations,
       );
+      final body = existingResponse.data as Map<String, dynamic>;
+      final existingList =
+          (body['conversations'] ?? body['data'] ?? []) as List<dynamic>;
+      final existing = existingList.firstWhere((c) {
+        final m = c as Map<String, dynamic>;
+        return (m['orderId'] ?? m['orderCode'])?.toString() == orderId;
+      }, orElse: () => null as Map<String, dynamic>?);
       if (existing != null && mounted) {
         final convId = (existing['id'] ?? existing['_id']) as String? ?? '';
         if (convId.isNotEmpty) {
@@ -101,8 +105,12 @@ class _ChatListPageState extends State<ChatListPage> {
       }
 
       // No existing conversation — create one
-      final createResponse = await _dio.post(ApiEndpoints.supportConversations, data: {'orderId': orderId});
-      final conversation = ((createResponse.data as Map?) ?? {})['conversation'] as Map?;
+      final createResponse = await _dio.post(
+        ApiEndpoints.supportConversations,
+        data: {'orderId': orderId},
+      );
+      final conversation =
+          ((createResponse.data as Map?) ?? {})['conversation'] as Map?;
       final convId = (conversation?['id'] ?? conversation?['_id']) as String?;
       if (convId != null && convId.isNotEmpty && mounted) {
         context.pushReplacement('/chat/$convId', extra: 'Hỗ trợ đơn hàng');
@@ -111,7 +119,10 @@ class _ChatListPageState extends State<ChatListPage> {
       if (mounted) {
         setState(() => _isDirectOpening = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể mở hội thoại hỗ trợ'), behavior: SnackBarBehavior.floating),
+          const SnackBar(
+            content: Text('Không thể mở hội thoại hỗ trợ'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
         // Fall back to showing empty list (fire-and-forget)
         unawaited(_loadConversations());
@@ -133,7 +144,8 @@ class _ChatListPageState extends State<ChatListPage> {
     try {
       final response = await _dio.get(ApiEndpoints.supportConversations);
       final body = response.data as Map<String, dynamic>;
-      final data = (body['conversations'] ?? body['data'] ?? []) as List<dynamic>;
+      final data =
+          (body['conversations'] ?? body['data'] ?? []) as List<dynamic>;
 
       setState(() {
         _conversations = data
@@ -180,10 +192,10 @@ class _ChatListPageState extends State<ChatListPage> {
           : _isLoading
           ? _buildShimmer()
           : _error != null
-              ? AppErrorWidget(message: _error!, onRetry: _loadConversations)
-              : _conversations.isEmpty
-                  ? _buildEmpty()
-                  : _buildList(),
+          ? AppErrorWidget(message: _error!, onRetry: _loadConversations)
+          : _conversations.isEmpty
+          ? _buildEmpty()
+          : _buildList(),
     );
   }
 
@@ -213,15 +225,19 @@ class _ChatListPageState extends State<ChatListPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline_rounded,
-                size: 80, color: Colors.grey[300]),
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 80,
+              color: Colors.grey[300],
+            ),
             const SizedBox(height: 16),
             const Text(
               'Bạn chưa có hội thoại hỗ trợ nào',
               style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -237,10 +253,12 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Widget _buildList() {
-    final activeConvs =
-        _conversations.where((c) => c.status == 'active').toList();
-    final closedConvs =
-        _conversations.where((c) => c.status == 'closed').toList();
+    final activeConvs = _conversations
+        .where((c) => c.status == 'active')
+        .toList();
+    final closedConvs = _conversations
+        .where((c) => c.status == 'closed')
+        .toList();
 
     return RefreshIndicator(
       onRefresh: _loadConversations,
@@ -250,11 +268,14 @@ class _ChatListPageState extends State<ChatListPage> {
           if (activeConvs.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.only(bottom: 8, left: 4),
-              child: Text('Đang hoạt động',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary)),
+              child: Text(
+                'Đang hoạt động',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
             ...activeConvs.map((c) => _buildConversationItem(c)),
             if (closedConvs.isNotEmpty) const SizedBox(height: 16),
@@ -262,11 +283,14 @@ class _ChatListPageState extends State<ChatListPage> {
           if (closedConvs.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.only(bottom: 8, left: 4),
-              child: Text('Đã đóng',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary)),
+              child: Text(
+                'Đã đóng',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
             ...closedConvs.map((c) => _buildConversationItem(c)),
           ],
@@ -277,8 +301,9 @@ class _ChatListPageState extends State<ChatListPage> {
 
   Widget _buildConversationItem(_Conversation conv) {
     final lastTime = conv.lastMessageTime != null
-        ? Formatters.timeAgo(DateTime.tryParse(conv.lastMessageTime!) ??
-            DateTime.now())
+        ? Formatters.timeAgo(
+            DateTime.tryParse(conv.lastMessageTime!) ?? DateTime.now(),
+          )
         : '';
 
     return Padding(
@@ -345,7 +370,9 @@ class _ChatListPageState extends State<ChatListPage> {
                           if (conv.unreadCount > 0)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(10),

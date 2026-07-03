@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -98,7 +98,7 @@ const OrderDetailPage = () => {
     }
   };
 
-  const fetchOrderDetail = async (showLoading = true) => {
+  const fetchOrderDetail = useCallback(async (showLoading = true) => {
     if (!id) return;
     try {
       if (showLoading) setLoading(true);
@@ -114,11 +114,11 @@ const OrderDetailPage = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchOrderDetail(true);
-  }, [id]);
+  }, [fetchOrderDetail]);
 
   useEffect(() => {
     const socket = getSupportSocket();
@@ -134,7 +134,7 @@ const OrderDetailPage = () => {
     return () => {
       socket.off("order:status_updated", handleStatusUpdated);
     };
-  }, [id]);
+  }, [id, fetchOrderDetail]);
 
   const getImageUrl = (image: any) => {
     if (!image) return "";

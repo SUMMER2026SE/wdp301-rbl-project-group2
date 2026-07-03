@@ -52,10 +52,7 @@ class AuthVerifyEmailRequested extends AuthEvent {
   final String email;
   final String code;
 
-  const AuthVerifyEmailRequested({
-    required this.email,
-    required this.code,
-  });
+  const AuthVerifyEmailRequested({required this.email, required this.code});
 
   @override
   List<Object?> get props => [email, code];
@@ -225,8 +222,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthState? _lastStableState;
 
   AuthBloc({required AuthRepository authRepository})
-      : _authRepository = authRepository,
-        super(const AuthInitial()) {
+    : _authRepository = authRepository,
+      super(const AuthInitial()) {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthRegisterRequested>(_onRegisterRequested);
@@ -263,15 +260,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(const AuthUnauthenticated());
         },
         (user) async {
-          await TokenStorage.saveUserMeta(
-            userId: user.id,
-            role: user.role,
-          );
+          await TokenStorage.saveUserMeta(userId: user.id, role: user.role);
           final token = await TokenStorage.getAccessToken();
           if (token != null) {
             SocketService().connect(token);
           }
-          _lastStableState = AuthAuthenticated(user: user.toMap(), role: user.role);
+          _lastStableState = AuthAuthenticated(
+            user: user.toMap(),
+            role: user.role,
+          );
           emit(_lastStableState!);
         },
       );
@@ -292,13 +289,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       password: event.password,
     );
 
-    result.fold(
-      (failure) => emit(AuthError(failure.message)),
-      (user) {
-        _lastStableState = AuthAuthenticated(user: user.toMap(), role: user.role);
-        emit(_lastStableState!);
-      },
-    );
+    result.fold((failure) => emit(AuthError(failure.message)), (user) {
+      _lastStableState = AuthAuthenticated(user: user.toMap(), role: user.role);
+      emit(_lastStableState!);
+    });
   }
 
   Future<void> _onRegisterRequested(
@@ -330,9 +324,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     result.fold(
       (failure) => emit(AuthError(failure.message)),
-      (_) => emit(const AuthSuccessMessage(
-        'Xác thực email thành công! Bạn có thể đăng nhập ngay.',
-      )),
+      (_) => emit(
+        const AuthSuccessMessage(
+          'Xác thực email thành công! Bạn có thể đăng nhập ngay.',
+        ),
+      ),
     );
   }
 
@@ -358,10 +354,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     result.fold(
       (failure) => emit(AuthError(failure.message)),
-      (_) => emit(AuthSuccessMessage(
-        'Mã OTP đã được gửi đến email của bạn.',
-        email: event.email,
-      )),
+      (_) => emit(
+        AuthSuccessMessage(
+          'Mã OTP đã được gửi đến email của bạn.',
+          email: event.email,
+        ),
+      ),
     );
   }
 
@@ -405,13 +403,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     final result = await _authRepository.loginWithGoogle(event.credential);
 
-    result.fold(
-      (failure) => emit(AuthError(failure.message)),
-      (user) {
-        _lastStableState = AuthAuthenticated(user: user.toMap(), role: user.role);
-        emit(_lastStableState!);
-      },
-    );
+    result.fold((failure) => emit(AuthError(failure.message)), (user) {
+      _lastStableState = AuthAuthenticated(user: user.toMap(), role: user.role);
+      emit(_lastStableState!);
+    });
   }
 
   Future<void> _onLogoutRequested(
@@ -423,10 +418,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthUnauthenticated());
   }
 
-  void _onUserUpdated(
-    AuthUserUpdated event,
-    Emitter<AuthState> emit,
-  ) {
+  void _onUserUpdated(AuthUserUpdated event, Emitter<AuthState> emit) {
     final currentState = state;
     if (currentState is AuthAuthenticated) {
       final updated = {...currentState.user, ...event.userData};
@@ -434,10 +426,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  void _onClearMessage(
-    AuthClearMessage event,
-    Emitter<AuthState> emit,
-  ) {
+  void _onClearMessage(AuthClearMessage event, Emitter<AuthState> emit) {
     final currentState = state;
     if (currentState is AuthSuccessMessage || currentState is AuthError) {
       emit(_lastStableState ?? const AuthUnauthenticated());

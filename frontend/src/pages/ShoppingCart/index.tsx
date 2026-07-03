@@ -2,7 +2,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useSafeCart } from "@/hooks/useSafeCart";
 import { useAuth } from "@/hooks/useAuth";
-import { MOCK_UPSELL_ITEMS } from "@/constants/mockOrders";
 import { useEffect } from "react";
 import { itemKey, useCartStore } from "@/store/cartStore";
 import { buildVariantChips } from "@/utils/cartVariants";
@@ -19,7 +18,7 @@ const ShoppingCartPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
   const { toast } = useToast();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   // ─── Real state from Zustand Store ───
 
   const {
@@ -116,10 +115,7 @@ const ShoppingCartPage = () => {
       }
     };
     syncPrices();
-  }, [cartItems.length]);
-
-  // Mock upsell items (vẫn giữ để UI đẹp)
-  const upsellItems = MOCK_UPSELL_ITEMS;
+  }, [cartItems]);
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-text-main dark:text-background-light font-display min-h-screen">

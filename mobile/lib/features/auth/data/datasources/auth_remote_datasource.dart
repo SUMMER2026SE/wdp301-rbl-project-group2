@@ -57,7 +57,10 @@ class AuthRemoteDataSource {
     required String email,
     required String code,
   }) async {
-    await _dio.post(ApiEndpoints.verifyEmail, data: {'email': email, 'code': code});
+    await _dio.post(
+      ApiEndpoints.verifyEmail,
+      data: {'email': email, 'code': code},
+    );
   }
 
   /// Resend verification email.
@@ -75,7 +78,10 @@ class AuthRemoteDataSource {
     required String email,
     required String code,
   }) async {
-    await _dio.post(ApiEndpoints.verifyPasswordOtp, data: {'email': email, 'code': code});
+    await _dio.post(
+      ApiEndpoints.verifyPasswordOtp,
+      data: {'email': email, 'code': code},
+    );
   }
 
   /// Reset password.
@@ -86,7 +92,12 @@ class AuthRemoteDataSource {
   }) async {
     await _dio.post(
       ApiEndpoints.resetPassword,
-      data: {'email': email, 'code': code, 'password': password, 'confirmPassword': password},
+      data: {
+        'email': email,
+        'code': code,
+        'password': password,
+        'confirmPassword': password,
+      },
     );
   }
 

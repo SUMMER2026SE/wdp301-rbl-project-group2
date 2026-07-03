@@ -34,7 +34,11 @@ class ReviewHighlightsSection extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Không thể tải đánh giá',
-                  style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               TextButton(
@@ -68,12 +72,20 @@ class ReviewHighlightsSection extends StatelessWidget {
                   color: Colors.amber.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.star_rate_rounded, color: Colors.amber, size: 18),
+                child: const Icon(
+                  Icons.star_rate_rounded,
+                  color: Colors.amber,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
                 'Đánh giá nổi bật',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -88,16 +100,27 @@ class ReviewHighlightsSection extends StatelessWidget {
               final review = reviews[index];
               final rating = (review['rating'] as num?)?.toInt() ?? 5;
               final comment = review['comment'] as String? ?? '';
-              final createdAt = DateTime.tryParse(review['createdAt'] as String? ?? '');
+              final createdAt = DateTime.tryParse(
+                review['createdAt'] as String? ?? '',
+              );
 
               // Backend populates userId -> { username, avatar }
-              final user = (review['userId'] ?? review['user']) as Map<String, dynamic>?;
-              final userName = user?['username'] as String? ?? user?['name'] as String? ?? 'Khách hàng';
+              final user =
+                  (review['userId'] ?? review['user']) as Map<String, dynamic>?;
+              final userName =
+                  user?['username'] as String? ??
+                  user?['name'] as String? ??
+                  'Khách hàng';
               final userAvatar = user?['avatar'] as String?;
 
               // Backend populates productId -> { name, image }
-              final product = (review['productId'] ?? review['product']) as Map<String, dynamic>?;
-              final productName = product?['name'] as String? ?? review['productName'] as String? ?? '';
+              final product =
+                  (review['productId'] ?? review['product'])
+                      as Map<String, dynamic>?;
+              final productName =
+                  product?['name'] as String? ??
+                  review['productName'] as String? ??
+                  '';
               final productImage = product?['image'] as String? ?? '';
 
               return Container(
@@ -106,7 +129,9 @@ class ReviewHighlightsSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.divider.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: AppColors.divider.withValues(alpha: 0.4),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
@@ -123,8 +148,12 @@ class ReviewHighlightsSection extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                          color: AppColors.surfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(15),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -136,10 +165,12 @@ class ReviewHighlightsSection extends StatelessWidget {
                                   width: 28,
                                   height: 28,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, _, _) => const SizedBox(width: 28, height: 28),
+                                  errorWidget: (_, _, _) =>
+                                      const SizedBox(width: 28, height: 28),
                                 ),
                               ),
-                            if (productImage.isNotEmpty) const SizedBox(width: 8),
+                            if (productImage.isNotEmpty)
+                              const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 productName,
@@ -159,7 +190,12 @@ class ReviewHighlightsSection extends StatelessWidget {
                     // Comment body
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(12, productName.isNotEmpty ? 8 : 12, 12, 0),
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          productName.isNotEmpty ? 8 : 12,
+                          12,
+                          0,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -170,7 +206,9 @@ class ReviewHighlightsSection extends StatelessWidget {
                                 Icon(
                                   Icons.format_quote_rounded,
                                   size: 18,
-                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
@@ -201,7 +239,9 @@ class ReviewHighlightsSection extends StatelessWidget {
                           // Avatar
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.1,
+                            ),
                             child: userAvatar != null && userAvatar.isNotEmpty
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(14),
@@ -210,11 +250,17 @@ class ReviewHighlightsSection extends StatelessWidget {
                                       width: 28,
                                       height: 28,
                                       fit: BoxFit.cover,
-                                      errorWidget: (_, _, _) => const Icon(Icons.person, size: 14, color: AppColors.primary),
+                                      errorWidget: (_, _, _) => const Icon(
+                                        Icons.person,
+                                        size: 14,
+                                        color: AppColors.primary,
+                                      ),
                                     ),
                                   )
                                 : Text(
-                                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                    userName.isNotEmpty
+                                        ? userName[0].toUpperCase()
+                                        : '?',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -255,9 +301,15 @@ class ReviewHighlightsSection extends StatelessWidget {
                               return Padding(
                                 padding: const EdgeInsets.only(left: 1),
                                 child: Icon(
-                                  i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                                  i < rating
+                                      ? Icons.star_rounded
+                                      : Icons.star_outline_rounded,
                                   size: 14,
-                                  color: i < rating ? Colors.amber : AppColors.textHint.withValues(alpha: 0.4),
+                                  color: i < rating
+                                      ? Colors.amber
+                                      : AppColors.textHint.withValues(
+                                          alpha: 0.4,
+                                        ),
                                 ),
                               );
                             }),

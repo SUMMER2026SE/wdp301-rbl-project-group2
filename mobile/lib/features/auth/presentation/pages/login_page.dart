@@ -32,11 +32,11 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
 
     context.read<AuthBloc>().add(
-          AuthLoginRequested(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          ),
-        );
+      AuthLoginRequested(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
   }
 
   Future<void> _onGoogleLogin() async {
@@ -53,7 +53,9 @@ class _LoginPageState extends State<LoginPage> {
           content: Text('Xác thực Google thất bại: ${e.toString()}'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -78,7 +80,10 @@ class _LoginPageState extends State<LoginPage> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -184,7 +189,11 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
@@ -240,9 +249,11 @@ class _LoginPageState extends State<LoginPage> {
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                  onPressed: () => context.push('/forgot-password'),
+                                  onPressed: () =>
+                                      context.push('/forgot-password'),
                                   child: const Text('Quên mật khẩu?'),
                                 ),
                               ],
@@ -262,8 +273,9 @@ class _LoginPageState extends State<LoginPage> {
                                         ? Icons.visibility_off_outlined
                                         : Icons.visibility_outlined,
                                   ),
-                                  onPressed: () =>
-                                      setState(() => _obscurePassword = !_obscurePassword),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                                 ),
                               ),
                               validator: Validators.password,
@@ -297,7 +309,10 @@ class _LoginPageState extends State<LoginPage> {
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               'Hoặc đăng nhập với',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           Expanded(child: Divider(color: AppColors.divider)),
@@ -319,7 +334,8 @@ class _LoginPageState extends State<LoginPage> {
                             Image.asset(
                               'assets/images/google_logo.png',
                               height: 18,
-                              errorBuilder: (_, _, _) => const Icon(Icons.g_mobiledata, size: 24),
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.g_mobiledata, size: 24),
                             ),
                             const SizedBox(width: 10),
                             const Text(
@@ -337,7 +353,10 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           const Text(
                             'Chưa có tài khoản?',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
                           ),
                           TextButton(
                             onPressed: () => context.push('/register'),

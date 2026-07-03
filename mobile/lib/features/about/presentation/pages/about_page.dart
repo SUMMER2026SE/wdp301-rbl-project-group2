@@ -8,9 +8,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Về chúng tôi'),
-      ),
+      appBar: AppBar(title: const Text('Về chúng tôi')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -24,8 +22,11 @@ class AboutPage extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.restaurant_menu,
-                  color: Colors.white, size: 44),
+              child: const Icon(
+                Icons.restaurant_menu,
+                color: Colors.white,
+                size: 44,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -39,19 +40,13 @@ class AboutPage extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'v1.0.0',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
             Text(
               'Food Ordering App - Đặt ăn trực tuyến',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 32),
 
@@ -79,7 +74,10 @@ class AboutPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 _buildContactRow(Icons.phone_outlined, '1900 1234'),
                 const SizedBox(height: 8),
-                _buildContactRow(Icons.location_on_outlined, 'Hồ Chí Minh, Việt Nam'),
+                _buildContactRow(
+                  Icons.location_on_outlined,
+                  'Hồ Chí Minh, Việt Nam',
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -105,10 +103,7 @@ class AboutPage extends StatelessWidget {
             // ── Footer ──
             Text(
               '© 2026 FOA. All rights reserved.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textHint,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textHint),
             ),
             const SizedBox(height: 16),
           ],
@@ -178,10 +173,7 @@ class AboutPage extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           text,
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
       ],
     );

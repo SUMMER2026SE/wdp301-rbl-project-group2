@@ -72,10 +72,7 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
     try {
       await ApiClient().dio.put(
         ApiEndpoints.supportSettings,
-        data: {
-          'autoReply': _autoReply,
-          'greetingMessage': _greetingMsg,
-        },
+        data: {'autoReply': _autoReply, 'greetingMessage': _greetingMsg},
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +100,6 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final auth = context.watch<AuthBloc>().state;
     final name = auth is AuthAuthenticated
         ? (auth.user['fullName'] as String? ?? auth.username)
@@ -113,7 +109,10 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('C\xE0i đặt', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'C\xE0i đặt',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
@@ -123,7 +122,9 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
           children: [
             // Staff Info Card
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -145,25 +146,39 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text(email,
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary, fontSize: 13)),
+                          Text(
+                            email,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text('Nh\xE2n vi\xEAn',
-                                style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
+                            child: const Text(
+                              'Nh\xE2n vi\xEAn',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -176,9 +191,14 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
 
             // Online/Offline Toggle
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -190,13 +210,17 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Trạng th\xE1i hỗ trợ',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          const Text(
+                            'Trạng th\xE1i hỗ trợ',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                           Text(
                             _isOnline ? 'Đang trực tuyến' : 'Đang ngoại tuyến',
                             style: TextStyle(
                               fontSize: 12,
-                              color: _isOnline ? AppColors.success : AppColors.textSecondary,
+                              color: _isOnline
+                                  ? AppColors.success
+                                  : AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -205,7 +229,7 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                     Switch(
                       value: _isOnline,
                       onChanged: _loadingSettings ? null : _toggleOnline,
-                      activeColor: AppColors.success,
+                      activeThumbColor: AppColors.success,
                     ),
                   ],
                 ),
@@ -215,7 +239,9 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
 
             // Support Settings
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -223,33 +249,53 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.settings_outlined, color: AppColors.primary, size: 20),
+                        Icon(
+                          Icons.settings_outlined,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
-                        Text('C\xE0i đặt hỗ trợ',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        Text(
+                          'C\xE0i đặt hỗ trợ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Tự động trả lời',
-                          style: TextStyle(fontSize: 14)),
-                      subtitle: const Text('Gửi tin nhắn chào mừng khi kh\xE1ch bắt đầu hỗ trợ',
-                          style: TextStyle(fontSize: 12)),
+                      title: const Text(
+                        'Tự động trả lời',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Gửi tin nhắn chào mừng khi kh\xE1ch bắt đầu hỗ trợ',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       value: _autoReply,
                       onChanged: _loadingSettings
                           ? null
                           : (val) => setState(() => _autoReply = val),
-                      activeColor: AppColors.primary,
+                      activeThumbColor: AppColors.primary,
                     ),
                     const Divider(),
                     const SizedBox(height: 8),
-                    const Text('Lời ch\xE0o tự động',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Text(
+                      'Lời ch\xE0o tự động',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: TextEditingController(text: _greetingMsg)
-                        ..selection = TextSelection.collapsed(offset: _greetingMsg.length),
+                        ..selection = TextSelection.collapsed(
+                          offset: _greetingMsg.length,
+                        ),
                       onChanged: (val) => _greetingMsg = val,
                       decoration: InputDecoration(
                         hintText: 'Nhập lời ch\xE0o...',
@@ -266,12 +312,17 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _loadingSettings || _saving ? null : _saveSettings,
+                        onPressed: _loadingSettings || _saving
+                            ? null
+                            : _saveSettings,
                         child: _saving
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : const Text('Lưu c\xE0i đặt'),
                       ),
@@ -287,7 +338,8 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () => context.read<AuthBloc>().add(const AuthLogoutRequested()),
+                onPressed: () =>
+                    context.read<AuthBloc>().add(const AuthLogoutRequested()),
                 icon: const Icon(Icons.logout_rounded, size: 20),
                 label: const Text('Đăng xuất'),
                 style: ElevatedButton.styleFrom(
@@ -297,8 +349,10 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle:
-                      const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

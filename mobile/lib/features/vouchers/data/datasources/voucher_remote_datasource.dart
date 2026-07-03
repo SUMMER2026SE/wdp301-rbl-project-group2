@@ -34,12 +34,9 @@ class VoucherRemoteDataSource {
     return data['data'] as Map<String, dynamic>;
   }
 
-  /// Redeem voucher by code.
-  Future<Map<String, dynamic>> redeemVoucher(String code) async {
-    final response = await _dio.post(
-      ApiEndpoints.voucherRedeem,
-      data: {'code': code},
-    );
+  /// Redeem reward voucher by id.
+  Future<Map<String, dynamic>> redeemVoucher(String id) async {
+    final response = await _dio.post(ApiEndpoints.voucherRedeem(id));
     final data = response.data as Map<String, dynamic>;
     return data['data'] as Map<String, dynamic>;
   }
@@ -51,7 +48,7 @@ class VoucherRemoteDataSource {
   }) async {
     final response = await _dio.post(
       ApiEndpoints.voucherValidate,
-      data: {'code': code, 'orderTotal': orderTotal},
+      data: {'code': code, 'orderAmount': orderTotal},
     );
     final data = response.data as Map<String, dynamic>;
     return data['data'] as Map<String, dynamic>;

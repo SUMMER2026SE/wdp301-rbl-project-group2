@@ -57,7 +57,9 @@ class _StaffDeliveryPageState extends State<StaffDeliveryPage> {
         final list = (data['data'] as List)
             .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
             .toList();
-        final driverOrders = list.where((o) => o.deliveryInfo?.driverId == auth.userId).toList();
+        final driverOrders = list
+            .where((o) => o.deliveryInfo?.driverId == auth.userId)
+            .toList();
         if (mounted) {
           setState(() {
             _orders = driverOrders;
@@ -115,10 +117,7 @@ class _StaffDeliveryPageState extends State<StaffDeliveryPage> {
       appBar: AppBar(
         title: const Text('Giao h\xE0ng'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetch,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetch),
         ],
       ),
       body: _buildBody(),
@@ -158,7 +157,8 @@ class _StaffDeliveryPageState extends State<StaffDeliveryPage> {
             EmptyStateWidget(
               icon: Icons.delivery_dining_outlined,
               title: 'Không có đơn giao hàng',
-              subtitle: 'Bạn chưa nhận chuyến giao hàng nào. Hãy nhận đơn từ trang Đơn hàng!',
+              subtitle:
+                  'Bạn chưa nhận chuyến giao hàng nào. Hãy nhận đơn từ trang Đơn hàng!',
             ),
           ],
         ),
@@ -221,7 +221,9 @@ class _DeliveryCardState extends State<_DeliveryCard> {
 
   Future<void> _openMap(String address) async {
     final query = Uri.encodeComponent(address);
-    final googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    final googleMapsUrl = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
     final appleMapsUrl = Uri.parse('maps://?q=$query');
 
     if (await canLaunchUrl(googleMapsUrl)) {
@@ -249,9 +251,13 @@ class _DeliveryCardState extends State<_DeliveryCard> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final name = order.customer?.fullName ?? order.customer?.username ?? 'Khách vãng lai';
+    final name =
+        order.customer?.fullName ??
+        order.customer?.username ??
+        'Khách vãng lai';
     final phone = order.customer?.phone ?? order.deliveryAddress.phone;
-    final address = '${order.deliveryAddress.detail}, ${order.deliveryAddress.ward}, ${order.deliveryAddress.city}';
+    final address =
+        '${order.deliveryAddress.detail}, ${order.deliveryAddress.ward}, ${order.deliveryAddress.city}';
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -277,10 +283,7 @@ class _DeliveryCardState extends State<_DeliveryCard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Left status colored strip
-              Container(
-                width: 6,
-                color: _statusColor(order.status),
-              ),
+              Container(width: 6, color: _statusColor(order.status)),
               // Content
               Expanded(
                 child: Padding(
@@ -309,7 +312,11 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                           ),
                           Row(
                             children: [
-                              const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                              const Icon(
+                                Icons.access_time_rounded,
+                                size: 14,
+                                color: AppColors.textSecondary,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 Formatters.timeAgo(order.createdAt),
@@ -330,7 +337,9 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.1,
+                            ),
                             child: Text(
                               name.isNotEmpty ? name[0].toUpperCase() : '?',
                               style: const TextStyle(
@@ -363,7 +372,11 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.phone_in_talk_rounded, size: 12, color: Colors.green),
+                                        const Icon(
+                                          Icons.phone_in_talk_rounded,
+                                          size: 12,
+                                          color: Colors.green,
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           phone,
@@ -393,14 +406,22 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                         child: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                            color: AppColors.surfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.divider.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: AppColors.divider.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.map_rounded, color: AppColors.textSecondary, size: 16),
+                              const Icon(
+                                Icons.map_rounded,
+                                color: AppColors.textSecondary,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -428,7 +449,11 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                                           ),
                                         ),
                                         SizedBox(width: 4),
-                                        Icon(Icons.navigation_outlined, size: 10, color: Colors.blue),
+                                        Icon(
+                                          Icons.navigation_outlined,
+                                          size: 10,
+                                          color: Colors.blue,
+                                        ),
                                       ],
                                     ),
                                   ],
@@ -597,7 +622,10 @@ class _DeliveryCardState extends State<_DeliveryCard> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),

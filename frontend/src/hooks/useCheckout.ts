@@ -87,7 +87,10 @@ export const useCheckout = () => {
 
   const buyNowItem = location.state?.buyNowItem as CartItem | undefined;
 
-  const cartItems = buyNowItem ? [buyNowItem] : storeCartItems;
+  const cartItems = useMemo(
+    () => (buyNowItem ? [buyNowItem] : storeCartItems),
+    [buyNowItem, storeCartItems],
+  );
   const totalPrice = buyNowItem
     ? (buyNowItem.price +
         (buyNowItem.extras?.reduce(

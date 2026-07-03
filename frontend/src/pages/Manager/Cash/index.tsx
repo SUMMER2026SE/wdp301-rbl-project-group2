@@ -9,10 +9,6 @@ import {
   Calendar,
   DollarSign,
   Check,
-  ChevronRight,
-  Info,
-  X,
-  Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import managerDashboardService, {
@@ -49,7 +45,7 @@ const ManagerCash = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const pendingOrders = cash?.pending.orders ?? [];
+  const pendingOrders = useMemo(() => cash?.pending.orders ?? [], [cash]);
   const selectedTotal = useMemo(
     () =>
       pendingOrders
@@ -127,13 +123,6 @@ const ManagerCash = () => {
     const daily = cash?.dailyTotals ?? [];
     if (daily.length === 0) return 1;
     return Math.max(...daily.map((d) => d.total), 1);
-  }, [cash]);
-
-  // Find max driver amount for relative bar calculations
-  const maxDriverAmount = useMemo(() => {
-    const drivers = cash?.byDriver ?? [];
-    if (drivers.length === 0) return 1;
-    return Math.max(...drivers.map((d) => d.pendingTotal + d.collectedTotal), 1);
   }, [cash]);
 
   return (
@@ -452,7 +441,7 @@ const SummaryCard = ({
   value,
   desc,
   icon,
-  loading,
+  loading: _loading,
   iconColor = "orange",
 }: {
   title: string;

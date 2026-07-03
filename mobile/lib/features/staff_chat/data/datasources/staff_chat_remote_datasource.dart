@@ -7,9 +7,7 @@ import 'package:foa_mobile/core/error/exceptions.dart';
 import 'package:http_parser/http_parser.dart';
 
 abstract class StaffChatRemoteDataSource {
-  Future<List<ConversationModel>> getConversations({
-    required String storeId,
-  });
+  Future<List<ConversationModel>> getConversations({required String storeId});
 
   Future<List<ChatMessageModel>> getConversationMessages({
     required String conversationId,
@@ -23,9 +21,7 @@ abstract class StaffChatRemoteDataSource {
 
   Future<String> uploadChatImage(File imageFile);
 
-  Future<void> closeConversation({
-    required String conversationId,
-  });
+  Future<void> closeConversation({required String conversationId});
 }
 
 class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
@@ -47,14 +43,18 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
       if (data != null) {
         final rawList = data['conversations'] ?? data['data'];
         if (rawList is List) {
-          return rawList.map((e) => ConversationModel.fromJson(e as Map<String, dynamic>)).toList();
+          return rawList
+              .map((e) => ConversationModel.fromJson(e as Map<String, dynamic>))
+              .toList();
         }
       }
       return [];
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải danh sách hội thoại',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải danh sách hội thoại',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -75,14 +75,18 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
       if (data != null) {
         final rawList = data['messages'] ?? data['data'];
         if (rawList is List) {
-          return rawList.map((e) => ChatMessageModel.fromJson(e as Map<String, dynamic>)).toList();
+          return rawList
+              .map((e) => ChatMessageModel.fromJson(e as Map<String, dynamic>))
+              .toList();
         }
       }
       return [];
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải lịch sử tin nhắn',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải lịch sử tin nhắn',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -99,10 +103,7 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
     try {
       final response = await _apiClient.dio.post(
         ApiEndpoints.supportMessages(conversationId),
-        data: {
-          'content': content,
-          if (imageUrl != null) 'imageUrl': imageUrl,
-        },
+        data: {'content': content, 'imageUrl': ?imageUrl},
       );
 
       final data = response.data;
@@ -116,7 +117,8 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể gửi tin nhắn',
+        message:
+            e.response?.data?['message'] as String? ?? 'Không thể gửi tin nhắn',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -145,7 +147,7 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
     try {
       final extension = imageFile.path.split('.').last.toLowerCase();
       final mimeType = _mimeFromExtension(extension);
-      
+
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
           imageFile.path,
@@ -159,14 +161,17 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
       );
 
       final data = response.data;
-      if (data != null && data['data'] != null && data['data']['secureUrl'] != null) {
+      if (data != null &&
+          data['data'] != null &&
+          data['data']['secureUrl'] != null) {
         return data['data']['secureUrl'] as String;
       }
       throw const ServerException(message: 'Upload hình ảnh thất bại');
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Lỗi tải ảnh lên server',
+        message:
+            e.response?.data?['message'] as String? ?? 'Lỗi tải ảnh lên server',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -175,17 +180,15 @@ class StaffChatRemoteDataSourceImpl implements StaffChatRemoteDataSource {
   }
 
   @override
-  Future<void> closeConversation({
-    required String conversationId,
-  }) async {
+  Future<void> closeConversation({required String conversationId}) async {
     try {
-      await _apiClient.dio.patch(
-        ApiEndpoints.supportClose(conversationId),
-      );
+      await _apiClient.dio.patch(ApiEndpoints.supportClose(conversationId));
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể đóng cuộc hội thoại',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể đóng cuộc hội thoại',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {

@@ -7,7 +7,6 @@ import 'package:foa_mobile/core/services/socket_service.dart';
 import 'package:foa_mobile/core/di/injection.dart';
 import 'package:foa_mobile/features/stores/presentation/cubit/store_cubit.dart';
 
-
 // Import Staff Blocs
 import 'package:foa_mobile/features/staff_orders/presentation/blocs/staff_orders_bloc.dart';
 import 'package:foa_mobile/features/staff_delivery/presentation/blocs/staff_delivery_bloc.dart';
@@ -74,12 +73,18 @@ class _AppState extends State<App> with WidgetsBindingObserver {
             ..fetchStores(),
         ),
         // Add Staff Blocs globally to share states and socket listeners
-        BlocProvider<StaffOrdersBloc>(create: (context) => sl<StaffOrdersBloc>()),
+        BlocProvider<StaffOrdersBloc>(
+          create: (context) => sl<StaffOrdersBloc>(),
+        ),
 
-        BlocProvider<StaffDeliveryBloc>(create: (context) => sl<StaffDeliveryBloc>()),
+        BlocProvider<StaffDeliveryBloc>(
+          create: (context) => sl<StaffDeliveryBloc>(),
+        ),
         BlocProvider<StaffMenuBloc>(create: (context) => sl<StaffMenuBloc>()),
         BlocProvider<StaffChatBloc>(create: (context) => sl<StaffChatBloc>()),
-        BlocProvider<StaffCustomersBloc>(create: (context) => sl<StaffCustomersBloc>()),
+        BlocProvider<StaffCustomersBloc>(
+          create: (context) => sl<StaffCustomersBloc>(),
+        ),
       ],
       child: MaterialApp.router(
         title: 'FoodieDash',

@@ -55,17 +55,21 @@ class ApiEndpoints {
   // ── Staff Orders ──
   static const String staffOrders = '/orders/staff/orders';
   static String staffOrderById(String id) => '/orders/staff/orders/$id';
-  static String staffConfirmOrder(String id) => '/orders/staff/orders/$id/confirm';
-  static String staffRejectOrder(String id) => '/orders/staff/orders/$id/reject';
+  static String staffConfirmOrder(String id) =>
+      '/orders/staff/orders/$id/confirm';
+  static String staffRejectOrder(String id) =>
+      '/orders/staff/orders/$id/reject';
   static String staffReadyOrder(String id) => '/orders/staff/orders/$id/ready';
-  static String staffDeliverOrder(String id) => '/orders/staff/orders/$id/deliver';
-  static String staffCompleteOrder(String id) => '/orders/staff/orders/$id/complete';
+  static String staffDeliverOrder(String id) =>
+      '/orders/staff/orders/$id/deliver';
+  static String staffCompleteOrder(String id) =>
+      '/orders/staff/orders/$id/complete';
 
   // ── Vouchers ──
   static const String vouchers = '/vouchers';
   static String voucherById(String id) => '/vouchers/$id';
   static const String voucherWallet = '/vouchers';
-  static const String voucherRedeem = '/vouchers/redeem';
+  static String voucherRedeem(String id) => '/vouchers/$id/redeem';
   static const String voucherValidate = '/vouchers/validate';
 
   // ── Campaigns ──
@@ -86,7 +90,8 @@ class ApiEndpoints {
 
   // ── Support Chat ──
   static const String supportConversations = '/support/conversations';
-  static String supportMessages(String id) => '/support/conversations/$id/messages';
+  static String supportMessages(String id) =>
+      '/support/conversations/$id/messages';
   static String supportMarkRead(String id) => '/support/conversations/$id/read';
   static String supportClose(String id) => '/support/conversations/$id/close';
   static const String staffConversations = '/support/staff/conversations';

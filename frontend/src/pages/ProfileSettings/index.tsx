@@ -21,8 +21,6 @@ import {
 
 type Tab = "profile" | "health" | "password";
 
-const HEALTH_COLOR = "var(--health)";
-
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "profile", label: "Thông tin cá nhân", icon: "badge" },
   { id: "health", label: "Sức khỏe & AI", icon: "health_and_safety" },

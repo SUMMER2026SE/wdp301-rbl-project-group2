@@ -6,7 +6,6 @@ import { userService } from "@/services/profile.service";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Utensils,
   ShieldCheck,
   Search,
   X,
@@ -25,7 +24,7 @@ import logo from "@/assets/logo.png";
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation(["customer", "common"]);
+  useTranslation(["customer", "common"]);
   const { isAuthenticated, getUser } = useAuth();
 
   useEffect(() => {

@@ -25,7 +25,10 @@ class _StatusTab {
 
 const _tabs = [
   _StatusTab(label: 'Chờ xác nhận', statusFilter: 'pending'),
-  _StatusTab(label: 'Đang chuẩn bị', statusFilter: 'confirmed,processing,preparing'),
+  _StatusTab(
+    label: 'Đang chuẩn bị',
+    statusFilter: 'confirmed,processing,preparing',
+  ),
   _StatusTab(label: 'Sẵn sàng giao', statusFilter: 'ready_for_delivery'),
   _StatusTab(label: 'Lịch sử', statusFilter: 'completed,cancelled,refunded'),
 ];
@@ -66,7 +69,7 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
     _tabController.dispose();
     _refreshTimer?.cancel();
     _overdueTimer?.cancel();
-    SocketService().off('order:created');
+    SocketService().off('order:new');
     SocketService().off('order:status_updated');
     super.dispose();
   }
@@ -75,24 +78,21 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && auth.storeId != null) {
       final tab = _tabs[_tabController.index];
-      context.read<StaffOrdersBloc>().add(FetchStaffOrdersEvent(
-            storeId: auth.storeId!,
-            status: tab.statusFilter,
-            showLoader: showLoader,
-          ));
+      context.read<StaffOrdersBloc>().add(
+        FetchStaffOrdersEvent(
+          storeId: auth.storeId!,
+          status: tab.statusFilter,
+          showLoader: showLoader,
+        ),
+      );
     }
   }
 
   void _setupSocketListener() {
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && auth.storeId != null) {
-      SocketService().on('order:created', (data) {
-        if (data != null && data['data'] != null) {
-          final order = OrderModel.fromJson(data['data'] as Map<String, dynamic>);
-          if (mounted) {
-            context.read<StaffOrdersBloc>().add(ReceiveNewOrderRealtimeEvent(order));
-          }
-        }
+      SocketService().on('order:new', (_) {
+        if (mounted) _fetchOrders(showLoader: false);
       });
       SocketService().on('order:status_updated', (_) {
         if (mounted) _fetchOrders(showLoader: false);
@@ -106,7 +106,11 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
       final fiveMinAgo = DateTime.now().subtract(const Duration(minutes: 5));
       setState(() {
         _overdueOrders = state.orders
-            .where((o) => o.status == OrderStatus.pending && o.createdAt.isBefore(fiveMinAgo))
+            .where(
+              (o) =>
+                  o.status == OrderStatus.pending &&
+                  o.createdAt.isBefore(fiveMinAgo),
+            )
             .toList();
       });
     }
@@ -156,73 +160,89 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
               );
             }
           },
-        builder: (context, state) {
-          if (state is StaffOrdersLoading) {
-            return _buildShimmer();
-          }
-          if (state is StaffOrdersError) {
-            return AppErrorWidget(
-              message: state.message,
-              onRetry: () => _fetchOrders(),
-            );
-          }
-          if (state is StaffOrdersLoaded) {
-            final sorted = List<OrderModel>.from(state.orders)
-              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-            return Column(
-              children: [
-                if (_overdueOrders.isNotEmpty)
-                  Container(
-                    width: double.infinity,
-                    color: Colors.red.shade50,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${_overdueOrders.length} đơn qu\xE1 5 ph\xFAt chưa x\xE1c nhận',
-                          style: TextStyle(
-                            color: Colors.red.shade800,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+          builder: (context, state) {
+            if (state is StaffOrdersLoading) {
+              return _buildShimmer();
+            }
+            if (state is StaffOrdersError) {
+              return AppErrorWidget(
+                message: state.message,
+                onRetry: () => _fetchOrders(),
+              );
+            }
+            if (state is StaffOrdersLoaded) {
+              final sorted = List<OrderModel>.from(state.orders)
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              return Column(
+                children: [
+                  if (_overdueOrders.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.red.shade50,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red.shade700,
+                            size: 20,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async => _fetchOrders(),
-                    child: sorted.isEmpty
-                        ? ListView(
-                            children: const [
-                              SizedBox(height: 120),
-                              EmptyStateWidget(
-                                icon: Icons.receipt_long_outlined,
-                                title: 'Kh\xF4ng c\xF3 đơn h\xE0ng',
-                                subtitle: 'C\xE1c đơn h\xE0ng sẽ xuất hiện tại đ\xE2y',
-                              ),
-                            ],
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            itemCount: sorted.length,
-                            itemBuilder: (_, i) => _OrderCard(
-                              order: sorted[i],
-                              storeId: (context.read<AuthBloc>().state as AuthAuthenticated).storeId ?? '',
-                              isActioning: state.actioningOrderId == sorted[i].id,
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_overdueOrders.length} đơn qu\xE1 5 ph\xFAt chưa x\xE1c nhận',
+                            style: TextStyle(
+                              color: Colors.red.shade800,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async => _fetchOrders(),
+                      child: sorted.isEmpty
+                          ? ListView(
+                              children: const [
+                                SizedBox(height: 120),
+                                EmptyStateWidget(
+                                  icon: Icons.receipt_long_outlined,
+                                  title: 'Kh\xF4ng c\xF3 đơn h\xE0ng',
+                                  subtitle:
+                                      'C\xE1c đơn h\xE0ng sẽ xuất hiện tại đ\xE2y',
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              itemCount: sorted.length,
+                              itemBuilder: (_, i) => _OrderCard(
+                                order: sorted[i],
+                                storeId:
+                                    (context.read<AuthBloc>().state
+                                            as AuthAuthenticated)
+                                        .storeId ??
+                                    '',
+                                isActioning:
+                                    state.actioningOrderId == sorted[i].id,
+                              ),
+                            ),
+                    ),
                   ),
-                ),
-              ],
-            );
-          }
-          return const SizedBox();
-        },
+                ],
+              );
+            }
+            return const SizedBox();
+          },
+        ),
       ),
-    ),
     );
   }
 
@@ -268,7 +288,8 @@ class _OrderCardState extends State<_OrderCard> {
   void initState() {
     super.initState();
     final status = widget.order.status;
-    _isExpanded = status == OrderStatus.pending ||
+    _isExpanded =
+        status == OrderStatus.pending ||
         status == OrderStatus.confirmed ||
         status == OrderStatus.processing ||
         status == OrderStatus.preparing;
@@ -279,7 +300,8 @@ class _OrderCardState extends State<_OrderCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.order.id != widget.order.id) {
       final status = widget.order.status;
-      _isExpanded = status == OrderStatus.pending ||
+      _isExpanded =
+          status == OrderStatus.pending ||
           status == OrderStatus.confirmed ||
           status == OrderStatus.processing ||
           status == OrderStatus.preparing;
@@ -312,7 +334,8 @@ class _OrderCardState extends State<_OrderCard> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final isOverdue = order.status == OrderStatus.pending &&
+    final isOverdue =
+        order.status == OrderStatus.pending &&
         DateTime.now().difference(order.createdAt).inMinutes >= 5;
 
     return Dismissible(
@@ -324,11 +347,11 @@ class _OrderCardState extends State<_OrderCard> {
           _showRejectDialog(context);
           return false;
         }
-        if (direction == DismissDirection.startToEnd && order.status == OrderStatus.pending) {
-          context.read<StaffOrdersBloc>().add(ConfirmOrderEvent(
-                orderId: order.id,
-                storeId: widget.storeId,
-              ));
+        if (direction == DismissDirection.startToEnd &&
+            order.status == OrderStatus.pending) {
+          context.read<StaffOrdersBloc>().add(
+            ConfirmOrderEvent(orderId: order.id, storeId: widget.storeId),
+          );
         }
         return false;
       },
@@ -338,7 +361,9 @@ class _OrderCardState extends State<_OrderCard> {
           color: isOverdue ? Colors.red.shade50 : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isOverdue ? Colors.red.shade200 : AppColors.divider.withValues(alpha: 0.6),
+            color: isOverdue
+                ? Colors.red.shade200
+                : AppColors.divider.withValues(alpha: 0.6),
             width: isOverdue ? 1.5 : 1,
           ),
           boxShadow: [
@@ -355,10 +380,7 @@ class _OrderCardState extends State<_OrderCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 6,
-                  color: _statusColor(order.status),
-                ),
+                Container(width: 6, color: _statusColor(order.status)),
                 Expanded(
                   child: InkWell(
                     borderRadius: const BorderRadius.only(
@@ -389,7 +411,9 @@ class _OrderCardState extends State<_OrderCard> {
                               child: SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
                               ),
                             )
                           else
@@ -453,7 +477,9 @@ class _OrderCardState extends State<_OrderCard> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: isOverdue ? Colors.red.shade700 : AppColors.textSecondary,
+                color: isOverdue
+                    ? Colors.red.shade700
+                    : AppColors.textSecondary,
               ),
             ),
           ],
@@ -463,7 +489,10 @@ class _OrderCardState extends State<_OrderCard> {
   }
 
   Widget _buildCustomerInfo(OrderModel order) {
-    final name = order.customer?.fullName ?? order.customer?.username ?? 'Kh\xE1ch v\xE3ng lai';
+    final name =
+        order.customer?.fullName ??
+        order.customer?.username ??
+        'Kh\xE1ch v\xE3ng lai';
     final phone = order.deliveryAddress.phone;
 
     return Row(
@@ -641,7 +670,10 @@ class _OrderCardState extends State<_OrderCard> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
@@ -765,10 +797,9 @@ class _OrderCardState extends State<_OrderCard> {
               icon: const Icon(Icons.check_rounded, size: 18),
               label: const Text('X\xE1c nhận'),
               onPressed: () {
-                context.read<StaffOrdersBloc>().add(ConfirmOrderEvent(
-                      orderId: order.id,
-                      storeId: widget.storeId,
-                    ));
+                context.read<StaffOrdersBloc>().add(
+                  ConfirmOrderEvent(orderId: order.id, storeId: widget.storeId),
+                );
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 42),
@@ -792,10 +823,9 @@ class _OrderCardState extends State<_OrderCard> {
           icon: const Icon(Icons.restaurant_rounded, size: 18),
           label: const Text('Chuẩn bị xong'),
           onPressed: () {
-            context.read<StaffOrdersBloc>().add(ReadyOrderEvent(
-                  orderId: order.id,
-                  storeId: widget.storeId,
-                ));
+            context.read<StaffOrdersBloc>().add(
+              ReadyOrderEvent(orderId: order.id, storeId: widget.storeId),
+            );
           },
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(0, 42),
@@ -817,12 +847,15 @@ class _OrderCardState extends State<_OrderCard> {
           icon: const Icon(Icons.local_shipping_rounded, size: 18),
           label: const Text('Tôi đi giao đơn'),
           onPressed: () {
-            final authState = context.read<AuthBloc>().state as AuthAuthenticated;
-            context.read<StaffDeliveryBloc>().add(AssignDeliveryEvent(
-                  orderId: order.id,
-                  storeId: widget.storeId,
-                  driverId: authState.userId,
-                ));
+            final authState =
+                context.read<AuthBloc>().state as AuthAuthenticated;
+            context.read<StaffDeliveryBloc>().add(
+              AssignDeliveryEvent(
+                orderId: order.id,
+                storeId: widget.storeId,
+                driverId: authState.userId,
+              ),
+            );
           },
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(0, 42),
@@ -872,23 +905,30 @@ class _OrderCardState extends State<_OrderCard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
               final reason = ctrl.text.trim();
               if (reason.isEmpty) return;
-              context.read<StaffOrdersBloc>().add(RejectOrderEvent(
-                    orderId: order.id,
-                    storeId: widget.storeId,
-                    reason: reason,
-                  ));
+              context.read<StaffOrdersBloc>().add(
+                RejectOrderEvent(
+                  orderId: order.id,
+                  storeId: widget.storeId,
+                  reason: reason,
+                ),
+              );
               Navigator.of(ctx).pop();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade700,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Từ chối'),
           ),

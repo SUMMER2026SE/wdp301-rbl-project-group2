@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:foa_mobile/core/constants/app_colors.dart';
 
 class LoyaltyPreviewSection extends StatelessWidget {
   final Map<String, dynamic>? membership;
@@ -22,49 +21,75 @@ class LoyaltyPreviewSection extends StatelessWidget {
     'diamond': 10000,
   };
 
-  static const List<String> _tierOrder = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
+  static const List<String> _tierOrder = [
+    'bronze',
+    'silver',
+    'gold',
+    'platinum',
+    'diamond',
+  ];
 
   String _getTierEmoji(String tier) {
     switch (tier.toLowerCase()) {
-      case 'silver': return '🥈';
-      case 'gold': return '🥇';
-      case 'platinum': return '💎';
-      case 'diamond': return '👑';
+      case 'silver':
+        return '🥈';
+      case 'gold':
+        return '🥇';
+      case 'platinum':
+        return '💎';
+      case 'diamond':
+        return '👑';
       case 'bronze':
-      default: return '🥉';
+      default:
+        return '🥉';
     }
   }
 
   String _getTierLabel(String tier) {
     switch (tier.toLowerCase()) {
-      case 'silver': return 'Bạc';
-      case 'gold': return 'Vàng';
-      case 'platinum': return 'Bạch Kim';
-      case 'diamond': return 'Kim Cương';
+      case 'silver':
+        return 'Bạc';
+      case 'gold':
+        return 'Vàng';
+      case 'platinum':
+        return 'Bạch Kim';
+      case 'diamond':
+        return 'Kim Cương';
       case 'bronze':
-      default: return 'Đồng';
+      default:
+        return 'Đồng';
     }
   }
 
   Color _getTierColor(String tier) {
     switch (tier.toLowerCase()) {
-      case 'silver': return const Color(0xFFC0CAD8);
-      case 'gold': return const Color(0xFFFFBF69);
-      case 'platinum': return const Color(0xFFB39DDB);
-      case 'diamond': return const Color(0xFF80DEEA);
+      case 'silver':
+        return const Color(0xFFC0CAD8);
+      case 'gold':
+        return const Color(0xFFFFBF69);
+      case 'platinum':
+        return const Color(0xFFB39DDB);
+      case 'diamond':
+        return const Color(0xFF80DEEA);
       case 'bronze':
-      default: return const Color(0xFFFF8F5E);
+      default:
+        return const Color(0xFFFF8F5E);
     }
   }
 
   List<Color> _getGradientColors(String tier) {
     switch (tier.toLowerCase()) {
-      case 'silver': return [const Color(0xFF455A64), const Color(0xFF607D8B)];
-      case 'gold': return [const Color(0xFF5D4037), const Color(0xFF8D6E63)];
-      case 'platinum': return [const Color(0xFF4A148C), const Color(0xFF7B1FA2)];
-      case 'diamond': return [const Color(0xFF1A237E), const Color(0xFF283593)];
+      case 'silver':
+        return [const Color(0xFF455A64), const Color(0xFF607D8B)];
+      case 'gold':
+        return [const Color(0xFF5D4037), const Color(0xFF8D6E63)];
+      case 'platinum':
+        return [const Color(0xFF4A148C), const Color(0xFF7B1FA2)];
+      case 'diamond':
+        return [const Color(0xFF1A237E), const Color(0xFF283593)];
       case 'bronze':
-      default: return [const Color(0xFFBF360C), const Color(0xFFE64A19)];
+      default:
+        return [const Color(0xFFBF360C), const Color(0xFFE64A19)];
     }
   }
 
@@ -99,7 +124,11 @@ class LoyaltyPreviewSection extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Không thể tải thông tin thành viên',
-                  style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               TextButton(
@@ -127,8 +156,20 @@ class LoyaltyPreviewSection extends StatelessWidget {
     final gradientColors = _getGradientColors(tierRaw);
 
     // collectedPoints = spendable points, accumulatedPoints = total earned (for tier calc)
-    final collectedPoints = ((membership?['collectedPoints'] ?? membership?['points'] ?? membership?['accumulatedPoints']) as num? ?? 0).toInt();
-    final accumulatedPoints = ((membership?['accumulatedPoints'] ?? membership?['collectedPoints'] ?? membership?['points']) as num? ?? 0).toInt();
+    final collectedPoints =
+        ((membership?['collectedPoints'] ??
+                        membership?['points'] ??
+                        membership?['accumulatedPoints'])
+                    as num? ??
+                0)
+            .toInt();
+    final accumulatedPoints =
+        ((membership?['accumulatedPoints'] ??
+                        membership?['collectedPoints'] ??
+                        membership?['points'])
+                    as num? ??
+                0)
+            .toInt();
 
     final nextTierName = _getNextTierName(tierRaw);
     final nextTierThreshold = _getNextTierThreshold(tierRaw);
@@ -137,8 +178,12 @@ class LoyaltyPreviewSection extends StatelessWidget {
     // Progress to next tier based on accumulated points
     final progress = isMaxTier
         ? 1.0
-        : (nextTierThreshold > 0 ? (accumulatedPoints / nextTierThreshold).clamp(0.0, 1.0) : 0.0);
-    final pointsToNext = isMaxTier ? 0 : (nextTierThreshold - accumulatedPoints).clamp(0, nextTierThreshold);
+        : (nextTierThreshold > 0
+              ? (accumulatedPoints / nextTierThreshold).clamp(0.0, 1.0)
+              : 0.0);
+    final pointsToNext = isMaxTier
+        ? 0
+        : (nextTierThreshold - accumulatedPoints).clamp(0, nextTierThreshold);
 
     return GestureDetector(
       onTap: () => context.push('/membership'),
@@ -197,16 +242,25 @@ class LoyaltyPreviewSection extends StatelessWidget {
                     children: [
                       // Tier emoji + name
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: tierColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: tierColor.withValues(alpha: 0.3), width: 1),
+                          border: Border.all(
+                            color: tierColor.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(tierEmoji, style: const TextStyle(fontSize: 16)),
+                            Text(
+                              tierEmoji,
+                              style: const TextStyle(fontSize: 16),
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Hạng $tierLabel',
@@ -226,7 +280,11 @@ class LoyaltyPreviewSection extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.08),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 12),
+                        child: const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.white54,
+                          size: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -279,7 +337,10 @@ class LoyaltyPreviewSection extends StatelessWidget {
                             height: 8,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [tierColor.withValues(alpha: 0.7), tierColor],
+                                colors: [
+                                  tierColor.withValues(alpha: 0.7),
+                                  tierColor,
+                                ],
                               ),
                               borderRadius: BorderRadius.circular(6),
                             ),

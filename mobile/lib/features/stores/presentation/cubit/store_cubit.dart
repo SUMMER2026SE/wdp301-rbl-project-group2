@@ -31,7 +31,7 @@ class StoreCubit extends Cubit<StoreState> {
     emit(state.copyWith(isLoading: true, error: null));
     try {
       final stores = await _remoteDataSource.getStores();
-      
+
       // If selectedStore is set, try to find the full data from the fetched stores
       Map<String, dynamic>? updatedSelectedStore = state.selectedStore;
       if (updatedSelectedStore != null && stores.isNotEmpty) {
@@ -44,16 +44,20 @@ class StoreCubit extends Cubit<StoreState> {
         }
       }
 
-      emit(state.copyWith(
-        stores: stores,
-        selectedStore: updatedSelectedStore,
-        isLoading: false,
-      ));
+      emit(
+        state.copyWith(
+          stores: stores,
+          selectedStore: updatedSelectedStore,
+          isLoading: false,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(
-        error: 'Không thể tải danh sách chi nhánh',
-        isLoading: false,
-      ));
+      emit(
+        state.copyWith(
+          error: 'Không thể tải danh sách chi nhánh',
+          isLoading: false,
+        ),
+      );
     }
   }
 

@@ -34,9 +34,7 @@ class CloseConversationUseCase {
   final StaffChatRepository _repository;
   CloseConversationUseCase(this._repository);
 
-  Future<Either<Failure, void>> call({
-    required String conversationId,
-  }) {
+  Future<Either<Failure, void>> call({required String conversationId}) {
     return _repository.closeConversation(conversationId: conversationId);
   }
 }

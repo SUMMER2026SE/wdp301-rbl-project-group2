@@ -49,13 +49,13 @@ class ProductGridCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                   border: Border.all(
-                    color: AppColors.divider.withOpacity(0.3),
+                    color: AppColors.divider.withValues(alpha: 0.3),
                     width: 0.8,
                   ),
                 ),
@@ -65,9 +65,13 @@ class ProductGridCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name, 
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                        maxLines: 1, 
+                        name,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
@@ -76,8 +80,14 @@ class ProductGridCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              product.category.isNotEmpty ? product.category : 'Món ngon',
-                              style: const TextStyle(fontSize: 9.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                              product.category.isNotEmpty
+                                  ? product.category
+                                  : 'Món ngon',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -85,7 +95,11 @@ class ProductGridCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, color: Colors.amber, size: 10),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 10,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 rating.toStringAsFixed(1),
@@ -111,7 +125,11 @@ class ProductGridCard extends StatelessWidget {
                               children: [
                                 Text(
                                   Formatters.currency(price),
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.primary),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -120,8 +138,8 @@ class ProductGridCard extends StatelessWidget {
                                   Text(
                                     Formatters.currency(originalPrice),
                                     style: const TextStyle(
-                                      fontSize: 9.5, 
-                                      color: AppColors.textHint, 
+                                      fontSize: 9.5,
+                                      color: AppColors.textHint,
                                       decoration: TextDecoration.lineThrough,
                                     ),
                                     maxLines: 1,
@@ -155,7 +173,7 @@ class ProductGridCard extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // 2. Centered Floating Bubble Image (Larger 125x125 circle with thick white border)
             Align(
               alignment: Alignment.topCenter,
@@ -167,7 +185,7 @@ class ProductGridCard extends StatelessWidget {
                   border: Border.all(color: Colors.white, width: 3.5),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -183,15 +201,24 @@ class ProductGridCard extends StatelessWidget {
                               width: 125,
                               height: 125,
                               fit: BoxFit.cover,
-                              placeholder: (_, _) => Container(color: Colors.grey[200]),
+                              placeholder: (_, _) =>
+                                  Container(color: Colors.grey[200]),
                               errorWidget: (_, _, _) => Container(
                                 color: Colors.orange[50],
-                                child: const Icon(Icons.restaurant, color: AppColors.primary, size: 28),
+                                child: const Icon(
+                                  Icons.restaurant,
+                                  color: AppColors.primary,
+                                  size: 28,
+                                ),
                               ),
                             )
                           : Container(
                               color: Colors.orange[50],
-                              child: const Icon(Icons.restaurant, color: AppColors.primary, size: 28),
+                              child: const Icon(
+                                Icons.restaurant,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
                             ),
                       if (!isAvailable)
                         Container(
@@ -212,14 +239,17 @@ class ProductGridCard extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Discount percentage tag
             if (hasDiscount && isAvailable)
               Positioned(
                 top: 8,
                 left: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(6),
@@ -241,13 +271,20 @@ class ProductGridCard extends StatelessWidget {
                 right: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.85),
+                    color: Colors.red.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: const Text(
                     'DỊ ỨNG',
-                    style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),

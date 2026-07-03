@@ -32,23 +32,23 @@ class StaffMenuRemoteDataSourceImpl implements StaffMenuRemoteDataSource {
     try {
       final response = await _apiClient.dio.get(
         ApiEndpoints.products,
-        queryParameters: {
-          'storeId': storeId,
-          'showAll': showAll,
-          'limit': 100,
-        },
+        queryParameters: {'storeId': storeId, 'showAll': showAll, 'limit': 100},
       );
 
       final data = response.data;
       if (data != null && data['data'] != null) {
         final list = data['data'] as List;
-        return list.map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList();
+        return list
+            .map((e) => ProductModel.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
       return [];
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải danh sách thực đơn',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải danh sách thực đơn',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -69,7 +69,9 @@ class StaffMenuRemoteDataSourceImpl implements StaffMenuRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải danh mục thực đơn',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải danh mục thực đơn',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -86,10 +88,7 @@ class StaffMenuRemoteDataSourceImpl implements StaffMenuRemoteDataSource {
     try {
       final response = await _apiClient.dio.patch(
         ApiEndpoints.productAvailability(productId),
-        data: {
-          'isAvailable': isAvailable,
-          'status': status,
-        },
+        data: {'isAvailable': isAvailable, 'status': status},
       );
 
       final data = response.data;
@@ -100,7 +99,9 @@ class StaffMenuRemoteDataSourceImpl implements StaffMenuRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể cập nhật món ăn',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể cập nhật món ăn',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {

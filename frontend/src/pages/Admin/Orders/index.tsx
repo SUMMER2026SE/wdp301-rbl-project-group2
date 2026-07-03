@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { clsx } from "clsx";
 import orderService from "@/services/order.service";
@@ -32,7 +32,7 @@ const AdminOrders = () => {
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const params = activeTab === "all" ? {} : { status: activeTab };
@@ -43,11 +43,11 @@ const AdminOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     fetchOrders();
-  }, [activeTab]);
+  }, [fetchOrders]);
 
   useEffect(() => {
     if (selectedOrderId) {
@@ -75,7 +75,7 @@ const AdminOrders = () => {
     try {
       await orderService.updateOrderStatus(orderId, status);
       fetchOrders();
-    } catch (err) {
+    } catch {
       alert("Không thể cập nhật trạng thái");
     }
   };

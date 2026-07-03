@@ -32,7 +32,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       }
     } else {
       let start = Math.max(1, currentPage - 2);
-      let end = Math.min(totalPages, start + maxVisiblePages - 1);
+      const end = Math.min(totalPages, start + maxVisiblePages - 1);
 
       if (end === totalPages) {
         start = Math.max(1, end - maxVisiblePages + 1);

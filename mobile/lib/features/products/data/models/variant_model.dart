@@ -5,10 +5,7 @@ class VariantOptionModel {
   final String choice;
   final double extraPrice;
 
-  const VariantOptionModel({
-    required this.choice,
-    this.extraPrice = 0.0,
-  });
+  const VariantOptionModel({required this.choice, this.extraPrice = 0.0});
 
   factory VariantOptionModel.fromJson(Map<String, dynamic> json) {
     return VariantOptionModel(
@@ -17,15 +14,10 @@ class VariantOptionModel {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'choice': choice,
-        'extraPrice': extraPrice,
-      };
+  Map<String, dynamic> toJson() => {'choice': choice, 'extraPrice': extraPrice};
 
-  VariantOptionEntity toEntity() => VariantOptionEntity(
-        choice: choice,
-        extraPrice: extraPrice,
-      );
+  VariantOptionEntity toEntity() =>
+      VariantOptionEntity(choice: choice, extraPrice: extraPrice);
 }
 
 /// JSON-serializable variant group model.
@@ -50,27 +42,29 @@ class VariantGroupModel {
       required: json['required'] as bool? ?? false,
       multiple: json['multiple'] as bool? ?? false,
       maxChoices: json['maxChoices'] as int?,
-      options: (json['options'] as List<dynamic>?)
+      options:
+          (json['options'] as List<dynamic>?)
               ?.map(
-                  (e) => VariantOptionModel.fromJson(e as Map<String, dynamic>))
+                (e) => VariantOptionModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'required': required,
-        'multiple': multiple,
-        'maxChoices': maxChoices,
-        'options': options.map((o) => o.toJson()).toList(),
-      };
+    'name': name,
+    'required': required,
+    'multiple': multiple,
+    'maxChoices': maxChoices,
+    'options': options.map((o) => o.toJson()).toList(),
+  };
 
   VariantGroupEntity toEntity() => VariantGroupEntity(
-        name: name,
-        required: required,
-        multiple: multiple,
-        maxChoices: maxChoices,
-        options: options.map((o) => o.toEntity()).toList(),
-      );
+    name: name,
+    required: required,
+    multiple: multiple,
+    maxChoices: maxChoices,
+    options: options.map((o) => o.toEntity()).toList(),
+  );
 }

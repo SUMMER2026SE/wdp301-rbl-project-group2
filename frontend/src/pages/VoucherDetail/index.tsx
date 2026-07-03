@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     ArrowLeft,
     Copy,
@@ -28,11 +28,12 @@ const VoucherDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchVoucherDetail = async () => {
+    const fetchVoucherDetail = useCallback(async () => {
+        if (!id) return;
         try {
             setLoading(true);
             setError(null);
-            const response = await voucherAPI.getVoucherById(id!);
+            const response = await voucherAPI.getVoucherById(id);
             setVoucher(response.data);
         } catch (err: any) {
             setError(err.response?.data?.message || "Không thể tải thông tin voucher");
@@ -40,13 +41,11 @@ const VoucherDetailPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
-        if (id) {
-            fetchVoucherDetail();
-        }
-    }, [id]);
+        fetchVoucherDetail();
+    }, [fetchVoucherDetail]);
 
     const handleCopy = () => {
         if (voucher) {

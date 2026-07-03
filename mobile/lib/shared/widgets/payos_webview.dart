@@ -66,7 +66,8 @@ class _PayOSWebViewState extends State<PayOSWebView> {
               setState(() {
                 _isLoading = false;
                 _hasError = true;
-                _errorMessage = 'Không thể tải trang thanh toán. '
+                _errorMessage =
+                    'Không thể tải trang thanh toán. '
                     'Vui lòng kiểm tra kết nối mạng và thử lại.';
               });
             }
@@ -159,8 +160,11 @@ class _PayOSWebViewState extends State<PayOSWebView> {
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(8),
-                  child: Icon(Icons.close_rounded,
-                      color: AppColors.textPrimary, size: 24),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textPrimary,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -174,18 +178,16 @@ class _PayOSWebViewState extends State<PayOSWebView> {
             left: 0,
             right: 0,
             child: LinearProgressIndicator(
-              backgroundColor:
-                  AppColors.primary.withValues(alpha: 0.1),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
         // Initial loading indicator (page not yet loaded)
         if (_isLoading && !_hasError)
           const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.primary,
-            ),
+            child: CircularProgressIndicator(color: AppColors.primary),
           ),
 
         // Error state
@@ -193,10 +195,7 @@ class _PayOSWebViewState extends State<PayOSWebView> {
           Positioned.fill(
             child: Container(
               color: Colors.white,
-              child: AppErrorWidget(
-                message: _errorMessage,
-                onRetry: _retry,
-              ),
+              child: AppErrorWidget(message: _errorMessage, onRetry: _retry),
             ),
           ),
       ],

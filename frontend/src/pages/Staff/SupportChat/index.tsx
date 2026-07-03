@@ -117,7 +117,7 @@ export default function StaffSupportChatPage() {
     useEffect(() => {
         const conv = conversations.find((c) => c.id === selectedConversationId);
         if (!conv?.orderId) {
-            if (orderDetail) setOrderDetail(null);
+            setOrderDetail(null);
             return;
         }
         if (!storeId) return;

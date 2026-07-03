@@ -16,10 +16,7 @@ class OrderRemoteDataSource {
     int limit = 10,
     String? status,
   }) async {
-    final queryParams = <String, dynamic>{
-      'page': page,
-      'limit': limit,
-    };
+    final queryParams = <String, dynamic>{'page': page, 'limit': limit};
     if (status != null && status.isNotEmpty) {
       queryParams['status'] = status;
     }
@@ -49,10 +46,7 @@ class OrderRemoteDataSource {
   }
 
   /// Cancel an order. Backend returns the updated order.
-  Future<OrderModel> cancelOrder(
-    String id, {
-    String? reason,
-  }) async {
+  Future<OrderModel> cancelOrder(String id, {String? reason}) async {
     final response = await _dio.patch(
       ApiEndpoints.cancelOrder(id),
       data: reason != null ? {'reason': reason} : {},
@@ -76,8 +70,5 @@ class OrderListResponse {
   final List<OrderModel> orders;
   final Map<String, dynamic>? pagination;
 
-  const OrderListResponse({
-    required this.orders,
-    this.pagination,
-  });
+  const OrderListResponse({required this.orders, this.pagination});
 }

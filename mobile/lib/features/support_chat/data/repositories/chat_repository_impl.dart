@@ -105,10 +105,7 @@ class ChatRepositoryImpl implements ChatRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

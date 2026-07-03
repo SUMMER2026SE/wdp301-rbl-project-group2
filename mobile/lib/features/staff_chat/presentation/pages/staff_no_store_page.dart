@@ -61,7 +61,9 @@ class StaffNoStorePage extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        context.read<AuthBloc>().add(const AuthCheckRequested());
+                        context.read<AuthBloc>().add(
+                          const AuthCheckRequested(),
+                        );
                       },
                       icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Thử lại'),
@@ -79,7 +81,9 @@ class StaffNoStorePage extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        context.read<AuthBloc>().add(const AuthLogoutRequested());
+                        context.read<AuthBloc>().add(
+                          const AuthLogoutRequested(),
+                        );
                       },
                       icon: const Icon(Icons.logout_rounded, size: 18),
                       label: const Text('Đăng xuất'),

@@ -27,13 +27,13 @@ class _StatusStep {
   });
 
   factory _StatusStep.fromJson(Map<String, dynamic> json) => _StatusStep(
-        status: OrderStatus.fromString(json['status'] as String? ?? ''),
-        changedBy: json['changedBy'] as String?,
-        actorRole: json['actorRole'] as String?,
-        reason: json['reason'] as String?,
-        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-            DateTime.now(),
-      );
+    status: OrderStatus.fromString(json['status'] as String? ?? ''),
+    changedBy: json['changedBy'] as String?,
+    actorRole: json['actorRole'] as String?,
+    reason: json['reason'] as String?,
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+  );
 }
 
 class OrderDetailPage extends StatefulWidget {
@@ -79,9 +79,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       if (mounted) {
         setState(() {
           _order = OrderModel.fromJson(json);
-          _statusHistory = (json['statusHistory'] as List<dynamic>?)
-                  ?.map((e) =>
-                      _StatusStep.fromJson(e as Map<String, dynamic>))
+          _statusHistory =
+              (json['statusHistory'] as List<dynamic>?)
+                  ?.map((e) => _StatusStep.fromJson(e as Map<String, dynamic>))
                   .toList() ??
               [];
           if (_statusHistory.isEmpty) {
@@ -118,10 +118,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   List<_StatusStep> _buildDefaultHistory() {
     if (_order == null) return [];
     return [
-      _StatusStep(
-        status: OrderStatus.pending,
-        createdAt: _order!.createdAt,
-      ),
+      _StatusStep(status: OrderStatus.pending, createdAt: _order!.createdAt),
     ];
   }
 
@@ -143,8 +140,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        final msg = e.response?.data?['message'] as String? ??
-            'Không thể hủy đơn hàng';
+        final msg =
+            e.response?.data?['message'] as String? ?? 'Không thể hủy đơn hàng';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -161,9 +158,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _confirmDelivery() async {
     setState(() => _isConfirming = true);
     try {
-      await ApiClient().dio.patch(
-        ApiEndpoints.customerConfirm(widget.id),
-      );
+      await ApiClient().dio.patch(ApiEndpoints.customerConfirm(widget.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -175,8 +170,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        final msg = e.response?.data?['message'] as String? ??
-            'Không thể xác nhận';
+        final msg =
+            e.response?.data?['message'] as String? ?? 'Không thể xác nhận';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -204,7 +199,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           builder: (ctx, setSheetState) => Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom,
-              left: 20, right: 20, top: 14,
+              left: 20,
+              right: 20,
+              top: 14,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -212,8 +209,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -224,7 +225,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 const SizedBox(height: 8),
                 const Text(
                   'Bạn có chắc muốn hủy đơn hàng này?',
-                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -234,7 +238,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
-                  onChanged: (v) => setSheetState(() => canSubmit = v.trim().isNotEmpty),
+                  onChanged: (v) =>
+                      setSheetState(() => canSubmit = v.trim().isNotEmpty),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -323,14 +328,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   order.voucher!,
-                                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 12),
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ],
@@ -496,8 +510,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               if (order.status == OrderStatus.delivering) ...[
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed:
-                        _isConfirming ? null : _confirmDelivery,
+                    onPressed: _isConfirming ? null : _confirmDelivery,
                     icon: _isConfirming
                         ? const SizedBox(
                             width: 16,
@@ -521,8 +534,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               // Track Order button
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      context.push('/track-order/${widget.id}'),
+                  onPressed: () => context.push('/track-order/${widget.id}'),
                   icon: const Icon(Icons.timeline, size: 18),
                   label: const Text('Theo dõi đơn'),
                   style: OutlinedButton.styleFrom(
@@ -536,8 +548,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        context.push('/rating/${widget.id}'),
+                    onPressed: () => context.push('/rating/${widget.id}'),
                     icon: const Icon(Icons.star_outline, size: 18),
                     label: const Text('Đánh giá'),
                     style: ElevatedButton.styleFrom(
@@ -601,8 +612,17 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Hỗ trợ trực tuyến', style: TextStyle(fontWeight: FontWeight.w800)),
-                Text('Cần thay đổi món? Nhắn ngay cho cửa hàng.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                Text(
+                  'Hỗ trợ trực tuyến',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  'Cần thay đổi món? Nhắn ngay cho cửa hàng.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -650,7 +670,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
           child: Icon(icon, size: 17, color: AppColors.primary),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
         children: children,
       ),
     );
@@ -674,25 +697,42 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(itemName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(
+                      itemName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
                     if (item.variations.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        item.variations.map((v) => '${v.name}: ${v.choice}').join(', '),
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        item.variations
+                            .map((v) => '${v.name}: ${v.choice}')
+                            .join(', '),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 4),
                     Text(
                       '${Formatters.currency(unitPrice.toDouble())} x${item.quantity}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               Text(
                 Formatters.currency(itemTotal.toDouble()),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -703,17 +743,34 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   Widget _buildAddressContent(OrderModel order) {
     final addr = order.deliveryAddress;
-    final fullAddress = '${addr.detail}, ${addr.ward}${addr.district != null ? ", ${addr.district}" : ""}, ${addr.city}';
+    final fullAddress =
+        '${addr.detail}, ${addr.ward}${addr.district != null ? ", ${addr.district}" : ""}, ${addr.city}';
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(addr.receiverName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          Text(
+            addr.receiverName,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
           const SizedBox(height: 2),
-          Text(Formatters.phone(addr.phone), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(
+            Formatters.phone(addr.phone),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(fullAddress, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+          Text(
+            fullAddress,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
@@ -731,7 +788,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           _priceRow(
             'Trạng thái',
             order.payment.paidAt != null ? 'Đã thanh toán' : 'Chưa thanh toán',
-            valueColor: order.payment.paidAt != null ? AppColors.success : AppColors.warning,
+            valueColor: order.payment.paidAt != null
+                ? AppColors.success
+                : AppColors.warning,
           ),
         ],
       ),
@@ -745,18 +804,38 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         children: [
           _priceRow('Tạm tính', Formatters.currency(order.subTotal.toDouble())),
           const SizedBox(height: 8),
-          _priceRow('Phí giao hàng', Formatters.currency(order.shippingFee.toDouble())),
+          _priceRow(
+            'Phí giao hàng',
+            Formatters.currency(order.shippingFee.toDouble()),
+          ),
           if (order.discountAmount != null && order.discountAmount! > 0) ...[
             const SizedBox(height: 8),
-            _priceRow('Giảm giá', '-${Formatters.currency(order.discountAmount!.toDouble())}', valueColor: AppColors.success),
+            _priceRow(
+              'Giảm giá',
+              '-${Formatters.currency(order.discountAmount!.toDouble())}',
+              valueColor: AppColors.success,
+            ),
           ],
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tổng cộng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary)),
-              Text(Formatters.currency(order.totalPrice.toDouble()),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primary)),
+              const Text(
+                'Tổng cộng',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                Formatters.currency(order.totalPrice.toDouble()),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
         ],
@@ -765,10 +844,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _buildStatusContent() {
-    if (_statusHistory.isEmpty) return const Padding(
-      padding: EdgeInsets.all(16),
-      child: Text('Chưa có thông tin trạng thái'),
-    );
+    if (_statusHistory.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Chưa có thông tin trạng thái'),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -776,7 +857,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           final step = _statusHistory[index];
           final isLast = index == _statusHistory.length - 1;
           final isCancelled = step.status == OrderStatus.cancelled;
-          final isCompleted = step.status == OrderStatus.completed || step.status == OrderStatus.delivered;
+          final isCompleted =
+              step.status == OrderStatus.completed ||
+              step.status == OrderStatus.delivered;
 
           Color dotColor;
           if (isCancelled) {
@@ -796,12 +879,21 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   child: Column(
                     children: [
                       Container(
-                        width: 12, height: 12,
+                        width: 12,
+                        height: 12,
                         margin: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: dotColor,
+                        ),
                       ),
                       if (!isLast)
-                        Expanded(child: Container(width: 2, color: dotColor.withValues(alpha: 0.4))),
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: dotColor.withValues(alpha: 0.4),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -812,15 +904,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(step.status.label,
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
-                                color: isCancelled ? AppColors.statusCancelled : AppColors.textPrimary)),
-                        Text(Formatters.dateTime(step.createdAt),
-                            style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+                        Text(
+                          step.status.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: isCancelled
+                                ? AppColors.statusCancelled
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          Formatters.dateTime(step.createdAt),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textHint,
+                          ),
+                        ),
                         if (step.reason != null && step.reason!.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text('Lý do: ${step.reason}',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
+                          Text(
+                            'Lý do: ${step.reason}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -838,8 +948,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: valueColor ?? AppColors.textPrimary)),
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: valueColor ?? AppColors.textPrimary,
+          ),
+        ),
       ],
     );
   }

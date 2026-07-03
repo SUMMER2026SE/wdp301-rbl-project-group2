@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useStoreStore, type IStore } from "@/store/storeStore";
-import { useTranslation } from "react-i18next";
 import { MapPin, Loader2, RefreshCw } from "lucide-react";
 
 interface BranchSelectorModalProps {
@@ -56,7 +55,6 @@ export const BranchSelectorModal: React.FC<BranchSelectorModalProps> = ({
   onClose,
   isClosable = false,
 }) => {
-  const { t } = useTranslation(["common", "customer"]);
   const { stores, selectedStore, isLoading, error, fetchStores, selectStore } = useStoreStore();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
     selectedStore?._id || null

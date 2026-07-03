@@ -21,7 +21,6 @@ import 'package:foa_mobile/features/products/data/datasources/product_remote_dat
 import 'package:foa_mobile/features/products/data/repositories/product_repository_impl.dart';
 import 'package:foa_mobile/features/products/domain/repositories/product_repository.dart';
 
-
 // Staff Orders Feature
 import 'package:foa_mobile/features/staff_orders/data/datasources/staff_orders_remote_datasource.dart';
 import 'package:foa_mobile/features/staff_orders/data/repositories/staff_orders_repository_impl.dart';
@@ -89,22 +88,31 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(sl<AuthRemoteDataSource>()),
   );
-  sl.registerLazySingleton<LoginUseCase>(() => LoginUseCase(sl<AuthRepository>()));
-  sl.registerLazySingleton<RegisterUseCase>(() => RegisterUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton<LoginUseCase>(
+    () => LoginUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton<RegisterUseCase>(
+    () => RegisterUseCase(sl<AuthRepository>()),
+  );
   sl.registerLazySingleton<AuthBloc>(
     () => AuthBloc(authRepository: sl<AuthRepository>()),
   );
 
   // ── Stores Feature ──
-  sl.registerLazySingleton<StoreRemoteDataSource>(() => StoreRemoteDataSource());
-  sl.registerLazySingleton<StoreCubit>(() => StoreCubit(sl<StoreRemoteDataSource>()));
+  sl.registerLazySingleton<StoreRemoteDataSource>(
+    () => StoreRemoteDataSource(),
+  );
+  sl.registerLazySingleton<StoreCubit>(
+    () => StoreCubit(sl<StoreRemoteDataSource>()),
+  );
 
   // ── Products Feature ──
-  sl.registerLazySingleton<ProductRemoteDataSource>(() => ProductRemoteDataSource());
+  sl.registerLazySingleton<ProductRemoteDataSource>(
+    () => ProductRemoteDataSource(),
+  );
   sl.registerLazySingleton<ProductRepository>(
     () => ProductRepositoryImpl(sl<ProductRemoteDataSource>()),
   );
-
 
   // ── Staff Orders Feature ──
   sl.registerLazySingleton<StaffOrdersRemoteDataSource>(

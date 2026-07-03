@@ -30,7 +30,10 @@ class RefreshInterceptor extends Interceptor {
   RefreshInterceptor(this._dio);
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     if (err.response?.statusCode != 401) {
       return handler.next(err);
     }
@@ -43,19 +46,20 @@ class RefreshInterceptor extends Interceptor {
 
     if (_isRefreshing) {
       // Queue this request — it will retry after refresh completes.
-      _pendingQueue.add(_PendingRequest(
-        requestOptions: err.requestOptions,
-        handler: handler,
-      ));
+      _pendingQueue.add(
+        _PendingRequest(requestOptions: err.requestOptions, handler: handler),
+      );
       return;
     }
 
     _isRefreshing = true;
     try {
-      final refreshDio = Dio(BaseOptions(
-        baseUrl: _dio.options.baseUrl,
-        contentType: 'application/json',
-      ));
+      final refreshDio = Dio(
+        BaseOptions(
+          baseUrl: _dio.options.baseUrl,
+          contentType: 'application/json',
+        ),
+      );
 
       // Backend reads refreshToken from request body (mobile has no httpOnly cookie).
       final response = await refreshDio.post(
@@ -133,10 +137,7 @@ class _PendingRequest {
   final RequestOptions requestOptions;
   final ErrorInterceptorHandler handler;
 
-  const _PendingRequest({
-    required this.requestOptions,
-    required this.handler,
-  });
+  const _PendingRequest({required this.requestOptions, required this.handler});
 }
 
 /// Maps DioException to typed application exceptions.
@@ -186,9 +187,7 @@ class ErrorInterceptor extends Interceptor {
           errorCode = errorObj['code'] as String?;
           final rawDetails = errorObj['details'];
           if (rawDetails is List) {
-            details = rawDetails
-                .whereType<Map<String, dynamic>>()
-                .toList();
+            details = rawDetails.whereType<Map<String, dynamic>>().toList();
           }
         }
 
@@ -196,9 +195,7 @@ class ErrorInterceptor extends Interceptor {
         // { message, code, errors: [{ path, message }] }
         final errorsArr = data['errors'];
         if (errorsArr is List && details == null) {
-          details = errorsArr
-              .whereType<Map<String, dynamic>>()
-              .toList();
+          details = errorsArr.whereType<Map<String, dynamic>>().toList();
         }
       }
 

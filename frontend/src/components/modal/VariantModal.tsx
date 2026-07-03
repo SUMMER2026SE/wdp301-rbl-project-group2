@@ -91,7 +91,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       }
 
       const exists = current.includes(choice);
-      let next = exists ? current.filter((c) => c !== choice) : [...current, choice];
+      const next = exists ? current.filter((c) => c !== choice) : [...current, choice];
 
       if (group.maxChoices && next.length > group.maxChoices) {
         // vượt quá giới hạn → không cho thêm

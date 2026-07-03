@@ -2,8 +2,10 @@
 class ServerException implements Exception {
   final String message;
   final int? statusCode;
+
   /// Backend error code (e.g. VALIDATION_ERROR, INVALID_ACCESS_TOKEN).
   final String? errorCode;
+
   /// Zod/validation field-level error details from backend.
   final List<Map<String, dynamic>>? details;
 

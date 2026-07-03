@@ -16,10 +16,7 @@ class StaffOrderRemoteDataSource {
     int limit = 10,
     String? status,
   }) async {
-    final queryParams = <String, dynamic>{
-      'page': page,
-      'limit': limit,
-    };
+    final queryParams = <String, dynamic>{'page': page, 'limit': limit};
     if (status != null && status.isNotEmpty) {
       queryParams['status'] = status;
     }
@@ -57,10 +54,7 @@ class StaffOrderRemoteDataSource {
   }
 
   /// Reject a pending order.
-  Future<OrderModel> rejectOrder(
-    String id, {
-    String? reason,
-  }) async {
+  Future<OrderModel> rejectOrder(String id, {String? reason}) async {
     final response = await _dio.patch(
       ApiEndpoints.staffRejectOrder(id),
       data: reason != null ? {'reason': reason} : {},
@@ -100,8 +94,5 @@ class StaffOrderListResponse {
   final List<OrderModel> orders;
   final Map<String, dynamic>? pagination;
 
-  const StaffOrderListResponse({
-    required this.orders,
-    this.pagination,
-  });
+  const StaffOrderListResponse({required this.orders, this.pagination});
 }

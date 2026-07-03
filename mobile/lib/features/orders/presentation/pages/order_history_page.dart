@@ -102,8 +102,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     return list.where((o) {
       final matchesCode = o.code.toLowerCase().contains(query);
       final matchesStore = o.storeName?.toLowerCase().contains(query) ?? false;
-      final matchesItems = o.items.any((item) =>
-          (item.name ?? item.product?.name ?? '').toLowerCase().contains(query));
+      final matchesItems = o.items.any(
+        (item) => (item.name ?? item.product?.name ?? '')
+            .toLowerCase()
+            .contains(query),
+      );
       return matchesCode || matchesStore || matchesItems;
     }).toList();
   }
@@ -176,7 +179,8 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     if (data is List) {
       rawList = data;
     } else if (data is Map<String, dynamic>) {
-      rawList = (data['data'] as List<dynamic>?) ??
+      rawList =
+          (data['data'] as List<dynamic>?) ??
           (data['orders'] as List<dynamic>?) ??
           [];
     } else {
@@ -203,7 +207,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       builder: (context) => PopScope(
         canPop: false,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           content: Row(
             children: [
               const CircularProgressIndicator(color: AppColors.primary),
@@ -211,7 +217,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
               Expanded(
                 child: Text(
                   message,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -222,7 +231,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   }
 
   Future<void> _reorder(OrderModel order) async {
-    _showLoadingDialog('Đang thêm các món ăn từ đơn #${order.code} vào giỏ hàng...');
+    _showLoadingDialog(
+      'Đang thêm các món ăn từ đơn #${order.code} vào giỏ hàng...',
+    );
     try {
       for (final item in order.items) {
         final pId = item.productId ?? item.product?.id;
@@ -232,10 +243,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
           data: {
             'productId': pId,
             'quantity': item.quantity,
-            'variations': item.variations.map((v) => {
-              'name': v.name,
-              'choice': v.choice,
-            }).toList(),
+            'variations': item.variations
+                .map((v) => {'name': v.name, 'choice': v.choice})
+                .toList(),
           },
         );
       }
@@ -246,7 +256,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             content: const Text('Đã thêm các món ăn vào giỏ hàng thành công!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             action: SnackBarAction(
               label: 'Xem giỏ',
               textColor: Colors.white,
@@ -264,7 +276,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             content: const Text('Không thể thêm món ăn vào giỏ hàng'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -304,11 +318,19 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_outlined, color: AppColors.textPrimary, size: 24),
+            icon: const Icon(
+              Icons.notifications_none_outlined,
+              color: AppColors.textPrimary,
+              size: 24,
+            ),
             onPressed: () => context.push('/notifications'),
           ),
           IconButton(
-            icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textPrimary, size: 22),
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppColors.textPrimary,
+              size: 22,
+            ),
             onPressed: () => context.push('/chat'),
           ),
           const SizedBox(width: 8),
@@ -333,7 +355,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         decoration: InputDecoration(
           hintText: 'Tìm kiếm cửa hàng, mã đơn, món ăn...',
           hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textHint, size: 20),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.textHint,
+            size: 20,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? GestureDetector(
                   onTap: () {
@@ -341,7 +367,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       _searchQuery = '';
                     });
                   },
-                  child: const Icon(Icons.clear_rounded, color: AppColors.textSecondary, size: 20),
+                  child: const Icon(
+                    Icons.clear_rounded,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
                 )
               : null,
           filled: true,
@@ -387,7 +417,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surfaceVariant,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected ? AppColors.primary : Colors.transparent,
@@ -442,7 +474,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
           if (index == orders.length) {
             return const Padding(
               padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
             );
           }
           return _buildOrderCard(orders[index]);
@@ -595,7 +629,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                   elevation: 2,
                 ),
                 child: const Text(
@@ -616,7 +652,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     final extraItemsCount = order.items.length - 3;
 
     final isActive = !order.status.isTerminal;
-    final isCompleted = order.status == OrderStatus.completed || order.status == OrderStatus.delivered;
+    final isCompleted =
+        order.status == OrderStatus.completed ||
+        order.status == OrderStatus.delivered;
 
     final List<Widget> actionButtons = [];
 
@@ -629,7 +667,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
             onPressed: () => context.push('/track-order/${order.id}'),
@@ -644,10 +684,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textPrimary,
               side: BorderSide(color: Colors.grey[300]!),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: const Text('Mua lại', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            child: const Text(
+              'Mua lại',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ),
       );
@@ -660,10 +705,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: const Text('Đánh giá', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            child: const Text(
+              'Đánh giá',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ),
       );
@@ -675,10 +725,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: const Text('Mua lại đơn', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            child: const Text(
+              'Mua lại đơn',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ),
       );
@@ -756,7 +811,8 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                               ? CachedNetworkImage(
                                   imageUrl: image,
                                   fit: BoxFit.cover,
-                                  placeholder: (_, _) => Container(color: Colors.grey[100]),
+                                  placeholder: (_, _) =>
+                                      Container(color: Colors.grey[100]),
                                   errorWidget: (_, _, _) => const Icon(
                                     Icons.fastfood_outlined,
                                     size: 20,
@@ -796,7 +852,12 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          order.items.map((i) => '${i.name ?? i.product?.name ?? 'Món ăn'} x${i.quantity}').join(', '),
+                          order.items
+                              .map(
+                                (i) =>
+                                    '${i.name ?? i.product?.name ?? 'Món ăn'} x${i.quantity}',
+                              )
+                              .join(', '),
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -815,7 +876,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
               // Code reference details
               Row(
                 children: [
-                  const Icon(Icons.receipt_outlined, size: 12, color: AppColors.textHint),
+                  const Icon(
+                    Icons.receipt_outlined,
+                    size: 12,
+                    color: AppColors.textHint,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Mã đơn #${order.code}',
@@ -838,7 +903,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.access_time_rounded, size: 14, color: AppColors.textHint),
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 14,
+                        color: AppColors.textHint,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         Formatters.dateTime(order.createdAt),

@@ -23,7 +23,11 @@ class RejectStaffOrderUseCase {
     required String storeId,
     required String reason,
   }) {
-    return _repository.rejectOrder(orderId: orderId, storeId: storeId, reason: reason);
+    return _repository.rejectOrder(
+      orderId: orderId,
+      storeId: storeId,
+      reason: reason,
+    );
   }
 }
 

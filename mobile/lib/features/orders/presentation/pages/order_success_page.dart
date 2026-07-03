@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
@@ -65,19 +67,19 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
 
   Future<void> _loadOrder() async {
     try {
-      final response =
-          await _dio.get(ApiEndpoints.orderById(widget.id));
+      final response = await _dio.get(ApiEndpoints.orderById(widget.id));
       final json = _extractOrderJson(response.data);
 
       setState(() {
         _orderCode = json['code'] as String? ?? '';
         _paymentMethod = _formatPaymentMethod(
-            json['paymentMethod'] as String? ?? 'cash');
+          json['paymentMethod'] as String? ?? 'cash',
+        );
         _totalPrice = json['totalPrice'] as num?;
         _status = json['status'] as String?;
         _isLoading = false;
       });
-      _animController.forward();
+      unawaited(_animController.forward());
     } on DioException catch (e) {
       setState(() {
         _isLoading = false;
@@ -124,9 +126,8 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? AppErrorWidget(
-                    message: _error!, onRetry: _loadOrder)
-                : _buildContent(),
+            ? AppErrorWidget(message: _error!, onRetry: _loadOrder)
+            : _buildContent(),
       ),
     );
   }
@@ -142,16 +143,12 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
             // Success icon with animation
             AnimatedBuilder(
               animation: _scaleAnim,
-              builder: (context, child) => Transform.scale(
-                scale: _scaleAnim.value,
-                child: child,
-              ),
+              builder: (context, child) =>
+                  Transform.scale(scale: _scaleAnim.value, child: child),
               child: AnimatedBuilder(
                 animation: _fadeAnim,
-                builder: (context, child) => Opacity(
-                  opacity: _fadeAnim.value,
-                  child: child,
-                ),
+                builder: (context, child) =>
+                    Opacity(opacity: _fadeAnim.value, child: child),
                 child: const Column(
                   children: [
                     Icon(
@@ -169,26 +166,44 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.star_rounded,
-                    size: 20,
-                    color: Colors.amber[300], shadows: const [
-                  BoxShadow(
-                      color: Colors.amber, blurRadius: 8, spreadRadius: 0)
-                ]),
+                Icon(
+                  Icons.star_rounded,
+                  size: 20,
+                  color: Colors.amber[300],
+                  shadows: const [
+                    BoxShadow(
+                      color: Colors.amber,
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
                 const SizedBox(width: 40),
-                Icon(Icons.auto_awesome,
-                    size: 24,
-                    color: AppColors.primary, shadows: const [
-                  BoxShadow(
-                      color: AppColors.primary, blurRadius: 8, spreadRadius: 0)
-                ]),
+                Icon(
+                  Icons.auto_awesome,
+                  size: 24,
+                  color: AppColors.primary,
+                  shadows: const [
+                    BoxShadow(
+                      color: AppColors.primary,
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
                 const SizedBox(width: 40),
-                Icon(Icons.star_rounded,
-                    size: 20,
-                    color: Colors.amber[300], shadows: const [
-                  BoxShadow(
-                      color: Colors.amber, blurRadius: 8, spreadRadius: 0)
-                ]),
+                Icon(
+                  Icons.star_rounded,
+                  size: 20,
+                  color: Colors.amber[300],
+                  shadows: const [
+                    BoxShadow(
+                      color: Colors.amber,
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
               ],
             ),
 
@@ -282,8 +297,11 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.payment_rounded,
-                              color: AppColors.primary, size: 18),
+                          Icon(
+                            Icons.payment_rounded,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
@@ -307,8 +325,13 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Tổng tiền: ',
-                                style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                            const Text(
+                              'Tổng tiền: ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                             Text(
                               Formatters.currency(_totalPrice!.toDouble()),
                               style: const TextStyle(
@@ -324,10 +347,18 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Trạng thái: ',
-                                style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                            const Text(
+                              'Trạng thái: ',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.success.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),

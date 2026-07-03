@@ -85,10 +85,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

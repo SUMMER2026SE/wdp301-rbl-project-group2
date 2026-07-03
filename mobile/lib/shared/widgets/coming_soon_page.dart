@@ -27,10 +27,20 @@ class ComingSoonPage extends StatelessWidget {
             children: [
               Icon(icon, size: 80, color: Colors.grey[300]),
               const SizedBox(height: 24),
-              Text(title, style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
               if (description != null) ...[
                 const SizedBox(height: 12),
-                Text(description!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
+                Text(
+                  description!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ],
               const SizedBox(height: 16),
               Text('Đang phát triển...', style: theme.textTheme.bodySmall),

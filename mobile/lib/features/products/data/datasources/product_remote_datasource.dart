@@ -5,7 +5,6 @@ import 'package:foa_mobile/core/storage/local_storage.dart';
 import 'package:foa_mobile/features/products/data/models/product_model.dart';
 import 'package:foa_mobile/features/products/data/models/category_model.dart';
 
-
 /// Remote data source for product API calls.
 class ProductRemoteDataSource {
   final Dio _dio;
@@ -24,10 +23,7 @@ class ProductRemoteDataSource {
     int page = 1,
     int limit = 12,
   }) async {
-    final queryParams = <String, dynamic>{
-      'page': page,
-      'limit': limit,
-    };
+    final queryParams = <String, dynamic>{'page': page, 'limit': limit};
     if (category != null && category.isNotEmpty) {
       queryParams['category'] = category;
     }
@@ -83,12 +79,7 @@ class ProductRemoteDataSource {
       if (rawData.isEmpty) return [];
       // Check if it's a list of strings (category names directly).
       if (rawData.first is String) {
-        return rawData
-            .map((e) => CategoryModel(
-                  id: e,
-                  name: e,
-                ))
-            .toList();
+        return rawData.map((e) => CategoryModel(id: e, name: e)).toList();
       }
       // Otherwise it's a list of objects.
       return rawData
@@ -105,9 +96,7 @@ class ProductRemoteDataSource {
 
   /// Get safe foods based on user allergies.
   Future<Map<String, dynamic>> getSafeFoods(List<String> allergies) async {
-    final queryParams = <String, dynamic>{
-      'allergies': allergies,
-    };
+    final queryParams = <String, dynamic>{'allergies': allergies};
     final storeId = LocalStorage.selectedStoreId;
     if (storeId != null && storeId.isNotEmpty) {
       queryParams['storeId'] = storeId;
@@ -157,8 +146,7 @@ class ProductRemoteDataSource {
               page: paginationRaw['page'] as int? ?? 1,
               limit: paginationRaw['limit'] as int? ?? 12,
               total: paginationRaw['total'] as int? ?? products.length,
-              totalPages:
-                  paginationRaw['totalPages'] as int? ?? 1,
+              totalPages: paginationRaw['totalPages'] as int? ?? 1,
             )
           : null,
     );
@@ -170,10 +158,7 @@ class ProductListResponse {
   final List<ProductModel> products;
   final ProductPagination? pagination;
 
-  const ProductListResponse({
-    required this.products,
-    this.pagination,
-  });
+  const ProductListResponse({required this.products, this.pagination});
 }
 
 /// Pagination metadata.

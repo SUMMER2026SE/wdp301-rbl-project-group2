@@ -25,14 +25,16 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
 
   Future<void> _onFetchMenu(FetchMenu event, Emitter<MenuState> emit) async {
     final isInitialLoad = state.products.isEmpty;
-    emit(state.copyWith(
-      isLoading: isInitialLoad, // Only show shimmer on initial load
-      error: null,
-      page: 1,
-      hasMore: true,
-      // Keep existing products visible while filtering
-      products: isInitialLoad ? [] : state.products,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: isInitialLoad, // Only show shimmer on initial load
+        error: null,
+        page: 1,
+        hasMore: true,
+        // Keep existing products visible while filtering
+        products: isInitialLoad ? [] : state.products,
+      ),
+    );
 
     try {
       // 1. Fetch categories if not already loaded
@@ -40,7 +42,8 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
       if (categories.isEmpty) {
         final categoriesResult = await getMenuCategoriesUseCase();
         categoriesResult.fold(
-          (failure) => null, // Ignore failures for categories, fallback to empty list
+          (failure) =>
+              null, // Ignore failures for categories, fallback to empty list
           (list) => categories = list,
         );
       }
@@ -58,11 +61,13 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
 
       productsResult.fold(
         (failure) {
-          emit(state.copyWith(
-            isLoading: false,
-            categories: categories,
-            error: failure.message,
-          ));
+          emit(
+            state.copyWith(
+              isLoading: false,
+              categories: categories,
+              error: failure.message,
+            ),
+          );
         },
         (result) {
           // Filter active products
@@ -84,24 +89,31 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
             uniqueProducts[p.id] = p;
           }
 
-          emit(state.copyWith(
-            isLoading: false,
-            categories: categories,
-            products: uniqueProducts.values.toList(),
-            page: 1,
-            hasMore: 1 < result.totalPages,
-          ));
+          emit(
+            state.copyWith(
+              isLoading: false,
+              categories: categories,
+              products: uniqueProducts.values.toList(),
+              page: 1,
+              hasMore: 1 < result.totalPages,
+            ),
+          );
         },
       );
     } catch (e) {
-      emit(state.copyWith(
-        isLoading: false,
-        error: 'Đã xảy ra lỗi không mong muốn.',
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          error: 'Đã xảy ra lỗi không mong muốn.',
+        ),
+      );
     }
   }
 
-  Future<void> _onLoadMoreMenu(LoadMoreMenu event, Emitter<MenuState> emit) async {
+  Future<void> _onLoadMoreMenu(
+    LoadMoreMenu event,
+    Emitter<MenuState> emit,
+  ) async {
     if (state.isLoadingMore || !state.hasMore) return;
 
     emit(state.copyWith(isLoadingMore: true));
@@ -145,12 +157,14 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
             uniqueProducts[p.id] = p;
           }
 
-          emit(state.copyWith(
-            isLoadingMore: false,
-            products: uniqueProducts.values.toList(),
-            page: nextPage,
-            hasMore: nextPage < result.totalPages,
-          ));
+          emit(
+            state.copyWith(
+              isLoadingMore: false,
+              products: uniqueProducts.values.toList(),
+              page: nextPage,
+              hasMore: nextPage < result.totalPages,
+            ),
+          );
         },
       );
     } catch (e) {
@@ -159,48 +173,53 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onChangeCategory(ChangeCategory event, Emitter<MenuState> emit) {
-    final newCategory = state.selectedCategory == event.categoryId ? '' : (event.categoryId ?? '');
-    emit(state.copyWith(
-      selectedCategory: newCategory,
-    ));
+    final newCategory = state.selectedCategory == event.categoryId
+        ? ''
+        : (event.categoryId ?? '');
+    emit(state.copyWith(selectedCategory: newCategory));
     add(const FetchMenu());
   }
 
   void _onChangeSearch(ChangeSearch event, Emitter<MenuState> emit) {
-    emit(state.copyWith(
-      searchQuery: event.query,
-    ));
+    emit(state.copyWith(searchQuery: event.query));
     add(const FetchMenu());
   }
 
-  void _onChangeRatingFilter(ChangeRatingFilter event, Emitter<MenuState> emit) {
-    final newRating = state.selectedRating == event.rating ? -1.0 : (event.rating ?? -1.0);
-    emit(state.copyWith(
-      selectedRating: newRating,
-    ));
+  void _onChangeRatingFilter(
+    ChangeRatingFilter event,
+    Emitter<MenuState> emit,
+  ) {
+    final newRating = state.selectedRating == event.rating
+        ? -1.0
+        : (event.rating ?? -1.0);
+    emit(state.copyWith(selectedRating: newRating));
     add(const FetchMenu());
   }
 
   void _onResetFilters(ResetFilters event, Emitter<MenuState> emit) {
-    emit(state.copyWith(
-      selectedCategory: '',
-      searchQuery: '',
-      selectedRating: -1.0,
-      sortBy: 'salesCount',
-      minPrice: -1.0,
-      maxPrice: -1.0,
-      filterAllergies: false,
-    ));
+    emit(
+      state.copyWith(
+        selectedCategory: '',
+        searchQuery: '',
+        selectedRating: -1.0,
+        sortBy: 'salesCount',
+        minPrice: -1.0,
+        maxPrice: -1.0,
+        filterAllergies: false,
+      ),
+    );
     add(const FetchMenu());
   }
 
   void _onApplyFilters(ApplyFilters event, Emitter<MenuState> emit) {
-    emit(state.copyWith(
-      sortBy: event.sortBy,
-      minPrice: event.minPrice ?? -1.0,
-      maxPrice: event.maxPrice ?? -1.0,
-      filterAllergies: event.filterAllergies,
-    ));
+    emit(
+      state.copyWith(
+        sortBy: event.sortBy,
+        minPrice: event.minPrice ?? -1.0,
+        maxPrice: event.maxPrice ?? -1.0,
+        filterAllergies: event.filterAllergies,
+      ),
+    );
     add(const FetchMenu());
   }
 }

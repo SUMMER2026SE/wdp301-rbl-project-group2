@@ -39,15 +39,16 @@ class ProductRepositoryImpl implements ProductRepository {
         limit: limit,
       );
 
-      final productEntities =
-          result.products.map((p) => p.toEntity()).toList();
+      final productEntities = result.products.map((p) => p.toEntity()).toList();
 
-      return Right(ProductListResult(
-        products: productEntities,
-        currentPage: result.pagination?.page ?? page,
-        totalPages: result.pagination?.totalPages ?? 1,
-        total: result.pagination?.total ?? productEntities.length,
-      ));
+      return Right(
+        ProductListResult(
+          products: productEntities,
+          currentPage: result.pagination?.page ?? page,
+          totalPages: result.pagination?.totalPages ?? 1,
+          total: result.pagination?.total ?? productEntities.length,
+        ),
+      );
     } catch (e) {
       return Left(_mapErrorToFailure(e));
     }
@@ -75,7 +76,8 @@ class ProductRepositoryImpl implements ProductRepository {
 
   @override
   Future<Either<Failure, Map<String, dynamic>>> getSafeFoods(
-      List<String> allergies) async {
+    List<String> allergies,
+  ) async {
     try {
       final result = await _remoteDataSource.getSafeFoods(allergies);
       return Right(result);
@@ -137,10 +139,7 @@ class ProductRepositoryImpl implements ProductRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

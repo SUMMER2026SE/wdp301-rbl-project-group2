@@ -15,7 +15,9 @@ class CustomerSearchPage extends StatefulWidget {
 
 class _CustomerSearchPageState extends State<CustomerSearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
+  final Debouncer _debouncer = Debouncer(
+    delay: const Duration(milliseconds: 300),
+  );
   String _searchQuery = '';
 
   @override
@@ -24,9 +26,9 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
   }
 
   void _triggerSearch() {
-    context.read<StaffCustomersBloc>().add(SearchCustomersEvent(
-          query: _searchQuery.isEmpty ? null : _searchQuery,
-        ));
+    context.read<StaffCustomersBloc>().add(
+      SearchCustomersEvent(query: _searchQuery.isEmpty ? null : _searchQuery),
+    );
   }
 
   @override
@@ -39,9 +41,7 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Khách hàng'),
-      ),
+      appBar: AppBar(title: const Text('Khách hàng')),
       body: Column(
         children: [
           // Search bar
@@ -94,9 +94,16 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: AppColors.error,
+                        ),
                         const SizedBox(height: 16),
-                        Text(state.message, style: const TextStyle(color: AppColors.error)),
+                        Text(
+                          state.message,
+                          style: const TextStyle(color: AppColors.error),
+                        ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _triggerSearch,
@@ -114,14 +121,19 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                     return const EmptyStateWidget(
                       icon: Icons.person_search_outlined,
                       title: 'Không tìm thấy khách hàng',
-                      subtitle: 'Vui lòng kiểm tra lại từ khóa tìm kiếm của bạn.',
+                      subtitle:
+                          'Vui lòng kiểm tra lại từ khóa tìm kiếm của bạn.',
                     );
                   }
 
                   return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: customers.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final customer = customers[index];
                       final name = customer.fullName ?? customer.username;
@@ -129,17 +141,22 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
 
                       return Card(
                         margin: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(14),
-                          onTap: () => context.push('/staff/customers/${customer.id}'),
+                          onTap: () =>
+                              context.push('/staff/customers/${customer.id}'),
                           child: Padding(
                             padding: const EdgeInsets.all(14),
                             child: Row(
                               children: [
                                 CircleAvatar(
                                   radius: 24,
-                                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                                  backgroundColor: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   child: Text(
                                     name.substring(0, 1).toUpperCase(),
                                     style: const TextStyle(
@@ -152,7 +169,8 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         name,
@@ -168,15 +186,22 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                                       if (customer.email.isNotEmpty)
                                         Text(
                                           customer.email,
-                                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                      if (customer.phone != null && customer.phone!.isNotEmpty) ...[
+                                      if (customer.phone != null &&
+                                          customer.phone!.isNotEmpty) ...[
                                         const SizedBox(height: 2),
                                         Text(
                                           customer.phone!,
-                                          style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textHint,
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -184,9 +209,14 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -199,7 +229,11 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.textHint,
+                                  size: 20,
+                                ),
                               ],
                             ),
                           ),

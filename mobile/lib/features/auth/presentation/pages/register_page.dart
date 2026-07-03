@@ -38,12 +38,12 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!_formKey.currentState!.validate()) return;
 
     context.read<AuthBloc>().add(
-          AuthRegisterRequested(
-            username: _usernameController.text.trim(),
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          ),
-        );
+      AuthRegisterRequested(
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
   }
 
   Future<void> _onGoogleRegister() async {
@@ -60,7 +60,9 @@ class _RegisterPageState extends State<RegisterPage> {
           content: Text('Xác thực Google thất bại: ${e.toString()}'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -87,7 +89,10 @@ class _RegisterPageState extends State<RegisterPage> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -184,7 +189,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
@@ -205,7 +214,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             // Username
                             const Text(
                               'Tên người dùng',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
@@ -222,7 +235,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             // Email
                             const Text(
                               'Địa chỉ Email',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
@@ -240,14 +257,19 @@ class _RegisterPageState extends State<RegisterPage> {
                             // Password
                             const Text(
                               'Mật khẩu',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
                               textInputAction: TextInputAction.next,
-                              onChanged: (_) => setState(() {}), // Update strength checks
+                              onChanged: (_) =>
+                                  setState(() {}), // Update strength checks
                               decoration: InputDecoration(
                                 hintText: '••••••••',
                                 prefixIcon: const Icon(Icons.lock_outlined),
@@ -257,8 +279,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                         ? Icons.visibility_off_outlined
                                         : Icons.visibility_outlined,
                                   ),
-                                  onPressed: () =>
-                                      setState(() => _obscurePassword = !_obscurePassword),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
                                 ),
                               ),
                               validator: Validators.password,
@@ -266,13 +289,19 @@ class _RegisterPageState extends State<RegisterPage> {
                             const SizedBox(height: 6),
 
                             // Password strength
-                            _PasswordStrengthIndicator(password: _passwordController.text),
+                            _PasswordStrengthIndicator(
+                              password: _passwordController.text,
+                            ),
                             const SizedBox(height: 14),
 
                             // Confirm Password
                             const Text(
                               'Xác nhận mật khẩu',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             TextFormField(
@@ -289,12 +318,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                         ? Icons.visibility_off_outlined
                                         : Icons.visibility_outlined,
                                   ),
-                                  onPressed: () =>
-                                      setState(() => _obscureConfirm = !_obscureConfirm),
+                                  onPressed: () => setState(
+                                    () => _obscureConfirm = !_obscureConfirm,
+                                  ),
                                 ),
                               ),
-                              validator: (value) =>
-                                  Validators.confirmPassword(value, _passwordController.text),
+                              validator: (value) => Validators.confirmPassword(
+                                value,
+                                _passwordController.text,
+                              ),
                             ),
                             const SizedBox(height: 16),
 
@@ -302,15 +334,22 @@ class _RegisterPageState extends State<RegisterPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.06),
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.06,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   Checkbox(
                                     value: _aiOptIn,
-                                    onChanged: (v) => setState(() => _aiOptIn = v ?? true),
+                                    onChanged: (v) =>
+                                        setState(() => _aiOptIn = v ?? true),
                                     activeColor: AppColors.primary,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4),
@@ -319,11 +358,16 @@ class _RegisterPageState extends State<RegisterPage> {
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Row(
                                           children: [
-                                            Icon(Icons.auto_awesome, size: 14, color: AppColors.primary),
+                                            Icon(
+                                              Icons.auto_awesome,
+                                              size: 14,
+                                              color: AppColors.primary,
+                                            ),
                                             SizedBox(width: 4),
                                             Text(
                                               'Cá nhân hóa với AI',
@@ -379,7 +423,10 @@ class _RegisterPageState extends State<RegisterPage> {
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               'Hoặc đăng ký bằng',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           Expanded(child: Divider(color: AppColors.divider)),
@@ -401,7 +448,8 @@ class _RegisterPageState extends State<RegisterPage> {
                             Image.asset(
                               'assets/images/google_logo.png',
                               height: 18,
-                              errorBuilder: (_, _, _) => const Icon(Icons.g_mobiledata, size: 24),
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.g_mobiledata, size: 24),
                             ),
                             const SizedBox(width: 10),
                             const Text(
@@ -419,7 +467,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         children: [
                           const Text(
                             'Đã có tài khoản? ',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
                           ),
                           TextButton(
                             onPressed: () => context.pop(),
@@ -453,7 +504,10 @@ class _PasswordStrengthIndicator extends StatelessWidget {
       _Check('Tối thiểu 8 ký tự', password.length >= 8),
       _Check('Ít nhất 1 chữ viết hoa', RegExp(r'[A-Z]').hasMatch(password)),
       _Check('Ít nhất 1 chữ số', RegExp(r'[0-9]').hasMatch(password)),
-      _Check('Ít nhất 1 ký tự đặc biệt', RegExp(r'[^a-zA-Z0-9]').hasMatch(password)),
+      _Check(
+        'Ít nhất 1 ký tự đặc biệt',
+        RegExp(r'[^a-zA-Z0-9]').hasMatch(password),
+      ),
     ];
 
     return Column(
@@ -462,30 +516,36 @@ class _PasswordStrengthIndicator extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'Yêu cầu mật khẩu:',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textHint),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textHint,
+          ),
         ),
         const SizedBox(height: 4),
-        ...checks.map((c) => Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    c.passed ? Icons.check_circle : Icons.circle_outlined,
-                    size: 13,
+        ...checks.map(
+          (c) => Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              children: [
+                Icon(
+                  c.passed ? Icons.check_circle : Icons.circle_outlined,
+                  size: 13,
+                  color: c.passed ? AppColors.success : AppColors.textHint,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  c.label,
+                  style: TextStyle(
+                    fontSize: 10.5,
                     color: c.passed ? AppColors.success : AppColors.textHint,
+                    fontWeight: c.passed ? FontWeight.w600 : FontWeight.w400,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    c.label,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: c.passed ? AppColors.success : AppColors.textHint,
-                      fontWeight: c.passed ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
-            )),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

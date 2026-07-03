@@ -48,7 +48,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (authState is AuthAuthenticated) {
       final user = authState.user;
       _usernameCtrl.text = user['username'] as String? ?? '';
-      _fullnameCtrl.text = user['fullname'] as String? ?? user['fullName'] as String? ?? '';
+      _fullnameCtrl.text =
+          user['fullname'] as String? ?? user['fullName'] as String? ?? '';
       _phoneCtrl.text = user['phone'] as String? ?? '';
       _emailCtrl.text = authState.email;
       _avatarUrl = user['avatar'] as String?;
@@ -59,7 +60,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, maxWidth: 512, maxHeight: 512);
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
     if (!mounted) return;
     if (picked != null) {
       setState(() => _avatarFile = File(picked.path));
@@ -78,7 +83,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Chọn ảnh', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const Text(
+                'Chọn ảnh',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
               const SizedBox(height: 16),
               ListTile(
                 leading: const Icon(Icons.camera_alt),
@@ -106,8 +114,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập số điện thoại';
     final cleaned = value.replaceAll(RegExp(r'\s+'), '');
-    if (cleaned.length < 9 || cleaned.length > 11) return 'Số điện thoại không hợp lệ';
-    if (!RegExp(r'^0\d{8,10}$').hasMatch(cleaned)) return 'Số điện thoại không hợp lệ';
+    if (cleaned.length < 9 || cleaned.length > 11) {
+      return 'Số điện thoại không hợp lệ';
+    }
+    if (!RegExp(r'^0\d{8,10}$').hasMatch(cleaned)) {
+      return 'Số điện thoại không hợp lệ';
+    }
     return null;
   }
 
@@ -117,33 +129,51 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _saving = true);
     try {
       final fd = FormData();
-      if (_usernameCtrl.text.isNotEmpty) fd.fields.add(MapEntry('username', _usernameCtrl.text));
-      if (_fullnameCtrl.text.isNotEmpty) fd.fields.add(MapEntry('fullName', _fullnameCtrl.text));
-      if (_phoneCtrl.text.isNotEmpty) fd.fields.add(MapEntry('phone', _phoneCtrl.text.replaceAll(RegExp(r'\s+'), '')));
+      if (_usernameCtrl.text.isNotEmpty) {
+        fd.fields.add(MapEntry('username', _usernameCtrl.text));
+      }
+      if (_fullnameCtrl.text.isNotEmpty) {
+        fd.fields.add(MapEntry('fullName', _fullnameCtrl.text));
+      }
+      if (_phoneCtrl.text.isNotEmpty) {
+        fd.fields.add(
+          MapEntry('phone', _phoneCtrl.text.replaceAll(RegExp(r'\s+'), '')),
+        );
+      }
       if (_avatarFile != null) {
-        fd.files.add(MapEntry('avatar', await MultipartFile.fromFile(_avatarFile!.path)));
+        fd.files.add(
+          MapEntry('avatar', await MultipartFile.fromFile(_avatarFile!.path)),
+        );
       }
 
       final res = await _dio.patch(ApiEndpoints.userProfile, data: fd);
-      final updatedUser = res.data['data'] as Map<String, dynamic>? ?? res.data as Map<String, dynamic>;
+      final updatedUser =
+          res.data['data'] as Map<String, dynamic>? ??
+          res.data as Map<String, dynamic>;
 
       if (mounted) {
         context.read<AuthBloc>().add(AuthUserUpdated(updatedUser));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cập nhật thành công'), backgroundColor: AppColors.success),
+          const SnackBar(
+            content: Text('Cập nhật thành công'),
+            backgroundColor: AppColors.success,
+          ),
         );
         Navigator.pop(context);
       }
     } on DioException catch (e) {
-      final msg = e.response?.data['message'] as String? ?? 'Không thể cập nhật hồ sơ';
+      final msg =
+          e.response?.data['message'] as String? ?? 'Không thể cập nhật hồ sơ';
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xảy ra lỗi')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đã xảy ra lỗi')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -162,7 +192,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Chỉnh sửa hồ sơ', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Chỉnh sửa hồ sơ',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
@@ -179,7 +212,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 14, offset: const Offset(0, 6))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.shadow,
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
@@ -192,9 +231,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             backgroundColor: AppColors.surfaceVariant,
                             backgroundImage: _avatarFile != null
                                 ? FileImage(_avatarFile!)
-                                : (_avatarUrl != null && _avatarUrl!.isNotEmpty ? NetworkImage(_avatarUrl!) : null),
-                            child: (_avatarFile == null && (_avatarUrl == null || _avatarUrl!.isEmpty))
-                                ? const Icon(Icons.person, size: 48, color: AppColors.textHint)
+                                : (_avatarUrl != null && _avatarUrl!.isNotEmpty
+                                      ? NetworkImage(_avatarUrl!)
+                                      : null),
+                            child:
+                                (_avatarFile == null &&
+                                    (_avatarUrl == null || _avatarUrl!.isEmpty))
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 48,
+                                    color: AppColors.textHint,
+                                  )
                                 : null,
                           ),
                           Positioned(
@@ -205,16 +252,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
+                                ),
                               ),
-                              child: const Icon(Icons.camera_alt_rounded, size: 18, color: Colors.white),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text('Nhấn để thay đổi ảnh đại diện', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    const Text(
+                      'Nhấn để thay đổi ảnh đại diện',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -225,17 +285,52 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 14, offset: const Offset(0, 6))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.shadow,
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
-                    _profileField(controller: _usernameCtrl, label: 'Tên đăng nhập', hint: 'Nhập tên đăng nhập', icon: Icons.person_outline, validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên đăng nhập' : null),
+                    _profileField(
+                      controller: _usernameCtrl,
+                      label: 'Tên đăng nhập',
+                      hint: 'Nhập tên đăng nhập',
+                      icon: Icons.person_outline,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Vui lòng nhập tên đăng nhập'
+                          : null,
+                    ),
                     const SizedBox(height: 16),
-                    _profileField(controller: _fullnameCtrl, label: 'Họ và tên', hint: 'Nhập họ và tên', icon: Icons.badge_outlined, validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập họ và tên' : null),
+                    _profileField(
+                      controller: _fullnameCtrl,
+                      label: 'Họ và tên',
+                      hint: 'Nhập họ và tên',
+                      icon: Icons.badge_outlined,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Vui lòng nhập họ và tên'
+                          : null,
+                    ),
                     const SizedBox(height: 16),
-                    _profileField(controller: _phoneCtrl, label: 'Số điện thoại', hint: 'Nhập số điện thoại', icon: Icons.phone_outlined, keyboardType: TextInputType.phone, validator: _validatePhone),
+                    _profileField(
+                      controller: _phoneCtrl,
+                      label: 'Số điện thoại',
+                      hint: 'Nhập số điện thoại',
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      validator: _validatePhone,
+                    ),
                     const SizedBox(height: 16),
-                    _profileField(controller: _emailCtrl, label: 'Email', hint: 'Email', icon: Icons.email_outlined, readOnly: true),
+                    _profileField(
+                      controller: _emailCtrl,
+                      label: 'Email',
+                      hint: 'Email',
+                      icon: Icons.email_outlined,
+                      readOnly: true,
+                    ),
                   ],
                 ),
               ),
@@ -249,7 +344,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+              ),
+            ],
           ),
           child: SizedBox(
             width: double.infinity,
@@ -257,7 +357,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: ElevatedButton(
               onPressed: _saving ? null : _save,
               child: _saving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text('Lưu thay đổi'),
             ),
           ),

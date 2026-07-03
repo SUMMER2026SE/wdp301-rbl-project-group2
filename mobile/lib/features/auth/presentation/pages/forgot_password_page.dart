@@ -26,7 +26,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   void _onSendOtp() {
     if (!_formKey.currentState!.validate()) return;
-    context.read<AuthBloc>().add(AuthForgotPasswordRequested(_emailController.text.trim()));
+    context.read<AuthBloc>().add(
+      AuthForgotPasswordRequested(_emailController.text.trim()),
+    );
   }
 
   @override
@@ -45,10 +47,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               content: Text(state.message),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
-          context.push('/reset-password', extra: state.email ?? _emailController.text.trim());
+          context.push(
+            '/reset-password',
+            extra: state.email ?? _emailController.text.trim(),
+          );
         }
       },
       builder: (context, state) {
@@ -62,7 +69,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -136,7 +146,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(

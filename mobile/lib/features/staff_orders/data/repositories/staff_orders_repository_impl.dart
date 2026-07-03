@@ -60,10 +60,7 @@ class StaffOrdersRepositoryImpl implements StaffOrdersRepository {
     required String storeId,
   }) async {
     try {
-      await _remoteDataSource.confirmOrder(
-        orderId: orderId,
-        storeId: storeId,
-      );
+      await _remoteDataSource.confirmOrder(orderId: orderId, storeId: storeId);
       return const Right(null);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));
@@ -102,10 +99,7 @@ class StaffOrdersRepositoryImpl implements StaffOrdersRepository {
     required String storeId,
   }) async {
     try {
-      await _remoteDataSource.readyOrder(
-        orderId: orderId,
-        storeId: storeId,
-      );
+      await _remoteDataSource.readyOrder(orderId: orderId, storeId: storeId);
       return const Right(null);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));

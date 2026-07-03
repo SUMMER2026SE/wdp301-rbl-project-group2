@@ -80,11 +80,13 @@ class OrderModel {
       customerId: customerId,
       items: json['items'] != null
           ? (json['items'] as List)
-              .map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
+                .toList()
           : const [],
       note: json['note'] as String?,
-      staffNoteItems: (json['staffNoteItems'] as List?)?.map((e) => e as String).toList() ?? [],
+      staffNoteItems:
+          (json['staffNoteItems'] as List?)?.map((e) => e as String).toList() ??
+          [],
       status: OrderStatus.fromString(json['status'] as String? ?? 'pending'),
       subTotal: json['subTotal'] as int? ?? 0,
       shippingFee: json['shippingFee'] as int? ?? 0,
@@ -93,15 +95,27 @@ class OrderModel {
           ? OrderPaymentModel.fromJson(json['payment'] as Map<String, dynamic>)
           : OrderPaymentModel(method: 'cash', paidAt: null),
       deliveryAddress: json['deliveryAddress'] != null
-          ? UserAddressModel.fromJson(json['deliveryAddress'] as Map<String, dynamic>)
-          : UserAddressModel(receiverName: '', phone: '', detail: '', ward: '', city: ''),
+          ? UserAddressModel.fromJson(
+              json['deliveryAddress'] as Map<String, dynamic>,
+            )
+          : UserAddressModel(
+              receiverName: '',
+              phone: '',
+              detail: '',
+              ward: '',
+              city: '',
+            ),
       deliveryInfo: json['deliveryInfo'] != null
-          ? OrderDeliveryInfoModel.fromJson(json['deliveryInfo'] as Map<String, dynamic>)
+          ? OrderDeliveryInfoModel.fromJson(
+              json['deliveryInfo'] as Map<String, dynamic>,
+            )
           : null,
       voucher: json['voucher'] as String?,
       discountAmount: json['discountAmount'] as int?,
       cancellation: json['cancellation'] != null
-          ? OrderCancellationModel.fromJson(json['cancellation'] as Map<String, dynamic>)
+          ? OrderCancellationModel.fromJson(
+              json['cancellation'] as Map<String, dynamic>,
+            )
           : null,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String).toLocal()
@@ -171,8 +185,12 @@ class OrderItemModel {
       quantity: json['quantity'] as int? ?? 1,
       variations: json['variations'] != null
           ? (json['variations'] as List)
-              .map((e) => OrderItemVariationModel.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map(
+                  (e) => OrderItemVariationModel.fromJson(
+                    e as Map<String, dynamic>,
+                  ),
+                )
+                .toList()
           : const [],
       subTotal: json['subTotal'] as int? ?? 0,
     );
@@ -209,11 +227,7 @@ class OrderItemVariationModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'choice': choice,
-      'extraPrice': extraPrice,
-    };
+    return {'name': name, 'choice': choice, 'extraPrice': extraPrice};
   }
 }
 
@@ -221,23 +235,19 @@ class OrderPaymentModel {
   final String method;
   final DateTime? paidAt;
 
-  OrderPaymentModel({
-    required this.method,
-    this.paidAt,
-  });
+  OrderPaymentModel({required this.method, this.paidAt});
 
   factory OrderPaymentModel.fromJson(Map<String, dynamic> json) {
     return OrderPaymentModel(
       method: json['method'] as String? ?? 'cash',
-      paidAt: json['paidAt'] != null ? DateTime.parse(json['paidAt'] as String).toLocal() : null,
+      paidAt: json['paidAt'] != null
+          ? DateTime.parse(json['paidAt'] as String).toLocal()
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'method': method,
-      'paidAt': paidAt?.toIso8601String(),
-    };
+    return {'method': method, 'paidAt': paidAt?.toIso8601String()};
   }
 }
 
@@ -246,16 +256,16 @@ class OrderDeliveryInfoModel {
   final DateTime? deliveredAt;
   final String? driverId;
 
-  OrderDeliveryInfoModel({
-    this.shippedAt,
-    this.deliveredAt,
-    this.driverId,
-  });
+  OrderDeliveryInfoModel({this.shippedAt, this.deliveredAt, this.driverId});
 
   factory OrderDeliveryInfoModel.fromJson(Map<String, dynamic> json) {
     return OrderDeliveryInfoModel(
-      shippedAt: json['shippedAt'] != null ? DateTime.parse(json['shippedAt'] as String).toLocal() : null,
-      deliveredAt: json['deliveredAt'] != null ? DateTime.parse(json['deliveredAt'] as String).toLocal() : null,
+      shippedAt: json['shippedAt'] != null
+          ? DateTime.parse(json['shippedAt'] as String).toLocal()
+          : null,
+      deliveredAt: json['deliveredAt'] != null
+          ? DateTime.parse(json['deliveredAt'] as String).toLocal()
+          : null,
       driverId: json['driverId'] as String?,
     );
   }
@@ -287,7 +297,9 @@ class OrderCancellationModel {
       reason: json['reason'] as String? ?? '',
       cancelledBy: json['cancelledBy'] as String? ?? 'staff',
       refundRequired: json['refundRequired'] as bool?,
-      refundedAt: json['refundedAt'] != null ? DateTime.parse(json['refundedAt'] as String).toLocal() : null,
+      refundedAt: json['refundedAt'] != null
+          ? DateTime.parse(json['refundedAt'] as String).toLocal()
+          : null,
     );
   }
 

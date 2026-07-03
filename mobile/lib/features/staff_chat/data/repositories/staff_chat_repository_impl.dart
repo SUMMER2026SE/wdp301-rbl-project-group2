@@ -16,7 +16,9 @@ class StaffChatRepositoryImpl implements StaffChatRepository {
     required String storeId,
   }) async {
     try {
-      final conversations = await _remoteDataSource.getConversations(storeId: storeId);
+      final conversations = await _remoteDataSource.getConversations(
+        storeId: storeId,
+      );
       return Right(conversations);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));
@@ -32,7 +34,9 @@ class StaffChatRepositoryImpl implements StaffChatRepository {
     required String conversationId,
   }) async {
     try {
-      final messages = await _remoteDataSource.getConversationMessages(conversationId: conversationId);
+      final messages = await _remoteDataSource.getConversationMessages(
+        conversationId: conversationId,
+      );
       return Right(messages);
     } on NetworkException catch (e) {
       return Left(NetworkFailure(message: e.message));

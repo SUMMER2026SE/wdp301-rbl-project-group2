@@ -20,7 +20,9 @@ class VoucherListPage extends StatefulWidget {
 class _VoucherListPageState extends State<VoucherListPage> {
   final Dio _dio = ApiClient().dio;
   final TextEditingController _searchController = TextEditingController();
-  final Debouncer _debouncer = Debouncer(delay: const Duration(milliseconds: 300));
+  final Debouncer _debouncer = Debouncer(
+    delay: const Duration(milliseconds: 300),
+  );
 
   List<dynamic> _vouchers = [];
   bool _loading = true;
@@ -68,12 +70,15 @@ class _VoucherListPageState extends State<VoucherListPage> {
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
       setState(() {
-        _vouchers = res.data['data'] as List<dynamic>? ?? res.data as List<dynamic>;
+        _vouchers =
+            res.data['data'] as List<dynamic>? ?? res.data as List<dynamic>;
         _loading = false;
       });
     } on DioException catch (e) {
       setState(() {
-        _error = e.response?.data['message'] as String? ?? 'Không thể tải danh sách voucher';
+        _error =
+            e.response?.data['message'] as String? ??
+            'Không thể tải danh sách voucher';
         _loading = false;
       });
     } catch (e) {
@@ -152,10 +157,7 @@ class _VoucherListPageState extends State<VoucherListPage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: _categories
-            .map((cat) => _buildChip(
-                  cat['label'] as String,
-                  cat['value'],
-                ))
+            .map((cat) => _buildChip(cat['label'] as String, cat['value']))
             .toList(),
       ),
     );
@@ -195,7 +197,10 @@ class _VoucherListPageState extends State<VoucherListPage> {
         onChanged: _onSearch,
         decoration: InputDecoration(
           hintText: 'Tìm mã giảm giá...',
-          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textHint),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.textHint,
+          ),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, size: 20),
@@ -221,7 +226,8 @@ class _VoucherListPageState extends State<VoucherListPage> {
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _vouchers.length,
-        itemBuilder: (_, i) => _buildVoucherCard(_vouchers[i] as Map<String, dynamic>),
+        itemBuilder: (_, i) =>
+            _buildVoucherCard(_vouchers[i] as Map<String, dynamic>),
       ),
     );
   }
@@ -252,9 +258,19 @@ class _VoucherListPageState extends State<VoucherListPage> {
         children: [
           Icon(Icons.local_offer_outlined, size: 72, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Chưa có khuyến mãi nào', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary)),
+          Text(
+            'Chưa có khuyến mãi nào',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 8),
-          Text('Hiện tại chưa có voucher nào khả dụng', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textHint)),
+          Text(
+            'Hiện tại chưa có voucher nào khả dụng',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textHint),
+          ),
         ],
       ),
     );
@@ -264,7 +280,9 @@ class _VoucherListPageState extends State<VoucherListPage> {
     final expired = _isExpired(v);
     final isPct = _isPercentage(v);
     final validUntil = Formatters.parseDate(v['validUntil'] as String?);
-    final minOrder = v['minOrderAmount'] != null ? (v['minOrderAmount'] as num) : 0;
+    final minOrder = v['minOrderAmount'] != null
+        ? (v['minOrderAmount'] as num)
+        : 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -313,7 +331,11 @@ class _VoucherListPageState extends State<VoucherListPage> {
                       ),
                       const SizedBox(height: 4),
                       if (!expired)
-                        Icon(Icons.local_offer, color: Colors.white.withValues(alpha: 0.8), size: 20),
+                        Icon(
+                          Icons.local_offer,
+                          color: Colors.white.withValues(alpha: 0.8),
+                          size: 20,
+                        ),
                     ],
                   ),
                 ),
@@ -329,7 +351,9 @@ class _VoucherListPageState extends State<VoucherListPage> {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
-                            color: expired ? Colors.grey[500] : AppColors.textPrimary,
+                            color: expired
+                                ? Colors.grey[500]
+                                : AppColors.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -337,7 +361,10 @@ class _VoucherListPageState extends State<VoucherListPage> {
                         const SizedBox(height: 4),
                         if (v['code'] != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
@@ -355,7 +382,12 @@ class _VoucherListPageState extends State<VoucherListPage> {
                         const SizedBox(height: 6),
                         Text(
                           v['description'] as String? ?? '',
-                          style: TextStyle(fontSize: 12, color: expired ? Colors.grey[400] : AppColors.textSecondary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: expired
+                                ? Colors.grey[400]
+                                : AppColors.textSecondary,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -365,13 +397,23 @@ class _VoucherListPageState extends State<VoucherListPage> {
                             if (validUntil != null)
                               Text(
                                 'HSD: ${Formatters.date(validUntil)}',
-                                style: TextStyle(fontSize: 11, color: expired ? Colors.grey[400] : AppColors.textHint),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: expired
+                                      ? Colors.grey[400]
+                                      : AppColors.textHint,
+                                ),
                               ),
                             if (minOrder > 0) ...[
                               const SizedBox(width: 12),
                               Text(
                                 'Đơn tối thiểu ${Formatters.compactCurrency(minOrder)}',
-                                style: TextStyle(fontSize: 11, color: expired ? Colors.grey[400] : AppColors.textHint),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: expired
+                                      ? Colors.grey[400]
+                                      : AppColors.textHint,
+                                ),
                               ),
                             ],
                           ],
@@ -382,27 +424,47 @@ class _VoucherListPageState extends State<VoucherListPage> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () {
-                                Clipboard.setData(ClipboardData(text: v['code'] as String));
+                                Clipboard.setData(
+                                  ClipboardData(text: v['code'] as String),
+                                );
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Đã sao chép mã!'), duration: Duration(seconds: 2)),
+                                  const SnackBar(
+                                    content: Text('Đã sao chép mã!'),
+                                    duration: Duration(seconds: 2),
+                                  ),
                                 );
                               },
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 32),
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                               child: const Text('Sao chép mã'),
                             ),
                           ),
                         if (expired)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.grey[300],
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text('Đã hết hạn', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+                            child: Text(
+                              'Đã hết hạn',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[600],
+                              ),
+                            ),
                           ),
                       ],
                     ),

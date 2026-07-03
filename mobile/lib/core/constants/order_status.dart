@@ -95,11 +95,19 @@ enum OrderStatus {
       case OrderStatus.pending:
         return [OrderStatus.confirmed, OrderStatus.cancelled];
       case OrderStatus.confirmed:
-        return [OrderStatus.processing, OrderStatus.readyForDelivery, OrderStatus.preparing];
+        return [
+          OrderStatus.processing,
+          OrderStatus.readyForDelivery,
+          OrderStatus.preparing,
+        ];
       case OrderStatus.processing:
         return [OrderStatus.readyForDelivery];
       case OrderStatus.preparing:
-        return [OrderStatus.readyForDelivery, OrderStatus.delivering, OrderStatus.shipping];
+        return [
+          OrderStatus.readyForDelivery,
+          OrderStatus.delivering,
+          OrderStatus.shipping,
+        ];
       case OrderStatus.readyForDelivery:
         return [OrderStatus.shipping, OrderStatus.delivering];
       case OrderStatus.shipping:

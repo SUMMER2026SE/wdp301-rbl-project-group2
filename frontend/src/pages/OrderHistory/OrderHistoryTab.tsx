@@ -141,7 +141,7 @@ const OrderHistoryTabContent = () => {
       // Refresh list
       const res = await orderService.getMyOrders();
       setOrders(res.data);
-    } catch (err) {
+    } catch {
       showToast("error", "Không thể hủy đơn hàng này");
     } finally {
       setIsCancelling(false);

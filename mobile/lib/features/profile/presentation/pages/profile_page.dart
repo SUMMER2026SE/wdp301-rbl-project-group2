@@ -26,14 +26,23 @@ class _ProfilePageState extends State<ProfilePage> {
     final email = user['email'] as String? ?? '';
     final phone = user['phone'] as String? ?? '';
     final avatarUrl = user['avatar'] as String? ?? '';
-    final points = user['collectedPoints'] is num ? (user['collectedPoints'] as num).toInt() : 0;
-    final ordersCount = user['ordersCount'] is num ? (user['ordersCount'] as num).toInt() : 0;
-    final reviewsCount = user['reviewsCount'] is num ? (user['reviewsCount'] as num).toInt() : 0;
+    final points = user['collectedPoints'] is num
+        ? (user['collectedPoints'] as num).toInt()
+        : 0;
+    final ordersCount = user['ordersCount'] is num
+        ? (user['ordersCount'] as num).toInt()
+        : 0;
+    final reviewsCount = user['reviewsCount'] is num
+        ? (user['reviewsCount'] as num).toInt()
+        : 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Tài khoản', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text(
+          'Tài khoản',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -88,17 +97,36 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const _ProfileDivider(),
               SwitchListTile(
-                secondary: const _ProfileIconBadge(icon: Icons.campaign_outlined),
-                title: const Text('Thông báo khuyến mãi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                subtitle: const Text('Nhận ưu đãi và voucher mới', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                secondary: const _ProfileIconBadge(
+                  icon: Icons.campaign_outlined,
+                ),
+                title: const Text(
+                  'Thông báo khuyến mãi',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Nhận ưu đãi và voucher mới',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 value: user['receiveCampaignNotifications'] == true,
-                onChanged: _isUpdatingCampaignNotif ? null : (val) => _updateCampaignNotif(context, val),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                onChanged: _isUpdatingCampaignNotif
+                    ? null
+                    : (val) => _updateCampaignNotif(context, val),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _LogoutTile(onTap: () => context.read<AuthBloc>().add(const AuthLogoutRequested())),
+          _LogoutTile(
+            onTap: () =>
+                context.read<AuthBloc>().add(const AuthLogoutRequested()),
+          ),
         ],
       ),
     );
@@ -111,10 +139,10 @@ class _ProfilePageState extends State<ProfilePage> {
     final value = fullName?.trim().isNotEmpty == true
         ? fullName!.trim()
         : fullname?.trim().isNotEmpty == true
-            ? fullname!.trim()
-            : username?.trim().isNotEmpty == true
-                ? username!.trim()
-                : 'Người dùng';
+        ? fullname!.trim()
+        : username?.trim().isNotEmpty == true
+        ? username!.trim()
+        : 'Người dùng';
     return value;
   }
 
@@ -136,10 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final previousUser = Map<String, dynamic>.from(authState.user);
     final previousValue = previousUser['receiveCampaignNotifications'] == true;
-    final nextUser = {
-      ...previousUser,
-      'receiveCampaignNotifications': value,
-    };
+    final nextUser = {...previousUser, 'receiveCampaignNotifications': value};
 
     setState(() => _isUpdatingCampaignNotif = true);
     authBloc.add(AuthUserUpdated(nextUser));
@@ -152,17 +177,23 @@ class _ProfilePageState extends State<ProfilePage> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(value ? 'Đã bật thông báo khuyến mãi' : 'Đã tắt thông báo khuyến mãi'),
+            content: Text(
+              value
+                  ? 'Đã bật thông báo khuyến mãi'
+                  : 'Đã tắt thông báo khuyến mãi',
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.success,
           ),
         );
       }
     } on DioException catch (_) {
-      authBloc.add(AuthUserUpdated({
-        ...previousUser,
-        'receiveCampaignNotifications': previousValue,
-      }));
+      authBloc.add(
+        AuthUserUpdated({
+          ...previousUser,
+          'receiveCampaignNotifications': previousValue,
+        }),
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -205,7 +236,13 @@ class _ProfileHeroCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 18, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -221,7 +258,9 @@ class _ProfileHeroCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
           ),
           Transform.translate(
@@ -241,13 +280,36 @@ class _ProfileHeroCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               if (email.isNotEmpty)
-                                Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                                Text(
+                                  email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                               if (phone.isNotEmpty) ...[
                                 const SizedBox(height: 2),
-                                Text(phone, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                                Text(
+                                  phone,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -261,8 +323,15 @@ class _ProfileHeroCard extends StatelessWidget {
                           child: Container(
                             width: 40,
                             height: 40,
-                            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(14)),
-                            child: const Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
@@ -272,18 +341,34 @@ class _ProfileHeroCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.accent.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.45)),
+                        border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.45),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.stars_rounded, color: AppColors.primary, size: 16),
+                          const Icon(
+                            Icons.stars_rounded,
+                            color: AppColors.primary,
+                            size: 16,
+                          ),
                           const SizedBox(width: 6),
-                          Text('$points điểm thưởng', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                          Text(
+                            '$points điểm thưởng',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -293,9 +378,24 @@ class _ProfileHeroCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _ProfileStat(value: ordersCount.toString(), label: 'Đơn hàng')),
-                      Expanded(child: _ProfileStat(value: reviewsCount.toString(), label: 'Đánh giá')),
-                      Expanded(child: _ProfileStat(value: points.toString(), label: 'Điểm thưởng')),
+                      Expanded(
+                        child: _ProfileStat(
+                          value: ordersCount.toString(),
+                          label: 'Đơn hàng',
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileStat(
+                          value: reviewsCount.toString(),
+                          label: 'Đánh giá',
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileStat(
+                          value: points.toString(),
+                          label: 'Điểm thưởng',
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -326,7 +426,11 @@ class _ProfileAvatar extends StatelessWidget {
         child: avatarUrl.isEmpty
             ? Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                ),
               )
             : null,
       ),
@@ -364,9 +468,23 @@ class _ProfileStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
         const SizedBox(height: 3),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
       ],
     );
   }
@@ -385,13 +503,26 @@ class _ProfileSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow,
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(children: children),
         ),
@@ -401,7 +532,12 @@ class _ProfileSection extends StatelessWidget {
 }
 
 class _ProfileMenuTile extends StatelessWidget {
-  const _ProfileMenuTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  const _ProfileMenuTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -414,9 +550,22 @@ class _ProfileMenuTile extends StatelessWidget {
       minVerticalPadding: 14,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       leading: _ProfileIconBadge(icon: icon),
-      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: AppColors.textHint,
+      ),
       onTap: onTap,
     );
   }
@@ -432,7 +581,10 @@ class _ProfileIconBadge extends StatelessWidget {
     return Container(
       width: 38,
       height: 38,
-      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(13)),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(13),
+      ),
       child: Icon(icon, color: AppColors.primary, size: 21),
     );
   }
@@ -443,7 +595,12 @@ class _ProfileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, indent: 66, endIndent: 14, color: AppColors.divider);
+    return const Divider(
+      height: 1,
+      indent: 66,
+      endIndent: 14,
+      color: AppColors.divider,
+    );
   }
 }
 
@@ -466,7 +623,14 @@ class _LogoutTile extends StatelessWidget {
             children: [
               Icon(Icons.logout_rounded, color: AppColors.error),
               SizedBox(width: 12),
-              Text('Đăng xuất', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.error)),
+              Text(
+                'Đăng xuất',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.error,
+                ),
+              ),
             ],
           ),
         ),
@@ -526,7 +690,10 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
         );
       }
     } on DioException catch (e) {
-      final message = _messageFromErrorResponse(e.response?.data, 'Đã xảy ra lỗi. Vui lòng thử lại.');
+      final message = _messageFromErrorResponse(
+        e.response?.data,
+        'Đã xảy ra lỗi. Vui lòng thử lại.',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -561,11 +728,19 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
 
   String? _validateNewPassword(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu mới';
-    if (value.contains(RegExp(r'\s'))) return 'Mật khẩu không được chứa khoảng trắng';
+    if (value.contains(RegExp(r'\s'))) {
+      return 'Mật khẩu không được chứa khoảng trắng';
+    }
     if (value.length < 8) return 'Mật khẩu phải có tối thiểu 8 ký tự';
-    if (!value.contains(RegExp(r'[A-Z]'))) return 'Mật khẩu phải chứa ít nhất một chữ viết hoa';
-    if (!value.contains(RegExp(r'[0-9]'))) return 'Mật khẩu phải chứa ít nhất một chữ số';
-    if (!value.contains(RegExp(r'[^a-zA-Z0-9]'))) return 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt';
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Mật khẩu phải chứa ít nhất một chữ viết hoa';
+    }
+    if (!value.contains(RegExp(r'[0-9]'))) {
+      return 'Mật khẩu phải chứa ít nhất một chữ số';
+    }
+    if (!value.contains(RegExp(r'[^a-zA-Z0-9]'))) {
+      return 'Mật khẩu phải chứa ít nhất một ký tự đặc biệt';
+    }
     return null;
   }
 
@@ -587,7 +762,12 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
         suffixIcon: IconButton(
           tooltip: isVisible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
           onPressed: onToggleVisibility,
-          icon: Icon(isVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
+          icon: Icon(
+            isVisible
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+            size: 20,
+          ),
         ),
         filled: true,
         fillColor: AppColors.surfaceVariant.withValues(alpha: 0.55),
@@ -597,7 +777,9 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.divider.withValues(alpha: 0.7)),
+          borderSide: BorderSide(
+            color: AppColors.divider.withValues(alpha: 0.7),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -655,7 +837,10 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                         color: AppColors.primary.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary),
+                      child: const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        color: AppColors.primary,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -664,12 +849,20 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                         children: [
                           Text(
                             'Đổi mật khẩu',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                           SizedBox(height: 4),
                           Text(
                             'Sử dụng mật khẩu mạnh để bảo vệ tài khoản của bạn.',
-                            style: TextStyle(fontSize: 13, height: 1.35, color: AppColors.textSecondary),
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -682,9 +875,13 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                   label: 'Mật khẩu hiện tại',
                   hint: 'Nhập mật khẩu đang dùng',
                   isVisible: _showCurrentPassword,
-                  onToggleVisibility: () => setState(() => _showCurrentPassword = !_showCurrentPassword),
+                  onToggleVisibility: () => setState(
+                    () => _showCurrentPassword = !_showCurrentPassword,
+                  ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu hiện tại';
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập mật khẩu hiện tại';
+                    }
                     return null;
                   },
                 ),
@@ -694,7 +891,8 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                   label: 'Mật khẩu mới',
                   hint: '8+ ký tự, chữ hoa, số và ký tự đặc biệt',
                   isVisible: _showNewPassword,
-                  onToggleVisibility: () => setState(() => _showNewPassword = !_showNewPassword),
+                  onToggleVisibility: () =>
+                      setState(() => _showNewPassword = !_showNewPassword),
                   validator: _validateNewPassword,
                 ),
                 const SizedBox(height: 14),
@@ -703,10 +901,16 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                   label: 'Xác nhận mật khẩu mới',
                   hint: 'Nhập lại mật khẩu mới',
                   isVisible: _showConfirmPassword,
-                  onToggleVisibility: () => setState(() => _showConfirmPassword = !_showConfirmPassword),
+                  onToggleVisibility: () => setState(
+                    () => _showConfirmPassword = !_showConfirmPassword,
+                  ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Vui lòng xác nhận mật khẩu mới';
-                    if (value != _newPasswordController.text) return 'Mật khẩu xác nhận không khớp';
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng xác nhận mật khẩu mới';
+                    }
+                    if (value != _newPasswordController.text) {
+                      return 'Mật khẩu xác nhận không khớp';
+                    }
                     return null;
                   },
                 ),
@@ -720,15 +924,26 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Text('Cập nhật mật khẩu', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                        : const Text(
+                            'Cập nhật mật khẩu',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                   ),
                 ),
               ],

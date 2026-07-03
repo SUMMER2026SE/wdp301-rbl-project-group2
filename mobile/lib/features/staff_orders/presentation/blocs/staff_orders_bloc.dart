@@ -91,7 +91,8 @@ class StaffOrdersLoading extends StaffOrdersState {
 
 class StaffOrdersLoaded extends StaffOrdersState {
   final List<OrderModel> orders;
-  final String? actioningOrderId; // Track which order is currently being updated
+  final String?
+  actioningOrderId; // Track which order is currently being updated
   final String? message;
 
   const StaffOrdersLoaded({
@@ -137,11 +138,11 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
     required ConfirmStaffOrderUseCase confirmStaffOrderUseCase,
     required RejectStaffOrderUseCase rejectStaffOrderUseCase,
     required ReadyStaffOrderUseCase readyStaffOrderUseCase,
-  })  : _getStaffOrdersUseCase = getStaffOrdersUseCase,
-        _confirmStaffOrderUseCase = confirmStaffOrderUseCase,
-        _rejectStaffOrderUseCase = rejectStaffOrderUseCase,
-        _readyStaffOrderUseCase = readyStaffOrderUseCase,
-        super(const StaffOrdersInitial()) {
+  }) : _getStaffOrdersUseCase = getStaffOrdersUseCase,
+       _confirmStaffOrderUseCase = confirmStaffOrderUseCase,
+       _rejectStaffOrderUseCase = rejectStaffOrderUseCase,
+       _readyStaffOrderUseCase = readyStaffOrderUseCase,
+       super(const StaffOrdersInitial()) {
     on<FetchStaffOrdersEvent>(_onFetchOrders);
     on<ConfirmOrderEvent>(_onConfirmOrder);
     on<RejectOrderEvent>(_onRejectOrder);
@@ -156,7 +157,7 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
     if (event.showLoader) {
       emit(const StaffOrdersLoading());
     }
-    
+
     final result = await _getStaffOrdersUseCase(
       storeId: event.storeId,
       status: event.status,
@@ -188,15 +189,19 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
         // Optimistically update status locally or trigger fetch
         final updatedOrders = currentState.orders.map((o) {
           if (o.id == event.orderId) {
-            return o.copyWith(status: 'confirmed'); // assuming copyWith is defined in OrderModel
+            return o.copyWith(
+              status: 'confirmed',
+            ); // assuming copyWith is defined in OrderModel
           }
           return o;
         }).toList();
-        
-        emit(StaffOrdersLoaded(
-          orders: updatedOrders,
-          message: 'Đã xác nhận đơn hàng thành công!',
-        ));
+
+        emit(
+          StaffOrdersLoaded(
+            orders: updatedOrders,
+            message: 'Đã xác nhận đơn hàng thành công!',
+          ),
+        );
       },
     );
   }
@@ -226,10 +231,12 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
           return o;
         }).toList();
 
-        emit(StaffOrdersLoaded(
-          orders: updatedOrders,
-          message: 'Đã từ chối đơn hàng.',
-        ));
+        emit(
+          StaffOrdersLoaded(
+            orders: updatedOrders,
+            message: 'Đã từ chối đơn hàng.',
+          ),
+        );
       },
     );
   }
@@ -258,10 +265,12 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
           return o;
         }).toList();
 
-        emit(StaffOrdersLoaded(
-          orders: updatedOrders,
-          message: 'Đơn hàng đã chuẩn bị xong!',
-        ));
+        emit(
+          StaffOrdersLoaded(
+            orders: updatedOrders,
+            message: 'Đơn hàng đã chuẩn bị xong!',
+          ),
+        );
       },
     );
   }
@@ -276,10 +285,12 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
       final exists = currentState.orders.any((o) => o.id == event.order.id);
       if (!exists) {
         final updatedList = [event.order, ...currentState.orders];
-        emit(StaffOrdersLoaded(
-          orders: updatedList,
-          message: 'Có đơn hàng mới vừa được chuyển đến!',
-        ));
+        emit(
+          StaffOrdersLoaded(
+            orders: updatedList,
+            message: 'Có đơn hàng mới vừa được chuyển đến!',
+          ),
+        );
       }
     }
   }

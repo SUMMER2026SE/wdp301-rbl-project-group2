@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCheckout } from "@/hooks/useCheckout";
@@ -216,7 +216,7 @@ const CheckoutPage = () => {
     return nearest;
   };
 
-  const handleLocateUser = () => {
+  const handleLocateUser = useCallback(() => {
     if (!navigator.geolocation) {
       toast("Trình duyệt của bạn không hỗ trợ định vị GPS", "error");
       return;
@@ -327,7 +327,7 @@ const CheckoutPage = () => {
       },
       { timeout: 8000 },
     );
-  };
+  }, [addresses.length, setSelectedAddress, toast, user?.fullName, user?.phone]);
 
   // Geolocation trigger on mount
   useEffect(() => {
@@ -335,7 +335,7 @@ const CheckoutPage = () => {
     if (addresses.length === 0 && !effectiveAddress) {
       handleLocateUser();
     }
-  }, [addresses.length, effectiveAddress]);
+  }, [addresses.length, effectiveAddress, handleLocateUser]);
 
   const handleCheckoutSubmit = async () => {
     if (!effectiveAddress) {

@@ -40,15 +40,15 @@ class VoucherModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'code': code,
-        'title': title,
-        'description': description,
-        'discountType': discountType,
-        'discountValue': discountValue,
-        'minOrder': minOrder,
-        'validFrom': validFrom,
-        'validTo': validTo,
-        'isActive': isActive,
-      };
+    '_id': id,
+    'code': code,
+    'title': title,
+    'description': description,
+    'discountType': discountType,
+    'discountValue': discountValue,
+    'minOrder': minOrder,
+    'validFrom': validFrom,
+    'validTo': validTo,
+    'isActive': isActive,
+  };
 }

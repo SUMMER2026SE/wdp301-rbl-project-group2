@@ -81,7 +81,9 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
             .map((e) => _Message.fromJson(e as Map<String, dynamic>))
             .toList();
       } else if (data is List) {
-        msgs = data.map((e) => _Message.fromJson(e as Map<String, dynamic>)).toList();
+        msgs = data
+            .map((e) => _Message.fromJson(e as Map<String, dynamic>))
+            .toList();
       } else {
         msgs = [];
       }
@@ -92,13 +94,17 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
         });
         _scrollToBottom();
         // Mark as read
-        await ApiClient().dio.put(ApiEndpoints.supportMarkRead(widget.conversationId));
+        await ApiClient().dio.patch(
+          ApiEndpoints.supportMarkRead(widget.conversationId),
+        );
       }
     } catch (e) {
-      if (mounted) setState(() {
-        _error = 'Kh\xF4ng thể tải tin nhắn';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Kh\xF4ng thể tải tin nhắn';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -115,7 +121,9 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
             .map((e) => _Message.fromJson(e as Map<String, dynamic>))
             .toList();
       } else if (data is List) {
-        msgs = data.map((e) => _Message.fromJson(e as Map<String, dynamic>)).toList();
+        msgs = data
+            .map((e) => _Message.fromJson(e as Map<String, dynamic>))
+            .toList();
       } else {
         msgs = [];
       }
@@ -148,7 +156,7 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
         ApiEndpoints.supportMessages(widget.conversationId),
         data: {'content': content},
       );
-      _refresh();
+      unawaited(_refresh());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -166,7 +174,9 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
 
   Future<void> _closeConversation() async {
     try {
-      await ApiClient().dio.put(ApiEndpoints.supportClose(widget.conversationId));
+      await ApiClient().dio.patch(
+        ApiEndpoints.supportClose(widget.conversationId),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -237,7 +247,11 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_outlined, size: 64, color: Colors.grey.shade300),
+                        Icon(
+                          Icons.chat_outlined,
+                          size: 64,
+                          color: Colors.grey.shade300,
+                        ),
                         const SizedBox(height: 16),
                         const Text(
                           'Chưa c\xF3 tin nhắn',
@@ -248,7 +262,10 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
                   )
                 : ListView.builder(
                     controller: _scrollCtrl,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     itemCount: _messages.length,
                     itemBuilder: (_, i) => _buildMessageBubble(_messages[i]),
                   ),
@@ -267,7 +284,9 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
       alignment: isStaff ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isStaff ? AppColors.primary : Colors.grey.shade200,
@@ -326,7 +345,10 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
                 hintText: 'Nhập tin nhắn...',
                 filled: true,
                 fillColor: AppColors.surfaceVariant,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
@@ -347,9 +369,16 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
               onPressed: _sending ? null : _sendMessage,
             ),
           ),

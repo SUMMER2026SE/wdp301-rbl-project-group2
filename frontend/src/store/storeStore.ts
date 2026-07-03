@@ -14,7 +14,7 @@ interface StoreState {
 
 const STORAGE_KEY = 'foodiedash_selected_store';
 
-export const useStoreStore = create<StoreState>((set, get) => ({
+export const useStoreStore = create<StoreState>((set) => ({
   selectedStore: null,
   stores: [],
   isLoading: false,

@@ -31,13 +31,15 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
   void _fetchConversations() {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.storeId != null) {
-      context.read<StaffChatBloc>().add(FetchConversationsEvent(storeId: authState.storeId!));
+      context.read<StaffChatBloc>().add(
+        FetchConversationsEvent(storeId: authState.storeId!),
+      );
     }
   }
 
   void _setupSocketListener() {
     // Listen to Support global events to refresh list
-    SocketService().on('support:message', (_) {
+    SocketService().on('support:inbox_updated', (_) {
       if (mounted) {
         _fetchConversations();
       }
@@ -47,7 +49,7 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
   @override
   void dispose() {
     _searchController.dispose();
-    SocketService().off('support:message');
+    SocketService().off('support:inbox_updated');
     super.dispose();
   }
 
@@ -80,7 +82,10 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(state.message, style: const TextStyle(color: Colors.red)),
+                        Text(
+                          state.message,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _fetchConversations,
@@ -105,14 +110,17 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                     return const EmptyStateWidget(
                       icon: Icons.chat_bubble_outline,
                       title: 'Chưa có cuộc hội thoại nào',
-                      subtitle: 'Khi khách hàng gửi tin nhắn từ đơn hàng, nó sẽ xuất hiện ở đây.',
+                      subtitle:
+                          'Khi khách hàng gửi tin nhắn từ đơn hàng, nó sẽ xuất hiện ở đây.',
                     );
                   }
 
                   // Group conversations by stable customer identity.
                   final grouped = <String, List<ConversationModel>>{};
                   for (final c in filtered) {
-                    final customerKey = c.customerId.isNotEmpty ? c.customerId : c.customerName;
+                    final customerKey = c.customerId.isNotEmpty
+                        ? c.customerId
+                        : c.customerName;
                     grouped.putIfAbsent(customerKey, () => []).add(c);
                   }
 
@@ -123,15 +131,21 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                       final customerKey = grouped.keys.elementAt(index);
                       final convs = grouped[customerKey]!;
                       final customerName = convs.first.customerName;
-                      final isExpanded = _expandedCustomers.contains(customerKey);
+                      final isExpanded = _expandedCustomers.contains(
+                        customerKey,
+                      );
 
                       // Summary statistics for customer group
-                      final totalUnread = convs.fold<int>(0, (sum, c) => sum + c.unreadCount);
+                      final totalUnread = convs.fold<int>(
+                        0,
+                        (sum, c) => sum + c.unreadCount,
+                      );
                       final hasOpen = convs.any((c) => c.status == 'open');
 
                       // Find the latest active conversation to display preview
-                      final latestConv = convs.reduce((a, b) =>
-                          a.createdAt.isAfter(b.createdAt) ? a : b);
+                      final latestConv = convs.reduce(
+                        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+                      );
 
                       return _buildCustomerGroupTile(
                         customerKey,
@@ -205,15 +219,22 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
     return Column(
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
           leading: Stack(
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: AppColors.primary.withOpacity(0.1),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 child: Text(
                   customerName.substring(0, 1).toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                    fontSize: 16,
+                  ),
                 ),
               ),
               if (hasOpen)
@@ -239,7 +260,9 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                 child: Text(
                   customerName,
                   style: TextStyle(
-                    fontWeight: totalUnread > 0 ? FontWeight.w900 : FontWeight.bold,
+                    fontWeight: totalUnread > 0
+                        ? FontWeight.w900
+                        : FontWeight.bold,
                     fontSize: 15,
                     color: AppColors.textPrimary,
                   ),
@@ -250,7 +273,10 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
               if (previewMsg != null)
                 Text(
                   Formatters.time(previewMsg.createdAt),
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
             ],
           ),
@@ -260,18 +286,29 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  convs.length > 1 ? '${convs.length} đơn hàng cần hỗ trợ' : 'Đơn #${latestConv.orderCode}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  convs.length > 1
+                      ? '${convs.length} đơn hàng cần hỗ trợ'
+                      : 'Đơn #${latestConv.orderCode}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   previewMsg != null
-                      ? (previewMsg.senderType == 'STAFF' ? 'Bạn: ' : '') + previewMsg.content
+                      ? (previewMsg.senderType == 'STAFF' ? 'Bạn: ' : '') +
+                            previewMsg.content
                       : 'Chưa có tin nhắn',
                   style: TextStyle(
                     fontSize: 13,
-                    color: totalUnread > 0 ? AppColors.textPrimary : AppColors.textSecondary,
-                    fontWeight: totalUnread > 0 ? FontWeight.w600 : FontWeight.normal,
+                    color: totalUnread > 0
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                    fontWeight: totalUnread > 0
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -285,18 +322,27 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
               if (totalUnread > 0)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '$totalUnread',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               Icon(
-                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                isExpanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
                 color: AppColors.textSecondary,
               ),
             ],
@@ -325,29 +371,49 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                     children: [
                       Text(
                         'Đơn #${conv.orderCode}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       if (conv.lastMessage != null)
                         Text(
                           Formatters.time(conv.lastMessage!.createdAt),
-                          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                     ],
                   ),
                   subtitle: Text(
                     conv.lastMessage != null
-                        ? (conv.lastMessage!.senderType == 'STAFF' ? 'Bạn: ' : '') + conv.lastMessage!.content
+                        ? (conv.lastMessage!.senderType == 'STAFF'
+                                  ? 'Bạn: '
+                                  : '') +
+                              conv.lastMessage!.content
                         : 'Mới nhận',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: conv.unreadCount > 0
                       ? Container(
                           padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
                         )
-                      : const Icon(Icons.chevron_right, color: AppColors.textHint, size: 16),
+                      : const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textHint,
+                          size: 16,
+                        ),
                   onTap: () {
                     context.push('/staff/chat/${conv.id}', extra: conv);
                   },

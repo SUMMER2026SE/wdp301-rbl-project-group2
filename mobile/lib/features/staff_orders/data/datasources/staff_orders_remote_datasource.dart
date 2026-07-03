@@ -17,10 +17,7 @@ abstract class StaffOrdersRemoteDataSource {
     required String storeId,
   });
 
-  Future<void> confirmOrder({
-    required String orderId,
-    required String storeId,
-  });
+  Future<void> confirmOrder({required String orderId, required String storeId});
 
   Future<void> rejectOrder({
     required String orderId,
@@ -28,10 +25,7 @@ abstract class StaffOrdersRemoteDataSource {
     required String reason,
   });
 
-  Future<void> readyOrder({
-    required String orderId,
-    required String storeId,
-  });
+  Future<void> readyOrder({required String orderId, required String storeId});
 }
 
 class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
@@ -51,22 +45,26 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
         ApiEndpoints.staffOrders,
         queryParameters: {
           'storeId': storeId,
-          if (status != null) 'status': status,
-          if (page != null) 'page': page,
-          if (limit != null) 'limit': limit,
+          'status': ?status,
+          'page': ?page,
+          'limit': ?limit,
         },
       );
 
       final data = response.data;
       if (data != null && data['data'] != null) {
         final list = data['data'] as List;
-        return list.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
+        return list
+            .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
       return [];
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải danh sách đơn hàng',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải danh sách đơn hàng',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -93,7 +91,9 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể tải chi tiết đơn hàng',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể tải chi tiết đơn hàng',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -114,7 +114,9 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể xác nhận đơn hàng',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể xác nhận đơn hàng',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -131,15 +133,14 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
     try {
       await _apiClient.dio.patch(
         ApiEndpoints.staffRejectOrder(orderId),
-        data: {
-          'storeId': storeId,
-          'reason': reason,
-        },
+        data: {'storeId': storeId, 'reason': reason},
       );
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể từ chối đơn hàng',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể từ chối đơn hàng',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
@@ -160,7 +161,9 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(
-        message: e.response?.data?['message'] as String? ?? 'Không thể cập nhật trạng thái',
+        message:
+            e.response?.data?['message'] as String? ??
+            'Không thể cập nhật trạng thái',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {

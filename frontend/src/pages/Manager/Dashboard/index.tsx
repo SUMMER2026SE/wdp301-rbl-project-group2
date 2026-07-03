@@ -9,7 +9,6 @@ import {
   Banknote,
   Clock,
   ArrowRight,
-  TrendingUp,
   ListOrdered,
   UtensilsCrossed,
   AlertTriangle,
@@ -17,7 +16,6 @@ import {
   DollarSign,
   PieChart as PieIcon,
   Activity,
-  CheckCircle2,
   Sparkles,
 } from "lucide-react";
 import {
@@ -34,8 +32,6 @@ import {
   Line,
   Bar,
   BarChart,
-  AreaChart,
-  Area,
 } from "recharts";
 import orderService, { type Order } from "@/services/order.service";
 import productService from "@/services/product.service";
@@ -79,8 +75,6 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 const DONUT_COLORS = ["#3b82f6", "#fbbf24", "#10b981", "#ef4444", "#818cf8", "#22d3ee"];
-const PAYMENT_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#a855f7", "#6b7280"];
-
 // Dummy fallback payments for empty stats
 const fallbackPayments = [
   { name: "Tiền mặt (COD)", value: 2400000 },
@@ -226,9 +220,6 @@ const ManagerDashboard = () => {
 
   const activeProductsCount = metrics?.menu.activeSellingItems ?? products.filter((p) => p.isAvailable && p.status === "active").length;
   const outOfStockProductsCount = metrics?.menu.outOfStockItems ?? products.filter((p) => !p.isAvailable || p.status !== "active").length;
-  const disabledProductsCount = metrics?.menu.disabledItems ?? 0;
-  const operationalNotesCount = metrics?.menu.operationalNotes ?? 0;
-
   const outOfStockProducts = useMemo(() => {
     return products.filter((p) => !p.isAvailable || p.status !== "active").slice(0, 3);
   }, [products]);
@@ -264,10 +255,7 @@ const ManagerDashboard = () => {
       }))
       .filter((item) => item.value > 0);
   }, [metrics]);
-
-  const totalRevenueAllPayments = useMemo(() => {
-    return paymentData.reduce((sum, item) => sum + item.value, 0);
-  }, [paymentData]);
+  void paymentData;
 
   const revenueCycleData = useMemo(() => {
     return [
@@ -279,6 +267,8 @@ const ManagerDashboard = () => {
   }, [todayRevenue, weekRevenue, monthRevenue, codPending]);
 
   const REVENUE_CYCLE_COLORS = ["#3b82f6", "#10b981", "#a855f7", "#fbbf24"];
+  void revenueCycleData;
+  void REVENUE_CYCLE_COLORS;
 
   const completedOrders = useMemo(() => {
     return orders.filter((o) => o.status === "completed");

@@ -9,7 +9,6 @@ import 'package:foa_mobile/core/models/order_model.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
 import 'package:foa_mobile/core/utils/formatters.dart';
-import 'package:foa_mobile/features/staff_orders/presentation/blocs/staff_orders_bloc.dart';
 import 'package:foa_mobile/shared/widgets/order_status_badge.dart';
 import 'package:foa_mobile/shared/widgets/price_text.dart';
 import 'package:foa_mobile/shared/widgets/loading_indicator.dart';
@@ -45,7 +44,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     try {
       final auth = context.read<AuthBloc>().state;
       if (auth is! AuthAuthenticated || auth.storeId == null) {
-        setState(() => _error = 'Kh\xF4ng t\xECm thấy th\xF4ng tin cửa h\xE0ng');
+        setState(
+          () => _error = 'Kh\xF4ng t\xECm thấy th\xF4ng tin cửa h\xE0ng',
+        );
         _loading = false;
         return;
       }
@@ -82,18 +83,30 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
 
       switch (action) {
         case 'confirm':
-          await api.post(ApiEndpoints.staffConfirmOrder(widget.id), data: {'storeId': storeId});
+          await api.patch(
+            ApiEndpoints.staffConfirmOrder(widget.id),
+            data: {'storeId': storeId},
+          );
         case 'reject':
-          await api.post(ApiEndpoints.staffRejectOrder(widget.id), data: {
-            'storeId': storeId,
-            'reason': reason ?? '',
-          });
+          await api.patch(
+            ApiEndpoints.staffRejectOrder(widget.id),
+            data: {'storeId': storeId, 'reason': reason ?? ''},
+          );
         case 'ready':
-          await api.post(ApiEndpoints.staffReadyOrder(widget.id), data: {'storeId': storeId});
+          await api.patch(
+            ApiEndpoints.staffReadyOrder(widget.id),
+            data: {'storeId': storeId},
+          );
         case 'deliver':
-          await api.post(ApiEndpoints.staffDeliverOrder(widget.id), data: {'storeId': storeId});
+          await api.patch(
+            ApiEndpoints.staffDeliverOrder(widget.id),
+            data: {'storeId': storeId},
+          );
         case 'complete':
-          await api.post(ApiEndpoints.staffCompleteOrder(widget.id), data: {'storeId': storeId});
+          await api.patch(
+            ApiEndpoints.staffCompleteOrder(widget.id),
+            data: {'storeId': storeId},
+          );
       }
 
       if (mounted) {
@@ -146,17 +159,25 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: LoadingIndicator(message: 'Đang tải th\xF4ng tin đơn h\xE0ng...'));
+      return const Scaffold(
+        body: LoadingIndicator(message: 'Đang tải th\xF4ng tin đơn h\xE0ng...'),
+      );
     }
     if (_error != null || _order == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Chi tiết đơn h\xE0ng')),
-        body: AppErrorWidget(message: _error ?? 'Kh\xF4ng t\xECm thấy', onRetry: _fetch),
+        body: AppErrorWidget(
+          message: _error ?? 'Kh\xF4ng t\xECm thấy',
+          onRetry: _fetch,
+        ),
       );
     }
 
     final order = _order!;
-    final name = order.customer?.fullName ?? order.customer?.username ?? 'Kh\xE1ch v\xE3ng lai';
+    final name =
+        order.customer?.fullName ??
+        order.customer?.username ??
+        'Kh\xE1ch v\xE3ng lai';
     final phone = order.customer?.phone ?? order.deliveryAddress.phone;
     final address =
         '${order.deliveryAddress.detail}, ${order.deliveryAddress.ward}, ${order.deliveryAddress.city}';
@@ -200,8 +221,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('#${order.code}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  '#${order.code}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 OrderStatusBadge(status: order.status),
               ],
             ),
@@ -245,10 +271,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.shopping_bag_outlined, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.shopping_bag_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('M\xF3n ăn',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(
+                  'M\xF3n ăn',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
               ],
             ),
           ),
@@ -256,7 +288,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: order.items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (_, i) {
               final item = order.items[i];
               final itemName = item.name ?? item.product?.name ?? 'Sản phẩm';
@@ -268,22 +300,36 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(itemName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            itemName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           if (item.variations.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                item.variations.map((v) => '${v.name}: ${v.choice}').join(', '),
-                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                item.variations
+                                    .map((v) => '${v.name}: ${v.choice}')
+                                    .join(', '),
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                         ],
                       ),
                     ),
-                    Text('x${item.quantity}',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      'x${item.quantity}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(width: 24),
-                    PriceText(price: item.subTotal, fontSize: 14, fontWeight: FontWeight.bold),
+                    PriceText(
+                      price: item.subTotal,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ],
                 ),
               );
@@ -294,7 +340,12 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     );
   }
 
-  Widget _buildAddress(OrderModel order, String address, String phone, String name) {
+  Widget _buildAddress(
+    OrderModel order,
+    String address,
+    String phone,
+    String name,
+  ) {
     return Card(
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -305,9 +356,16 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           children: [
             const Row(
               children: [
-                Icon(Icons.location_on_outlined, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('Giao đến', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(
+                  'Giao đến',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -317,20 +375,35 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 2),
-                      Text(phone,
-                          style: const TextStyle(
-                              color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      Text(
+                        phone,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(address,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      Text(
+                        address,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 if (phone.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.phone_in_talk, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.phone_in_talk,
+                      color: AppColors.primary,
+                    ),
                     onPressed: () => _callPhone(phone),
                   ),
               ],
@@ -351,8 +424,13 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                     Icon(Icons.notes, size: 16, color: Colors.amber.shade700),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(order.note!,
-                          style: TextStyle(color: Colors.amber.shade900, fontSize: 13)),
+                      child: Text(
+                        order.note!,
+                        style: TextStyle(
+                          color: Colors.amber.shade900,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -376,27 +454,46 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
           children: [
             const Row(
               children: [
-                Icon(Icons.payment_outlined, color: AppColors.primary, size: 20),
+                Icon(
+                  Icons.payment_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
-                Text('Thanh to\xE1n', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(
+                  'Thanh to\xE1n',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             _paymentRow('Tạm t\xEDnh', Formatters.currency(order.subTotal)),
             const SizedBox(height: 6),
-            _paymentRow('Ph\xED giao h\xE0ng', Formatters.currency(order.shippingFee)),
+            _paymentRow(
+              'Ph\xED giao h\xE0ng',
+              Formatters.currency(order.shippingFee),
+            ),
             if (order.discountAmount != null && order.discountAmount! > 0) ...[
               const SizedBox(height: 6),
-              _paymentRow('Giảm gi\xE1', '-${Formatters.currency(order.discountAmount!)}',
-                  color: AppColors.success),
+              _paymentRow(
+                'Giảm gi\xE1',
+                '-${Formatters.currency(order.discountAmount!)}',
+                color: AppColors.success,
+              ),
             ],
             const Divider(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Tổng cộng',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                PriceText(price: order.totalPrice, fontSize: 20, fontWeight: FontWeight.w700),
+                const Text(
+                  'Tổng cộng',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+                PriceText(
+                  price: order.totalPrice,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -406,7 +503,9 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
               decoration: BoxDecoration(
                 color: isCOD ? Colors.orange.shade50 : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isCOD ? Colors.orange.shade200 : Colors.green.shade200),
+                border: Border.all(
+                  color: isCOD ? Colors.orange.shade200 : Colors.green.shade200,
+                ),
               ),
               child: Text(
                 isCOD ? 'Thu tiền mặt (COD)' : 'Đ\xE3 thanh to\xE1n online',
@@ -429,7 +528,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: const TextStyle(color: AppColors.textSecondary)),
-        Text(value, style: TextStyle(fontWeight: FontWeight.w600, color: color)),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.w600, color: color),
+        ),
       ],
     );
   }
@@ -471,7 +573,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
               ),
-              child: const Text('Từ chối', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Từ chối',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -482,7 +587,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
                 minimumSize: const Size(0, 52),
                 backgroundColor: AppColors.success,
               ),
-              child: const Text('X\xE1c nhận', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text(
+                'X\xE1c nhận',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -498,7 +606,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             minimumSize: const Size(double.infinity, 52),
             backgroundColor: AppColors.primary,
           ),
-          child: const Text('Sẵn s\xE0ng giao', style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            'Sẵn s\xE0ng giao',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       );
     }
@@ -513,7 +624,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             minimumSize: const Size(double.infinity, 52),
             backgroundColor: AppColors.secondary,
           ),
-          child: const Text('Bắt đầu giao h\xE0ng', style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            'Bắt đầu giao h\xE0ng',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       );
     }
@@ -528,8 +642,10 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
             minimumSize: const Size(double.infinity, 52),
             backgroundColor: AppColors.success,
           ),
-          child: const Text('Ho\xE0n tất giao h\xE0ng',
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            'Ho\xE0n tất giao h\xE0ng',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       );
     }

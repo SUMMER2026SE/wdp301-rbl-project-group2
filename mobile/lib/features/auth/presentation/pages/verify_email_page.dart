@@ -39,8 +39,8 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
       return;
     }
     context.read<AuthBloc>().add(
-          AuthVerifyEmailRequested(email: email, code: _codeController.text.trim()),
-        );
+      AuthVerifyEmailRequested(email: email, code: _codeController.text.trim()),
+    );
   }
 
   void _onResend() {
@@ -65,7 +65,9 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
               content: Text(state.message),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
           context.go('/login');
@@ -82,7 +84,10 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -156,7 +161,11 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
@@ -206,7 +215,9 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                                   color: AppColors.textHint,
                                 ),
                                 counterText: '',
-                                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                               ),
                               validator: Validators.otp,
                             ),

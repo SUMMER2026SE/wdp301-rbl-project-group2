@@ -27,7 +27,7 @@ interface Conversation {
 }
 
 const CustomerMessagesPage = () => {
-  const { } = useTranslation(["common", "customer"]);
+  useTranslation(["common", "customer"]);
   const { openChat } = useSupportChatStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);

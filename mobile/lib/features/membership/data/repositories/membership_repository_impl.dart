@@ -75,10 +75,7 @@ class MembershipRepositoryImpl implements MembershipRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

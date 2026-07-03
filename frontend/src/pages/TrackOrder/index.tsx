@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { OrderTimeline, type OrderStep } from "@/components/shared/OrderTimeline";
@@ -42,7 +42,7 @@ const TrackOrderPage = () => {
     const orderOwnerId = order && (typeof order.cusId === 'string' ? order.cusId : order.cusId?._id);
     const isOwner = !!(user && orderOwnerId && user._id === orderOwnerId);
 
-    const fetchOrder = async (showLoading = true) => {
+    const fetchOrder = useCallback(async (showLoading = true) => {
         if (!orderId) {
             setLoading(false);
             return;
@@ -61,11 +61,11 @@ const TrackOrderPage = () => {
         } finally {
             if (showLoading) setLoading(false);
         }
-    };
+    }, [orderId]);
 
     useEffect(() => {
         fetchOrder(true);
-    }, [orderId]);
+    }, [fetchOrder]);
 
     useEffect(() => {
         const socket = getSupportSocket();
@@ -81,7 +81,7 @@ const TrackOrderPage = () => {
         return () => {
             socket.off("order:status_updated", handleStatusUpdated);
         };
-    }, [orderId]);
+    }, [orderId, fetchOrder]);
 
     const mapStatusToStep = (status: string): OrderStep => {
         switch (status) {

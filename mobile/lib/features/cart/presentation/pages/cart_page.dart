@@ -65,7 +65,8 @@ class _CartPageState extends State<CartPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.type == DioExceptionType.connectionError ||
+        _error =
+            e.type == DioExceptionType.connectionError ||
                 e.type == DioExceptionType.connectionTimeout
             ? 'Không có kết nối mạng'
             : 'Không thể tải giỏ hàng';
@@ -83,16 +84,22 @@ class _CartPageState extends State<CartPage> {
     setState(() => _isLoadingUpsell = true);
     try {
       final responses = await Future.wait([
-        _dio.get(ApiEndpoints.products, queryParameters: {
-          'category': 'Gọi Thêm Ăn Kèm',
-          'limit': 6,
-          'status': 'active',
-        }),
-        _dio.get(ApiEndpoints.products, queryParameters: {
-          'category': 'Giải Khát & Tráng Miệng',
-          'limit': 6,
-          'status': 'active',
-        }),
+        _dio.get(
+          ApiEndpoints.products,
+          queryParameters: {
+            'category': 'Gọi Thêm Ăn Kèm',
+            'limit': 6,
+            'status': 'active',
+          },
+        ),
+        _dio.get(
+          ApiEndpoints.products,
+          queryParameters: {
+            'category': 'Giải Khát & Tráng Miệng',
+            'limit': 6,
+            'status': 'active',
+          },
+        ),
       ]);
 
       final List<Map<String, dynamic>> combined = [];
@@ -138,7 +145,9 @@ class _CartPageState extends State<CartPage> {
     if (itemId == null) return;
     // Optimistic: update quantity locally immediately
     setState(() {
-      final idx = _items.indexWhere((i) => i['itemId'] == itemId || i['_id'] == itemId);
+      final idx = _items.indexWhere(
+        (i) => i['itemId'] == itemId || i['_id'] == itemId,
+      );
       if (idx == -1) return;
       final item = _items[idx];
       final qty = ((item['quantity'] as num?)?.toInt() ?? 1) + delta;
@@ -160,23 +169,27 @@ class _CartPageState extends State<CartPage> {
       final variations = (item['variations'] as List<dynamic>?) ?? [];
       final qty = ((item['quantity'] as num?)?.toInt() ?? 1);
       if (qty <= 1 && delta < 0) {
-        await _dio.delete(ApiEndpoints.cartRemove, data: {
-          'productId': productId,
-          'variations': variations,
-        });
+        await _dio.delete(
+          ApiEndpoints.cartRemove,
+          data: {'productId': productId, 'variations': variations},
+        );
       } else {
-        await _dio.patch(ApiEndpoints.cartUpdate, data: {
-          'productId': productId,
-          'quantity': qty,
-          'variations': variations,
-        });
+        await _dio.patch(
+          ApiEndpoints.cartUpdate,
+          data: {
+            'productId': productId,
+            'quantity': qty,
+            'variations': variations,
+          },
+        );
       }
     } on DioException catch (e) {
       // Revert on failure: reload full cart
       if (mounted) {
         _showSnack(
           e.response?.data is Map
-              ? ((e.response!.data as Map)['message'] as String? ?? 'Không thể cập nhật giỏ hàng')
+              ? ((e.response!.data as Map)['message'] as String? ??
+                    'Không thể cập nhật giỏ hàng')
               : 'Không thể cập nhật giỏ hàng',
           AppColors.error,
         );
@@ -196,10 +209,10 @@ class _CartPageState extends State<CartPage> {
             );
       final productId = _productIdForCartItem(item);
       final variations = (item['variations'] as List<dynamic>?) ?? [];
-      await _dio.delete(ApiEndpoints.cartRemove, data: {
-        'productId': productId,
-        'variations': variations,
-      });
+      await _dio.delete(
+        ApiEndpoints.cartRemove,
+        data: {'productId': productId, 'variations': variations},
+      );
       await _loadCart();
       if (mounted) _showSnack('Đã xóa khỏi giỏ hàng', AppColors.success);
       return true;
@@ -215,19 +228,21 @@ class _CartPageState extends State<CartPage> {
     setState(() => _addingToCart.add(productId));
 
     try {
-      await _dio.post(ApiEndpoints.cartAdd, data: {
-        'productId': productId,
-        'quantity': 1,
-      });
+      await _dio.post(
+        ApiEndpoints.cartAdd,
+        data: {'productId': productId, 'quantity': 1},
+      );
       if (mounted) {
-        _showSnack('Đã thêm "${product['name'] ?? ''}" vào giỏ hàng',
-            AppColors.success);
+        _showSnack(
+          'Đã thêm "${product['name'] ?? ''}" vào giỏ hàng',
+          AppColors.success,
+        );
         await _loadCart();
       }
     } on DioException catch (e) {
       final msg = e.response?.data is Map
           ? ((e.response!.data as Map)['message'] as String? ??
-              'Không thể thêm vào giỏ hàng')
+                'Không thể thêm vào giỏ hàng')
           : 'Không thể thêm vào giỏ hàng';
       if (mounted) _showSnack(msg, AppColors.error);
     } finally {
@@ -240,16 +255,17 @@ class _CartPageState extends State<CartPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xóa giỏ hàng'),
-        content:
-            const Text('Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?'),
+        content: const Text(
+          'Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Xóa', style: TextStyle(color: AppColors.error)),
+            child: const Text('Xóa', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -295,12 +311,14 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _showSnack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   // ── Build ──
@@ -322,7 +340,9 @@ class _CartPageState extends State<CartPage> {
         elevation: 0,
       ),
       body: _buildBody(),
-      bottomNavigationBar: _items.isEmpty || _isLoading ? null : _buildBottomBar(),
+      bottomNavigationBar: _items.isEmpty || _isLoading
+          ? null
+          : _buildBottomBar(),
     );
   }
 
@@ -368,7 +388,8 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildHeaderActions() {
-    final allSelected = _items.isNotEmpty &&
+    final allSelected =
+        _items.isNotEmpty &&
         _items.every((item) => _selectedItemIds.contains(_itemId(item)));
 
     return Container(
@@ -409,7 +430,9 @@ class _CartPageState extends State<CartPage> {
                     color: allSelected ? AppColors.primary : Colors.white,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: allSelected ? AppColors.primary : AppColors.divider,
+                      color: allSelected
+                          ? AppColors.primary
+                          : AppColors.divider,
                       width: 2,
                     ),
                   ),
@@ -436,8 +459,11 @@ class _CartPageState extends State<CartPage> {
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 children: [
-                  Icon(Icons.delete_sweep_outlined,
-                      size: 20, color: AppColors.error),
+                  Icon(
+                    Icons.delete_sweep_outlined,
+                    size: 20,
+                    color: AppColors.error,
+                  ),
                   SizedBox(width: 4),
                   Text(
                     'Xóa tất cả',
@@ -460,13 +486,17 @@ class _CartPageState extends State<CartPage> {
     final itemId = item['itemId'] as String? ?? item['_id'] as String?;
     // productId is populated by backend
     final prodRaw = item['productId'];
-    final prod = prodRaw is Map<String, dynamic> ? prodRaw : (item['product'] as Map<String, dynamic>? ?? item);
-    final name = prod['name'] as String? ??
+    final prod = prodRaw is Map<String, dynamic>
+        ? prodRaw
+        : (item['product'] as Map<String, dynamic>? ?? item);
+    final name =
+        prod['name'] as String? ??
         item['productName'] as String? ??
         item['name'] as String? ??
         'Món ăn';
     final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-    final image = prod['image'] as String? ??
+    final image =
+        prod['image'] as String? ??
         item['productImage'] as String? ??
         item['image'] as String?;
     final note = item['note'] as String?;
@@ -487,7 +517,9 @@ class _CartPageState extends State<CartPage> {
 
     final originalPrice = (prod['originalPrice'] as num?)?.toDouble();
     final hasDiscount = originalPrice != null && originalPrice > price;
-    final originalItemTotal = hasDiscount ? (originalPrice + extraPrice) * qty : null;
+    final originalItemTotal = hasDiscount
+        ? (originalPrice + extraPrice) * qty
+        : null;
 
     return Dismissible(
       key: Key(itemId ?? ''),
@@ -500,7 +532,11 @@ class _CartPageState extends State<CartPage> {
           color: AppColors.error,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+          size: 28,
+        ),
       ),
       confirmDismiss: (_) async {
         return showDialog<bool>(
@@ -510,12 +546,15 @@ class _CartPageState extends State<CartPage> {
             content: Text('Bỏ "$name" khỏi giỏ hàng?'),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy'),
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Xóa',
-                    style: TextStyle(color: AppColors.error)),
+                child: const Text(
+                  'Xóa',
+                  style: TextStyle(color: AppColors.error),
+                ),
               ),
             ],
           ),
@@ -542,7 +581,9 @@ class _CartPageState extends State<CartPage> {
             children: [
               // Checkbox
               Padding(
-                padding: const EdgeInsets.only(top: 29), // Center checkbox relative to 80x80 image
+                padding: const EdgeInsets.only(
+                  top: 29,
+                ), // Center checkbox relative to 80x80 image
                 child: GestureDetector(
                   onTap: () {
                     setState(() {
@@ -561,7 +602,9 @@ class _CartPageState extends State<CartPage> {
                       color: isSelected ? AppColors.primary : Colors.white,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.divider,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.divider,
                         width: 2,
                       ),
                     ),
@@ -585,14 +628,19 @@ class _CartPageState extends State<CartPage> {
                               Container(color: AppColors.surfaceVariant),
                           errorWidget: (_, _, _) => Container(
                             color: AppColors.surfaceVariant,
-                            child: const Icon(Icons.restaurant,
-                                color: AppColors.primary),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                            ),
                           ),
                         )
                       : Container(
                           color: AppColors.surfaceVariant,
-                          child: const Icon(Icons.restaurant,
-                              color: AppColors.primary, size: 32),
+                          child: const Icon(
+                            Icons.restaurant,
+                            color: AppColors.primary,
+                            size: 32,
+                          ),
                         ),
                 ),
               ),
@@ -624,8 +672,11 @@ class _CartPageState extends State<CartPage> {
                           borderRadius: BorderRadius.circular(20),
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close_rounded,
-                                size: 18, color: AppColors.textHint),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: AppColors.textHint,
+                            ),
                           ),
                         ),
                       ],
@@ -641,10 +692,16 @@ class _CartPageState extends State<CartPage> {
                           final vMap = v as Map<String, dynamic>;
                           final vName = vMap['name'] ?? '';
                           final vChoice = vMap['choice'] ?? '';
-                          final vExtra = (vMap['extraPrice'] as num?)?.toDouble() ?? 0;
-                          final extraText = vExtra > 0 ? ' (+${Formatters.currency(vExtra)})' : '';
+                          final vExtra =
+                              (vMap['extraPrice'] as num?)?.toDouble() ?? 0;
+                          final extraText = vExtra > 0
+                              ? ' (+${Formatters.currency(vExtra)})'
+                              : '';
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surfaceVariant,
                               borderRadius: BorderRadius.circular(8),
@@ -652,10 +709,10 @@ class _CartPageState extends State<CartPage> {
                             child: Text(
                               '$vName: $vChoice$extraText',
                               style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
-                                ),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           );
                         }).toList(),
@@ -722,8 +779,11 @@ class _CartPageState extends State<CartPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 child: const Padding(
                                   padding: EdgeInsets.all(8),
-                                  child: Icon(Icons.add_rounded,
-                                      size: 16, color: AppColors.primary),
+                                  child: Icon(
+                                    Icons.add_rounded,
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -784,7 +844,11 @@ class _CartPageState extends State<CartPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 20),
+              const Icon(
+                Icons.edit_note_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Ghi chú đơn hàng',
@@ -814,11 +878,24 @@ class _CartPageState extends State<CartPage> {
             controller: _noteController,
             maxLines: 2,
             maxLength: 200,
-            buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+            buildCounter:
+                (
+                  context, {
+                  required currentLength,
+                  required isFocused,
+                  maxLength,
+                }) => null,
             decoration: InputDecoration(
-              hintText: 'Nhập ghi chú cho nhà hàng (ví dụ: không hành, ít cay...)',
-              hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              hintText:
+                  'Nhập ghi chú cho nhà hàng (ví dụ: không hành, ít cay...)',
+              hintStyle: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 12,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
               filled: true,
               fillColor: AppColors.surfaceVariant,
               border: OutlineInputBorder(
@@ -827,7 +904,10 @@ class _CartPageState extends State<CartPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
               ),
             ),
             style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
@@ -842,7 +922,11 @@ class _CartPageState extends State<CartPage> {
     final selectedCount = _selectedItemIds.length;
     return Container(
       padding: EdgeInsets.fromLTRB(
-          20, 12, 20, MediaQuery.of(context).padding.bottom + 42),
+        20,
+        12,
+        20,
+        MediaQuery.of(context).padding.bottom + 42,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -862,12 +946,16 @@ class _CartPageState extends State<CartPage> {
               Text(
                 'Đã chọn $selectedCount món',
                 style: const TextStyle(
-                    fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
               ),
               Text(
                 Formatters.currency(_selectedSubtotal),
                 style: const TextStyle(
-                    fontWeight: FontWeight.w800, color: AppColors.primary),
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
@@ -878,12 +966,12 @@ class _CartPageState extends State<CartPage> {
             child: ElevatedButton(
               onPressed: selectedCount > 0
                   ? () => context.push(
-                        '/checkout',
-                        extra: {
-                          'selectedItemIds': _selectedItemIds.toList(),
-                          'note': _noteController.text.trim(),
-                        },
-                      )
+                      '/checkout',
+                      extra: {
+                        'selectedItemIds': _selectedItemIds.toList(),
+                        'note': _noteController.text.trim(),
+                      },
+                    )
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -897,7 +985,9 @@ class _CartPageState extends State<CartPage> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              child: Text(selectedCount > 0 ? 'Thanh toán' : 'Vui lòng chọn món'),
+              child: Text(
+                selectedCount > 0 ? 'Thanh toán' : 'Vui lòng chọn món',
+              ),
             ),
           ),
         ],
@@ -912,13 +1002,15 @@ class _CartPageState extends State<CartPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart_outlined,
-                size: 100, color: Colors.grey[300]),
+            Icon(
+              Icons.shopping_cart_outlined,
+              size: 100,
+              color: Colors.grey[300],
+            ),
             const SizedBox(height: 20),
             const Text(
               'Giỏ hàng trống',
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
@@ -962,7 +1054,9 @@ class _CartPageState extends State<CartPage> {
               _error!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 15, color: AppColors.textSecondary),
+                fontSize: 15,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -1009,7 +1103,11 @@ class _CartPageState extends State<CartPage> {
               color: AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.storefront_rounded, size: 18, color: AppColors.primary),
+            child: const Icon(
+              Icons.storefront_rounded,
+              size: 18,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1105,8 +1203,11 @@ class _CartPageState extends State<CartPage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.add_shopping_cart_rounded,
-                      color: AppColors.primary, size: 18),
+                  child: const Icon(
+                    Icons.add_shopping_cart_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 const Text(
@@ -1138,14 +1239,16 @@ class _CartPageState extends State<CartPage> {
 
   Widget _buildUpsellCard(Map<String, dynamic> product) {
     final name = product['name'] as String? ?? 'Món ăn';
-    
+
     final campaignPrice = (product['campaignPrice'] as num?)?.toDouble();
     final price = campaignPrice ?? (product['price'] as num?)?.toDouble() ?? 0;
-    
+
     final image = product['image'] as String?;
-    final originalPrice = campaignPrice != null ? (product['price'] as num?)?.toDouble() : null;
+    final originalPrice = campaignPrice != null
+        ? (product['price'] as num?)?.toDouble()
+        : null;
     final hasDiscount = originalPrice != null && originalPrice > price;
-    
+
     final productId = product['_id'] as String? ?? '';
     final isAdding = _addingToCart.contains(productId);
 
@@ -1172,8 +1275,9 @@ class _CartPageState extends State<CartPage> {
             Expanded(
               flex: 5,
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -1185,14 +1289,20 @@ class _CartPageState extends State<CartPage> {
                                 Container(color: AppColors.surfaceVariant),
                             errorWidget: (_, _, _) => Container(
                               color: AppColors.surfaceVariant,
-                              child: const Icon(Icons.restaurant,
-                                  color: AppColors.primary, size: 28),
+                              child: const Icon(
+                                Icons.restaurant,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
                             ),
                           )
                         : Container(
                             color: AppColors.surfaceVariant,
-                            child: const Icon(Icons.restaurant,
-                                color: AppColors.primary, size: 28),
+                            child: const Icon(
+                              Icons.restaurant,
+                              color: AppColors.primary,
+                              size: 28,
+                            ),
                           ),
                     if (hasDiscount)
                       Positioned(
@@ -1200,7 +1310,9 @@ class _CartPageState extends State<CartPage> {
                         left: 0,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: const BoxDecoration(
                             color: AppColors.primary,
                             borderRadius: BorderRadius.only(
@@ -1233,9 +1345,10 @@ class _CartPageState extends State<CartPage> {
                     Text(
                       name,
                       style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1270,8 +1383,9 @@ class _CartPageState extends State<CartPage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap:
-                            isAdding ? null : () => _addToCartUpsell(product),
+                        onTap: isAdding
+                            ? null
+                            : () => _addToCartUpsell(product),
                         child: Container(
                           width: 32,
                           height: 32,
@@ -1292,11 +1406,15 @@ class _CartPageState extends State<CartPage> {
                               ? const Padding(
                                   padding: EdgeInsets.all(8),
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white),
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : const Icon(Icons.add_rounded,
-                                  color: Colors.white, size: 20),
+                              : const Icon(
+                                  Icons.add_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                         ),
                       ),
                     ),

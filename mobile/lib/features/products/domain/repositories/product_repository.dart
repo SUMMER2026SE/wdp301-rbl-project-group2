@@ -27,7 +27,8 @@ abstract class ProductRepository {
 
   /// Get safe foods based on user allergies.
   Future<Either<Failure, Map<String, dynamic>>> getSafeFoods(
-      List<String> allergies);
+    List<String> allergies,
+  );
 
   /// Get AI-powered product recommendations.
   Future<Either<Failure, Map<String, dynamic>>> getRecommendations();

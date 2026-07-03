@@ -24,7 +24,7 @@ const AdminCashControl = () => {
             setLoading(true);
             const res = await apiClient.get('/admin/cash-control');
             setDebts(res.data.data);
-        } catch (error) {
+        } catch {
             toast.error('Không thể tải dữ liệu công nợ');
         } finally {
             setLoading(false);
@@ -43,7 +43,7 @@ const AdminCashControl = () => {
             await apiClient.post('/admin/collect-cash', { driverId });
             toast.success(`Đã tất toán công nợ cho ${driverName}`);
             fetchDebts();
-        } catch (error) {
+        } catch {
             toast.error('Gặp lỗi khi xử lý tất toán');
         } finally {
             setCollectingId(null);

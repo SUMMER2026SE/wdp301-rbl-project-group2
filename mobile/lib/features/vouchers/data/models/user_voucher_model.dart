@@ -22,7 +22,8 @@ class UserVoucherModel {
     return UserVoucherModel(
       id: json['_id'] as String? ?? '',
       voucher: VoucherModel.fromJson(
-          json['voucher'] as Map<String, dynamic>? ?? {}),
+        json['voucher'] as Map<String, dynamic>? ?? {},
+      ),
       used: json['used'] as bool? ?? false,
       usedAt: json['usedAt'] as String?,
       expiresAt: json['expiresAt'] as String?,
@@ -31,11 +32,11 @@ class UserVoucherModel {
   }
 
   Map<String, dynamic> toJson() => {
-        '_id': id,
-        'voucher': voucher.toJson(),
-        'used': used,
-        'usedAt': usedAt,
-        'expiresAt': expiresAt,
-        'receivedAt': receivedAt,
-      };
+    '_id': id,
+    'voucher': voucher.toJson(),
+    'used': used,
+    'usedAt': usedAt,
+    'expiresAt': expiresAt,
+    'receivedAt': receivedAt,
+  };
 }

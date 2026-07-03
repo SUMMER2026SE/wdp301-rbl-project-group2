@@ -23,7 +23,8 @@ class VoucherRepositoryImpl implements VoucherRepository {
   }
 
   @override
-  Future<Either<Failure, List<Map<String, dynamic>>>> getWalletVouchers() async {
+  Future<Either<Failure, List<Map<String, dynamic>>>>
+  getWalletVouchers() async {
     try {
       final vouchers = await _remoteDataSource.getWalletVouchers();
       return Right(vouchers);
@@ -33,7 +34,9 @@ class VoucherRepositoryImpl implements VoucherRepository {
   }
 
   @override
-  Future<Either<Failure, Map<String, dynamic>>> getVoucherById(String id) async {
+  Future<Either<Failure, Map<String, dynamic>>> getVoucherById(
+    String id,
+  ) async {
     try {
       final voucher = await _remoteDataSource.getVoucherById(id);
       return Right(voucher);
@@ -43,7 +46,9 @@ class VoucherRepositoryImpl implements VoucherRepository {
   }
 
   @override
-  Future<Either<Failure, Map<String, dynamic>>> redeemVoucher(String code) async {
+  Future<Either<Failure, Map<String, dynamic>>> redeemVoucher(
+    String code,
+  ) async {
     try {
       final voucher = await _remoteDataSource.redeemVoucher(code);
       return Right(voucher);
@@ -101,10 +106,7 @@ class VoucherRepositoryImpl implements VoucherRepository {
           );
         }
 
-        return ServerFailure(
-          message: inner.message,
-          statusCode: code,
-        );
+        return ServerFailure(message: inner.message, statusCode: code);
       }
     }
 

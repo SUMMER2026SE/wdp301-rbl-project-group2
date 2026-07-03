@@ -20,47 +20,71 @@ class RecentOrdersSection extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'pending': return AppColors.statusPending;
-      case 'confirmed': return AppColors.statusConfirmed;
-      case 'preparing': return AppColors.statusPreparing;
-      case 'ready': return AppColors.statusReady;
-      case 'delivering': return AppColors.statusDelivering;
+      case 'pending':
+        return AppColors.statusPending;
+      case 'confirmed':
+        return AppColors.statusConfirmed;
+      case 'preparing':
+        return AppColors.statusPreparing;
+      case 'ready':
+        return AppColors.statusReady;
+      case 'delivering':
+        return AppColors.statusDelivering;
       case 'delivered':
-      case 'completed': return AppColors.statusCompleted;
-      case 'cancelled': return AppColors.statusCancelled;
-      default: return AppColors.textSecondary;
+      case 'completed':
+        return AppColors.statusCompleted;
+      case 'cancelled':
+        return AppColors.statusCancelled;
+      default:
+        return AppColors.textSecondary;
     }
   }
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'pending': return 'Chờ xác nhận';
-      case 'confirmed': return 'Đã xác nhận';
-      case 'preparing': return 'Đang chuẩn bị';
-      case 'ready': return 'Chờ giao/Lấy';
-      case 'delivering': return 'Đang giao';
+      case 'pending':
+        return 'Chờ xác nhận';
+      case 'confirmed':
+        return 'Đã xác nhận';
+      case 'preparing':
+        return 'Đang chuẩn bị';
+      case 'ready':
+        return 'Chờ giao/Lấy';
+      case 'delivering':
+        return 'Đang giao';
       case 'delivered':
-      case 'completed': return 'Hoàn thành';
-      case 'cancelled': return 'Đã hủy';
-      default: return status;
+      case 'completed':
+        return 'Hoàn thành';
+      case 'cancelled':
+        return 'Đã hủy';
+      default:
+        return status;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status) {
-      case 'pending': return Icons.schedule;
-      case 'confirmed': return Icons.check_circle_outline;
-      case 'preparing': return Icons.restaurant;
-      case 'ready': return Icons.takeout_dining;
-      case 'delivering': return Icons.delivery_dining;
+      case 'pending':
+        return Icons.schedule;
+      case 'confirmed':
+        return Icons.check_circle_outline;
+      case 'preparing':
+        return Icons.restaurant;
+      case 'ready':
+        return Icons.takeout_dining;
+      case 'delivering':
+        return Icons.delivery_dining;
       case 'delivered':
-      case 'completed': return Icons.task_alt;
-      case 'cancelled': return Icons.cancel_outlined;
-      default: return Icons.receipt_long;
+      case 'completed':
+        return Icons.task_alt;
+      case 'cancelled':
+        return Icons.cancel_outlined;
+      default:
+        return Icons.receipt_long;
     }
   }
 
-  void _handleReorder(BuildContext context, List<dynamic> items) {
+  void handleReorder(BuildContext context, List<dynamic> items) {
     for (final item in items) {
       if (item is Map<String, dynamic> && item['productId'] != null) {
         final productPayload = {
@@ -91,7 +115,11 @@ class RecentOrdersSection extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Không thể tải đơn hàng gần đây',
-                  style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               TextButton(
@@ -128,11 +156,21 @@ class RecentOrdersSection extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.receipt_long, color: AppColors.primary, size: 18),
+                    child: const Icon(
+                      Icons.receipt_long,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Đơn hàng gần đây',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  const Text(
+                    'Đơn hàng gần đây',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                 ],
               ),
               TextButton(
@@ -153,15 +191,22 @@ class RecentOrdersSection extends StatelessWidget {
               final id = order['_id'] as String? ?? '';
               final status = order['status'] as String? ?? 'pending';
               final totalPrice = (order['totalPrice'] as num?)?.toDouble() ?? 0;
-              final createdAt = DateTime.tryParse(order['createdAt'] as String? ?? '');
+              final createdAt = DateTime.tryParse(
+                order['createdAt'] as String? ?? '',
+              );
               final items = order['items'] as List<dynamic>? ?? [];
-              final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
+              final firstItem = items.isNotEmpty
+                  ? items.first as Map<String, dynamic>?
+                  : null;
               final firstItemName = firstItem?['name'] as String? ?? 'Món ăn';
               // Backend populates items.productId -> { _id, name, image, price }
               final populatedProduct = firstItem?['productId'];
-              final firstItemImage = (populatedProduct is Map<String, dynamic>
-                  ? populatedProduct['image'] as String?
-                  : null) ?? firstItem?['image'] as String? ?? '';
+              final firstItemImage =
+                  (populatedProduct is Map<String, dynamic>
+                      ? populatedProduct['image'] as String?
+                      : null) ??
+                  firstItem?['image'] as String? ??
+                  '';
               final itemCount = items.length;
               final statusColor = _getStatusColor(status);
               final statusIcon = _getStatusIcon(status);
@@ -174,7 +219,9 @@ class RecentOrdersSection extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
+                    border: Border.all(
+                      color: AppColors.divider.withValues(alpha: 0.5),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -203,16 +250,28 @@ class RecentOrdersSection extends StatelessWidget {
                                     fit: BoxFit.cover,
                                     placeholder: (_, _) => Container(
                                       color: AppColors.shimmerBase,
-                                      child: const Icon(Icons.restaurant, color: AppColors.textHint, size: 24),
+                                      child: const Icon(
+                                        Icons.restaurant,
+                                        color: AppColors.textHint,
+                                        size: 24,
+                                      ),
                                     ),
                                     errorWidget: (_, _, _) => Container(
                                       color: AppColors.surfaceVariant,
-                                      child: const Icon(Icons.restaurant, color: AppColors.primary, size: 24),
+                                      child: const Icon(
+                                        Icons.restaurant,
+                                        color: AppColors.primary,
+                                        size: 24,
+                                      ),
                                     ),
                                   )
                                 : Container(
                                     color: AppColors.surfaceVariant,
-                                    child: const Icon(Icons.restaurant, color: AppColors.primary, size: 24),
+                                    child: const Icon(
+                                      Icons.restaurant,
+                                      color: AppColors.primary,
+                                      size: 24,
+                                    ),
                                   ),
                           ),
                         ),
@@ -225,7 +284,10 @@ class RecentOrdersSection extends StatelessWidget {
                             children: [
                               // Status badge
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
@@ -233,7 +295,11 @@ class RecentOrdersSection extends StatelessWidget {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(statusIcon, size: 11, color: statusColor),
+                                    Icon(
+                                      statusIcon,
+                                      size: 11,
+                                      color: statusColor,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       _getStatusText(status),
@@ -270,7 +336,8 @@ class RecentOrdersSection extends StatelessWidget {
                               const SizedBox(height: 6),
                               // Price + time row
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     Formatters.currency(totalPrice),

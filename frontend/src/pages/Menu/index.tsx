@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  Search,
   X,
   Star,
   Loader2,
@@ -111,7 +110,7 @@ const MenuPage = () => {
           const fetchedCats = response.data.map((cat: string) => ({ id: cat, label: cat }));
           setCategories([{ id: "all", label: t("customer:menu.allCategories", "Tất cả") }, ...fetchedCats]);
         }
-      } catch (error) {
+      } catch {
         setCategories(CUSTOMER_CATEGORY_FILTERS as any);
       }
     };
@@ -128,7 +127,7 @@ const MenuPage = () => {
         setActiveCategory("all");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [searchParams, activeCategory, searchQuery]);
 
   useEffect(() => {

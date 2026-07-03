@@ -19,17 +19,19 @@ class GetCustomerDetailsUseCase {
   Future<Either<Failure, GetCustomerDetailsResult>> call({
     required String customerId,
   }) async {
-    final detailResult = await _repository.getCustomerById(customerId: customerId);
-    final ordersResult = await _repository.getCustomerOrders(customerId: customerId);
-
-    return detailResult.fold(
-      (failure) => Left(failure),
-      (customer) async {
-        return ordersResult.fold(
-          (failure) => Left(failure),
-          (orders) => Right(GetCustomerDetailsResult(customer: customer, orders: orders)),
-        );
-      },
+    final detailResult = await _repository.getCustomerById(
+      customerId: customerId,
     );
+    final ordersResult = await _repository.getCustomerOrders(
+      customerId: customerId,
+    );
+
+    return detailResult.fold((failure) => Left(failure), (customer) async {
+      return ordersResult.fold(
+        (failure) => Left(failure),
+        (orders) =>
+            Right(GetCustomerDetailsResult(customer: customer, orders: orders)),
+      );
+    });
   }
 }

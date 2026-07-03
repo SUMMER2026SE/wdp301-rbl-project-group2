@@ -29,7 +29,9 @@ class ConversationModel {
       orderId: json['orderId'] as String? ?? '',
       orderCode: json['orderCode'] as String? ?? '',
       lastMessage: json['lastMessage'] != null
-          ? ChatMessageModel.fromJson(json['lastMessage'] as Map<String, dynamic>)
+          ? ChatMessageModel.fromJson(
+              json['lastMessage'] as Map<String, dynamic>,
+            )
           : null,
       unreadCount: json['unreadCount'] as int? ?? 0,
       status: json['status'] as String? ?? 'open',

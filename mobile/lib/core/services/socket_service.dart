@@ -71,7 +71,7 @@ class SocketService {
 
   /// Join a support chat conversation room.
   void joinSupportRoom(String conversationId) {
-    _socket?.emit('support:join', [conversationId]);
+    _socket?.emit('support:join', conversationId);
   }
 
   /// Reconnect if socket was disconnected (e.g. after app resume).
