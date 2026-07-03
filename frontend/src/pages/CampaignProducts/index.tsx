@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Flame,
   ArrowLeft,
-  Clock,
   Loader2,
   AlertCircle,
   ShoppingBag,
@@ -12,8 +11,6 @@ import campaignAPI from "@/services/campaign.service";
 import type { Campaign } from "@/services/campaign.service";
 import { useSafeCart } from "@/hooks/useSafeCart";
 import { FoodCard } from "@/components/shared/FoodCard";
-import { showAddToCartFeedback } from "@/utils/flyToCart";
-import type { Product } from "@/types/product";
 
 const CampaignProductsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -330,7 +327,7 @@ const CampaignProductsPage: React.FC = () => {
               onAddToCart={
                 isUpcoming
                   ? undefined
-                  : (_, trigger) => {
+                  : (_) => {
                     campaignAPI
                       .trackActivity(campaign._id, "click")
                       .catch(() => { });

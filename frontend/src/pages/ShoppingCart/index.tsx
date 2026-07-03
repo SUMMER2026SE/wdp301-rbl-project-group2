@@ -181,9 +181,6 @@ const ShoppingCartPage = () => {
     syncPrices();
   }, [cartProductIds, cartItems, selectedStore?._id, updateAvailability]);
 
-  // Mock upsell items (vẫn giữ để UI đẹp)
-  const upsellItems = MOCK_UPSELL_ITEMS;
-
   return (
     <div className="bg-background-light dark:bg-background-dark text-text-main dark:text-background-light font-display min-h-screen">
       <main className="max-w-[1440px] mx-auto px-4 md:px-10 lg:px-20 py-8">
