@@ -1,5 +1,3 @@
-import toast from 'react-hot-toast';
-
 const FLY_DURATION_MS = 650;
 
 export function flyToCart(sourceElement: HTMLElement, imageUrl: string): void {
@@ -46,12 +44,9 @@ export function flyToCart(sourceElement: HTMLElement, imageUrl: string): void {
 export function showAddToCartFeedback(
     sourceElement: HTMLElement | null | undefined,
     imageUrl?: string,
-    message?: string,
+    _message?: string,
 ): void {
     if (sourceElement && imageUrl) {
         flyToCart(sourceElement, imageUrl);
     }
-    toast.success(message ?? 'Đã thêm sản phẩm vào giỏ hàng!', {
-        duration: 2500,
-    });
 }

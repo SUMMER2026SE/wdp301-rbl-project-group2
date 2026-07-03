@@ -41,6 +41,7 @@ export const uploadFileHandler = catchErrors(async (req: Request, res: Response)
       width: fileDoc.width,
       height: fileDoc.height,
       bytes: fileDoc.bytes,
+      moderationStatus: fileDoc.moderationStatus,
     },
     message: 'Upload ảnh thành công',
   });

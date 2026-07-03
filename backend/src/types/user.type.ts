@@ -45,6 +45,7 @@ export interface IPreferences {
   dietary: string[];
   allergies: string[];
   healthGoals: string[];
+  tastes?: string[];
 }
 
 export interface IHealthProfile {

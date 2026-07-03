@@ -48,6 +48,8 @@ export interface PlaceOrderAddress {
   ward: string;
   district?: string;
   city: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export type PaymentMethod =
@@ -59,10 +61,14 @@ export type PaymentMethod =
   | "stripe";
 
 export interface PlaceOrderRequest {
+  storeId?: string;
   items: PlaceOrderItem[];
   paymentMethod?: PaymentMethod;
   voucher?: string;
+  voucherCode?: string;
+  voucherId?: string;
   shippingFee?: number;
+  deliveryFee?: number;
   deliveryAddress?: PlaceOrderAddress;
   note?: string;
 }

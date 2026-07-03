@@ -29,6 +29,7 @@ import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
 import { attachSharedToppingVariants } from './shared-topping.service';
+import { applyStoreAvailability } from '@/utils/product-store-availability';
 
 const INNER_WARDS = [
   'Hải Châu I',
@@ -262,17 +263,32 @@ interface ResolvedItem {
 
 const resolveOrderItems = async (
   rawItems: TPlaceOrderValidator['items'],
-  session: mongoose.ClientSession
+  session: mongoose.ClientSession,
+  storeId?: string
 ): Promise<{ resolvedItems: ResolvedItem[]; subTotal: number }> => {
   let subTotal = 0;
   const resolvedItems: ResolvedItem[] = [];
+  const storeObjectId = storeId && mongoose.Types.ObjectId.isValid(storeId)
+    ? new mongoose.Types.ObjectId(storeId)
+    : undefined;
+
+  if (storeId) {
+    appAssert(storeObjectId, BAD_REQUEST, 'Chi nhánh không hợp lệ');
+  }
 
   for (const item of rawItems) {
     const productDoc = await ProductModel.findById(item.productId).session(session);
-    const product = await attachSharedToppingVariants(productDoc?.toObject() as any);
+    const productObject = productDoc ? applyStoreAvailability(productDoc.toObject() as any, storeObjectId) : null;
+    const product = await attachSharedToppingVariants(productObject as any);
 
     appAssert(product, NOT_FOUND, `Không tìm thấy sản phẩm với id: ${item.productId}`);
     appAssert(product.isAvailable, BAD_REQUEST, `Sản phẩm "${product.name}" hiện không có sẵn`);
+    appAssert(
+      !['inactive', 'out_of_stock', 'deleted'].includes(String((product as any).status)),
+      BAD_REQUEST,
+      `Sản phẩm "${product.name}" hiện không có sẵn`
+    );
+
 
     const normalizedVariations = [];
     if (item.variations && item.variations.length > 0) {
@@ -336,7 +352,7 @@ const resolveOrderItems = async (
     subTotal += itemSubTotal;
 
     resolvedItems.push({
-      productId: new mongoose.Types.ObjectId(item.productId),
+      productId: new mongoose.Types.ObjectId(product._id),
       name: product.name,
       quantity: item.quantity,
       variations: normalizedVariations,
@@ -406,7 +422,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
   const { voucher: voucherInput, paymentMethod, items, deliveryAddress, returnUrl, cancelUrl } = input;
 
   return withTransaction(async (session) => {
-    const { resolvedItems, subTotal } = await resolveOrderItems(items, session);
+    const { resolvedItems, subTotal } = await resolveOrderItems(items, session, input.storeId);
 
     const user = await UserModel.findById(userId).session(session);
     appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');

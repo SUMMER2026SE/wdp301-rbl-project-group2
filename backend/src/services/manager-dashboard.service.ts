@@ -6,6 +6,7 @@ import { createAuditLog } from '@/services/audit-log.service';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 import { OrderStatus, PaymentMethod } from '@/types/order.type';
 import { ProductStatus } from '@/types/product.type';
+import { applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
 const IN_PROGRESS_STATUSES = [
   OrderStatus.CONFIRMED,
@@ -113,7 +114,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
         ...codPaymentFilter,
         'payment.cashCollectedAt': null,
       }).select('totalPrice'),
-      ProductModel.find({ storeId: storeId }).select('status isAvailable operationalNote'),
+      ProductModel.find({}).select('category name isAvailable storeAvailability operationalNote').lean(),
     ]);
 
   const averageProcessingMinutes = completedOrders.length
@@ -147,6 +148,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     staff[driverId].revenue += getOrderTotal(order);
     return staff;
   }, {});
+  const visibleProducts = applyStoreAvailabilityToProducts(products, storeId);
 
   return {
     orders: {
@@ -165,14 +167,14 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     },
     staffPerformance: Object.values(staffPerformanceMap),
     menu: {
-      activeSellingItems: products.filter(
+      activeSellingItems: visibleProducts.filter(
         (product) => product.status === ProductStatus.ACTIVE && product.isAvailable !== false
       ).length,
-      outOfStockItems: products.filter(
+      outOfStockItems: visibleProducts.filter(
         (product) => product.status === ProductStatus.OUT_OF_STOCK || product.isAvailable === false
       ).length,
-      disabledItems: products.filter((product) => product.status === ProductStatus.INACTIVE).length,
-      operationalNotes: products.filter((product) => Boolean(product.operationalNote?.trim())).length,
+      disabledItems: visibleProducts.filter((product) => product.status === ProductStatus.INACTIVE).length,
+      operationalNotes: visibleProducts.filter((product) => Boolean(product.operationalNote?.trim())).length,
     },
   };
 };

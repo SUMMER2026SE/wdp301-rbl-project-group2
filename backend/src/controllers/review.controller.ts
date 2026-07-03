@@ -42,7 +42,7 @@ export const createOrderReviewsHandler = catchErrors(async (req, res) => {
 
   return res.success(CREATED, {
     data: result,
-    message: 'Đánh giá đơn hàng thành công',
+    message: 'Danh gia don hang thanh cong',
   });
 });
 

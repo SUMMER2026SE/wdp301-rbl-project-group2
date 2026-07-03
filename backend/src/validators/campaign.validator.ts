@@ -50,6 +50,14 @@ export const updateCampaignValidator = z.object({
   path: ['startTime'],
 });
 
+export const suggestCampaignValidator = z.object({
+  days: z.number().int().min(3).max(90).optional().default(14),
+  weather: z.enum(['rainy', 'hot', 'cold', 'sunny', 'normal']).default('normal'),
+  occasion: z.enum(['summer', 'christmas', 'tet', 'valentine', 'none']).default('none'),
+  goal: z.enum(['boost_sales', 'clear_stock', 'contextual', 'engagement']).default('boost_sales'),
+  productCount: z.number().int().min(2).max(6).optional().default(3),
+});
+
 export const updateCampaignStatusValidator = z.object({
   status: z.enum(['approved', 'rejected'], {
     message: 'Trạng thái không hợp lệ',
@@ -59,3 +67,13 @@ export const updateCampaignStatusValidator = z.object({
 export type TCreateCampaignParams = z.infer<typeof createCampaignValidator>;
 export type TUpdateCampaignParams = z.infer<typeof updateCampaignValidator>;
 export type TUpdateCampaignStatusParams = z.infer<typeof updateCampaignStatusValidator>;
+
+export const aiCampaignSuggestRequestValidator = z.object({
+  weather: z.enum(['rainy', 'hot', 'cold', 'sunny', 'normal']).default('normal'),
+  occasion: z.enum(['summer', 'christmas', 'tet', 'valentine', 'none']).default('none'),
+  goal: z.enum(['boost_sales', 'clear_stock', 'engagement']).default('boost_sales'),
+  productCount: z.number().int().min(2).max(6).optional().default(3),
+});
+
+export type TAICampaignSuggestParams = z.infer<typeof aiCampaignSuggestRequestValidator>;
+

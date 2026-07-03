@@ -24,6 +24,8 @@ export const useCart = () => {
     const clearOrderNote = useCartStore((s) => s.clearOrderNote);
     const toggleSelectItem = useCartStore((s) => s.toggleSelectItem);
     const toggleSelectAll = useCartStore((s) => s.toggleSelectAll);
+    const deselectItems = useCartStore((s) => s.deselectItems);
+    const updateAvailability = useCartStore((s) => s.updateAvailability);
 
     return {
         items,
@@ -40,6 +42,8 @@ export const useCart = () => {
         clearOrderNote,
         toggleSelectItem,
         toggleSelectAll,
+        deselectItems,
+        updateAvailability,
     };
 };
 

@@ -13,6 +13,24 @@ export enum FileOwnerType {
   REVIEW = 'review',
 }
 
+export enum FileModerationStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum FileModerationCategory {
+  NONE = 'none',
+  SEXUAL = 'sexual',
+  VIOLENCE = 'violence',
+  HATE = 'hate',
+  SELF_HARM = 'self_harm',
+  ILLEGAL = 'illegal',
+  SPAM = 'spam',
+  PRIVATE_INFO = 'private_info',
+  OTHER = 'other',
+}
+
 export default interface IFile extends mongoose.Document {
   public_id: string;
   secure_url: string;
@@ -26,4 +44,10 @@ export default interface IFile extends mongoose.Document {
   folder: string;
   owner_id: mongoose.Types.ObjectId;
   owner_type: FileOwnerType;
+
+  moderationStatus?: FileModerationStatus;
+  moderationCategory?: FileModerationCategory;
+  moderationConfidence?: number;
+  moderationReason?: string;
+  moderatedAt?: Date | null;
 }
