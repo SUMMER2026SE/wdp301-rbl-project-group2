@@ -12,6 +12,10 @@ class UserEntity {
   final String? verifiedAt;
   final String? storeId;
   final int collectedPoints;
+  final int accumulatedPoints;
+  final String? tier;
+  final int ordersCount;
+  final int reviewsCount;
   final List<UserAddressEntity> addresses;
   final UserPreferencesEntity? preferences;
 
@@ -27,6 +31,10 @@ class UserEntity {
     this.verifiedAt,
     this.storeId,
     this.collectedPoints = 0,
+    this.accumulatedPoints = 0,
+    this.tier,
+    this.ordersCount = 0,
+    this.reviewsCount = 0,
     this.addresses = const [],
     this.preferences,
   });
@@ -49,6 +57,10 @@ class UserEntity {
     'verifiedAt': verifiedAt,
     'storeId': storeId,
     'collectedPoints': collectedPoints,
+    'accumulatedPoints': accumulatedPoints,
+    'tier': tier,
+    'ordersCount': ordersCount,
+    'reviewsCount': reviewsCount,
     'addresses': addresses
         .map(
           (a) => {

@@ -15,11 +15,21 @@ abstract class StaffCustomersEvent extends Equatable {
 
 class SearchCustomersEvent extends StaffCustomersEvent {
   final String? query;
+  final String? storeId;
+  final int page;
+  final int limit;
+  final bool append;
 
-  const SearchCustomersEvent({this.query});
+  const SearchCustomersEvent({
+    this.query,
+    this.storeId,
+    this.page = 1,
+    this.limit = 20,
+    this.append = false,
+  });
 
   @override
-  List<Object?> get props => [query];
+  List<Object?> get props => [query, storeId, page, limit, append];
 }
 
 class LoadCustomerDetailsEvent extends StaffCustomersEvent {
@@ -49,11 +59,37 @@ class CustomersSearchLoading extends StaffCustomersState {
 
 class CustomersSearchLoaded extends StaffCustomersState {
   final List<UserModel> customers;
+  final String? query;
+  final int page;
+  final bool hasMore;
+  final bool isLoadingMore;
 
-  const CustomersSearchLoaded(this.customers);
+  const CustomersSearchLoaded(
+    this.customers, {
+    this.query,
+    this.page = 1,
+    this.hasMore = true,
+    this.isLoadingMore = false,
+  });
+
+  CustomersSearchLoaded copyWith({
+    List<UserModel>? customers,
+    String? query,
+    int? page,
+    bool? hasMore,
+    bool? isLoadingMore,
+  }) {
+    return CustomersSearchLoaded(
+      customers ?? this.customers,
+      query: query ?? this.query,
+      page: page ?? this.page,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    );
+  }
 
   @override
-  List<Object?> get props => [customers];
+  List<Object?> get props => [customers, query, page, hasMore, isLoadingMore];
 }
 
 class CustomersSearchError extends StaffCustomersState {
@@ -108,13 +144,43 @@ class StaffCustomersBloc
     SearchCustomersEvent event,
     Emitter<StaffCustomersState> emit,
   ) async {
-    emit(const CustomersSearchLoading());
+    final currentState = state;
+    if (event.append && currentState is CustomersSearchLoaded) {
+      if (currentState.isLoadingMore || !currentState.hasMore) return;
+      emit(currentState.copyWith(isLoadingMore: true));
+    } else {
+      emit(const CustomersSearchLoading());
+    }
 
-    final result = await _getCustomersUseCase(search: event.query);
+    final result = await _getCustomersUseCase(
+      search: event.query,
+      storeId: event.storeId,
+      page: event.page,
+      limit: event.limit,
+    );
 
     result.fold(
-      (failure) => emit(CustomersSearchError(failure.message)),
-      (customers) => emit(CustomersSearchLoaded(customers)),
+      (failure) {
+        if (event.append && currentState is CustomersSearchLoaded) {
+          emit(currentState.copyWith(isLoadingMore: false));
+        } else {
+          emit(CustomersSearchError(failure.message));
+        }
+      },
+      (customers) {
+        final merged = event.append && currentState is CustomersSearchLoaded
+            ? [...currentState.customers, ...customers]
+            : customers;
+        emit(
+          CustomersSearchLoaded(
+            merged,
+            query: event.query,
+            page: event.page,
+            hasMore: customers.length >= event.limit,
+            isLoadingMore: false,
+          ),
+        );
+      },
     );
   }
 

@@ -11,8 +11,8 @@ class GetStaffOrdersUseCase {
   Future<Either<Failure, List<OrderModel>>> call({
     required String storeId,
     String? status,
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
   }) {
     return _repository.getStaffOrders(
       storeId: storeId,

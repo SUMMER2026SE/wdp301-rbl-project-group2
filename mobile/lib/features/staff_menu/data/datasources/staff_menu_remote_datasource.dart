@@ -8,6 +8,8 @@ abstract class StaffMenuRemoteDataSource {
   Future<List<ProductModel>> getStoreProducts({
     required String storeId,
     bool showAll = true,
+    int page = 1,
+    int limit = 50,
   });
 
   Future<List<String>> getCategories();
@@ -28,11 +30,18 @@ class StaffMenuRemoteDataSourceImpl implements StaffMenuRemoteDataSource {
   Future<List<ProductModel>> getStoreProducts({
     required String storeId,
     bool showAll = true,
+    int page = 1,
+    int limit = 50,
   }) async {
     try {
       final response = await _apiClient.dio.get(
         ApiEndpoints.products,
-        queryParameters: {'storeId': storeId, 'showAll': showAll, 'limit': 100},
+        queryParameters: {
+          'storeId': storeId,
+          'showAll': showAll,
+          'page': page,
+          'limit': limit,
+        },
       );
 
       final data = response.data;

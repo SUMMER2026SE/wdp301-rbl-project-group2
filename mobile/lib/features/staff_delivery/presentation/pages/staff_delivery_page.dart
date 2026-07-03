@@ -44,7 +44,15 @@ class _StaffDeliveryPageState extends State<StaffDeliveryPage> {
   Future<void> _fetch() async {
     try {
       final auth = context.read<AuthBloc>().state;
-      if (auth is! AuthAuthenticated || auth.storeId == null) return;
+      if (auth is! AuthAuthenticated || auth.storeId == null) {
+        if (!mounted) return;
+        setState(() {
+          _orders = [];
+          _loading = false;
+          _error = 'Tài khoản staff chưa được gán cửa hàng';
+        });
+        return;
+      }
       final response = await ApiClient().dio.get(
         ApiEndpoints.staffOrders,
         queryParameters: {

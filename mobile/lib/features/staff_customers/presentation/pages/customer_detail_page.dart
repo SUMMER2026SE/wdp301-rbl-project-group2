@@ -56,11 +56,13 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
           data['conversations'] as List<dynamic>? ??
           data['data'] as List<dynamic>? ??
           [];
+      if (!mounted) return;
       setState(() {
         _conversations = list.map((e) => e as Map<String, dynamic>).toList();
         _conversationsLoading = false;
       });
     } on DioException catch (e) {
+      if (!mounted) return;
       setState(() {
         _conversationsLoading = false;
         _conversationsError =
@@ -68,6 +70,7 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
             'Không thể tải hội thoại';
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _conversationsLoading = false;
         _conversationsError = 'Không thể tải hội thoại';
@@ -80,6 +83,11 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
+  }
+
+  String _safeInitial(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? '?' : text[0].toUpperCase();
   }
 
   // Tái hiện thuật toán AI Insights offline dựa trên thông số sức khỏe và lịch sử mua hàng
@@ -287,7 +295,7 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
               radius: 30,
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Text(
-                name.substring(0, 1).toUpperCase(),
+                _safeInitial(name),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

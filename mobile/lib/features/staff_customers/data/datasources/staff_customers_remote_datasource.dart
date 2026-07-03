@@ -6,7 +6,12 @@ import 'package:foa_mobile/core/models/order_model.dart';
 import 'package:foa_mobile/core/error/exceptions.dart';
 
 abstract class StaffCustomersRemoteDataSource {
-  Future<List<UserModel>> getCustomers({int? page, int? limit, String? search});
+  Future<List<UserModel>> getCustomers({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? storeId,
+  });
 
   Future<UserModel> getCustomerById({required String customerId});
 
@@ -21,14 +26,20 @@ class StaffCustomersRemoteDataSourceImpl
 
   @override
   Future<List<UserModel>> getCustomers({
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
     String? search,
+    String? storeId,
   }) async {
     try {
       final response = await _apiClient.dio.get(
         '/admin/customers',
-        queryParameters: {'page': ?page, 'limit': ?limit, 'search': ?search},
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (search != null && search.isNotEmpty) 'search': search,
+          if (storeId != null && storeId.isNotEmpty) 'storeId': storeId,
+        },
       );
 
       final data = response.data;

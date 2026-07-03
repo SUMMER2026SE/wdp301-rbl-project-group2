@@ -352,7 +352,9 @@ class _DeliveryModePageState extends State<DeliveryModePage> {
                   radius: 14,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   child: Text(
-                    customerName.substring(0, 1).toUpperCase(),
+                    customerName.trim().isNotEmpty
+                        ? customerName.trim()[0].toUpperCase()
+                        : '?',
                     style: const TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,

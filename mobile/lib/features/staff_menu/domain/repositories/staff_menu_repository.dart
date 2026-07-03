@@ -6,6 +6,8 @@ abstract class StaffMenuRepository {
   Future<Either<Failure, List<ProductModel>>> getStoreProducts({
     required String storeId,
     bool showAll = true,
+    int page = 1,
+    int limit = 50,
   });
 
   Future<Either<Failure, List<String>>> getCategories();

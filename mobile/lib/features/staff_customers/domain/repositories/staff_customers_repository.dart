@@ -5,9 +5,10 @@ import 'package:foa_mobile/core/models/order_model.dart';
 
 abstract class StaffCustomersRepository {
   Future<Either<Failure, List<UserModel>>> getCustomers({
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
     String? search,
+    String? storeId,
   });
 
   Future<Either<Failure, UserModel>> getCustomerById({

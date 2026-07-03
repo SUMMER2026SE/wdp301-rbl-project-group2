@@ -8,8 +8,8 @@ abstract class StaffOrdersRemoteDataSource {
   Future<List<OrderModel>> getStaffOrders({
     required String storeId,
     String? status,
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
   });
 
   Future<OrderModel> getStaffOrderById({
@@ -37,28 +37,29 @@ class StaffOrdersRemoteDataSourceImpl implements StaffOrdersRemoteDataSource {
   Future<List<OrderModel>> getStaffOrders({
     required String storeId,
     String? status,
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
   }) async {
     try {
       final response = await _apiClient.dio.get(
         ApiEndpoints.staffOrders,
         queryParameters: {
           'storeId': storeId,
-          'status': ?status,
-          'page': ?page,
-          'limit': ?limit,
+          if (status != null && status.isNotEmpty) 'status': status,
+          'page': page,
+          'limit': limit,
         },
       );
 
       final data = response.data;
-      if (data != null && data['data'] != null) {
-        final list = data['data'] as List;
-        return list
-            .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-      return [];
+      final rawList = data is Map<String, dynamic> && data['data'] is List
+          ? data['data'] as List
+          : data is List
+          ? data
+          : const [];
+      return rawList
+          .map((e) => OrderModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       if (e.error is NetworkException) throw e.error!;
       throw ServerException(

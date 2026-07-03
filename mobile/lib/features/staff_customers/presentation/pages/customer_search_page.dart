@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/utils/debouncer.dart';
 import 'package:foa_mobile/features/staff_customers/presentation/blocs/staff_customers_bloc.dart';
@@ -15,24 +16,68 @@ class CustomerSearchPage extends StatefulWidget {
 
 class _CustomerSearchPageState extends State<CustomerSearchPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final Debouncer _debouncer = Debouncer(
     delay: const Duration(milliseconds: 300),
   );
+  static const int _pageSize = 20;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
   }
 
   void _triggerSearch() {
+    final auth = context.read<AuthBloc>().state;
+    final storeId = auth is AuthAuthenticated ? auth.storeId : null;
     context.read<StaffCustomersBloc>().add(
-      SearchCustomersEvent(query: _searchQuery.isEmpty ? null : _searchQuery),
+      SearchCustomersEvent(
+        query: _searchQuery.isEmpty ? null : _searchQuery,
+        storeId: storeId,
+        page: 1,
+        limit: _pageSize,
+      ),
     );
+  }
+
+  void _loadMoreCustomers() {
+    final state = context.read<StaffCustomersBloc>().state;
+    if (state is! CustomersSearchLoaded ||
+        state.isLoadingMore ||
+        !state.hasMore) {
+      return;
+    }
+    final auth = context.read<AuthBloc>().state;
+    final storeId = auth is AuthAuthenticated ? auth.storeId : null;
+    context.read<StaffCustomersBloc>().add(
+      SearchCustomersEvent(
+        query: _searchQuery.isEmpty ? null : _searchQuery,
+        storeId: storeId,
+        page: state.page + 1,
+        limit: _pageSize,
+        append: true,
+      ),
+    );
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 240) {
+      _loadMoreCustomers();
+    }
+  }
+
+  String _safeInitial(String? value) {
+    final text = value?.trim() ?? '';
+    return text.isEmpty ? '?' : text[0].toUpperCase();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     _debouncer.dispose();
     super.dispose();
@@ -127,14 +172,21 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                   }
 
                   return ListView.separated(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    itemCount: customers.length,
+                    itemCount: customers.length + (state.isLoadingMore ? 1 : 0),
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 8),
                     itemBuilder: (context, index) {
+                      if (index >= customers.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
                       final customer = customers[index];
                       final name = customer.fullName ?? customer.username;
                       final totalOrders = customer.totalOrders ?? 0;
@@ -158,7 +210,7 @@ class _CustomerSearchPageState extends State<CustomerSearchPage> {
                                     alpha: 0.1,
                                   ),
                                   child: Text(
-                                    name.substring(0, 1).toUpperCase(),
+                                    _safeInitial(name),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.primary,

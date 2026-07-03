@@ -11,7 +11,14 @@ class GetStoreProductsUseCase {
   Future<Either<Failure, List<ProductModel>>> call({
     required String storeId,
     bool showAll = true,
+    int page = 1,
+    int limit = 50,
   }) {
-    return _repository.getStoreProducts(storeId: storeId, showAll: showAll);
+    return _repository.getStoreProducts(
+      storeId: storeId,
+      showAll: showAll,
+      page: page,
+      limit: limit,
+    );
   }
 }

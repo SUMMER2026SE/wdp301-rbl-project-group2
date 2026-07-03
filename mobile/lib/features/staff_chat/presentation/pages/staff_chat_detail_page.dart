@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
@@ -65,7 +67,20 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
     super.dispose();
   }
 
+  bool _ensureStoreScope({bool setLoadingFalse = true}) {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is AuthAuthenticated && auth.storeId != null) return true;
+    if (mounted) {
+      setState(() {
+        _error = 'Tài khoản staff chưa được gán cửa hàng';
+        if (setLoadingFalse) _loading = false;
+      });
+    }
+    return false;
+  }
+
   Future<void> _fetch() async {
+    if (!_ensureStoreScope(setLoadingFalse: false)) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -136,7 +151,7 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
 
   Future<void> _sendMessage() async {
     final content = _textCtrl.text.trim();
-    if (content.isEmpty) return;
+    if (content.isEmpty || !_ensureStoreScope(setLoadingFalse: false)) return;
 
     setState(() => _sending = true);
     _textCtrl.clear();
@@ -173,6 +188,7 @@ class _StaffChatDetailPageState extends State<StaffChatDetailPage> {
   }
 
   Future<void> _closeConversation() async {
+    if (!_ensureStoreScope(setLoadingFalse: false)) return;
     try {
       await ApiClient().dio.patch(
         ApiEndpoints.supportClose(widget.conversationId),

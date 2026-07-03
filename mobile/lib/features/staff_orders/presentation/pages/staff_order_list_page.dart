@@ -43,6 +43,8 @@ class StaffOrderListPage extends StatefulWidget {
 class _StaffOrderListPageState extends State<StaffOrderListPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final ScrollController _scrollController = ScrollController();
+  static const int _pageSize = 20;
   Timer? _refreshTimer;
   Timer? _overdueTimer;
   List<OrderModel> _overdueOrders = [];
@@ -54,6 +56,7 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) _fetchOrders();
     });
+    _scrollController.addListener(_onScroll);
     _fetchOrders();
     _setupSocketListener();
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
@@ -67,6 +70,7 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollController.dispose();
     _refreshTimer?.cancel();
     _overdueTimer?.cancel();
     SocketService().off('order:new');
@@ -74,17 +78,40 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
     super.dispose();
   }
 
-  void _fetchOrders({bool showLoader = true}) {
+  void _fetchOrders({bool showLoader = true, bool append = false}) {
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && auth.storeId != null) {
       final tab = _tabs[_tabController.index];
+      final currentState = context.read<StaffOrdersBloc>().state;
+      final nextPage = append && currentState is StaffOrdersLoaded
+          ? currentState.page + 1
+          : 1;
       context.read<StaffOrdersBloc>().add(
         FetchStaffOrdersEvent(
           storeId: auth.storeId!,
           status: tab.statusFilter,
           showLoader: showLoader,
+          page: nextPage,
+          limit: _pageSize,
+          append: append,
         ),
       );
+    }
+  }
+
+  void _loadMoreOrders() {
+    final state = context.read<StaffOrdersBloc>().state;
+    if (state is! StaffOrdersLoaded || state.isLoadingMore || !state.hasMore) {
+      return;
+    }
+    _fetchOrders(showLoader: false, append: true);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 240) {
+      _loadMoreOrders();
     }
   }
 
@@ -158,6 +185,8 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
                   behavior: SnackBarBehavior.floating,
                 ),
               );
+              // Re-fetch immediately so the changed order leaves the filtered tab
+              if (mounted) _fetchOrders(showLoader: false);
             }
           },
           builder: (context, state) {
@@ -218,21 +247,33 @@ class _StaffOrderListPageState extends State<StaffOrderListPage>
                               ],
                             )
                           : ListView.builder(
+                              controller: _scrollController,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,
                               ),
-                              itemCount: sorted.length,
-                              itemBuilder: (_, i) => _OrderCard(
-                                order: sorted[i],
-                                storeId:
-                                    (context.read<AuthBloc>().state
-                                            as AuthAuthenticated)
-                                        .storeId ??
-                                    '',
-                                isActioning:
-                                    state.actioningOrderId == sorted[i].id,
-                              ),
+                              itemCount:
+                                  sorted.length + (state.isLoadingMore ? 1 : 0),
+                              itemBuilder: (_, i) {
+                                if (i >= sorted.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+                                return _OrderCard(
+                                  order: sorted[i],
+                                  storeId:
+                                      (context.read<AuthBloc>().state
+                                              as AuthAuthenticated)
+                                          .storeId ??
+                                      '',
+                                  isActioning:
+                                      state.actioningOrderId == sorted[i].id,
+                                );
+                              },
                             ),
                     ),
                   ),
@@ -904,7 +945,9 @@ class _OrderCardState extends State<_OrderCard> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
             child: const Text(
               'Hủy',
               style: TextStyle(color: AppColors.textSecondary),
@@ -934,6 +977,8 @@ class _OrderCardState extends State<_OrderCard> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      ctrl.dispose();
+    });
   }
 }

@@ -6,8 +6,8 @@ abstract class StaffOrdersRepository {
   Future<Either<Failure, List<OrderModel>>> getStaffOrders({
     required String storeId,
     String? status,
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
   });
 
   Future<Either<Failure, OrderModel>> getStaffOrderById({

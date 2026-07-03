@@ -15,7 +15,7 @@ class HealthPreferencesPage extends StatefulWidget {
 }
 
 class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
-  final Dio _dio = ApiClient().dio;
+  late final Dio _dio;
 
   bool _loading = true;
   bool _saving = false;
@@ -29,6 +29,7 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
   @override
   void initState() {
     super.initState();
+    _dio = ApiClient().dio;
     _loadPreferences();
   }
 
@@ -38,14 +39,6 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
     super.dispose();
   }
 
-  Map<String, dynamic> _extractUserMap(dynamic responseData) {
-    if (responseData is Map<String, dynamic>) {
-      final wrappedData = responseData['data'];
-      if (wrappedData is Map<String, dynamic>) return wrappedData;
-      return responseData;
-    }
-    return <String, dynamic>{};
-  }
 
   Map<String, dynamic> _extractPreferences(Map<String, dynamic> user) {
     final preferences = user['preferences'];
@@ -81,13 +74,37 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
     try {
       final res = await _dio.get(ApiEndpoints.userPreferences);
       if (!mounted) return;
-      final user = _extractUserMap(res.data);
-      final data = _extractPreferences(user);
+
+      // Handle multiple possible response shapes from the backend:
+      // 1. { data: { preferences: {...} } }  — most common
+      // 2. { data: { user: { preferences: {...} } } }
+      // 3. { preferences: {...} }             — bare object
+      // 4. { user: { preferences: {...} } }
+      final raw = res.data;
+      Map<String, dynamic> userMap = <String, dynamic>{};
+
+      if (raw is Map<String, dynamic>) {
+        if (raw['data'] is Map<String, dynamic>) {
+          final data = raw['data'] as Map<String, dynamic>;
+          // data might be the user directly, or wrapped in 'user'
+          if (data['user'] is Map<String, dynamic>) {
+            userMap = data['user'] as Map<String, dynamic>;
+          } else {
+            userMap = data;
+          }
+        } else if (raw['user'] is Map<String, dynamic>) {
+          userMap = raw['user'] as Map<String, dynamic>;
+        } else {
+          userMap = raw;
+        }
+      }
+
+      final prefs = _extractPreferences(userMap);
       setState(() {
-        _preferences = data;
+        _preferences = prefs;
         _allergies
           ..clear()
-          ..addAll(_extractAllergies(data));
+          ..addAll(_extractAllergies(prefs));
         _loading = false;
       });
     } on DioException catch (e) {
@@ -95,14 +112,14 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
       setState(() {
         _error = _messageFromErrorResponse(
           e.response?.data,
-          'Không thể tải tuỳ chọn sức khỏe',
+          'Không thể tải tuỳ chọn sức khỏe. Vui lòng thử lại.',
         );
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Đã xảy ra lỗi';
+        _error = 'Đã xảy ra lỗi. Vui lòng thử lại.';
         _loading = false;
       });
     }

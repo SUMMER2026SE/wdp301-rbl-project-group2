@@ -14,8 +14,8 @@ class StaffOrdersRepositoryImpl implements StaffOrdersRepository {
   Future<Either<Failure, List<OrderModel>>> getStaffOrders({
     required String storeId,
     String? status,
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
   }) async {
     try {
       final orders = await _remoteDataSource.getStaffOrders(

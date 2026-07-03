@@ -13,6 +13,10 @@ class UserModel {
   final String? verifiedAt;
   final String? storeId;
   final int collectedPoints;
+  final int accumulatedPoints;
+  final String? tier;
+  final int ordersCount;
+  final int reviewsCount;
   final List<AddressModel> addresses;
   final UserPreferencesModel? preferences;
 
@@ -28,6 +32,10 @@ class UserModel {
     this.verifiedAt,
     this.storeId,
     this.collectedPoints = 0,
+    this.accumulatedPoints = 0,
+    this.tier,
+    this.ordersCount = 0,
+    this.reviewsCount = 0,
     this.addresses = const [],
     this.preferences,
   });
@@ -45,6 +53,10 @@ class UserModel {
       verifiedAt: json['verifiedAt'] as String?,
       storeId: json['storeId'] as String?,
       collectedPoints: json['collectedPoints'] as int? ?? 0,
+      accumulatedPoints: json['accumulatedPoints'] as int? ?? 0,
+      tier: json['tier'] as String?,
+      ordersCount: json['ordersCount'] as int? ?? 0,
+      reviewsCount: json['reviewsCount'] as int? ?? 0,
       addresses:
           (json['addresses'] as List<dynamic>?)
               ?.map((e) => AddressModel.fromJson(e as Map<String, dynamic>))
@@ -70,6 +82,10 @@ class UserModel {
     'verifiedAt': verifiedAt,
     'storeId': storeId,
     'collectedPoints': collectedPoints,
+    'accumulatedPoints': accumulatedPoints,
+    'tier': tier,
+    'ordersCount': ordersCount,
+    'reviewsCount': reviewsCount,
     'addresses': addresses.map((a) => a.toJson()).toList(),
     'preferences': preferences?.toJson(),
   };
@@ -87,6 +103,10 @@ class UserModel {
     verifiedAt: verifiedAt,
     storeId: storeId,
     collectedPoints: collectedPoints,
+    accumulatedPoints: accumulatedPoints,
+    tier: tier,
+    ordersCount: ordersCount,
+    reviewsCount: reviewsCount,
     addresses: addresses.map((a) => a.toEntity()).toList(),
     preferences: preferences?.toEntity(),
   );

@@ -13,15 +13,17 @@ class StaffCustomersRepositoryImpl implements StaffCustomersRepository {
 
   @override
   Future<Either<Failure, List<UserModel>>> getCustomers({
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
     String? search,
+    String? storeId,
   }) async {
     try {
       final customers = await _remoteDataSource.getCustomers(
         page: page,
         limit: limit,
         search: search,
+        storeId: storeId,
       );
       return Right(customers);
     } on NetworkException catch (e) {

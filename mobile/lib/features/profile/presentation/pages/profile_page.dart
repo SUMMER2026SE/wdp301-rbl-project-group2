@@ -19,6 +19,11 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isUpdatingCampaignNotif = false;
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = context.watch<AuthBloc>().state;
     final user = state is AuthAuthenticated ? state.user : <String, dynamic>{};
@@ -29,6 +34,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final points = user['collectedPoints'] is num
         ? (user['collectedPoints'] as num).toInt()
         : 0;
+
+    // Membership tier — backend returns "tier" (bronze, silver, gold, diamond)
+    final membershipRaw = user['tier'] as String? ?? '';
+
+    // Stats come directly from backend /users/me response
     final ordersCount = user['ordersCount'] is num
         ? (user['ordersCount'] as num).toInt()
         : 0;
@@ -53,81 +63,108 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          _ProfileHeroCard(
-            name: name,
-            email: email,
-            phone: phone,
-            avatarUrl: avatarUrl,
-            points: points,
-            ordersCount: ordersCount,
-            reviewsCount: reviewsCount,
-            onEdit: () => context.push('/profile/edit'),
-          ),
-          const SizedBox(height: 20),
-          _ProfileSection(
-            title: 'Ăn uống của tôi',
-            children: [
-              _ProfileMenuTile(
-                icon: Icons.favorite_outline_rounded,
-                title: 'Sức khỏe & dị ứng',
-                subtitle: 'Cá nhân hóa món ăn phù hợp với bạn',
-                onTap: () => context.push('/profile/health'),
-              ),
-              const _ProfileDivider(),
-              _ProfileMenuTile(
-                icon: Icons.location_on_outlined,
-                title: 'Địa chỉ giao hàng',
-                subtitle: 'Quản lý nơi nhận đơn quen thuộc',
-                onTap: () => context.push('/profile/addresses'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _ProfileSection(
-            title: 'Tài khoản',
-            children: [
-              _ProfileMenuTile(
-                icon: Icons.lock_outline_rounded,
-                title: 'Đổi mật khẩu',
-                subtitle: 'Cập nhật mật khẩu đăng nhập',
-                onTap: () => _showChangePasswordSheet(context),
-              ),
-              const _ProfileDivider(),
-              SwitchListTile(
-                secondary: const _ProfileIconBadge(
-                  icon: Icons.campaign_outlined,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Trigger auth check to re-fetch /users/me with fresh stats & tier
+          context.read<AuthBloc>().add(const AuthCheckRequested());
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _ProfileHeroCard(
+              name: name,
+              email: email,
+              phone: phone,
+              avatarUrl: avatarUrl,
+              points: points,
+              membershipTier: membershipRaw,
+              ordersCount: ordersCount,
+              reviewsCount: reviewsCount,
+              statsLoading: false,
+              onEdit: () => context.push('/profile/edit'),
+            ),
+            const SizedBox(height: 20),
+            _ProfileSection(
+              title: 'Ăn uống của tôi',
+              children: [
+                _ProfileMenuTile(
+                  icon: Icons.favorite_outline_rounded,
+                  title: 'Sức khỏe & dị ứng',
+                  subtitle: 'Cá nhân hóa món ăn phù hợp với bạn',
+                  onTap: () => context.push('/profile/health'),
                 ),
-                title: const Text(
-                  'Thông báo khuyến mãi',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                const _ProfileDivider(),
+                _ProfileMenuTile(
+                  icon: Icons.location_on_outlined,
+                  title: 'Địa chỉ giao hàng',
+                  subtitle: 'Quản lý nơi nhận đơn quen thuộc',
+                  onTap: () => context.push('/profile/addresses'),
                 ),
-                subtitle: const Text(
-                  'Nhận ưu đãi và voucher mới',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+              ],
+            ),
+            const SizedBox(height: 16),
+            _ProfileSection(
+              title: 'Hỗ trợ & liên hệ',
+              children: [
+                _ProfileMenuTile(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Tin nhắn hỗ trợ',
+                  subtitle: 'Trò chuyện với nhân viên hỗ trợ',
+                  onTap: () => context.push('/chat'),
+                ),
+                const _ProfileDivider(),
+                _ProfileMenuTile(
+                  icon: Icons.info_outline_rounded,
+                  title: 'Về chúng tôi',
+                  subtitle: 'Thông tin ứng dụng và liên hệ',
+                  onTap: () => context.push('/profile/about'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _ProfileSection(
+              title: 'Tài khoản',
+              children: [
+                _ProfileMenuTile(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Đổi mật khẩu',
+                  subtitle: 'Cập nhật mật khẩu đăng nhập',
+                  onTap: () => _showChangePasswordSheet(context),
+                ),
+                const _ProfileDivider(),
+                SwitchListTile(
+                  secondary: const _ProfileIconBadge(
+                    icon: Icons.campaign_outlined,
+                  ),
+                  title: const Text(
+                    'Thông báo khuyến mãi',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text(
+                    'Nhận ưu đãi và voucher mới',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  value: user['receiveCampaignNotifications'] == true,
+                  onChanged: _isUpdatingCampaignNotif
+                      ? null
+                      : (val) => _updateCampaignNotif(context, val),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
                   ),
                 ),
-                value: user['receiveCampaignNotifications'] == true,
-                onChanged: _isUpdatingCampaignNotif
-                    ? null
-                    : (val) => _updateCampaignNotif(context, val),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 4,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _LogoutTile(
-            onTap: () =>
-                context.read<AuthBloc>().add(const AuthLogoutRequested()),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            _LogoutTile(
+              onTap: () =>
+                  context.read<AuthBloc>().add(const AuthLogoutRequested()),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -209,6 +246,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
+// ── Hero Card ──
+
 class _ProfileHeroCard extends StatelessWidget {
   const _ProfileHeroCard({
     required this.name,
@@ -216,8 +255,10 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.phone,
     required this.avatarUrl,
     required this.points,
+    required this.membershipTier,
     required this.ordersCount,
     required this.reviewsCount,
+    required this.statsLoading,
     required this.onEdit,
   });
 
@@ -226,12 +267,30 @@ class _ProfileHeroCard extends StatelessWidget {
   final String phone;
   final String avatarUrl;
   final int points;
+  final String membershipTier;
   final int ordersCount;
   final int reviewsCount;
+  final bool statsLoading;
   final VoidCallback onEdit;
+
+  /// Map tier key → display label & color
+  static const _tierMeta = <String, Map<String, dynamic>>{
+    'bronze': {'label': 'Đồng', 'color': Color(0xFFCD7F32)},
+    'silver': {'label': 'Bạc', 'color': Color(0xFF9E9E9E)},
+    'gold': {'label': 'Vàng', 'color': Color(0xFFF9A825)},
+    'diamond': {'label': 'Kim cương', 'color': Color(0xFF64B5F6)},
+  };
 
   @override
   Widget build(BuildContext context) {
+    final tier = membershipTier.toLowerCase();
+    final meta = _tierMeta[tier];
+    final hasTier = meta != null;
+    final tierColor = hasTier
+        ? (meta['color'] as Color)
+        : AppColors.primary;
+    final tierLabel = hasTier ? (meta['label'] as String) : null;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -337,41 +396,20 @@ class _ProfileHeroCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  // Membership tier chip (replaces redundant points badge)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.stars_rounded,
+                    child: tierLabel != null
+                        ? _MembershipChip(
+                            label: tierLabel,
+                            color: tierColor,
+                          )
+                        : _MembershipChip(
+                            label: 'Thành viên',
                             color: AppColors.primary,
-                            size: 16,
+                            isBasic: true,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$points điểm thưởng',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 16),
                   const _ReceiptDivider(),
@@ -380,26 +418,73 @@ class _ProfileHeroCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _ProfileStat(
-                          value: ordersCount.toString(),
+                          value: statsLoading ? '...' : ordersCount.toString(),
                           label: 'Đơn hàng',
+                          icon: Icons.receipt_long_outlined,
                         ),
                       ),
                       Expanded(
                         child: _ProfileStat(
-                          value: reviewsCount.toString(),
+                          value: statsLoading ? '...' : reviewsCount.toString(),
                           label: 'Đánh giá',
+                          icon: Icons.star_outline_rounded,
                         ),
                       ),
                       Expanded(
                         child: _ProfileStat(
                           value: points.toString(),
                           label: 'Điểm thưởng',
+                          icon: Icons.stars_rounded,
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MembershipChip extends StatelessWidget {
+  const _MembershipChip({
+    required this.label,
+    required this.color,
+    this.isBasic = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool isBasic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isBasic ? 0.10 : 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.40)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isBasic ? Icons.card_membership_rounded : Icons.workspace_premium_rounded,
+            color: color,
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isBasic ? label : 'Hạng $label',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: color,
             ),
           ),
         ],
@@ -459,24 +544,31 @@ class _ReceiptDivider extends StatelessWidget {
 }
 
 class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({required this.value, required this.label});
+  const _ProfileStat({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
 
   final String value;
   final String label;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        Icon(icon, size: 18, color: AppColors.primary),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 2),
         Text(
           label,
           style: const TextStyle(

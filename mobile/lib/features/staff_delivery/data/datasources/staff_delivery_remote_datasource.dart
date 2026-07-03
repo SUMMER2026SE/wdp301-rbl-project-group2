@@ -33,10 +33,10 @@ class StaffDeliveryRemoteDataSourceImpl
     required String driverId,
   }) async {
     try {
-      // First fetch all shipping orders
+      // First fetch all assigned-delivery statuses.
       final response = await _apiClient.dio.get(
         ApiEndpoints.staffOrders,
-        queryParameters: {'storeId': storeId, 'status': 'shipping'},
+        queryParameters: {'storeId': storeId, 'status': 'shipping,delivering'},
       );
 
       final data = response.data;

@@ -16,6 +16,8 @@ class StaffMenuPage extends StatefulWidget {
 
 class _StaffMenuPageState extends State<StaffMenuPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  static const int _pageSize = 50;
   String _searchQuery = '';
   String _selectedCategory = 'Tất cả';
   String _selectedStatusFilter = 'all'; // all, available, suspended
@@ -23,23 +25,48 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _fetchMenu();
   }
 
-  void _fetchMenu({bool showLoader = true}) {
+  void _fetchMenu({bool showLoader = true, bool append = false}) {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated && authState.storeId != null) {
+      final currentState = context.read<StaffMenuBloc>().state;
+      final nextPage = append && currentState is StaffMenuLoaded
+          ? currentState.page + 1
+          : 1;
       context.read<StaffMenuBloc>().add(
         FetchStaffMenuEvent(
           storeId: authState.storeId!,
           showLoader: showLoader,
+          page: nextPage,
+          limit: _pageSize,
+          append: append,
         ),
       );
     }
   }
 
+  void _loadMoreMenu() {
+    final state = context.read<StaffMenuBloc>().state;
+    if (state is! StaffMenuLoaded || state.isLoadingMore || !state.hasMore) {
+      return;
+    }
+    _fetchMenu(showLoader: false, append: true);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 240) {
+      _loadMoreMenu();
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -127,7 +154,17 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
               return matchesSearch && matchesCategory && matchesStatus;
             }).toList();
 
+            // Auto load more when filters are empty but more pages exist
+            if (filteredProducts.isEmpty &&
+                state.hasMore &&
+                !state.isLoadingMore) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _loadMoreMenu();
+              });
+            }
+
             return CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 SliverToBoxAdapter(
                   child: _buildKpiBanner(totalItems, inStock, outOfStock),
@@ -179,15 +216,29 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                   ),
                 ),
                 if (filteredProducts.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.only(top: 80),
-                      child: EmptyStateWidget(
-                        icon: Icons.search_off,
-                        title: 'Không tìm thấy món ăn',
-                        subtitle:
-                            'Vui lòng thay đổi bộ lọc tìm kiếm hoặc danh mục.',
-                      ),
+                      padding: const EdgeInsets.only(top: 80),
+                      child: state.hasMore
+                          ? Column(
+                              children: [
+                                const CircularProgressIndicator(),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Đang tải thêm món ăn...',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const EmptyStateWidget(
+                              icon: Icons.search_off,
+                              title: 'Không tìm thấy món ăn',
+                              subtitle:
+                                  'Vui lòng thay đổi bộ lọc tìm kiếm hoặc danh mục.',
+                            ),
                     ),
                   )
                 else
@@ -210,6 +261,13 @@ class _StaffMenuPageState extends State<StaffMenuPage> {
                           ],
                         );
                       }, childCount: filteredProducts.length),
+                    ),
+                  ),
+                if (state.isLoadingMore)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
                     ),
                   ),
               ],

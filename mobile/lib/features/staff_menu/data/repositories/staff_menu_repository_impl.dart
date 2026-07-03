@@ -14,11 +14,15 @@ class StaffMenuRepositoryImpl implements StaffMenuRepository {
   Future<Either<Failure, List<ProductModel>>> getStoreProducts({
     required String storeId,
     bool showAll = true,
+    int page = 1,
+    int limit = 50,
   }) async {
     try {
       final products = await _remoteDataSource.getStoreProducts(
         storeId: storeId,
         showAll: showAll,
+        page: page,
+        limit: limit,
       );
       return Right(products);
     } on NetworkException catch (e) {

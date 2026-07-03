@@ -18,12 +18,20 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
   bool _isOnline = false;
   bool _autoReply = false;
   String _greetingMsg = '';
+  late final TextEditingController _greetingController;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _greetingController = TextEditingController();
     _fetchSettings();
+  }
+
+  @override
+  void dispose() {
+    _greetingController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchSettings() async {
@@ -31,11 +39,13 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
     try {
       final response = await ApiClient().dio.get(ApiEndpoints.supportSettings);
       final data = response.data?['data'] ?? response.data;
+      if (!mounted) return;
       if (data != null) {
         setState(() {
           _isOnline = data['isOnline'] as bool? ?? false;
           _autoReply = data['autoReply'] as bool? ?? false;
           _greetingMsg = data['greetingMessage'] as String? ?? '';
+          _greetingController.text = _greetingMsg;
           _loadingSettings = false;
         });
       } else {
@@ -292,10 +302,7 @@ class _StaffSettingsPageState extends State<StaffSettingsPage> {
                     ),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: TextEditingController(text: _greetingMsg)
-                        ..selection = TextSelection.collapsed(
-                          offset: _greetingMsg.length,
-                        ),
+                      controller: _greetingController,
                       onChanged: (val) => _greetingMsg = val,
                       decoration: InputDecoration(
                         hintText: 'Nhập lời ch\xE0o...',

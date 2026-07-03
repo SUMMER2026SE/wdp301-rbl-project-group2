@@ -44,10 +44,11 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
     try {
       final auth = context.read<AuthBloc>().state;
       if (auth is! AuthAuthenticated || auth.storeId == null) {
-        setState(
-          () => _error = 'Kh\xF4ng t\xECm thấy th\xF4ng tin cửa h\xE0ng',
-        );
-        _loading = false;
+        if (!mounted) return;
+        setState(() {
+          _error = 'Tài khoản staff chưa được gán cửa hàng';
+          _loading = false;
+        });
         return;
       }
       final response = await ApiClient().dio.get(
@@ -55,6 +56,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         queryParameters: {'storeId': auth.storeId},
       );
       final data = response.data;
+      if (!mounted) return;
       if (data != null && data['data'] != null) {
         setState(() {
           _order = OrderModel.fromJson(data['data'] as Map<String, dynamic>);
@@ -67,6 +69,7 @@ class _StaffOrderDetailPageState extends State<StaffOrderDetailPage> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Kh\xF4ng thể tải chi tiết đơn h\xE0ng';
         _loading = false;

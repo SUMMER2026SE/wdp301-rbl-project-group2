@@ -16,11 +16,20 @@ abstract class StaffMenuEvent extends Equatable {
 class FetchStaffMenuEvent extends StaffMenuEvent {
   final String storeId;
   final bool showLoader;
+  final int page;
+  final int limit;
+  final bool append;
 
-  const FetchStaffMenuEvent({required this.storeId, this.showLoader = true});
+  const FetchStaffMenuEvent({
+    required this.storeId,
+    this.showLoader = true,
+    this.page = 1,
+    this.limit = 50,
+    this.append = false,
+  });
 
   @override
-  List<Object?> get props => [storeId, showLoader];
+  List<Object?> get props => [storeId, showLoader, page, limit, append];
 }
 
 class ToggleProductAvailabilityEvent extends StaffMenuEvent {
@@ -59,12 +68,18 @@ class StaffMenuLoaded extends StaffMenuState {
   final List<String> categories;
   final String? actioningProductId;
   final String? message;
+  final int page;
+  final bool hasMore;
+  final bool isLoadingMore;
 
   const StaffMenuLoaded({
     required this.products,
     required this.categories,
     this.actioningProductId,
     this.message,
+    this.page = 1,
+    this.hasMore = true,
+    this.isLoadingMore = false,
   });
 
   StaffMenuLoaded copyWith({
@@ -72,12 +87,18 @@ class StaffMenuLoaded extends StaffMenuState {
     List<String>? categories,
     String? actioningProductId,
     String? message,
+    int? page,
+    bool? hasMore,
+    bool? isLoadingMore,
   }) {
     return StaffMenuLoaded(
       products: products ?? this.products,
       categories: categories ?? this.categories,
       actioningProductId: actioningProductId,
       message: message,
+      page: page ?? this.page,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 
@@ -87,6 +108,9 @@ class StaffMenuLoaded extends StaffMenuState {
     categories,
     actioningProductId,
     message,
+    page,
+    hasMore,
+    isLoadingMore,
   ];
 }
 
@@ -121,14 +145,41 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
     FetchStaffMenuEvent event,
     Emitter<StaffMenuState> emit,
   ) async {
-    if (event.showLoader) {
+    final currentState = state;
+    if (event.append && currentState is StaffMenuLoaded) {
+      if (currentState.isLoadingMore || !currentState.hasMore) return;
+      emit(currentState.copyWith(isLoadingMore: true, message: null));
+    } else if (event.showLoader) {
       emit(const StaffMenuLoading());
     }
 
     final productsResult = await _getStoreProductsUseCase(
       storeId: event.storeId,
       showAll: true,
+      page: event.page,
+      limit: event.limit,
     );
+
+    if (event.append && currentState is StaffMenuLoaded) {
+      productsResult.fold(
+        (failure) => emit(
+          currentState.copyWith(
+            isLoadingMore: false,
+            message: failure.message,
+          ),
+        ),
+        (products) => emit(
+          currentState.copyWith(
+            products: [...currentState.products, ...products],
+            page: event.page,
+            hasMore: products.length >= event.limit,
+            isLoadingMore: false,
+          ),
+        ),
+      );
+      return;
+    }
+
     final categoriesResult = await _getCategoriesUseCase();
 
     productsResult.fold((failure) => emit(StaffMenuError(failure.message)), (
@@ -136,12 +187,19 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
     ) {
       categoriesResult.fold(
         (failure) => emit(
-          StaffMenuLoaded(products: products, categories: const ['Tất cả']),
+          StaffMenuLoaded(
+            products: products,
+            categories: const ['Tất cả'],
+            page: event.page,
+            hasMore: products.length >= event.limit,
+          ),
         ),
         (categories) => emit(
           StaffMenuLoaded(
             products: products,
             categories: ['Tất cả', ...categories],
+            page: event.page,
+            hasMore: products.length >= event.limit,
           ),
         ),
       );
@@ -174,9 +232,8 @@ class StaffMenuBloc extends Bloc<StaffMenuEvent, StaffMenuState> {
             ? 'Mở bán món ăn thành công!'
             : 'Tạm ngưng bán món ăn.';
         emit(
-          StaffMenuLoaded(
+          currentState.copyWith(
             products: updatedProducts,
-            categories: currentState.categories,
             message: statusMsg,
           ),
         );

@@ -18,15 +18,21 @@ class FetchStaffOrdersEvent extends StaffOrdersEvent {
   final String storeId;
   final String? status;
   final bool showLoader;
+  final int page;
+  final int limit;
+  final bool append;
 
   const FetchStaffOrdersEvent({
     required this.storeId,
     this.status,
     this.showLoader = true,
+    this.page = 1,
+    this.limit = 20,
+    this.append = false,
   });
 
   @override
-  List<Object?> get props => [storeId, status, showLoader];
+  List<Object?> get props => [storeId, status, showLoader, page, limit, append];
 }
 
 class ConfirmOrderEvent extends StaffOrdersEvent {
@@ -94,27 +100,46 @@ class StaffOrdersLoaded extends StaffOrdersState {
   final String?
   actioningOrderId; // Track which order is currently being updated
   final String? message;
+  final int page;
+  final bool hasMore;
+  final bool isLoadingMore;
 
   const StaffOrdersLoaded({
     required this.orders,
     this.actioningOrderId,
     this.message,
+    this.page = 1,
+    this.hasMore = true,
+    this.isLoadingMore = false,
   });
 
   StaffOrdersLoaded copyWith({
     List<OrderModel>? orders,
     String? actioningOrderId,
     String? message,
+    int? page,
+    bool? hasMore,
+    bool? isLoadingMore,
   }) {
     return StaffOrdersLoaded(
       orders: orders ?? this.orders,
-      actioningOrderId: actioningOrderId, // will reset if null passed
+      actioningOrderId: actioningOrderId,
       message: message,
+      page: page ?? this.page,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 
   @override
-  List<Object?> get props => [orders, actioningOrderId, message];
+  List<Object?> get props => [
+    orders,
+    actioningOrderId,
+    message,
+    page,
+    hasMore,
+    isLoadingMore,
+  ];
 }
 
 class StaffOrdersError extends StaffOrdersState {
@@ -154,18 +179,48 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
     FetchStaffOrdersEvent event,
     Emitter<StaffOrdersState> emit,
   ) async {
-    if (event.showLoader) {
+    final currentState = state;
+
+    if (event.append && currentState is StaffOrdersLoaded) {
+      if (currentState.isLoadingMore || !currentState.hasMore) return;
+      emit(currentState.copyWith(isLoadingMore: true, message: null));
+    } else if (event.showLoader) {
       emit(const StaffOrdersLoading());
     }
 
     final result = await _getStaffOrdersUseCase(
       storeId: event.storeId,
       status: event.status,
+      page: event.page,
+      limit: event.limit,
     );
 
     result.fold(
-      (failure) => emit(StaffOrdersError(failure.message)),
-      (orders) => emit(StaffOrdersLoaded(orders: orders)),
+      (failure) {
+        if (event.append && currentState is StaffOrdersLoaded) {
+          emit(
+            currentState.copyWith(
+              isLoadingMore: false,
+              message: failure.message,
+            ),
+          );
+        } else {
+          emit(StaffOrdersError(failure.message));
+        }
+      },
+      (orders) {
+        final merged = event.append && currentState is StaffOrdersLoaded
+            ? [...currentState.orders, ...orders]
+            : orders;
+        emit(
+          StaffOrdersLoaded(
+            orders: merged,
+            page: event.page,
+            hasMore: orders.length >= event.limit,
+            isLoadingMore: false,
+          ),
+        );
+      },
     );
   }
 
@@ -197,7 +252,7 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
         }).toList();
 
         emit(
-          StaffOrdersLoaded(
+          currentState.copyWith(
             orders: updatedOrders,
             message: 'Đã xác nhận đơn hàng thành công!',
           ),
@@ -232,7 +287,7 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
         }).toList();
 
         emit(
-          StaffOrdersLoaded(
+          currentState.copyWith(
             orders: updatedOrders,
             message: 'Đã từ chối đơn hàng.',
           ),
@@ -266,7 +321,7 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
         }).toList();
 
         emit(
-          StaffOrdersLoaded(
+          currentState.copyWith(
             orders: updatedOrders,
             message: 'Đơn hàng đã chuẩn bị xong!',
           ),
@@ -286,7 +341,7 @@ class StaffOrdersBloc extends Bloc<StaffOrdersEvent, StaffOrdersState> {
       if (!exists) {
         final updatedList = [event.order, ...currentState.orders];
         emit(
-          StaffOrdersLoaded(
+          currentState.copyWith(
             orders: updatedList,
             message: 'Có đơn hàng mới vừa được chuyển đến!',
           ),

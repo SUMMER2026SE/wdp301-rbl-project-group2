@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
+import 'package:foa_mobile/core/constants/api_endpoints.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/models/chat_model.dart';
+import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/services/socket_service.dart';
-import 'package:foa_mobile/features/staff_chat/presentation/blocs/staff_chat_bloc.dart';
 import 'package:foa_mobile/shared/widgets/empty_state_widget.dart';
 import 'package:foa_mobile/core/utils/formatters.dart';
 
@@ -18,8 +19,13 @@ class StaffChatListPage extends StatefulWidget {
 
 class _StaffChatListPageState extends State<StaffChatListPage> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _collapsedCustomers = {};
+  final ApiClient _apiClient = ApiClient();
+
   String _searchQuery = '';
-  final Set<String> _expandedCustomers = {};
+  List<ConversationModel> _conversations = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -28,21 +34,60 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
     _setupSocketListener();
   }
 
-  void _fetchConversations() {
+  Future<void> _fetchConversations() async {
     final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated && authState.storeId != null) {
-      context.read<StaffChatBloc>().add(
-        FetchConversationsEvent(storeId: authState.storeId!),
+    if (authState is! AuthAuthenticated || authState.storeId == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Tài khoản nhân viên chưa được gán chi nhánh';
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final response = await _apiClient.dio.get(
+        ApiEndpoints.staffConversations,
+        queryParameters: {'storeId': authState.storeId},
       );
+      final data = response.data;
+      final rawList = data is Map<String, dynamic>
+          ? (data['conversations'] ?? data['data'])
+          : null;
+      final conversations = rawList is List
+          ? rawList
+              .whereType<Map<String, dynamic>>()
+              .map(ConversationModel.fromJson)
+              .toList()
+          : <ConversationModel>[];
+
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Không thể tải danh sách hội thoại';
+        });
+      }
     }
   }
 
   void _setupSocketListener() {
-    // Listen to Support global events to refresh list
     SocketService().on('support:inbox_updated', (_) {
-      if (mounted) {
-        _fetchConversations();
-      }
+      if (mounted) _fetchConversations();
     });
   }
 
@@ -55,117 +100,105 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hỗ trợ khách hàng'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchConversations,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search box
-          _buildSearchBox(),
+    final filtered = _conversations.where((c) {
+      final term = _searchQuery.toLowerCase();
+      return c.customerName.toLowerCase().contains(term) ||
+          c.orderCode.toLowerCase().contains(term);
+    }).toList();
 
-          Expanded(
-            child: BlocBuilder<StaffChatBloc, StaffChatState>(
-              builder: (context, state) {
-                if (state is ConversationsLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (state is ConversationsError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          state.message,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _fetchConversations,
-                          child: const Text('Thử lại'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (state is ConversationsLoaded) {
-                  final conversations = state.conversations;
-
-                  // Filter locally
-                  final filtered = conversations.where((c) {
-                    final term = _searchQuery.toLowerCase();
-                    return c.customerName.toLowerCase().contains(term) ||
-                        c.orderCode.toLowerCase().contains(term);
-                  }).toList();
-
-                  if (filtered.isEmpty) {
-                    return const EmptyStateWidget(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'Chưa có cuộc hội thoại nào',
-                      subtitle:
-                          'Khi khách hàng gửi tin nhắn từ đơn hàng, nó sẽ xuất hiện ở đây.',
-                    );
-                  }
-
-                  // Group conversations by stable customer identity.
-                  final grouped = <String, List<ConversationModel>>{};
-                  for (final c in filtered) {
-                    final customerKey = c.customerId.isNotEmpty
-                        ? c.customerId
-                        : c.customerName;
-                    grouped.putIfAbsent(customerKey, () => []).add(c);
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: grouped.length,
-                    itemBuilder: (context, index) {
-                      final customerKey = grouped.keys.elementAt(index);
-                      final convs = grouped[customerKey]!;
-                      final customerName = convs.first.customerName;
-                      final isExpanded = _expandedCustomers.contains(
-                        customerKey,
-                      );
-
-                      // Summary statistics for customer group
-                      final totalUnread = convs.fold<int>(
-                        0,
-                        (sum, c) => sum + c.unreadCount,
-                      );
-                      final hasOpen = convs.any((c) => c.status == 'open');
-
-                      // Find the latest active conversation to display preview
-                      final latestConv = convs.reduce(
-                        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
-                      );
-
-                      return _buildCustomerGroupTile(
-                        customerKey,
-                        customerName,
-                        convs,
-                        isExpanded,
-                        totalUnread,
-                        hasOpen,
-                        latestConv,
-                      );
-                    },
-                  );
-                }
-
-                return const SizedBox();
-              },
+    return Column(
+      children: [
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Hỗ trợ khách hàng',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _fetchConversations,
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        _buildSearchBox(),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_error!, style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _fetchConversations,
+                            child: const Text('Thử lại'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filtered.isEmpty
+                      ? EmptyStateWidget(
+                          icon: _searchQuery.isNotEmpty
+                              ? Icons.search_off_rounded
+                              : Icons.chat_bubble_outline,
+                          title: _searchQuery.isNotEmpty
+                              ? 'Không tìm thấy hội thoại'
+                              : 'Chưa có cuộc hội thoại nào',
+                          subtitle: _searchQuery.isNotEmpty
+                              ? 'Thử tìm bằng tên khách hàng hoặc mã đơn khác.'
+                              : 'Khi khách hàng gửi tin nhắn từ đơn hàng, nó sẽ xuất hiện ở đây.',
+                        )
+                      : _buildConversationList(filtered),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConversationList(List<ConversationModel> conversations) {
+    final grouped = <String, List<ConversationModel>>{};
+    for (final c in conversations) {
+      final customerKey = c.customerId.isNotEmpty
+          ? c.customerId
+          : (c.customerName.trim().isNotEmpty ? c.customerName.trim() : c.id);
+      grouped.putIfAbsent(customerKey, () => []).add(c);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: grouped.length,
+      itemBuilder: (context, index) {
+        final customerKey = grouped.keys.elementAt(index);
+        final convs = grouped[customerKey]!;
+        final customerName = convs.first.customerName.trim().isNotEmpty
+            ? convs.first.customerName.trim()
+            : 'Khách hàng';
+        final isExpanded = !_collapsedCustomers.contains(customerKey);
+        final totalUnread = convs.fold<int>(0, (sum, c) => sum + c.unreadCount);
+        final hasOpen = convs.any((c) => c.status == 'open');
+        final latestConv = convs.reduce(
+          (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+        );
+
+        return _buildCustomerGroupTile(
+          customerKey,
+          customerName,
+          convs,
+          isExpanded,
+          totalUnread,
+          hasOpen,
+          latestConv,
+        );
+      },
     );
   }
 
@@ -215,21 +248,19 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
     ConversationModel latestConv,
   ) {
     final previewMsg = latestConv.lastMessage;
+    final initial = customerName.characters.first.toUpperCase();
 
     return Column(
       children: [
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 4,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: Stack(
             children: [
               CircleAvatar(
                 radius: 22,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 child: Text(
-                  customerName.substring(0, 1).toUpperCase(),
+                  initial,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -260,9 +291,7 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                 child: Text(
                   customerName,
                   style: TextStyle(
-                    fontWeight: totalUnread > 0
-                        ? FontWeight.w900
-                        : FontWeight.bold,
+                    fontWeight: totalUnread > 0 ? FontWeight.w900 : FontWeight.bold,
                     fontSize: 15,
                     color: AppColors.textPrimary,
                   ),
@@ -273,10 +302,7 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
               if (previewMsg != null)
                 Text(
                   Formatters.time(previewMsg.createdAt),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                 ),
             ],
           ),
@@ -299,16 +325,14 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                 Text(
                   previewMsg != null
                       ? (previewMsg.senderType == 'STAFF' ? 'Bạn: ' : '') +
-                            previewMsg.content
+                          previewMsg.content
                       : 'Chưa có tin nhắn',
                   style: TextStyle(
                     fontSize: 13,
                     color: totalUnread > 0
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
-                    fontWeight: totalUnread > 0
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                    fontWeight: totalUnread > 0 ? FontWeight.w600 : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -322,10 +346,7 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
               if (totalUnread > 0)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(10),
@@ -340,9 +361,7 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                   ),
                 ),
               Icon(
-                isExpanded
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down,
+                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 color: AppColors.textSecondary,
               ),
             ],
@@ -350,15 +369,13 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
           onTap: () {
             setState(() {
               if (isExpanded) {
-                _expandedCustomers.remove(customerKey);
+                _collapsedCustomers.add(customerKey);
               } else {
-                _expandedCustomers.add(customerKey);
+                _collapsedCustomers.remove(customerKey);
               }
             });
           },
         ),
-
-        // Sublist of orders if expanded
         if (isExpanded)
           Container(
             color: Colors.grey.shade50,
@@ -389,31 +406,23 @@ class _StaffChatListPageState extends State<StaffChatListPage> {
                   ),
                   subtitle: Text(
                     conv.lastMessage != null
-                        ? (conv.lastMessage!.senderType == 'STAFF'
-                                  ? 'Bạn: '
-                                  : '') +
-                              conv.lastMessage!.content
+                        ? (conv.lastMessage!.senderType == 'STAFF' ? 'Bạn: ' : '') +
+                            conv.lastMessage!.content
                         : 'Mới nhận',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: conv.unreadCount > 0
                       ? Container(
-                          padding: const EdgeInsets.all(5),
+                          width: 10,
+                          height: 10,
                           decoration: const BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
                         )
-                      : const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.textHint,
-                          size: 16,
-                        ),
+                      : const Icon(Icons.chevron_right, color: AppColors.textHint, size: 16),
                   onTap: () {
                     context.push('/staff/chat/${conv.id}', extra: conv);
                   },

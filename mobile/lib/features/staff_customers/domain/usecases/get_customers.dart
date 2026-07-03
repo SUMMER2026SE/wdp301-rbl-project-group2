@@ -9,10 +9,16 @@ class GetCustomersUseCase {
   GetCustomersUseCase(this._repository);
 
   Future<Either<Failure, List<UserModel>>> call({
-    int? page,
-    int? limit,
+    int page = 1,
+    int limit = 20,
     String? search,
+    String? storeId,
   }) {
-    return _repository.getCustomers(page: page, limit: limit, search: search);
+    return _repository.getCustomers(
+      page: page,
+      limit: limit,
+      search: search,
+      storeId: storeId,
+    );
   }
 }
