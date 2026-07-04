@@ -26,7 +26,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   final Dio _dio = ApiClient().dio;
   Map<String, dynamic>? _product;
   List<Map<String, dynamic>> _variations = [];
-  final Map<String, String> _selectedOptions = {};
+  final Map<String, Set<String>> _selectedOptions = {};
   bool _isLoading = true;
   String? _error;
   int _quantity = 1;
@@ -134,15 +134,17 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
   double get _totalPrice {
     double base = (_product?['price'] as num?)?.toDouble() ?? 0;
-    for (final varId in _selectedOptions.keys) {
+    for (final entry in _selectedOptions.entries) {
+      final groupName = entry.key;
+      final selectedChoices = entry.value;
       final varGroup = _variations.firstWhere(
-        (v) => v['_id'] == varId || v['name'] == varId,
+        (v) => v['_id'] == groupName || v['name'] == groupName,
         orElse: () => <String, dynamic>{},
       );
       final options = varGroup['options'] as List<dynamic>? ?? [];
       for (final opt in options) {
         final optMap = opt as Map<String, dynamic>;
-        if (optMap['choice'] == _selectedOptions[varId]) {
+        if (selectedChoices.contains(optMap['choice'])) {
           base += (optMap['extraPrice'] as num?)?.toDouble() ?? 0;
         }
       }
@@ -179,7 +181,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
     setState(() => _isAddingToCart = true);
 
     final variations = _selectedOptions.entries
-        .map((e) => {'name': e.key, 'choice': e.value})
+        .expand(
+          (e) => e.value.map((choice) => {'name': e.key, 'choice': choice}),
+        )
         .toList();
 
     try {
@@ -188,7 +192,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         data: {
           'productId': widget.id,
           'quantity': _quantity,
-          'price': (_product?['price'] as num?)?.toDouble() ?? 0,
+          'price': _totalPrice,
           if (variations.isNotEmpty) 'variations': variations,
         },
       );
@@ -257,7 +261,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
     setState(() => _isBuyingNow = true);
 
     final variations = _selectedOptions.entries
-        .map((e) => {'name': e.key, 'choice': e.value})
+        .expand(
+          (e) => e.value.map((choice) => {'name': e.key, 'choice': choice}),
+        )
         .toList();
 
     try {
@@ -266,7 +272,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         data: {
           'productId': widget.id,
           'quantity': _quantity,
-          'price': (_product?['price'] as num?)?.toDouble() ?? 0,
+          'price': _totalPrice,
           if (variations.isNotEmpty) 'variations': variations,
         },
       );
@@ -696,11 +702,13 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _variations.map((v) {
         final name = v['name'] as String? ?? '';
+        final isMultiple = v['multiple'] as bool? ?? false;
         final options =
             (v['options'] as List<dynamic>?)
                 ?.map((e) => e as Map<String, dynamic>)
                 .toList() ??
             [];
+        final selectedSet = _selectedOptions[name] ?? <String>{};
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -722,11 +730,27 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   final choice = opt['choice'] as String? ?? '';
                   final extraPrice =
                       (opt['extraPrice'] as num?)?.toDouble() ?? 0;
-                  final isSelected = _selectedOptions[name] == choice;
+                  final isSelected = selectedSet.contains(choice);
 
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedOptions[name] = choice),
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          // Deselect
+                          selectedSet.remove(choice);
+                          if (selectedSet.isEmpty) {
+                            _selectedOptions.remove(name);
+                          }
+                        } else {
+                          // Multi-select: add to set; single-select: replace set
+                          if (isMultiple) {
+                            _selectedOptions[name] = {...selectedSet, choice};
+                          } else {
+                            _selectedOptions[name] = {choice};
+                          }
+                        }
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -955,6 +979,12 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   Widget _buildAICard() {
     final healthTags = _product?['healthTags'] as List<dynamic>?;
     if (healthTags == null || healthTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final allergenTags =
+        (_product?['allergenTags'] as List<dynamic>?)?.cast<String>() ?? [];
+    if (allergenTags.isNotEmpty) {
       return const SizedBox.shrink();
     }
 
