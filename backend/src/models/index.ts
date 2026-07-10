@@ -3,6 +3,7 @@ import RefreshTokenModel from './refresh-token.model';
 import VerificationModel from './verification-code.model';
 import FileModel from './file.model';
 import ProductModel from './product.model';
+import ProductBehaviorEventModel from './product-behavior-event.model';
 import CartModel, { CartItemModel, CartItemVariationModel } from './cart.model';
 import VoucherModel from './voucher.model';
 import OrderModel, { OrderItemModel, OrderItemVariationModel } from './order.model';
@@ -32,6 +33,7 @@ export {
   VerificationModel,
   FileModel,
   ProductModel,
+  ProductBehaviorEventModel,
   CartModel,
   CartItemModel,
   CartItemVariationModel,

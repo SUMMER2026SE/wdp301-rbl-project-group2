@@ -10,11 +10,12 @@ import {
   getProductHealthRisk,
   updateProduct,
 } from '@/services/product.service';
+import { recordProductBehaviorEvent } from '@/services/product-behavior.service';
 import { updateManagerProductAvailability } from '@/services/manager-menu.service';
 import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
 import appAssert from '@/utils/app-assert';
-import { productValidator, updateProductValidator } from '@/validators/product.validator';
+import { productBehaviorEventValidator, productValidator, updateProductValidator } from '@/validators/product.validator';
 import { Role } from '@/types/user.type';
 import { ProductStatus } from '@/types/product.type';
 import mongoose from 'mongoose';
@@ -93,6 +94,21 @@ export const getProductHealthRiskHandler = catchErrors(async (req: Request, res:
   appAssert(user, NOT_FOUND, 'User not found');
   const data = await getProductHealthRisk(id, user.preferences);
   return res.success(OK, { data });
+});
+
+// POST /api/products/:id/behavior
+export const recordProductBehaviorEventHandler = catchErrors(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const input = productBehaviorEventValidator.parse(req.body);
+  const data = await recordProductBehaviorEvent({
+    userId: req.userId?.toString(),
+    productId: id,
+    eventType: input.eventType,
+    source: input.source,
+    storeId: input.storeId ?? null,
+  });
+
+  return res.success(OK, { data, message: 'Đã ghi nhận tín hiệu hành vi' });
 });
 
 // POST /api/products

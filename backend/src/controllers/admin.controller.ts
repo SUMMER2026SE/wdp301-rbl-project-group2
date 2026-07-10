@@ -39,6 +39,7 @@ import {
   setStoreActive,
 } from '@/services/store-management.service';
 import { createStoreSchema, updateStoreSchema } from '@/validators/store.validator';
+import { getCustomerRecommendationInsights } from '@/services/recommendation-insights.service';
 
 export const createManagerHandler = catchErrors(async (req, res) => {
   const body = createManagerValidator.parse(req.body);
@@ -127,6 +128,16 @@ export const getCustomerIncidentsHandler = catchErrors(async (req, res) => {
 
   return res.success(OK, {
     message: 'Lấy lịch sử sự cố khách hàng thành công',
+    data: result,
+  });
+});
+
+export const getCustomerRecommendationInsightsHandler = catchErrors(async (req, res) => {
+  const { userId } = req.params;
+  const result = await getCustomerRecommendationInsights(userId);
+
+  return res.success(OK, {
+    message: 'Lấy phân tích gợi ý món ăn thành công',
     data: result,
   });
 });

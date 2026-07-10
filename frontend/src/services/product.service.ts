@@ -47,6 +47,18 @@ class ProductAPI {
     return response.data;
   }
 
+  async trackProductBehavior(
+    id: string,
+    data: {
+      eventType: "product_view" | "recommendation_click";
+      source?: "product_detail" | "recommendation_section" | "menu" | "campaign" | "unknown";
+      storeId?: string | null;
+    },
+  ): Promise<{ success: boolean; data: { tracked: boolean; reason?: string } }> {
+    const response = await apiClient.post(`/products/${id}/behavior`, data);
+    return response.data;
+  }
+
   async createProduct(
     data: Partial<Product>,
   ): Promise<{ success: boolean; data: Product; message: string }> {

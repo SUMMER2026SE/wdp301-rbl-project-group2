@@ -4,14 +4,11 @@ import { catchErrors } from '@/utils/async-handler';
 import { OK } from '@/constants/http';
 import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
-import FileModel from '@/models/file.model';
-import OrderModel from '@/models/order.model';
-import { sanitizeAiRecommendations } from '@/utils/recommendation-ai.util';
 import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
-import { OrderStatus } from '@/types/order.type';
-import { getAIRecommendations, getAISafeFoodInsights } from '@/services/ai.service';
+import { getAISafeFoodInsights } from '@/services/ai.service';
 import { evaluateProductHealthRisk, filterSafeProductsByHealthRisk } from '@/services/health-risk.service';
+import { getCustomerRecommendationInsights } from '@/services/recommendation-insights.service';
 
 const PRODUCT_RECIPE_POPULATE = {
     path: 'recipe.ingredientId',
@@ -63,209 +60,27 @@ const getStoreFilter = (req: Request): { storeId?: string; filter: { storeId?: s
     return { storeId, filter: {} };
 };
 
-/**
- * Tìm danh sách top sản phẩm được đặt bởi users có healthProfile tương tự.
- * Dùng cho Collaborative Filtering.
- */
-async function getSimilarUsersTopProducts(
-    currentUserId: string,
-    preferences: { dietary: string[]; allergies: string[]; healthGoals: string[] }
-): Promise<string[]> {
-
-    // 1. Tìm users có ít nhất 1 điểm chung trong preferences
-    const similarUserQuery: any = { _id: { $ne: currentUserId } };
-    const orConditions: any[] = [];
-
-    if (preferences.allergies.length > 0) {
-        orConditions.push({ 'preferences.allergies': { $in: preferences.allergies } });
-    }
-    if (preferences.dietary.length > 0) {
-        orConditions.push({ 'preferences.dietary': { $in: preferences.dietary } });
-    }
-    if (preferences.healthGoals.length > 0) {
-        orConditions.push({ 'preferences.healthGoals': { $in: preferences.healthGoals } });
-    }
-
-    if (orConditions.length === 0) return []; // Không có preferences → skip
-
-    similarUserQuery.$or = orConditions;
-    const similarUsers = await UserModel.find(similarUserQuery).select('_id email').lean();
-
-    if (similarUsers.length === 0) {
-        console.log('[Collaborative] Không tìm thấy user tương tự');
-        return [];
-    }
-
-    console.log(`[Collaborative] Tìm thấy ${similarUsers.length} user(s) tương tự: ${similarUsers.map(u => u.email).join(', ')}`);
-
-    // 2. Lấy các đơn hàng đã hoàn thành của nhóm users tương tự
-    const similarUserIds = similarUsers.map(u => u._id);
-    const orders = await OrderModel.find({
-        cusId: { $in: similarUserIds },
-        status: OrderStatus.COMPLETED,
-    }).lean();
-
-    if (orders.length === 0) {
-        console.log('[Collaborative] Nhóm users tương tự chưa có đơn hàng');
-        return [];
-    }
-
-    // 3. Đếm tần suất mỗi productId trong các đơn hàng
-    const productCount = new Map<string, number>();
-    for (const order of orders) {
-        for (const item of order.items) {
-            const pid = item.productId.toString();
-            productCount.set(pid, (productCount.get(pid) ?? 0) + item.quantity);
-        }
-    }
-
-    // 4. Lấy top 5 products phổ biến nhất, resolve tên
-    const top5Ids = [...productCount.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([id]) => id);
-
-    const topProducts = await ProductModel.find({ _id: { $in: top5Ids } }).select('name').lean();
-
-    // Giữ đúng thứ tự sort
-    const nameMap = new Map(topProducts.map(p => [p._id.toString(), p.name]));
-    const topNames = top5Ids.map(id => nameMap.get(id)).filter(Boolean) as string[];
-
-    console.log(`[Collaborative] Top sản phẩm phổ biến: ${topNames.join(', ')}`);
-    return topNames;
-}
-
 export const getRecommendationsHandler = catchErrors(async (req: Request, res: Response) => {
     const userId = req.userId;
-    const { storeId, filter: storeFilter } = getStoreFilter(req);
+    const { storeId } = getStoreFilter(req);
+    const insights = await getCustomerRecommendationInsights(userId!.toString(), { storeId });
 
-    // 1. Get User Profile
-    const user = await UserModel.findById(userId);
-    appAssert(user, NOT_FOUND, 'User not found');
-
-    const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [] };
-
-    // 2. Cache Check Strategy
-    const latestProduct = await ProductModel.findOne({ isAvailable: true, ...storeFilter })
-        .sort({ updatedAt: -1 })
-        .select('updatedAt');
-
-    const lastProductUpdatedTime = (latestProduct as any)?.updatedAt
-        ? new Date((latestProduct as any).updatedAt).getTime()
-        : 0;
-
-    const cache = user.aiRecommendationsCache;
-    const forceRefresh = req.query.refresh === 'true';
-
-    if (!forceRefresh && cache && cache.data && cache.updatedAt) {
-        const cacheStoreId = (cache as any).storeId ?? null;
-        if (cache.updatedAt.getTime() > lastProductUpdatedTime && cacheStoreId === (storeId ?? null)) {
-            console.log(`[AI Cache Hit] Returning cached recommendations for user ${user.email}`);
-            return res.status(OK).json({
-                data: dedupeRecommendationResults(cache.data),
-                message: 'Lấy danh sách gợi ý thành công (Tự động)'
-            });
-        }
-    }
-
-    console.log(`[AI Cache Miss / Force Refresh] Generating new recommendations for user ${user.email}...`);
-
-    // 3. Get Products for AI
-    const dbProducts = await ProductModel.find({ isAvailable: true, ...storeFilter })
-        .populate(PRODUCT_RECIPE_POPULATE)
-        .sort({ rating: -1, reviewCount: -1 })
-        .limit(100);
-
-    // Strictly filter out any items conflicting with allergies or dietary preferences
-    const safeDbProducts = dedupeProductsByName(filterSafeProductsByHealthRisk(dbProducts, preferences));
-
-    const productsForAI = safeDbProducts.slice(0, 50).map((p) => ({
-        _id: p._id.toString(),
-        name: p.name,
-        description: p.description,
-        category: p.category,
-        tags: p.tags,
-        healthTags: p.healthTags ?? [],
-        recipe: mapRecipeForAI(p.recipe as any[]),
-        price: p.price,
-        rating: p.rating,
-    }));
-
-    const allowedIdsForAi = new Set(productsForAI.map((p) => p._id));
-
-    // 4. Collaborative Filtering: get similar users' top products
-    const similarUsersTopProducts = await getSimilarUsersTopProducts(userId!.toString(), preferences);
-
-    // 5. Call AI Service (tries custom ML first, then Groq fallback)
-    let recommendations: any[] = [];
-    try {
-        recommendations = await getAIRecommendations(
-            productsForAI,
-            preferences,
-            similarUsersTopProducts,
-            userId!.toString() // Pass userId for CF-based personalization in the ML microservice
-        );
-    } catch (error) {
-        console.error("Gemini AI API Error in Recommendations:", error);
-        // Fallback: top rated từ pool đã lọc (không ép đủ 6)
-        recommendations = productsForAI.slice(0, Math.min(6, productsForAI.length)).map(p => ({
-            productId: p._id,
-            reason: 'Sản phẩm được đánh giá cao (Gợi ý dự phòng do lỗi kết nối AI)',
-            healthScore: 8
-        }));
-    }
-
-    // 5b. Chỉ giữ ID đã gửi cho AI + xác minh lại an toàn trên bản ghi DB; bổ sung nếu thiếu
-    const candidateIds = [...new Set(recommendations.map((r: any) => String(r.productId)).filter(Boolean))];
-    const fetchedForSanitize = await ProductModel.find({ _id: { $in: candidateIds } })
-        .populate(PRODUCT_RECIPE_POPULATE)
-        .lean();
-    recommendations = sanitizeAiRecommendations(recommendations, {
-        allowedIds: allowedIdsForAi,
-        preferences,
-        fetchedProducts: fetchedForSanitize,
-        maxCount: 6,
-    });
-
-    // 6. Fetch full product data for returned IDs
-    const aiProductIds = recommendations.map(r => r.productId);
-    const fullProducts = await ProductModel.find({ _id: { $in: aiProductIds } })
-        .populate(PRODUCT_RECIPE_POPULATE)
-        .lean();
-
-    // 8. Merge AI reasons with full product data
-    const finalResult = dedupeRecommendationResults(recommendations.map(rec => {
-        const fullProduct = fullProducts.find(p => p._id.toString() === rec.productId);
-        if (!fullProduct) return null;
-
-        return {
-            product: {
-                ...fullProduct,
-                recipe: mapRecipeForAI(fullProduct.recipe as any[]),
-                healthRisk: evaluateProductHealthRisk(fullProduct, preferences),
-            },
-            aiReason: rec.reason,
-            healthScore: rec.healthScore
-        };
-    }).filter(item => item !== null));
-
-    // 9. Save to Cache
-    const currentUser = await UserModel.findById(userId).select('aiRecommendationsCache').lean();
-    const currentCache = currentUser?.aiRecommendationsCache || { data: null, safeFoodsData: null, updatedAt: null };
-
-    await UserModel.updateOne({ _id: userId }, {
-        $set: {
-            'aiRecommendationsCache': {
-                ...currentCache,
-                data: finalResult,
-                storeId: storeId ?? null,
-                updatedAt: new Date()
-            }
-        }
-    });
+    const finalResult = dedupeRecommendationResults(
+        insights.recommendations.slice(0, 6).map((item) => ({
+            product: item.product,
+            aiReason: item.explanation.reason,
+            healthScore: Math.max(1, Math.min(10, Math.round(item.explanation.finalScore * 10))),
+            explanation: item.explanation,
+        }))
+    );
 
     return res.status(OK).json({
         data: finalResult,
+        meta: {
+            algorithmVersion: insights.algorithmVersion,
+            computedAt: insights.computedAt,
+            fallback: insights.fallback,
+        },
         message: 'Lấy danh sách gợi ý thành công'
     });
 });
