@@ -795,6 +795,7 @@ export const aiCampaignSuggestionResponseSchema = z.object({
   rationale: z.string().default(''),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  timeframeRationale: z.string().optional().default(''),
 }).transform(data => ({
   ...data,
   // normalize: prefer summary, fallback to tagline
@@ -809,7 +810,7 @@ export const buildContextualProductRanking = ({
   weatherInfo,
   occasion,
   goal,
-  days,
+  days: _days,
   productCount,
   salesByProduct = {},
 }: {
@@ -1005,14 +1006,20 @@ NGỮ CẢNH DỊP LỄ / MÙA: ${occasion} (Ví dụ: tết, giáng sinh, mùa 
 
 THỜI TIẾT HIỆN TẠI: ${weatherText}
 
+THỜI GIAN HIỆN TẠI (Dùng làm mốc tính thời gian thực tế): ${new Date().toISOString()}
+
 DANH SÁCH MÓN ĂN ĐÃ ĐƯỢC HỆ THỐNG PRE-RANK PHÙ HỢP NHẤT (${candidatesForPrompt.length} món, thứ tự ưu tiên giảm dần theo mục tiêu):
 ${JSON.stringify(candidatesForPrompt.map(p => ({
     productId: p.productId,
     name: p.name,
     price: p.price,
     // If the selected window has no data, show the 30-day totalQtySold so AI sees real sales
-    soldInWindow: salesByProduct?.[p.productId] || ('sales' in p ? (p as any).sales : 0) || bestSellersSoldMap[p.productId] || 0,
+    soLuongDaBan: salesByProduct?.[p.productId] || ('sales' in p ? (p as any).sales : 0) || bestSellersSoldMap[p.productId] || 0,
   })), null, 2)}
+
+QUY TẮC NGÔN NGỮ QUAN TRỌNG:
+- Trong toàn bộ các nội dung phản hồi hiển thị cho người dùng (bao gồm "name", "summary", "reason" của từng món, "rationale", "timeframeRationale"): TUYỆT ĐỐI không được lặp lại hoặc đề cập đến các từ khóa lập trình, tên biến như "soldInWindow", "soLuongDaBan", "productId", v.v.
+- Hãy dùng ngôn từ tự nhiên, chuẩn văn phong tiếng Việt (ví dụ: viết "món ăn bán chậm chỉ với 3 suất" hoặc "món này đã bán được 3 phần" thay vì viết "soldInWindow = 3" hoặc "soLuongDaBan = 3").
 
 YÊU CẦU ĐỀ XUẤT CHIẾN DỊCH:
 1. Đặt tên chiến dịch (name) hấp dẫn, phù hợp ngữ cảnh thời tiết/lễ hội/mục tiêu (Ví dụ: "Combo Giải Nhiệt Mùa Hè Rực Rỡ", "Ấm Lòng Ngày Mưa").
@@ -1024,6 +1031,13 @@ YÊU CẦU ĐỀ XUẤT CHIẾN DỊCH:
    - Nếu type là 'fixed_price', đề xuất giá mới "fixedPrice" (thấp hơn giá gốc từ 10% đến 50%).
    - Cung cấp lý do ngắn gọn "reason" vì sao chọn món này (1-2 câu).
 6. Viết lý do tổng quan (rationale) vì sao chiến dịch này hiệu quả với mục tiêu, thời tiết và dịp lễ đã chọn.
+7. Tự động tính toán khoảng thời gian hoạt động tối ưu và trả về startTime (thời gian bắt đầu) và endTime (thời gian kết thúc) ở định dạng ISO 8601 string, cùng với timeframeRationale (lý do cụ thể bằng tiếng Việt tại sao chọn khoảng thời gian này):
+   - Nếu dịp lễ (occasion) là "christmas" (Giáng Sinh): Chọn khoảng thời gian xung quanh dịp Giáng Sinh thực tế (Ví dụ: 20 tháng 12 năm nay đến 05 tháng 01 năm sau).
+   - Nếu dịp lễ là "tet" (Tết Nguyên Đán): Chọn khoảng thời gian Tết thực tế tương ứng (Ví dụ: cuối tháng 1 đến giữa tháng 2).
+   - Nếu dịp lễ là "valentine": Chọn tuần lễ Valentine (Ví dụ: 07 tháng 2 đến 17 tháng 2).
+   - Nếu dịp lễ là "summer" (Mùa Hè): Chọn khoảng thời gian mùa hè (Ví dụ: tháng 5 đến tháng 8).
+   - Nếu dịp lễ là "none" hoặc các dịp thông thường khác: Tính toán thời gian bắt đầu từ ngày mai (dựa theo THỜI GIAN HIỆN TẠI) và kết thúc sau số ngày durationDays tương ứng.
+   - Viết rõ lý giải cụ thể timeframeRationale (Ví dụ: "Chiến dịch diễn ra trong đợt Noel và Tết Dương Lịch nhằm thúc đẩy doanh số khi khách hàng tụ họp đông đảo...").
 
 QUY TẮC PHẢN HỒI:
 Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, không kèm bất kỳ giải thích nào khác bên ngoài:
@@ -1032,6 +1046,9 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
   "summary": "Slogan quảng cáo / Tóm tắt ngắn gọn",
   "type": "discount",
   "durationDays": 7,
+  "startTime": "2026-12-20T00:00:00.000Z",
+  "endTime": "2027-01-05T00:00:00.000Z",
+  "timeframeRationale": "Lý do chi tiết chọn khoảng thời gian này...",
   "products": [
     {
       "productId": "ID_sản_phẩm",
@@ -1138,17 +1155,36 @@ const buildAICampaignResult = (
     };
   });
 
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + (aiData.durationDays || 7));
+  let startTime = aiData.startTime;
+  let endTime = aiData.endTime;
+
+  // Validate AI dates
+  const parsedStart = startTime ? new Date(startTime) : null;
+  const parsedEnd = endTime ? new Date(endTime) : null;
+
+  const defaultStart = new Date();
+  defaultStart.setDate(defaultStart.getDate() + 1);
+  defaultStart.setHours(0, 0, 0, 0);
+
+  if (!parsedStart || isNaN(parsedStart.getTime())) {
+    startTime = defaultStart.toISOString();
+  } else {
+    startTime = parsedStart.toISOString();
+  }
+
+  if (!parsedEnd || isNaN(parsedEnd.getTime())) {
+    const sDate = new Date(startTime);
+    sDate.setDate(sDate.getDate() + (aiData.durationDays || 7));
+    endTime = sDate.toISOString();
+  } else {
+    endTime = parsedEnd.toISOString();
+  }
 
   return {
     ...aiData,
     products,
-    startTime: aiData.startTime || start.toISOString(),
-    endTime: aiData.endTime || end.toISOString(),
+    startTime,
+    endTime,
   };
 };
 
@@ -1216,8 +1252,38 @@ const buildDeterministicFallback = (ctx: {
   const start = new Date();
   start.setDate(start.getDate() + 1);
   start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
+
+  let startTime = start.toISOString();
+  let endTime = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  let timeframeRationale = 'Bắt đầu từ ngày mai kéo dài trong 7 ngày để thử nghiệm hiệu suất chiến dịch.';
+
+  const currentYear = start.getFullYear();
+
+  if (ctx.occasion === 'christmas') {
+    const s = new Date(currentYear, 11, 20, 0, 0, 0, 0); // Dec 20
+    const e = new Date(currentYear + 1, 0, 5, 0, 0, 0, 0); // Jan 5
+    startTime = s.toISOString();
+    endTime = e.toISOString();
+    timeframeRationale = 'Chiến dịch chạy từ 20/12 đến 05/01 năm sau để đồng hành cùng mùa lễ hội Noel và chào đón năm mới.';
+  } else if (ctx.occasion === 'tet') {
+    const s = new Date(currentYear, 0, 20, 0, 0, 0, 0); // Jan 20
+    const e = new Date(currentYear, 1, 15, 0, 0, 0, 0); // Feb 15
+    startTime = s.toISOString();
+    endTime = e.toISOString();
+    timeframeRationale = 'Chiến dịch đón Tết Nguyên Đán, bắt đầu từ ngày 20/01 đến 15/02 để bắt trọn tuần lễ mua sắm trước Tết và dịp ăn uống họp mặt đầu năm.';
+  } else if (ctx.occasion === 'valentine') {
+    const s = new Date(currentYear, 1, 7, 0, 0, 0, 0); // Feb 7
+    const e = new Date(currentYear, 1, 17, 0, 0, 0, 0); // Feb 17
+    startTime = s.toISOString();
+    endTime = e.toISOString();
+    timeframeRationale = 'Mở rộng trong 10 ngày từ 07/02 đến 17/02 để phục vụ nhu cầu đặt tiệc của các cặp đôi trong mùa lễ tình nhân Valentine.';
+  } else if (ctx.occasion === 'summer') {
+    const s = new Date(currentYear, 4, 1, 0, 0, 0, 0); // May 1
+    const e = new Date(currentYear, 7, 31, 0, 0, 0, 0); // Aug 31
+    startTime = s.toISOString();
+    endTime = e.toISOString();
+    timeframeRationale = 'Chiến dịch chạy suốt mùa hè từ 01/05 đến 31/08 để tận dụng tối đa thời gian nghỉ hè của học sinh, sinh viên.';
+  }
 
   return {
     name: fallbackName,
@@ -1230,8 +1296,9 @@ const buildDeterministicFallback = (ctx: {
     durationDays: 7,
     products,
     rationale: '⚠ Gợi ý tự động do hệ thống AI tạm thời không phản hồi. Sản phẩm được xếp hạng theo dữ liệu bán hàng thực tế.',
-    startTime: start.toISOString(),
-    endTime: end.toISOString(),
+    startTime,
+    endTime,
+    timeframeRationale,
   };
 };
 
