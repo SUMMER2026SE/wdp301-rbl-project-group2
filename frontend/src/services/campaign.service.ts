@@ -59,6 +59,7 @@ export interface CampaignSuggestionResponse {
   products: CampaignSuggestionProduct[];
   rationale?: string;
   durationDays?: number;
+  timeframeRationale?: string;
 }
 
 class CampaignAPI {

@@ -432,6 +432,48 @@ const AdminCampaigns = () => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  const getOccasionTimeframeText = (occ: string) => {
+    const currentYear = new Date().getFullYear();
+    let label = "";
+    let range = "";
+
+    let resolvedOcc = occ;
+    if (occ === "auto") {
+      const date = new Date();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const isTet = (month === 1 && day >= 20) || (month === 2 && day <= 10) || (month === 12 && day >= 25);
+      const isChristmas = (month === 12 && day >= 20) || (month === 1 && day <= 5);
+      const isSummer = month >= 5 && month <= 8;
+      const isValentine = (month === 2 && day >= 7 && day <= 17);
+
+      if (isTet) resolvedOcc = "tet";
+      else if (isChristmas) resolvedOcc = "christmas";
+      else if (isSummer) resolvedOcc = "summer";
+      else if (isValentine) resolvedOcc = "valentine";
+      else resolvedOcc = "none";
+    }
+
+    if (resolvedOcc === "christmas") {
+      label = "Giáng Sinh";
+      range = `20/12/${currentYear} - 05/01/${currentYear + 1}`;
+    } else if (resolvedOcc === "tet") {
+      label = "Tết Nguyên Đán";
+      range = `20/01/${currentYear} - 15/02/${currentYear}`;
+    } else if (resolvedOcc === "valentine") {
+      label = "Valentine";
+      range = `07/02/${currentYear} - 17/02/${currentYear}`;
+    } else if (resolvedOcc === "summer") {
+      label = "Mùa Hè";
+      range = `01/05/${currentYear} - 31/08/${currentYear}`;
+    } else {
+      label = "Chiến dịch thường";
+      range = "Bắt đầu ngày mai, kéo dài theo số ngày phân tích";
+    }
+
+    return { label, range, isAuto: occ === "auto", resolvedOcc };
+  };
+
   const formatDateToLocalInput = (date: Date, isEnd: boolean) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     const hours = isEnd ? 23 : 0;
@@ -2193,6 +2235,30 @@ const AdminCampaigns = () => {
                     <option value="christmas">🎄 Giáng Sinh</option>
                     <option value="valentine">💝 Valentine</option>
                   </select>
+
+                  <div className="mt-2.5 rounded-xl bg-orange-100/40 px-3 py-2 text-xs text-orange-800 border border-orange-200/50">
+                    {(() => {
+                      const info = getOccasionTimeframeText(aiOccasion);
+                      return (
+                        <div>
+                          <div className="flex items-center gap-1 font-bold text-orange-950">
+                            <span>📅 Ngày gợi ý:</span>
+                            <span className="text-orange-900">{info.range}</span>
+                          </div>
+                          {info.isAuto && (
+                            <div className="mt-1 text-[10px] text-orange-700 italic">
+                              * Tự động nhận diện: {info.resolvedOcc === "none" ? "Không trùng ngày lễ lớn nào gần đây" : `Đang trong đợt lễ ${info.label}`}
+                            </div>
+                          )}
+                          {!info.isAuto && info.resolvedOcc !== "none" && (
+                            <div className="mt-1 text-[10px] text-orange-700 italic">
+                              * Cố định theo lịch nghỉ lễ {info.label} năm nay
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 md:col-span-2">
@@ -2453,6 +2519,17 @@ const AdminCampaigns = () => {
                   />
                 </div>
               </div>
+
+              {pendingAICampaign.timeframeRationale && (
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-orange-700 mb-1">
+                    Cơ sở gợi ý khoảng thời gian
+                  </p>
+                  <p className="text-sm text-slate-700 italic">
+                    "{pendingAICampaign.timeframeRationale}"
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="mb-3 text-sm font-bold text-slate-700">
