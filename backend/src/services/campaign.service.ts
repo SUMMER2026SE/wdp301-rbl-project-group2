@@ -1,6 +1,6 @@
 import { CampaignModel, CampaignProductModel, OrderModel, ProductModel, UserModel } from '@/models';
 import { CampaignStatus, ICampaign } from '@/types/campaign.type';
-import { OrderStatus, ProductStatus } from '@/types';
+import { ProductStatus } from '@/types';
 import { Role } from '@/types/user.type';
 import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
@@ -8,7 +8,7 @@ import { TCreateCampaignParams, TUpdateCampaignParams } from '@/validators/campa
 import mongoose from 'mongoose';
 import { emailQueue } from '@/jobs/email-queue';
 import { APP_ORIGIN, OPENWEATHER_API_KEY } from '@/constants/env';
-import { getAICampaignSuggestion, suggestCampaignFromAnalytics } from '@/services/ai.service';
+import { getAICampaignSuggestion } from '@/services/ai.service';
 import axios from 'axios';
 
 

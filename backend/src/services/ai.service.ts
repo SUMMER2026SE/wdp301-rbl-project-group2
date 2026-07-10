@@ -812,7 +812,7 @@ export const buildContextualProductRanking = ({
   weatherInfo,
   occasion,
   goal,
-  days,
+  days: _days,
   productCount,
   salesByProduct = {},
 }: {
