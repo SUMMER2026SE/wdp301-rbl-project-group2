@@ -6,6 +6,32 @@ import VoucherModel from '@/models/voucher.model';
 import UserVoucherModel from '@/models/user-voucher.model';
 import { StoreModel } from '@/models/store.model';
 import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
+import { ATLAS_PRODUCT_SEARCH_INDEX, ATLAS_PRODUCT_VECTOR_INDEX } from '@/constants/env';
+import { normalizeVietnameseText, parseChatSearchPlan, type ChatSearchPlan } from './chat-query-planner.service';
+import { ProductCategory } from '@/types/product.type';
+import { z } from 'zod';
+
+const INTENT_TIMEOUT_MS = 6000;
+const SEMANTIC_PLANNER_TIMEOUT_MS = 2500;
+const EMBEDDING_TIMEOUT_MS = 8000;
+const CHAT_COMPLETION_TIMEOUT_MS = 12000;
+const HYBRID_SEARCH_LIMIT = 50;
+const HYBRID_RESULT_LIMIT = 10;
+const HYBRID_VECTOR_NUM_CANDIDATES = 150;
+const RRF_K = 60;
+
+const withAITimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+  let timeout: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label} timeout`)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+};
 
 interface Preferences {
   dietary: string[];
@@ -25,7 +51,499 @@ export type ChatIntent =
   | 'OUT_OF_SCOPE'
   | 'JAILBREAK';
 
+const chatIntentSchema = z.object({
+  intent: z.enum([
+    'GREETING',
+    'MENU_SEARCH',
+    'ALLERGY_SAFE_RECOMMENDATION',
+    'ORDER_STATUS',
+    'DELIVERY_FEE',
+    'PROMOTION',
+    'STORE_HOURS',
+    'OUT_OF_SCOPE',
+    'JAILBREAK',
+  ]),
+});
+
+const aiChatResponseSchema = z.object({
+  message: z.string().trim().min(1).max(4000),
+  recommendedProductIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).max(10).default([]),
+});
+
+const tastePreferenceSchema = z.array(z.string().trim().min(1).max(50)).max(10);
+
+const semanticSearchPlanSchema = z.object({
+  budgetStatus: z.enum(['none', 'explicit', 'no_budget', 'unknown']).default('unknown'),
+  budgetVnd: z.number().int().min(0).max(5_000_000).nullable().default(null),
+  wantsCombo: z.boolean().default(false),
+  requiresDrink: z.boolean().default(false),
+  requiresFood: z.boolean().default(false),
+  maxItems: z.number().int().min(1).max(5).nullable().default(null),
+  preferredCategory: z
+    .enum([
+      ProductCategory.COM_DIA_TRUYEN_THONG,
+      ProductCategory.GIAI_KHAT_TRANG_MIENG,
+      ProductCategory.GOC_HEALTHY_AN_KIENG,
+      ProductCategory.GOI_THEM_AN_KEM,
+      ProductCategory.TRU_DANH_MON_NUOC,
+      ProductCategory.DAC_SAN_BAN_CHAY,
+    ])
+    .nullable()
+    .default(null),
+  cleanedQuery: z.string().trim().max(200).default(''),
+  includeTastes: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+  excludeTraits: z.array(z.enum(['hot', 'sweet', 'spicy'])).max(5).default([]),
+  healthNeeds: z.array(z.enum(['diabetes_friendly', 'low_fat', 'healthy'])).max(5).default([]),
+});
+
+type ProductSearchResult = any & {
+  score?: number;
+  lexicalScore?: number;
+  semanticScore?: number;
+  rrfScore?: number;
+};
+
+type BudgetComboConstraints = {
+  requiresDrink?: boolean;
+  requiresFood?: boolean;
+};
+
+const regexEscape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const productLooksHot = (product: ProductSearchResult) => {
+  const haystack = normalizeVietnameseText([
+    product.name,
+    product.description,
+    product.category,
+    ...(product.tags || []),
+    ...(product.healthTags || []),
+  ].filter(Boolean).join(' '));
+
+  return product.category === 'Trứ Danh Món Nước'
+    || /\b(nong|sup|soup|lau|pho|chao|bun bo|bo kho)\b/.test(haystack);
+};
+
+const productLooksSugary = (product: ProductSearchResult) => {
+  const haystack = normalizeVietnameseText([
+    product.name,
+    product.description,
+    product.category,
+    ...(product.tags || []),
+    ...(product.healthTags || []),
+  ].filter(Boolean).join(' '));
+
+  return product.category === 'Giải Khát & Tráng Miệng'
+    || /\b(ngot|duong|tra sua|che|banh|kem|soda|nuoc ngot|siro|caramel|dessert|trang mieng)\b/.test(haystack);
+};
+
+const isMainDish = (product: ProductSearchResult) =>
+  ![ProductCategory.GIAI_KHAT_TRANG_MIENG, ProductCategory.GOI_THEM_AN_KEM].includes(product.category);
+
+const isDrinkOrDessert = (product: ProductSearchResult) => product.category === ProductCategory.GIAI_KHAT_TRANG_MIENG;
+const isSideDish = (product: ProductSearchResult) => product.category === ProductCategory.GOI_THEM_AN_KEM;
+
+const getComboRole = (product: ProductSearchResult) => {
+  if (isDrinkOrDessert(product)) return 'drink';
+  if (isSideDish(product)) return 'side';
+  return 'main';
+};
+
+const sortByProductQuality = (a: ProductSearchResult, b: ProductSearchResult) => {
+  const ratingDiff = (b.rating || 0) - (a.rating || 0);
+  if (ratingDiff !== 0) return ratingDiff;
+  const reviewDiff = (b.reviewCount || 0) - (a.reviewCount || 0);
+  if (reviewDiff !== 0) return reviewDiff;
+  return a.price - b.price;
+};
+
+const uniqueProductsById = (products: ProductSearchResult[]) => {
+  const seen = new Set<string>();
+  return products.filter((product) => {
+    const id = product._id.toString();
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
+
+const scoreBudgetCombo = (
+  combo: ProductSearchResult[],
+  budgetVnd: number,
+  constraints: BudgetComboConstraints = {}
+) => {
+  const total = combo.reduce((sum, product) => sum + product.price, 0);
+  if (total > budgetVnd) return Number.NEGATIVE_INFINITY;
+
+  const roles = new Set(combo.map(getComboRole));
+  const hasMain = roles.has('main') ? 1 : 0;
+  const hasDrink = roles.has('drink') ? 1 : 0;
+  const hasSide = roles.has('side') ? 1 : 0;
+
+  if (constraints.requiresDrink && !hasDrink) return Number.NEGATIVE_INFINITY;
+  if (constraints.requiresFood && !hasMain && !hasSide) return Number.NEGATIVE_INFINITY;
+
+  const avgRating = combo.reduce((sum, product) => sum + (product.rating || 0), 0) / Math.max(combo.length, 1);
+  const budgetFit = total / budgetVnd;
+
+  return budgetFit * 100
+    + roles.size * 28
+    + hasMain * 35
+    + hasDrink * 18
+    + hasSide * 12
+    + combo.length * 6
+    + avgRating;
+};
+
+const pickBudgetCombo = (
+  products: ProductSearchResult[],
+  budgetVnd: number,
+  maxItems = 3,
+  constraints: BudgetComboConstraints = {}
+) => {
+  const sorted = uniqueProductsById(products)
+    .filter((product) => product.price <= budgetVnd)
+    .sort(sortByProductQuality)
+    .slice(0, 60);
+  const targetSize = Math.min(Math.max(maxItems, 1), 3);
+
+  let bestCombo: ProductSearchResult[] = [];
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  const visit = (startIndex: number, combo: ProductSearchResult[]) => {
+    if (combo.length > 0) {
+      const score = scoreBudgetCombo(combo, budgetVnd, constraints);
+      if (score > bestScore) {
+        bestScore = score;
+        bestCombo = [...combo];
+      }
+    }
+
+    if (combo.length >= targetSize) return;
+
+    for (let index = startIndex; index < sorted.length; index += 1) {
+      const product = sorted[index];
+      const total = combo.reduce((sum, item) => sum + item.price, 0);
+      if (total + product.price > budgetVnd) continue;
+      visit(index + 1, [...combo, product]);
+    }
+  };
+
+  visit(0, []);
+
+  if (bestCombo.length === 0 && (constraints.requiresDrink || constraints.requiresFood)) {
+    return pickBudgetCombo(products, budgetVnd, maxItems);
+  }
+
+  return bestCombo.sort((a, b) => {
+    const roleOrder = { main: 0, drink: 1, side: 2 };
+    const roleDiff = roleOrder[getComboRole(a)] - roleOrder[getComboRole(b)];
+    if (roleDiff !== 0) return roleDiff;
+    return sortByProductQuality(a, b);
+  });
+};
+
+const buildBudgetSearchPlan = (searchPlan: ChatSearchPlan): ChatSearchPlan => ({
+  ...searchPlan,
+  preferredCategory: undefined,
+  expandedQuery: searchPlan.cleanedQuery,
+});
+
+const uniqueStrings = (items: string[]) => [...new Set(items.filter(Boolean))];
+
+const parseJsonObject = (raw: string) => {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON object in AI response');
+  return JSON.parse(jsonMatch[0]);
+};
+
+const shouldUseSemanticPlanner = (plan: ChatSearchPlan) => {
+  if (plan.budgetVnd || plan.hasNoBudget || plan.requiresDrink || plan.requiresFood) return false;
+  if (plan.healthNeeds.length > 0 || plan.excludeTraits.length > 0 || plan.includeTastes.length > 0) return false;
+  return plan.wantsCombo || plan.cleanedQuery.length > 0 || plan.normalizedMessage.length > 0;
+};
+
+const mergeSemanticSearchPlan = (
+  fallbackPlan: ChatSearchPlan,
+  semanticPlan: z.infer<typeof semanticSearchPlanSchema>
+): ChatSearchPlan => {
+  const cleanedQuery = semanticPlan.cleanedQuery || fallbackPlan.cleanedQuery;
+  const budgetVnd = semanticPlan.budgetStatus === 'explicit'
+    ? semanticPlan.budgetVnd
+    : fallbackPlan.budgetVnd;
+
+  return {
+    ...fallbackPlan,
+    cleanedQuery,
+    expandedQuery: uniqueStrings([cleanedQuery || fallbackPlan.cleanedQuery || fallbackPlan.originalMessage]).join(' '),
+    budgetVnd,
+    hasNoBudget: fallbackPlan.hasNoBudget || semanticPlan.budgetStatus === 'no_budget',
+    wantsCombo: fallbackPlan.wantsCombo || semanticPlan.wantsCombo,
+    requiresDrink: fallbackPlan.requiresDrink || semanticPlan.requiresDrink,
+    requiresFood: fallbackPlan.requiresFood || semanticPlan.requiresFood,
+    maxItems: semanticPlan.maxItems ?? fallbackPlan.maxItems,
+    preferredCategory: semanticPlan.preferredCategory ?? fallbackPlan.preferredCategory,
+    includeTastes: uniqueStrings([...fallbackPlan.includeTastes, ...semanticPlan.includeTastes]),
+    excludeTraits: [...new Set([...fallbackPlan.excludeTraits, ...semanticPlan.excludeTraits])],
+    healthNeeds: [...new Set([...fallbackPlan.healthNeeds, ...semanticPlan.healthNeeds])],
+  };
+};
+
+const buildHybridSearchPlan = async (message: string): Promise<ChatSearchPlan> => {
+  const fallbackPlan = parseChatSearchPlan(message);
+  if (!shouldUseSemanticPlanner(fallbackPlan)) return fallbackPlan;
+
+  const prompt = `Bạn là semantic parser cho chatbot đặt món FOA.
+Chỉ chuyển tin nhắn người dùng thành JSON, không trả lời người dùng.
+Không chọn món, không quyết định giá, không suy đoán thông tin cá nhân.
+
+Schema JSON:
+{
+  "budgetStatus": "none" | "explicit" | "no_budget" | "unknown",
+  "budgetVnd": number | null,
+  "wantsCombo": boolean,
+  "requiresDrink": boolean,
+  "requiresFood": boolean,
+  "maxItems": number | null,
+  "preferredCategory": ${JSON.stringify([
+    ProductCategory.COM_DIA_TRUYEN_THONG,
+    ProductCategory.GIAI_KHAT_TRANG_MIENG,
+    ProductCategory.GOC_HEALTHY_AN_KIENG,
+    ProductCategory.GOI_THEM_AN_KEM,
+    ProductCategory.TRU_DANH_MON_NUOC,
+    ProductCategory.DAC_SAN_BAN_CHAY,
+  ])} | null,
+  "cleanedQuery": "từ khóa tìm kiếm đã bỏ các từ ngân sách/chung chung",
+  "includeTastes": string[],
+  "excludeTraits": ("hot" | "sweet" | "spicy")[],
+  "healthNeeds": ("diabetes_friendly" | "low_fat" | "healthy")[]
+}
+
+Quy tắc:
+- "không có tiền", "hết tiền", "ví rỗng", "cháy túi", "không đủ tiền" => budgetStatus "no_budget", budgetVnd null.
+- "100k", "100 cành", "100 nghìn", "100.000đ" => budgetStatus "explicit", budgetVnd 100000.
+- "cả nước và đồ ăn", "kèm nước", "đồ uống và món ăn" => requiresDrink true và requiresFood true.
+- "tiểu đường", "ít đường" => healthNeeds chứa "diabetes_friendly".
+- "không nóng" => excludeTraits chứa "hot".
+- Nếu câu hỏi không có ràng buộc ngân sách thì budgetStatus "none".
+
+Tin nhắn người dùng: "${message.slice(0, 500)}"`;
+
+  try {
+    const completion = await withAITimeout(
+      groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.1-8b-instant',
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        max_tokens: 350,
+      }),
+      SEMANTIC_PLANNER_TIMEOUT_MS,
+      'Semantic search planner'
+    );
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) return fallbackPlan;
+    const parsed = semanticSearchPlanSchema.safeParse(parseJsonObject(content));
+    if (!parsed.success) return fallbackPlan;
+    return mergeSemanticSearchPlan(fallbackPlan, parsed.data);
+  } catch (err) {
+    console.warn('[AI Semantic Planner] Using deterministic fallback.');
+    return fallbackPlan;
+  }
+};
+
+const addRrfScores = (
+  accumulator: Map<string, ProductSearchResult>,
+  rankedProducts: ProductSearchResult[],
+  scoreField: 'lexicalScore' | 'semanticScore'
+) => {
+  rankedProducts.forEach((product, index) => {
+    const id = product._id.toString();
+    const existing = accumulator.get(id) || product;
+    existing[scoreField] = product.score ?? product[scoreField] ?? 0;
+    existing.rrfScore = (existing.rrfScore || 0) + 1 / (RRF_K + index + 1);
+    accumulator.set(id, existing);
+  });
+};
+
+const findProductsWithAtlasSearch = async (queryText: string, dbQuery: Record<string, unknown>) => {
+  const filter: any[] = [{ equals: { path: 'isAvailable', value: true } }];
+  if (typeof dbQuery.category === 'string') {
+    filter.push({ equals: { path: 'category', value: dbQuery.category } });
+  }
+
+  return ProductModel.aggregate([
+    {
+      $search: {
+        index: ATLAS_PRODUCT_SEARCH_INDEX,
+        compound: {
+          filter,
+          should: [
+            {
+              text: {
+                query: queryText,
+                path: 'name',
+                fuzzy: { maxEdits: 1, prefixLength: 1 },
+                score: { boost: { value: 5 } },
+              },
+            },
+            {
+              text: {
+                query: queryText,
+                path: ['description', 'tags', 'healthTags', 'category'],
+                fuzzy: { maxEdits: 1, prefixLength: 1 },
+              },
+            },
+          ],
+          minimumShouldMatch: 1,
+        },
+      },
+    },
+    { $addFields: { score: { $meta: 'searchScore' } } },
+    { $limit: HYBRID_SEARCH_LIMIT },
+  ]);
+};
+
+const findProductsWithKeywordFallback = async (queryText: string, dbQuery: Record<string, unknown>) => {
+  const escapedQuery = regexEscape(queryText);
+  const textCandidates = await ProductModel.find(
+    { ...dbQuery, $text: { $search: queryText } },
+    { score: { $meta: 'textScore' } }
+  )
+    .sort({ score: { $meta: 'textScore' } })
+    .limit(HYBRID_SEARCH_LIMIT)
+    .lean();
+
+  if (textCandidates.length > 0) return textCandidates;
+
+  return ProductModel.find({
+    ...dbQuery,
+    $or: [
+      { name: { $regex: escapedQuery, $options: 'i' } },
+      { description: { $regex: escapedQuery, $options: 'i' } },
+      { tags: { $regex: escapedQuery, $options: 'i' } },
+      { healthTags: { $regex: escapedQuery, $options: 'i' } },
+    ],
+  })
+    .limit(HYBRID_SEARCH_LIMIT)
+    .lean();
+};
+
+const getLexicalRankedProducts = async (queryText: string, dbQuery: Record<string, unknown>) => {
+  try {
+    const atlasResults = await findProductsWithAtlasSearch(queryText, dbQuery);
+    if (atlasResults.length > 0) return atlasResults;
+  } catch (err) {
+    console.warn('[AI Hybrid Search] Atlas Search unavailable, using keyword fallback.');
+  }
+
+  return findProductsWithKeywordFallback(queryText, dbQuery);
+};
+
+const findProductsWithAtlasVectorSearch = async (queryEmbedding: number[], dbQuery: Record<string, unknown>) => {
+  return ProductModel.aggregate([
+    {
+      $vectorSearch: {
+        index: ATLAS_PRODUCT_VECTOR_INDEX,
+        path: 'embedding',
+        queryVector: queryEmbedding,
+        numCandidates: HYBRID_VECTOR_NUM_CANDIDATES,
+        limit: HYBRID_SEARCH_LIMIT,
+        filter: dbQuery,
+      },
+    },
+    { $addFields: { score: { $meta: 'vectorSearchScore' } } },
+  ]);
+};
+
+const findProductsWithInMemorySemanticSearch = (
+  queryEmbedding: number[],
+  products: ProductSearchResult[]
+) => {
+  return products
+    .map((p) => {
+      const score = cosineSimilarity(queryEmbedding, p.embedding || []);
+      return { ...p, score };
+    })
+    .filter((p) => p.score > 0.35)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, HYBRID_SEARCH_LIMIT);
+};
+
+const getSemanticRankedProducts = async (
+  queryEmbedding: number[],
+  dbQuery: Record<string, unknown>,
+  fallbackProducts: ProductSearchResult[]
+) => {
+  try {
+    const vectorResults = await findProductsWithAtlasVectorSearch(queryEmbedding, dbQuery);
+    if (vectorResults.length > 0) return vectorResults;
+  } catch (err) {
+    console.warn('[AI Hybrid Search] Atlas Vector Search unavailable, using in-memory semantic fallback.');
+  }
+
+  return findProductsWithInMemorySemanticSearch(queryEmbedding, fallbackProducts);
+};
+
+const classifyIntentByRules = (message: string): ChatIntent | null => {
+  const normalized = normalizeVietnameseText(message).trim();
+  const compact = normalized.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const searchPlan = parseChatSearchPlan(message);
+
+  if (/\b(ignore previous|system prompt|api key|secret|jailbreak|developer message|bo qua huong dan|tiet lo prompt|khoa api)\b/.test(compact)) {
+    return 'JAILBREAK';
+  }
+
+  if (/^(hi|hello|hey|xin chao|chao|alo|hi bot|hello bot)$/.test(compact)) {
+    return 'GREETING';
+  }
+
+  if (/\b(gio mo cua|may gio mo cua|dong cua|lich hoat dong|cua hang mo)\b/.test(compact)) {
+    return 'STORE_HOURS';
+  }
+
+  if (/\b(phi ship|phi giao|ship bao nhieu|giao hang bao nhieu|tien ship|delivery fee)\b/.test(compact)) {
+    return 'DELIVERY_FEE';
+  }
+
+  if (/\b(don hang|trang thai don|kiem tra don|order status|shipper|dang giao|lich su don)\b/.test(compact)) {
+    return 'ORDER_STATUS';
+  }
+
+  if (/\b(khuyen mai|ma giam gia|voucher|uu dai|giam gia|campaign|chien dich|sale)\b/.test(compact)) {
+    return 'PROMOTION';
+  }
+
+  if (/\b(viet code|lap trinh|giai toan|lich su|chinh tri|thoi tiet|tin tuc|bitcoin|chung khoan)\b/.test(compact)) {
+    return 'OUT_OF_SCOPE';
+  }
+
+  if (searchPlan.hasNoBudget) {
+    return 'MENU_SEARCH';
+  }
+
+  if (
+    searchPlan.budgetVnd
+    || searchPlan.wantsCombo
+    || searchPlan.requiresDrink
+    || searchPlan.requiresFood
+    || searchPlan.includeTastes.length > 0
+    || searchPlan.excludeTraits.length > 0
+    || searchPlan.healthNeeds.length > 0
+    || /\b(thuc don|menu|mon|an|do uong|nuoc uong|giai khat|com|bun|pho|banh|salad|healthy|chay|cay|ngot|it beo|tieu duong)\b/.test(compact)
+  ) {
+    return searchPlan.healthNeeds.length > 0 || /\b(di ung|allergy|an toan|khong duong|it duong)\b/.test(compact)
+      ? 'ALLERGY_SAFE_RECOMMENDATION'
+      : 'MENU_SEARCH';
+  }
+
+  return null;
+};
+
 export const classifyIntent = async (message: string): Promise<ChatIntent> => {
+  const ruleBasedIntent = classifyIntentByRules(message);
+  if (ruleBasedIntent) return ruleBasedIntent;
+
   const prompt = `You are an intent classification agent for a food ordering platform (FOA). 
 Analyze the user's input and classify it into exactly one of these intents:
 - 'GREETING': Greetings, hello, how are you, etc.
@@ -46,25 +564,22 @@ Return JSON only:
 }`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.1-8b-instant',
-      response_format: { type: 'json_object' },
-      temperature: 0.0,
-      max_tokens: 50,
-    });
+    const completion = await withAITimeout(
+      groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.1-8b-instant',
+        response_format: { type: 'json_object' },
+        temperature: 0.0,
+        max_tokens: 50,
+      }),
+      INTENT_TIMEOUT_MS,
+      'Intent classification'
+    );
 
     const content = completion.choices[0]?.message?.content;
     if (!content) return 'MENU_SEARCH';
-    const parsed = JSON.parse(content);
-    const intent = parsed.intent;
-    const validIntents: ChatIntent[] = [
-      'GREETING', 'MENU_SEARCH', 'ALLERGY_SAFE_RECOMMENDATION', 'ORDER_STATUS',
-      'DELIVERY_FEE', 'PROMOTION', 'STORE_HOURS', 'OUT_OF_SCOPE', 'JAILBREAK'
-    ];
-    if (validIntents.includes(intent)) {
-      return intent;
-    }
+    const parsed = chatIntentSchema.safeParse(JSON.parse(content));
+    if (parsed.success) return parsed.data.intent;
     return 'MENU_SEARCH';
   } catch (err) {
     console.error('[AI] Intent classification error:', err);
@@ -76,6 +591,7 @@ export interface AIChatResponse {
   message: string;
   recommendedProductIds: string[];
   allowlistIds: string[];
+  budgetVnd?: number;
 }
 
 export const getAIResponseForChat = async (
@@ -89,9 +605,23 @@ export const getAIResponseForChat = async (
   } | null
 ): Promise<AIChatResponse> => {
   const allowlistIds: string[] = [];
+  const messageSearchPlan = await buildHybridSearchPlan(message);
+
+  if (messageSearchPlan.hasNoBudget) {
+    return {
+      message: 'Nếu hiện tại bạn chưa có ngân sách, mình chưa nên gợi ý món cần thanh toán trong thực đơn. Bạn có thể lưu lại vài món giá thấp để tham khảo sau, hoặc xem ưu đãi/voucher khi có nhu cầu đặt món nhé.',
+      recommendedProductIds: [],
+      allowlistIds: [],
+    };
+  }
 
   // Helper to fetch and filter safe products
-  const fetchAndFilterSafeProducts = async (queryText?: string, category?: string) => {
+  const fetchAndFilterSafeProducts = async (
+    queryText?: string,
+    category?: string,
+    resultLimit = HYBRID_RESULT_LIMIT,
+    searchPlan = parseChatSearchPlan(queryText || message)
+  ) => {
     const dbQuery: any = { isAvailable: true };
 
     // Category mapping helper for loose input
@@ -111,60 +641,74 @@ export const getAIResponseForChat = async (
       }
     }
 
+    if (!resolvedCategory && searchPlan.preferredCategory) {
+      resolvedCategory = searchPlan.preferredCategory;
+    }
+
     if (resolvedCategory) {
       dbQuery.category = resolvedCategory;
     }
 
-    let products = await ProductModel.find(dbQuery).lean();
+    let products: ProductSearchResult[] = await ProductModel.find(dbQuery).lean();
 
     if (queryText && queryText.trim().length > 0) {
+      const normalizedQuery = queryText.trim();
+      const expandedQuery = searchPlan.expandedQuery || normalizedQuery;
       try {
-        // Generate embedding using the helper model
-        const embedResponse = await embeddingModel.embedContent(queryText.trim());
+        const lexicalRanked = await getLexicalRankedProducts(expandedQuery, dbQuery);
+        const embedResponse = await withAITimeout(
+          embeddingModel.embedContent(expandedQuery),
+          EMBEDDING_TIMEOUT_MS,
+          'Embedding search'
+        );
         const queryEmbedding = embedResponse.embedding?.values;
+        const semanticRanked = queryEmbedding && queryEmbedding.length > 0
+          ? await getSemanticRankedProducts(queryEmbedding, dbQuery, products)
+          : [];
 
-        if (queryEmbedding && queryEmbedding.length > 0) {
-          const productsWithSimilarity = products
-            .map((p) => {
-              const score = cosineSimilarity(queryEmbedding, p.embedding || []);
-              return { ...p, score };
-            })
-            .filter((p) => p.score > 0.35) // Threshold for hybrid search match
-            .sort((a, b) => b.score - a.score);
+        const fusedProducts = new Map<string, ProductSearchResult>();
+        addRrfScores(fusedProducts, lexicalRanked, 'lexicalScore');
+        addRrfScores(fusedProducts, semanticRanked, 'semanticScore');
 
-          products = productsWithSimilarity;
-        }
+        products = [...fusedProducts.values()]
+          .sort((a, b) => (b.rrfScore || 0) - (a.rrfScore || 0))
+          .slice(0, HYBRID_SEARCH_LIMIT);
+
+        console.log(
+          `[AI Hybrid Search] lexical=${lexicalRanked.length}, semantic=${semanticRanked.length}, fused=${products.length}`
+        );
       } catch (err) {
-        console.error('[AI Semantic Search] Failed, falling back to keyword search:', err);
-        // Fallback keyword search
-        const kwQuery = {
-          ...dbQuery,
-          $or: [
-            { name: { $regex: queryText.trim(), $options: 'i' } },
-            { description: { $regex: queryText.trim(), $options: 'i' } },
-            { tags: { $regex: queryText.trim(), $options: 'i' } }
-          ]
-        };
-        products = await ProductModel.find(kwQuery).limit(10).lean();
+        console.error('[AI Hybrid Search] Failed, using keyword fallback:', err);
+        products = await findProductsWithKeywordFallback(normalizedQuery, dbQuery);
+      }
+
+      if (searchPlan.excludeTraits.includes('hot')) {
+        products = products.filter((product) => !productLooksHot(product));
+      }
+      if (searchPlan.healthNeeds.includes('diabetes_friendly')) {
+        products = products.filter((product) => !productLooksSugary(product));
       }
     } else {
-      products = products.slice(0, 10);
+      products = products
+        .sort(sortByProductQuality)
+        .slice(0, resultLimit);
     }
 
-    console.log(`[AI Search Tool] Query: "${queryText}", Category: "${category}" -> Found ${products.length} matching products.`);
+    console.log(`[AI Search Tool] Found ${products.length} matching products.`);
 
     if (!userContext?.preferences?.allergies) {
-      const ids = products.map((p) => p._id.toString());
+      const finalProducts = products.slice(0, resultLimit);
+      const ids = finalProducts.map((p) => p._id.toString());
       allowlistIds.push(...ids);
-      console.log(`[AI Search Tool] Guest mode (no allergies) -> Safe products:`, products.map(p => p.name));
-      return products;
+      console.log(`[AI Search Tool] Guest mode -> ${finalProducts.length} products allowed.`);
+      return finalProducts;
     }
 
     const userAllergies = (userContext.preferences.allergies || [])
       .map((a: string) => a.normalize('NFC').toLowerCase().trim())
       .filter(Boolean);
 
-    console.log(`[AI Search Tool] User allergies to filter:`, userAllergies);
+    console.log(`[AI Search Tool] Filtering with ${userAllergies.length} allergy constraints.`);
 
     const safeList = products.filter((product) => {
       const productAllergens = (product.allergenTags || []).map((t: string) => t.toLowerCase().trim());
@@ -192,12 +736,12 @@ export const getAIResponseForChat = async (
           if (productAllergens.includes(catalogItem.id) || productMayContain.includes(catalogItem.id)) {
             return true;
           }
-          if (productIngredients.some((ing) => aliases.some((alias) => ing.includes(alias) || alias.includes(ing)))) {
+          if (productIngredients.some((ing: string) => aliases.some((alias) => ing.includes(alias) || alias.includes(ing)))) {
             return true;
           }
         }
 
-        if (productIngredients.some((ing) => ing.includes(allergy) || allergy.includes(ing))) {
+        if (productIngredients.some((ing: string) => ing.includes(allergy) || allergy.includes(ing))) {
           return true;
         }
         return false;
@@ -206,10 +750,11 @@ export const getAIResponseForChat = async (
       return !isUnsafe;
     });
 
-    const ids = safeList.map((p) => p._id.toString());
+    const finalSafeList = safeList.slice(0, resultLimit);
+    const ids = finalSafeList.map((p) => p._id.toString());
     allowlistIds.push(...ids);
-    console.log(`[AI Search Tool] Safe products after allergen filtering:`, safeList.map(p => p.name));
-    return safeList;
+    console.log(`[AI Search Tool] ${finalSafeList.length}/${safeList.length} products allowed after allergen filtering.`);
+    return finalSafeList;
   };
 
   // Define tools for function calling
@@ -348,17 +893,123 @@ export const getAIResponseForChat = async (
             6. ĐÁNH GIÁ KỸ KẾT QUẢ TÌM KIẾM: Bạn phải đọc kỹ tên và mô tả của các món ăn nhận được từ kết quả gọi công cụ. Hãy loại bỏ những món mâu thuẫn trực tiếp với yêu cầu của khách hàng (ví dụ: Khách yêu cầu "ít dầu mỡ/ít béo" thì tuyệt đối KHÔNG gợi ý món có tên hoặc mô tả chứa từ "xối mỡ", "chiên ngập dầu", "nướng mỡ hành", "béo ngậy"; hoặc khách yêu cầu "ăn chay" thì loại bỏ các món chứa thịt, cá, hải sản).`,
   };
 
+  const buildDeterministicProductResponse = (products: ProductSearchResult[]) => {
+    const recommendedProductIds = products.map((p) => p._id.toString());
+
+    if (recommendedProductIds.length === 0) {
+      return {
+        message: messageSearchPlan.healthNeeds.includes('diabetes_friendly')
+          ? 'Mình chưa tìm thấy món thật sự phù hợp cho yêu cầu ít đường trong thực đơn hiện tại. Với bệnh tiểu đường, bạn nên ưu tiên món thanh đạm, ít đường, ít tinh bột nhanh và xác nhận lại với nhân viên nếu có yêu cầu y tế cụ thể.'
+          : 'Mình chưa tìm thấy món thật sự phù hợp với yêu cầu này trong thực đơn hiện tại. Bạn có thể thử mô tả cụ thể hơn như món khô, món tráng miệng, hoặc mức cay/ngọt mong muốn nhé.',
+        recommendedProductIds: [],
+        allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      };
+    }
+
+    const names = products.slice(0, 3).map((p) => p.name).join(', ');
+    return {
+      message: messageSearchPlan.healthNeeds.includes('diabetes_friendly')
+        ? `Với tiểu đường, bạn nên ưu tiên món ít đường, thanh đạm và kiểm soát khẩu phần tinh bột. Trong thực đơn hiện tại, bạn có thể tham khảo: ${names}.`
+        : `Mình đã tìm trong thực đơn các món phù hợp nhất với yêu cầu của bạn. Bạn có thể tham khảo: ${names}.`,
+      recommendedProductIds,
+      allowlistIds: [...new Set(allowlistIds)],
+      budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+    };
+  };
+
+  const buildDeterministicSearchFallback = async () => {
+    const fallbackProducts = await fetchAndFilterSafeProducts(message, undefined, HYBRID_RESULT_LIMIT, messageSearchPlan);
+    return buildDeterministicProductResponse(fallbackProducts);
+  };
+
+  const buildBudgetComboResponse = async () => {
+    const budgetVnd = messageSearchPlan.budgetVnd;
+    if (!budgetVnd) return null;
+
+    const budgetSearchPlan = buildBudgetSearchPlan(messageSearchPlan);
+    const searchCandidates = await fetchAndFilterSafeProducts(
+      budgetSearchPlan.cleanedQuery || undefined,
+      undefined,
+      HYBRID_SEARCH_LIMIT,
+      budgetSearchPlan
+    );
+    const broadCandidates = await fetchAndFilterSafeProducts(
+      undefined,
+      undefined,
+      HYBRID_SEARCH_LIMIT,
+      budgetSearchPlan
+    );
+    const drinkCandidates = messageSearchPlan.requiresDrink
+      ? await fetchAndFilterSafeProducts(
+        undefined,
+        ProductCategory.GIAI_KHAT_TRANG_MIENG,
+        HYBRID_SEARCH_LIMIT,
+        budgetSearchPlan
+      )
+      : [];
+    const affordableProducts = uniqueProductsById([...searchCandidates, ...broadCandidates, ...drinkCandidates])
+      .filter((product) => product.price <= budgetVnd);
+    const comboProducts = pickBudgetCombo(affordableProducts, budgetVnd, messageSearchPlan.maxItems, {
+      requiresDrink: messageSearchPlan.requiresDrink,
+      requiresFood: messageSearchPlan.requiresFood,
+    });
+    const recommendedProductIds = comboProducts.map((product) => product._id.toString());
+    const totalPrice = comboProducts.reduce((sum, product) => sum + product.price, 0);
+
+    if (recommendedProductIds.length === 0) {
+      return {
+        message: `Mình chưa tìm thấy món phù hợp trong ngân sách ${budgetVnd.toLocaleString('vi-VN')}đ ở thực đơn hiện tại. Bạn có thể tăng ngân sách một chút hoặc thử hỏi theo món cụ thể hơn nhé.`,
+        recommendedProductIds: [],
+        allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd,
+      };
+    }
+
+    const comboText = comboProducts
+      .map((product) => `${product.name} (${product.price.toLocaleString('vi-VN')}đ)`)
+      .join(', ');
+
+    return {
+      message: `Với ngân sách khoảng ${budgetVnd.toLocaleString('vi-VN')}đ, mình gợi ý combo: ${comboText}. Tổng tạm tính khoảng ${totalPrice.toLocaleString('vi-VN')}đ, còn dư khoảng ${(budgetVnd - totalPrice).toLocaleString('vi-VN')}đ. Giá thực tế có thể thay đổi theo khuyến mãi hoặc chi nhánh.`,
+      recommendedProductIds,
+      allowlistIds: [...new Set(allowlistIds)],
+      budgetVnd,
+    };
+  };
+
+  if (messageSearchPlan.budgetVnd && messageSearchPlan.wantsCombo) {
+    return await buildBudgetComboResponse() ?? await buildDeterministicSearchFallback();
+  }
+
+  if (messageSearchPlan.wantsCombo) {
+    return await buildDeterministicSearchFallback();
+  }
+
+  const hasDeterministicSearchConstraints =
+    messageSearchPlan.healthNeeds.length > 0
+    || messageSearchPlan.excludeTraits.length > 0
+    || messageSearchPlan.includeTastes.length > 0;
+
+  if (hasDeterministicSearchConstraints) {
+    return await buildDeterministicSearchFallback();
+  }
+
   try {
     const groqMessages = [systemPrompt, ...messages, { role: 'user', content: message }];
 
     // First call to check if LLM wants to call a tool
-    let response = await groq.chat.completions.create({
-      messages: groqMessages as any,
-      model: 'llama-3.1-8b-instant',
-      tools: tools as any,
-      tool_choice: 'auto',
-      temperature: 0.1,
-    });
+    let response = await withAITimeout(
+      groq.chat.completions.create({
+        messages: groqMessages as any,
+        model: 'llama-3.1-8b-instant',
+        tools: tools as any,
+        tool_choice: 'auto',
+        temperature: 0.1,
+      }),
+      CHAT_COMPLETION_TIMEOUT_MS,
+      'Chat tool selection'
+    );
 
     const responseMessage = response.choices[0]?.message;
 
@@ -367,6 +1018,7 @@ export const getAIResponseForChat = async (
       const toolCallsToExecute = responseMessage.tool_calls.slice(0, 3);
       console.log('[AI] LLM decided to call tools (executing top 3):', toolCallsToExecute.map(tc => tc.function.name));
       groqMessages.push(responseMessage as any);
+      const toolProductResults: ProductSearchResult[] = [];
 
       for (const toolCall of toolCallsToExecute) {
         const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
@@ -375,11 +1027,13 @@ export const getAIResponseForChat = async (
 
         if (toolCall.function.name === 'search_products') {
           resultData = await fetchAndFilterSafeProducts(args.query, args.category);
+          toolProductResults.push(...resultData);
           const ids = resultData.map((p) => p._id.toString());
           allowlistIds.push(...ids);
           contentString = JSON.stringify(resultData.map(p => ({ id: p._id.toString(), name: p.name, description: p.description, price: p.price })));
         } else if (toolCall.function.name === 'search_allergy_safe_products') {
           resultData = await fetchAndFilterSafeProducts(args.query);
+          toolProductResults.push(...resultData);
           const ids = resultData.map((p) => p._id.toString());
           allowlistIds.push(...ids);
           contentString = JSON.stringify(resultData.map(p => ({ id: p._id.toString(), name: p.name, description: p.description, price: p.price })));
@@ -488,24 +1142,37 @@ export const getAIResponseForChat = async (
       }
 
       // Second call to get the final response from LLM using the tool results
-      response = await groq.chat.completions.create({
-        messages: groqMessages as any,
-        model: 'llama-3.1-8b-instant',
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      try {
+        response = await withAITimeout(
+          groq.chat.completions.create({
+            messages: groqMessages as any,
+            model: 'llama-3.1-8b-instant',
+            temperature: 0.1,
+            response_format: { type: 'json_object' }
+          }),
+          CHAT_COMPLETION_TIMEOUT_MS,
+          'Chat final response'
+        );
+      } catch (finalResponseErr) {
+        console.warn('[AI] Chat final response failed, using tool-result fallback.');
+        return buildDeterministicProductResponse(toolProductResults);
+      }
     } else {
       // If LLM didn't call any tools, but we still require it to output JSON
-      response = await groq.chat.completions.create({
-        messages: groqMessages as any,
-        model: 'llama-3.1-8b-instant',
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      response = await withAITimeout(
+        groq.chat.completions.create({
+          messages: groqMessages as any,
+          model: 'llama-3.1-8b-instant',
+          temperature: 0.1,
+          response_format: { type: 'json_object' }
+        }),
+        CHAT_COMPLETION_TIMEOUT_MS,
+        'Chat final response'
+      );
     }
 
     const finalContent = response.choices[0]?.message?.content || '{}';
-    console.log('[AI] Raw LLM response content:', finalContent);
+    console.log('[AI] Chat response received.');
 
     const jsonMatch = finalContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -513,22 +1180,39 @@ export const getAIResponseForChat = async (
         message: finalContent,
         recommendedProductIds: [],
         allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
       };
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = aiChatResponseSchema.safeParse(JSON.parse(jsonMatch[0]));
+    if (!parsed.success) {
+      return {
+        message: 'Xin lỗi, tôi gặp lỗi khi xử lý thông tin.',
+        recommendedProductIds: [],
+        allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      };
+    }
+
     return {
-      message: parsed.message || 'Xin lỗi, tôi gặp lỗi khi xử lý thông tin.',
-      recommendedProductIds: Array.isArray(parsed.recommendedProductIds) ? parsed.recommendedProductIds : [],
+      message: parsed.data.message,
+      recommendedProductIds: parsed.data.recommendedProductIds,
       allowlistIds: [...new Set(allowlistIds)],
+      budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
     };
   } catch (err: any) {
     console.error('[AI] Groq Chat agent error:', err);
-    return {
-      message: 'Xin lỗi, trợ lý AI đang gặp lỗi kỹ thuật. Vui lòng thử lại sau nhé! 🕒',
-      recommendedProductIds: [],
-      allowlistIds: [],
-    };
+    try {
+      return await buildDeterministicSearchFallback();
+    } catch (fallbackErr) {
+      console.error('[AI] Deterministic chat fallback error:', fallbackErr);
+      return {
+        message: 'Xin lỗi, trợ lý AI đang gặp lỗi kỹ thuật. Vui lòng thử lại sau nhé! 🕒',
+        recommendedProductIds: [],
+        allowlistIds: [],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      };
+    }
   }
 };
 
@@ -541,14 +1225,18 @@ export const extractPreferencesFromMessage = async (message: string): Promise<st
   Tin nhắn của người dùng: "${message}"`;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await withAITimeout(
+      model.generateContent(prompt),
+      CHAT_COMPLETION_TIMEOUT_MS,
+      'Preference extraction'
+    );
     const text = result.response.text();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) {
-        return parsed.map((item: string) => String(item).toLowerCase().trim());
-      }
+        const parsed = tastePreferenceSchema.safeParse(JSON.parse(jsonMatch[0]));
+        if (parsed.success) {
+          return parsed.data.map((item) => item.toLowerCase().trim());
+        }
     }
   } catch (err) {
     console.error('[AI Preference Extraction] Error:', err);

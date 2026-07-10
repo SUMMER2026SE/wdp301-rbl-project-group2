@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import { GEMINI_API_KEY, GROQ_API_KEY } from '@/constants/env';
+import { AI_MICROSERVICE_URL, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_VISION_MODELS, GROQ_API_KEY } from '@/constants/env';
 import axios from 'axios';
 import { z } from 'zod';
 import { OrderStatus } from '@/types';
 
 export const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-export const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_MODEL = GEMINI_MODEL;
 export const model = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
 export const groq = new Groq({ apiKey: GROQ_API_KEY });
 export const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
@@ -142,7 +142,7 @@ const fallbackRejectReviewImage = (reason: string): ReviewImageModerationResult 
 
 const REVIEW_IMAGE_MODEL_CANDIDATES = Array.from(
   new Set(
-    (process.env.GEMINI_VISION_MODELS || `${DEFAULT_GEMINI_MODEL},gemini-2.5-flash,gemini-2.0-flash`)
+    GEMINI_VISION_MODELS
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
@@ -336,8 +336,6 @@ Return JSON only:
 };
 
 // ── Custom AI Microservice ────────────────────────────────────────────────────
-const AI_MICROSERVICE_URL = process.env.AI_MICROSERVICE_URL || 'http://localhost:8001';
-
 async function isMicroserviceAvailable(): Promise<boolean> {
   try {
     const res = await axios.get(`${AI_MICROSERVICE_URL}/health`, { timeout: 2000 });
@@ -1236,5 +1234,4 @@ const buildDeterministicFallback = (ctx: {
     endTime: end.toISOString(),
   };
 };
-
 

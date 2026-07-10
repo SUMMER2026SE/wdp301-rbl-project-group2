@@ -1,7 +1,8 @@
 import { ConnectionOptions } from 'bullmq';
+import { REDIS_HOST, REDIS_PASSWORD, REDIS_PORT } from '@/constants/env';
 
 export const redisConfig: ConnectionOptions = {
-  host: process.env.REDIS_HOST || 'redis',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD || undefined,
+  host: REDIS_HOST,
+  port: REDIS_PORT,
+  password: REDIS_PASSWORD,
 };

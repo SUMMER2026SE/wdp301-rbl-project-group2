@@ -5,7 +5,7 @@ import http from 'http';
 import dns from 'node:dns';
 import { Server } from 'socket.io';
 import { parse as parseCookie } from 'cookie';
-import { APP_ORIGIN, PORT } from './constants/env';
+import { APP_ORIGIN, ORDER_AUTO_COMPLETE_DELAY_MINUTES, PORT } from './constants/env';
 import appRoutes from './routes';
 import connectToDatabase from './config/db';
 import { customResponse, errorHandler } from './middlewares';
@@ -144,7 +144,7 @@ io.on('connection', async (socket) => {
 // Auto-complete delivered orders after N minutes (default 30)
 cron.schedule('* * * * *', async () => {
   try {
-    const delayMinutes = Number(process.env.ORDER_AUTO_COMPLETE_DELAY_MINUTES) || 30;
+    const delayMinutes = ORDER_AUTO_COMPLETE_DELAY_MINUTES;
     const cutOffTime = new Date(Date.now() - delayMinutes * 60 * 1000);
 
     const pendingAutoCompletion = await OrderModel.find({

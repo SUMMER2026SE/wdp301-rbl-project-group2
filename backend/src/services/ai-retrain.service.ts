@@ -1,14 +1,10 @@
 import axios from 'axios';
-
-const AI_MICROSERVICE_URL = process.env.AI_MICROSERVICE_URL || 'http://localhost:8001';
-const AI_RETRAIN_TOKEN = process.env.AI_RETRAIN_TOKEN;
-
-const autoRetrainEnabled = () => /^true|1$/i.test(String(process.env.AI_AUTO_RETRAIN_ON_ORDER_COMPLETED ?? ''));
-
-const minIntervalMs = () => {
-  const n = Number(process.env.AI_RETRAIN_MIN_INTERVAL_MS);
-  return Number.isFinite(n) && n > 0 ? n : 3_600_000;
-};
+import {
+  AI_AUTO_RETRAIN_ON_ORDER_COMPLETED,
+  AI_MICROSERVICE_URL,
+  AI_RETRAIN_MIN_INTERVAL_MS,
+  AI_RETRAIN_TOKEN,
+} from '@/constants/env';
 
 let lastTriggeredAt = 0;
 
@@ -17,10 +13,10 @@ let lastTriggeredAt = 0;
  * Enable with AI_AUTO_RETRAIN_ON_ORDER_COMPLETED=true and ensure the microservice is reachable.
  */
 export function scheduleAiModelRetrain(reason: string): void {
-  if (!autoRetrainEnabled()) return;
+  if (!AI_AUTO_RETRAIN_ON_ORDER_COMPLETED) return;
 
   const now = Date.now();
-  if (now - lastTriggeredAt < minIntervalMs()) return;
+  if (now - lastTriggeredAt < AI_RETRAIN_MIN_INTERVAL_MS) return;
   lastTriggeredAt = now;
 
   axios
