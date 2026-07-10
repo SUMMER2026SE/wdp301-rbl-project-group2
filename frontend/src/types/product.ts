@@ -35,6 +35,8 @@ export interface Product {
     message: string;
   };
   campaignPrice?: number;
+  isCampaignRunning?: boolean;
+  campaignName?: string;
   isAvailable: boolean;
   status: "active" | "inactive" | "out_of_stock" | "deleted";
   operationalNote?: string;

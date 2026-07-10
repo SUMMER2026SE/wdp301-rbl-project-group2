@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useSafeCart } from "@/hooks/useSafeCart";
@@ -179,6 +179,7 @@ const FoodDetailPage = () => {
   const [reactingReviewId, setReactingReviewId] = useState<string | null>(null);
   const REVIEW_LIMIT = 5;
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string[]>>({});
+  const trackedViewProductRef = useRef<string | null>(null);
 
   // --- Logic ---
   const extraPrice = useMemo(() => {
@@ -256,6 +257,19 @@ const FoodDetailPage = () => {
     };
     fetchProductAndSuggestions();
   }, [id, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !product?._id || trackedViewProductRef.current === product._id) return;
+    trackedViewProductRef.current = product._id;
+    productAPI
+      .trackProductBehavior(product._id, {
+        eventType: "product_view",
+        source: "product_detail",
+      })
+      .catch(() => {
+        // Best-effort analytics event; do not interrupt product detail UX.
+      });
+  }, [isAuthenticated, product?._id]);
 
   // --- Reviews: fetch độc lập, không block product loading ---
   useEffect(() => {
@@ -1055,4 +1069,3 @@ const FoodDetailPage = () => {
 };
 
 export default FoodDetailPage;
-

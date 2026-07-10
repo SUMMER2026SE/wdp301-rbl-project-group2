@@ -179,6 +179,11 @@ const NAV_ITEMS = [
     ],
   },
   {
+    label: "Khách hàng",
+    href: "/admin/customers",
+    icon: "person_search",
+  },
+  {
     label: "Quản lí chiến dịch",
     href: "/admin/vouchers",
     icon: "campaign",
