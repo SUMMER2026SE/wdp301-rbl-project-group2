@@ -796,6 +796,11 @@ export const aiCampaignSuggestionResponseSchema = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   timeframeRationale: z.string().optional().default(''),
+  performanceReport: z.object({
+    estimatedDaysToProfit: z.number().int().min(1).max(60),
+    estimatedProfit: z.string().min(1),
+    analysis: z.string().min(1),
+  }).optional(),
 }).transform(data => ({
   ...data,
   // normalize: prefer summary, fallback to tagline
@@ -1031,7 +1036,11 @@ YÊU CẦU ĐỀ XUẤT CHIẾN DỊCH:
    - Nếu type là 'fixed_price', đề xuất giá mới "fixedPrice" (thấp hơn giá gốc từ 10% đến 50%).
    - Cung cấp lý do ngắn gọn "reason" vì sao chọn món này (1-2 câu).
 6. Viết lý do tổng quan (rationale) vì sao chiến dịch này hiệu quả với mục tiêu, thời tiết và dịp lễ đã chọn.
-7. Tự động tính toán khoảng thời gian hoạt động tối ưu và trả về startTime (thời gian bắt đầu) và endTime (thời gian kết thúc) ở định dạng ISO 8601 string, cùng với timeframeRationale (lý do cụ thể bằng tiếng Việt tại sao chọn khoảng thời gian này):
+7. Lập báo cáo hiệu suất dự tính (performanceReport) bao gồm:
+   - estimatedDaysToProfit: Số ngày dự tính chạy chiến dịch để đạt điểm hòa vốn hoặc bắt đầu có lời (phải là số nguyên nằm trong khoảng từ 1 đến durationDays).
+   - estimatedProfit: Số tiền hoặc khoảng lợi nhuận dự tính thu được sau khi kết thúc toàn bộ chiến dịch (dạng chuỗi văn bản bằng tiếng Việt, ví dụ: "Khoảng 5.000.000đ - 7.000.000đ", "Dự kiến 3.500.000đ" dựa trên phân tích số lượng bán).
+   - analysis: Phân tích dự tính hiệu suất chi tiết (Ví dụ: Dự kiến tăng trưởng doanh số bao nhiêu %, lượng khách hàng mới ước tính, và giải thích cụ thể tại sao chạy trong số ngày đó sẽ lời/hoàn vốn).
+8. Tự động tính toán khoảng thời gian hoạt động tối ưu và trả về startTime (thời gian bắt đầu) và endTime (thời gian kết thúc) ở định dạng ISO 8601 string, cùng với timeframeRationale (lý do cụ thể bằng tiếng Việt tại sao chọn khoảng thời gian này):
    - Nếu dịp lễ (occasion) là "christmas" (Giáng Sinh): Chọn khoảng thời gian xung quanh dịp Giáng Sinh thực tế (Ví dụ: 20 tháng 12 năm nay đến 05 tháng 01 năm sau).
    - Nếu dịp lễ là "tet" (Tết Nguyên Đán): Chọn khoảng thời gian Tết thực tế tương ứng (Ví dụ: cuối tháng 1 đến giữa tháng 2).
    - Nếu dịp lễ là "valentine": Chọn tuần lễ Valentine (Ví dụ: 07 tháng 2 đến 17 tháng 2).
@@ -1058,7 +1067,12 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
       "reason": "Lý do ngắn gọn bằng tiếng Việt"
     }
   ],
-  "rationale": "Lý do tổng quan..."
+  "rationale": "Lý do tổng quan...",
+  "performanceReport": {
+    "estimatedDaysToProfit": 5,
+    "estimatedProfit": "Khoảng 4.500.000đ - 6.000.000đ",
+    "analysis": "Dự kiến chiến dịch sẽ đạt điểm hòa vốn sau 5 ngày chạy nhờ mức giảm giá 15% kích thích lượng đặt hàng tăng 25%, bù đắp chi phí chiết khấu ban đầu..."
+  }
 }
 `;
 
@@ -1127,6 +1141,32 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
   }
 };
 
+const calculateEstimatedPerformanceReport = (
+  goal: string,
+  durationDays: number,
+  campaignName: string
+) => {
+  let estimatedDaysToProfit = 3;
+  let estimatedProfit = '';
+  let analysis = '';
+
+  if (goal === 'boost_sales') {
+    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.3) || 2));
+    estimatedProfit = `Khoảng ${(durationDays * 600000).toLocaleString('vi-VN')}đ - ${(durationDays * 900000).toLocaleString('vi-VN')}đ`;
+    analysis = `Chiến dịch "${campaignName}" tập trung thúc đẩy nhóm món ăn bán chạy nhất của cửa hàng. Với nhu cầu sẵn có cao từ lượng khách hàng trung thành, việc áp dụng ưu đãi dự kiến sẽ kích thích lượt đặt hàng tăng mạnh ngay lập tức. Cửa hàng dự kiến sẽ nhanh chóng đạt điểm hòa vốn và bắt đầu có lời chỉ sau ${estimatedDaysToProfit} ngày chạy nhờ doanh thu từ lượng đơn hàng tăng thêm bù đắp hoàn toàn chi phí chiết khấu.`;
+  } else if (goal === 'clear_stock') {
+    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.7) || 5));
+    estimatedProfit = `Khoảng ${(durationDays * 350000).toLocaleString('vi-VN')}đ - ${(durationDays * 550000).toLocaleString('vi-VN')}đ`;
+    analysis = `Chiến dịch "${campaignName}" tập trung giải phóng hàng tồn kho và quảng bá các món bán chậm. Nhóm sản phẩm này cần thời gian tiếp cận và thuyết phục khách hàng thử món mới thông qua mức chiết khấu sâu. Tốc độ chuyển đổi sẽ chậm hơn thông thường, vì vậy dự kiến cửa hàng cần khoảng ${estimatedDaysToProfit} ngày để tích lũy đủ số lượng đơn hàng và đạt điểm hòa vốn, giúp giải phóng tối đa dung lượng kho và tối ưu chi phí vận hành.`;
+  } else {
+    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.5) || 3));
+    estimatedProfit = `Khoảng ${(durationDays * 450000).toLocaleString('vi-VN')}đ - ${(durationDays * 700000).toLocaleString('vi-VN')}đ`;
+    analysis = `Chiến dịch "${campaignName}" được thiết kế phù hợp với xu hướng thời tiết/dịp lễ hiện tại để tối ưu trải nghiệm khách hàng. Nhờ đánh trúng tâm lý tiêu dùng theo mùa, lượng đơn hàng dự kiến sẽ tăng trưởng ổn định. Cửa hàng ước tính đạt điểm hòa vốn và sinh lời từ ngày thứ ${estimatedDaysToProfit} của chiến dịch khi lượng khách hàng đặt mua đạt đỉnh điểm theo làn sóng lễ hội/thời tiết.`;
+  }
+
+  return { estimatedDaysToProfit, estimatedProfit, analysis };
+};
+
 const buildAICampaignResult = (
   aiData: TAICampaignSuggestionResponse,
   ctx: {
@@ -1180,11 +1220,14 @@ const buildAICampaignResult = (
     endTime = parsedEnd.toISOString();
   }
 
+  const performanceReport = aiData.performanceReport || calculateEstimatedPerformanceReport(ctx.goal, aiData.durationDays || 7, aiData.name);
+
   return {
     ...aiData,
     products,
     startTime,
     endTime,
+    performanceReport,
   };
 };
 
@@ -1238,7 +1281,7 @@ const buildDeterministicFallback = (ctx: {
   const weatherNames: Record<string, string> = {
     hot: 'Nắng Nóng', rainy: 'Ngày Mưa', cold: 'Tiết Lạnh', sunny: 'Nắng Đẹp', normal: '',
   };
-  const occasionLabel = occasionNames[ctx.occasion] || '';
+  const occasionLabel = occasionNames[ctx.occasion] !== undefined ? occasionNames[ctx.occasion] : ctx.occasion;
   const weatherLabel = weatherNames[ctx.weatherInfo?.type] || '';
   const contextLabel = occasionLabel || weatherLabel || '';
 
@@ -1285,6 +1328,8 @@ const buildDeterministicFallback = (ctx: {
     timeframeRationale = 'Chiến dịch chạy suốt mùa hè từ 01/05 đến 31/08 để tận dụng tối đa thời gian nghỉ hè của học sinh, sinh viên.';
   }
 
+  const performanceReport = calculateEstimatedPerformanceReport(ctx.goal, 7, fallbackName);
+
   return {
     name: fallbackName,
     summary: ctx.goal === 'clear_stock'
@@ -1299,6 +1344,7 @@ const buildDeterministicFallback = (ctx: {
     startTime,
     endTime,
     timeframeRationale,
+    performanceReport,
   };
 };
 
