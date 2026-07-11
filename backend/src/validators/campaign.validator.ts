@@ -53,7 +53,7 @@ export const updateCampaignValidator = z.object({
 export const suggestCampaignValidator = z.object({
   days: z.number().int().min(3).max(90).optional().default(14),
   weather: z.enum(['rainy', 'hot', 'cold', 'sunny', 'normal']).default('normal'),
-  occasion: z.enum(['summer', 'christmas', 'tet', 'valentine', 'none']).default('none'),
+  occasion: z.string().default('none'),
   goal: z.enum(['boost_sales', 'clear_stock', 'contextual', 'engagement']).default('boost_sales'),
   productCount: z.number().int().min(2).max(6).optional().default(3),
 });
@@ -70,7 +70,7 @@ export type TUpdateCampaignStatusParams = z.infer<typeof updateCampaignStatusVal
 
 export const aiCampaignSuggestRequestValidator = z.object({
   weather: z.enum(['rainy', 'hot', 'cold', 'sunny', 'normal']).default('normal'),
-  occasion: z.enum(['summer', 'christmas', 'tet', 'valentine', 'none']).default('none'),
+  occasion: z.string().default('none'),
   goal: z.enum(['boost_sales', 'clear_stock', 'engagement']).default('boost_sales'),
   productCount: z.number().int().min(2).max(6).optional().default(3),
 });

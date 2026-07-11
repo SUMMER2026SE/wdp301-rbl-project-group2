@@ -128,9 +128,9 @@ const AdminCampaigns = () => {
   const [aiWeather, setAiWeather] = useState<
     "auto" | "rainy" | "hot" | "cold" | "sunny" | "normal"
   >("auto");
-  const [aiOccasion, setAiOccasion] = useState<
-    "auto" | "summer" | "christmas" | "tet" | "valentine" | "none"
-  >("auto");
+  const [aiOccasion, setAiOccasion] = useState<string>("auto");
+  const [isCustomOccasion, setIsCustomOccasion] = useState(false);
+  const [customOccasion, setCustomOccasion] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAICampaign, setPendingAICampaign] =
     useState<CampaignSuggestionResponse | null>(null);
@@ -231,6 +231,8 @@ const AdminCampaigns = () => {
     setAiProductCount(3);
     setAiWeather("auto");
     setAiOccasion("auto");
+    setIsCustomOccasion(false);
+    setCustomOccasion("");
     setShowConfirmModal(false);
     setShowAIModal(true);
   };
@@ -282,8 +284,8 @@ const AdminCampaigns = () => {
     const endVal = aiSuggestion.endTime
       ? toLocalDatetimeInput(aiSuggestion.endTime)
       : toLocalDatetimeInput(
-          new Date(new Date(startVal).getTime() + (aiSuggestion.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString()
-        );
+        new Date(new Date(startVal).getTime() + (aiSuggestion.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString()
+      );
 
     setAiStartTime(startVal);
     setAiEndTime(endVal);
@@ -2148,7 +2150,7 @@ const AdminCampaigns = () => {
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 flex-shrink-0">
               <div>
                 <h3 className="text-xl font-black text-slate-800">
-                  Trợ lý AI tạo chiến dịch
+                  Trợ lý tạo chiến dịch
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   Dựa trên dữ liệu bán hàng gần đây để đề xuất tên, sản phẩm và
@@ -2192,12 +2194,10 @@ const AdminCampaigns = () => {
                   >
                     <option value="boost_sales">📈 Tập trung hàng bán chạy</option>
                     <option value="clear_stock">📦 Tập trung hàng tồn / bán chậm</option>
-                    <option value="contextual">🌤 Theo mùa / thời tiết / dịp lễ</option>
                   </select>
                   <p className="mt-2 text-xs text-slate-500">
                     {aiGoal === "boost_sales" && "Chọn đúng top sản phẩm bán chạy nhất. Thời tiết/dịp lễ chỉ ảnh hưởng tên và nội dung chiến dịch."}
                     {aiGoal === "clear_stock" && "Ưu tiên các món ít bán, giúp giải phóng tồn kho. Thời tiết/dịp lễ hỗ trợ chọn thêm."}
-                    {aiGoal === "contextual" && "Chọn sản phẩm phù hợp nhất với thời tiết và dịp lễ bạn chọn. Sales là tiebreaker."}
                   </p>
                 </div>
 
@@ -2224,8 +2224,17 @@ const AdminCampaigns = () => {
                     🎉 Dịp lễ / Mùa
                   </label>
                   <select
-                    value={aiOccasion}
-                    onChange={(e) => setAiOccasion(e.target.value as any)}
+                    value={isCustomOccasion ? "custom" : aiOccasion}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "custom") {
+                        setIsCustomOccasion(true);
+                        setAiOccasion(customOccasion);
+                      } else {
+                        setIsCustomOccasion(false);
+                        setAiOccasion(val);
+                      }
+                    }}
                     className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
                   >
                     <option value="auto">Tự động (theo ngày hiện tại)</option>
@@ -2234,31 +2243,22 @@ const AdminCampaigns = () => {
                     <option value="tet">🧧 Tết Nguyên Đán</option>
                     <option value="christmas">🎄 Giáng Sinh</option>
                     <option value="valentine">💝 Valentine</option>
+                    <option value="custom">✍️ Khác (Tự nhập...)</option>
                   </select>
 
-                  <div className="mt-2.5 rounded-xl bg-orange-100/40 px-3 py-2 text-xs text-orange-800 border border-orange-200/50">
-                    {(() => {
-                      const info = getOccasionTimeframeText(aiOccasion);
-                      return (
-                        <div>
-                          <div className="flex items-center gap-1 font-bold text-orange-950">
-                            <span>📅 Ngày gợi ý:</span>
-                            <span className="text-orange-900">{info.range}</span>
-                          </div>
-                          {info.isAuto && (
-                            <div className="mt-1 text-[10px] text-orange-700 italic">
-                              * Tự động nhận diện: {info.resolvedOcc === "none" ? "Không trùng ngày lễ lớn nào gần đây" : `Đang trong đợt lễ ${info.label}`}
-                            </div>
-                          )}
-                          {!info.isAuto && info.resolvedOcc !== "none" && (
-                            <div className="mt-1 text-[10px] text-orange-700 italic">
-                              * Cố định theo lịch nghỉ lễ {info.label} năm nay
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  {isCustomOccasion && (
+                    <input
+                      type="text"
+                      placeholder="Nhập tên dịp lễ / mùa khác (VD: Trung thu, Halloween...)"
+                      value={customOccasion}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomOccasion(val);
+                        setAiOccasion(val);
+                      }}
+                      className="mt-2.5 w-full rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-orange-500 transition-all font-semibold"
+                    />
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 md:col-span-2">
@@ -2309,13 +2309,12 @@ const AdminCampaigns = () => {
                         {aiSuggestion.summary}
                       </p>
                       {/* Goal context banner */}
-                      <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-                        renderedAISuggestionGoal === "boost_sales"
+                      <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${renderedAISuggestionGoal === "boost_sales"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : renderedAISuggestionGoal === "clear_stock"
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : "bg-sky-50 text-sky-700 border border-sky-200"
-                      }`}>
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : "bg-sky-50 text-sky-700 border border-sky-200"
+                        }`}>
                         {renderedAISuggestionGoal === "boost_sales" && "📈 Tập trung hàng bán chạy"}
                         {renderedAISuggestionGoal === "clear_stock" && "📦 Giải phóng tồn kho / bán chậm"}
                         {renderedAISuggestionGoal === "contextual" && "🌤 Theo mùa / thời tiết / dịp lễ"}
@@ -2334,13 +2333,12 @@ const AdminCampaigns = () => {
                     {aiSuggestion.products.map((product) => (
                       <div
                         key={product.productId}
-                        className={`rounded-xl border bg-white p-3 ${
-                          renderedAISuggestionGoal === "clear_stock"
+                        className={`rounded-xl border bg-white p-3 ${renderedAISuggestionGoal === "clear_stock"
                             ? "border-amber-100"
                             : renderedAISuggestionGoal === "boost_sales"
-                            ? "border-emerald-100"
-                            : "border-slate-200"
-                        }`}
+                              ? "border-emerald-100"
+                              : "border-slate-200"
+                          }`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0 flex-1">
@@ -2367,13 +2365,12 @@ const AdminCampaigns = () => {
                               </p>
                             )}
                           </div>
-                          <span className={`rounded-full px-2.5 py-1 text-sm font-bold flex-shrink-0 ${
-                            renderedAISuggestionGoal === "clear_stock"
+                          <span className={`rounded-full px-2.5 py-1 text-sm font-bold flex-shrink-0 ${renderedAISuggestionGoal === "clear_stock"
                               ? "bg-amber-50 text-amber-600"
                               : renderedAISuggestionGoal === "boost_sales"
-                              ? "bg-emerald-50 text-emerald-600"
-                              : "bg-orange-50 text-orange-600"
-                          }`}>
+                                ? "bg-emerald-50 text-emerald-600"
+                                : "bg-orange-50 text-orange-600"
+                            }`}>
                             {aiSuggestion.type === "fixed_price"
                               ? `${product.fixedPrice?.toLocaleString("vi-VN")}đ`
                               : `-${product.discount ?? 10}%`}
@@ -2386,6 +2383,35 @@ const AdminCampaigns = () => {
                   {aiSuggestion.rationale && (
                     <div className="mt-4 p-3.5 bg-orange-50/40 border border-orange-100 rounded-xl text-xs text-slate-600 italic">
                       <strong>Lý do hiệu quả:</strong> {aiSuggestion.rationale}
+                    </div>
+                  )}
+
+                  {aiSuggestion.performanceReport && (
+                    <div className="mt-4 p-4 bg-emerald-50/40 border border-emerald-100 rounded-2xl text-xs text-slate-700">
+                      <h4 className="font-bold text-emerald-800 flex items-center gap-1.5 mb-2 text-xs">
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        BÁO CÁO HIỆU SUẤT DỰ TÍNH (AI DỰ PHÓNG)
+                      </h4>
+                      <p className="mb-2">
+                        <strong>Thời gian hoàn vốn / có lời dự kiến:</strong>{" "}
+                        <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-lg text-xs mr-3">
+                          {aiSuggestion.performanceReport.estimatedDaysToProfit} ngày
+                        </span>
+                        <strong>Lợi nhuận dự tính:</strong>{" "}
+                        <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-lg text-xs">
+                          {aiSuggestion.performanceReport.estimatedProfit}
+                        </span>
+                      </p>
+                      <p className="leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30">
+                        {aiSuggestion.performanceReport.analysis}
+                      </p>
+                      <div className="mt-2.5 border-t border-emerald-100/60 pt-2 text-[10px] text-emerald-700/85 leading-relaxed font-medium">
+                        {renderedAISuggestionGoal === "boost_sales" ? (
+                          <span>💡 <strong>Cơ sở phân tích (Hàng bán chạy):</strong> Nhóm món ăn này có lượng nhu cầu hữu cơ cao và tệp khách quen sẵn có. Áp dụng ưu đãi sẽ kích cầu tức thì, giúp chiến dịch hòa vốn rất sớm (chỉ sau 2-3 ngày) và tối đa hóa doanh thu tích lũy.</span>
+                        ) : (
+                          <span>💡 <strong>Cơ sở phân tích (Giải phóng kho):</strong> Món ăn bán chậm cần mức ưu đãi hấp dẫn hơn và cần nhiều thời gian chạy để tiếp cận/thay đổi thói quen khách hàng. Điểm hòa vốn sẽ trễ hơn (5-7 ngày) nhằm đổi lấy mục tiêu cắt giảm chi phí tồn kho lâu ngày.</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2436,8 +2462,7 @@ const AdminCampaigns = () => {
                       type="text"
                       value={aiCampaignName}
                       onChange={(e) => setAiCampaignName(e.target.value)}
-                      className={`w-full rounded-xl border bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:ring-1 transition-colors ${
-                        (() => {
+                      className={`w-full rounded-xl border bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:ring-1 transition-colors ${(() => {
                           const nm = aiCampaignName.trim().toLowerCase();
                           const start = aiStartTime ? new Date(aiStartTime) : null;
                           const end = aiEndTime ? new Date(aiEndTime) : null;
@@ -2450,7 +2475,7 @@ const AdminCampaigns = () => {
                             ? "border-rose-400 focus:border-rose-500 focus:ring-rose-400"
                             : "border-orange-200 focus:border-[#ee8c2b] focus:ring-[#ee8c2b]";
                         })()
-                      }`}
+                        }`}
                       placeholder="Nhập tên chiến dịch"
                     />
                     {(() => {
@@ -2531,6 +2556,36 @@ const AdminCampaigns = () => {
                 </div>
               )}
 
+              {pendingAICampaign.performanceReport && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-1 flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                    Báo cáo hiệu suất dự tính (AI dự phóng)
+                  </p>
+                  <p className="text-xs font-bold text-slate-800 mb-1.5 flex flex-wrap gap-2 items-center">
+                    <span>Thời gian hòa vốn/có lời dự kiến:</span>
+                    <span className="bg-emerald-100 text-emerald-850 px-2 py-0.5 rounded font-bold">
+                      {pendingAICampaign.performanceReport.estimatedDaysToProfit} ngày
+                    </span>
+                    <span className="text-slate-400">|</span>
+                    <span>Lợi nhuận dự tính:</span>
+                    <span className="bg-emerald-100 text-emerald-850 px-2 py-0.5 rounded font-bold">
+                      {pendingAICampaign.performanceReport.estimatedProfit}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30">
+                    {pendingAICampaign.performanceReport.analysis}
+                  </p>
+                  <div className="mt-2 border-t border-emerald-100/60 pt-2 text-[10px] text-emerald-800/80 leading-relaxed font-medium">
+                    {pendingAIContext?.goal === "boost_sales" || !pendingAIContext ? (
+                      <span>💡 <strong>Cơ sở phân tích (Hàng bán chạy):</strong> Nhóm món ăn này có lượng nhu cầu hữu cơ cao và tệp khách quen sẵn có. Áp dụng ưu đãi sẽ kích cầu tức thì, giúp chiến dịch hòa vốn rất sớm (chỉ sau 2-3 ngày) và tối đa hóa doanh thu tích lũy.</span>
+                    ) : (
+                      <span>💡 <strong>Cơ sở phân tích (Giải phóng kho):</strong> Món ăn bán chậm cần mức ưu đãi hấp dẫn hơn và cần nhiều thời gian chạy để tiếp cận/thay đổi thói quen khách hàng. Điểm hòa vốn sẽ trễ hơn (5-7 ngày) nhằm đổi lấy mục tiêu cắt giảm chi phí tồn kho lâu ngày.</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-2xl border border-slate-200 p-4">
                 <p className="mb-3 text-sm font-bold text-slate-700">
                   Danh sách món được đề xuất
@@ -2553,11 +2608,60 @@ const AdminCampaigns = () => {
                           ngày gần nhất
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-sm font-bold text-orange-600">
-                        {pendingAICampaign.type === "fixed_price"
-                          ? `${product.fixedPrice?.toLocaleString("vi-VN") || 0}đ`
-                          : `-${product.discount ?? 10}%`}
-                      </span>
+                      <div className="shrink-0 self-start sm:self-center">
+                        {pendingAICampaign.type === "fixed_price" ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={product.fixedPrice ?? 0}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setPendingAICampaign((prev) => {
+                                  if (!prev) return null;
+                                  return {
+                                    ...prev,
+                                    products: prev.products.map((p) =>
+                                      p.productId === product.productId
+                                        ? { ...p, fixedPrice: val }
+                                        : p
+                                    ),
+                                  };
+                                });
+                              }}
+                              className="w-24 rounded-xl border border-orange-200 bg-white px-2 py-1 text-xs font-bold text-orange-700 text-right outline-none focus:ring-1 focus:ring-[#ee8c2b]"
+                            />
+                            <span className="text-xs font-bold text-slate-500">đ</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-slate-500">-</span>
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={product.discount ?? 10}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                const clamped = Math.min(100, Math.max(1, val));
+                                setPendingAICampaign((prev) => {
+                                  if (!prev) return null;
+                                  return {
+                                    ...prev,
+                                    products: prev.products.map((p) =>
+                                      p.productId === product.productId
+                                        ? { ...p, discount: clamped }
+                                        : p
+                                    ),
+                                  };
+                                });
+                              }}
+                              className="w-16 rounded-xl border border-orange-200 bg-white px-2 py-1 text-xs font-bold text-orange-700 text-right outline-none focus:ring-1 focus:ring-[#ee8c2b]"
+                            />
+                            <span className="text-xs font-bold text-slate-500">%</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

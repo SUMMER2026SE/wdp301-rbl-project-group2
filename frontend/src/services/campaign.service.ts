@@ -50,6 +50,12 @@ export interface CampaignSuggestionProduct {
   soldQuantity?: number;
 }
 
+export interface CampaignPerformanceReport {
+  estimatedDaysToProfit: number;
+  estimatedProfit: string;
+  analysis: string;
+}
+
 export interface CampaignSuggestionResponse {
   name: string;
   type: string;
@@ -60,6 +66,7 @@ export interface CampaignSuggestionResponse {
   rationale?: string;
   durationDays?: number;
   timeframeRationale?: string;
+  performanceReport?: CampaignPerformanceReport;
 }
 
 class CampaignAPI {
@@ -81,7 +88,7 @@ class CampaignAPI {
   async suggestCampaign(payload: {
     days?: number;
     weather?: "rainy" | "hot" | "cold" | "sunny" | "normal";
-    occasion?: "summer" | "christmas" | "tet" | "valentine" | "none";
+    occasion?: string;
     goal?: "boost_sales" | "clear_stock" | "contextual" | "engagement";
     productCount?: number;
   }): Promise<{ success: boolean; data: CampaignSuggestionResponse; message: string }> {

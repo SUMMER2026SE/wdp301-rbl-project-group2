@@ -429,7 +429,7 @@ export const getAICampaignSuggestionService = async (params: {
     })()
     : await resolveWeatherContext();
 
-  const occasion = params.occasion && params.occasion !== 'none'
+  const occasion = params.occasion && params.occasion !== 'none' && params.occasion !== 'auto'
     ? params.occasion
     : resolveOccasionContext();
 
