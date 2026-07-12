@@ -236,10 +236,29 @@ const AdminCampaigns = () => {
     setCustomOccasion("");
     setShowConfirmModal(false);
     setCreatedAiCampaignDraft(null);
+    setAiStartTime("");
+    setAiEndTime("");
     setShowAIModal(true);
   };
 
   const handleGenerateAISuggestion = async () => {
+    if (aiStartTime) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(aiStartTime) < today) {
+        toast.error("Thời gian bắt đầu phải từ ngày hôm nay trở đi");
+        return;
+      }
+    }
+    if (aiStartTime && aiEndTime) {
+      const start = new Date(aiStartTime);
+      const end = new Date(aiEndTime);
+      if (start >= end) {
+        toast.error("Thời gian kết thúc phải sau thời gian bắt đầu");
+        return;
+      }
+    }
+
     setAiSuggestion(null); // Xóa kết quả cũ ngay lập tức trước khi gọi API mới
     setAiSuggestionContext(null);
     setCreatedAiCampaignDraft(null);
@@ -261,13 +280,17 @@ const AdminCampaigns = () => {
         setAiSuggestionContext(requestContext);
 
         // Auto-save generated suggestion to database as a draft immediately
-        const startVal = res.data.startTime
-          ? res.data.startTime
-          : new Date().toISOString();
+        const startVal = aiStartTime
+          ? new Date(aiStartTime).toISOString()
+          : (res.data.startTime
+            ? res.data.startTime
+            : new Date().toISOString());
 
-        const endVal = res.data.endTime
-          ? res.data.endTime
-          : new Date(new Date(startVal).getTime() + (res.data.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString();
+        const endVal = aiEndTime
+          ? new Date(aiEndTime).toISOString()
+          : (res.data.endTime
+            ? res.data.endTime
+            : new Date(new Date(startVal).getTime() + (res.data.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString());
 
         const now = new Date();
         const timeString = now.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -314,7 +337,11 @@ const AdminCampaigns = () => {
   const handleApplyAISuggestion = () => {
     if (!createdAiCampaignDraft) return;
     setShowAIModal(false);
-    handleOpenEditModal(createdAiCampaignDraft);
+    handleOpenEditModal({
+      ...createdAiCampaignDraft,
+      ...(aiStartTime && { startTime: new Date(aiStartTime).toISOString() }),
+      ...(aiEndTime && { endTime: new Date(aiEndTime).toISOString() }),
+    });
   };
 
   const handleConfirmAICampaign = async () => {
@@ -549,7 +576,8 @@ const AdminCampaigns = () => {
   const handleOpenEditModal = (c: Campaign) => {
     setCampaignDraft(null);
     setEditingCampaign(c);
-    setFormName(c.name);
+    // Strip automatic AI draft timestamp suffix (HH:MM:SS) for a clean UI editing experience
+    setFormName(c.name.replace(/\s\(\d{2}:\d{2}:\d{2}\)$/, ""));
     setFormType(c.type);
     setStartTime(toLocalDatetimeInput(c.startTime));
     setEndTime(toLocalDatetimeInput(c.endTime));
@@ -613,6 +641,8 @@ const AdminCampaigns = () => {
       return toast.error("Vui lòng chọn thời gian bắt đầu và kết thúc");
     if (new Date(startTime) >= new Date(endTime))
       return toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
+    if (isStartTimeInPast)
+      return toast.error("Thời gian bắt đầu phải từ ngày hôm nay trở đi");
 
 
 
@@ -1325,7 +1355,7 @@ const AdminCampaigns = () => {
     ? "Tên chiến dịch không được để trống"
     : "";
 
-  const isStartTimeInPast = useMemo(() => {
+  const isStartTimeInPast = (() => {
     if (!startTime) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1337,7 +1367,7 @@ const AdminCampaigns = () => {
       return false;
     }
     return new Date(startTime) < today;
-  }, [startTime, editingCampaign]);
+  })();
 
   const timeError =
     !startTime || !endTime
@@ -2311,6 +2341,30 @@ const AdminCampaigns = () => {
                       className="mt-2.5 w-full rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-orange-500 transition-all font-semibold"
                     />
                   )}
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    📅 Ngày bắt đầu (Không bắt buộc)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={aiStartTime}
+                    onChange={(e) => setAiStartTime(e.target.value)}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-orange-100 bg-[#ee8c2b]/5 p-4">
+                  <label className="mb-2 block text-sm font-bold text-slate-700">
+                    📅 Ngày kết thúc (Không bắt buộc)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={aiEndTime}
+                    onChange={(e) => setAiEndTime(e.target.value)}
+                    className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  />
                 </div>
 
                 <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 md:col-span-2">
