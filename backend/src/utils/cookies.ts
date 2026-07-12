@@ -1,8 +1,8 @@
 import { CookieOptions, Response } from 'express';
-import { AUTH_ACCESS_TOKEN_TTL_MINUTES, AUTH_REFRESH_TOKEN_TTL_DAYS } from '@/constants/env';
+import { AUTH_ACCESS_TOKEN_TTL_MINUTES, AUTH_REFRESH_TOKEN_TTL_DAYS, NODE_ENV } from '@/constants/env';
 import { daysFromNow, minutesFromNow } from './date';
 
-const secure = process.env.NODE_ENV !== 'development';
+const secure = NODE_ENV !== 'development';
 export const REFRESH_PATH = '/api/auth/refresh';
 
 const defaults: CookieOptions = {

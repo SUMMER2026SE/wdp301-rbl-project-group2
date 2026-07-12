@@ -13,6 +13,8 @@ interface Message {
     recommendedProducts?: any[];
 }
 
+const CHAT_HISTORY_LIMIT = 12;
+
 // Simple Markdown parser to avoid React 19 JSX namespace conflicts with react-markdown
 function SimpleMarkdown({ children }: { children: string }) {
     if (!children) return null;
@@ -173,10 +175,13 @@ export function FloatingAIChatbot() {
 
         try {
             // Convert current messages to the format expected by the service
-            const history: ChatServiceMessage[] = messages.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                content: msg.content
-            }));
+            const history: ChatServiceMessage[] = messages
+                .filter((msg, index) => !(index === 0 && msg.role === 'assistant'))
+                .slice(-CHAT_HISTORY_LIMIT)
+                .map(msg => ({
+                    role: msg.role === 'user' ? 'user' : 'model',
+                    content: msg.content
+                }));
 
             const result = await sendChatMessage(userMsgContent, history);
  

@@ -2,7 +2,17 @@ import { useState, useEffect } from "react";
 import { clsx } from "clsx";
 import apiClient from "@/lib/api-client";
 import { AdminDrawer } from "@/components/shared/AdminDrawer";
-import { AlertTriangle } from "lucide-react";
+import {
+    AlertTriangle,
+    CheckCircle2,
+    HeartPulse,
+    History,
+    Info,
+    ShoppingBag,
+    Tags,
+    UsersRound,
+} from "lucide-react";
+import customerService, { type RecommendationInsightsResponse, type RecommendationScoreBreakdown } from "@/services/customer.service";
 
 // ============================================================
 // TYPES – map the shape returned by GET /api/admin/customers
@@ -44,7 +54,7 @@ interface Customer {
 
 interface ApiResponse {
     success?: boolean;
-    data?: CustomerAPI[] | { customers?: CustomerAPI[]; users?: CustomerAPI[] };
+    data?: CustomerAPI[] | { customers?: CustomerAPI[]; users?: CustomerAPI[]; total?: number; totalPages?: number; page?: number };
     customers?: CustomerAPI[];
     users?: CustomerAPI[];
     total?: number;
@@ -106,6 +116,46 @@ const SEGMENT_CHIPS = [
     { id: "inactive", label: "Không HĐ" },
 ];
 
+type RecommendationInsights = RecommendationInsightsResponse["data"];
+
+const SIGNAL_LABELS: Record<string, string> = {
+    collaborative: "Người dùng tương tự cũng chọn",
+    itemSimilarity: "Có liên quan đến món từng thích",
+    userSimilarity: "Hành vi mua tương đồng",
+    behavior: "Khách từng xem hoặc mở từ gợi ý",
+    campaign: "Đang có chiến dịch phù hợp",
+    healthGoal: "Phù hợp mục tiêu sức khỏe",
+    taste: "Khớp khẩu vị",
+    dietary: "Phù hợp chế độ ăn",
+    popularity: "Được nhiều khách chọn",
+    diversity: "Bổ sung sự đa dạng",
+    rotation: "Giúp khách đổi khẩu vị",
+};
+
+const getSimilarityLabel = (score: number) => {
+    if (score >= 0.7) return "Tương đồng cao";
+    if (score >= 0.4) return "Tương đồng vừa";
+    return "Có điểm chung";
+};
+
+const getActiveSignalLabels = (scoreBreakdown: RecommendationScoreBreakdown) =>
+    Object.entries(scoreBreakdown)
+        .filter(([, value]) => value > 0)
+        .map(([key]) => SIGNAL_LABELS[key] ?? key);
+
+const getProfileLabels = (insights: RecommendationInsights) => [
+    ...insights.userProfile.preferences.dietary.map((v) => `Ăn uống: ${v}`),
+    ...insights.userProfile.preferences.healthGoals.map((v) => `Sức khỏe: ${v}`),
+    ...insights.userProfile.preferences.tastes.map((v) => `Khẩu vị: ${v}`),
+    ...insights.userProfile.preferences.allergies.map((v) => `Dị ứng: ${v}`),
+];
+
+const getRecommendationHeadline = (scoreBreakdown: RecommendationScoreBreakdown) => {
+    const labels = getActiveSignalLabels(scoreBreakdown);
+    if (labels.length === 0) return "Được chọn từ thực đơn phù hợp";
+    return labels.slice(0, 2).join(" + ");
+};
+
 // ============================================================
 // COMPONENT
 // ============================================================
@@ -123,6 +173,9 @@ const AdminCustomers = () => {
 
     const [incidents, setIncidents] = useState<any[]>([]);
     const [loadingIncidents, setLoadingIncidents] = useState(false);
+    const [recommendationInsights, setRecommendationInsights] = useState<RecommendationInsights | null>(null);
+    const [loadingRecommendationInsights, setLoadingRecommendationInsights] = useState(false);
+    const [recommendationInsightsError, setRecommendationInsightsError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState("overview");
 
     // Fetch incidents when tab changes or customer changes
@@ -143,6 +196,38 @@ const AdminCustomers = () => {
         }
     }, [selectedCustomer, activeTab]);
 
+    useEffect(() => {
+        if (!selectedCustomer || activeTab !== "recommendations") return;
+
+        const fetchRecommendationInsights = async () => {
+            setLoadingRecommendationInsights(true);
+            setRecommendationInsightsError(null);
+            setRecommendationInsights(null);
+            try {
+                const res = await customerService.getRecommendationInsights(selectedCustomer.id);
+                setRecommendationInsights(res.data);
+            } catch (err: any) {
+                console.error("Lỗi tải phân tích gợi ý món:", err);
+                setRecommendationInsightsError(
+                    err?.response?.data?.message ||
+                    err?.response?.data?.error?.message ||
+                    "Không thể tải phân tích gợi ý món cho khách hàng này."
+                );
+            } finally {
+                setLoadingRecommendationInsights(false);
+            }
+        };
+
+        fetchRecommendationInsights();
+    }, [selectedCustomer, activeTab]);
+
+    useEffect(() => {
+        setPage(1);
+        if (searchQuery.trim()) {
+            setActiveSegment("all");
+        }
+    }, [searchQuery]);
+
     // ----------------------------------------------------------
     // Fetch từ API
     // ----------------------------------------------------------
@@ -152,7 +237,7 @@ const AdminCustomers = () => {
             setError(null);
             try {
                 const res = await apiClient.get<ApiResponse>("/admin/customers", {
-                    params: { page, limit: LIMIT },
+                    params: { page, limit: LIMIT, search: searchQuery.trim() || undefined },
                 });
                 const payload = res.data;
 
@@ -170,9 +255,13 @@ const AdminCustomers = () => {
                     raw = payload.users;
                 }
 
+                const nestedMeta = !Array.isArray(payload.data) && payload.data ? payload.data : undefined;
+                const nextTotal = nestedMeta?.total ?? payload.total ?? raw.length;
+                const nextTotalPages = nestedMeta?.totalPages ?? payload.totalPages ?? Math.ceil(nextTotal / LIMIT);
+
                 setCustomers(raw.map(normalizeCustomer));
-                setTotal(payload.total ?? raw.length);
-                setTotalPages((payload.totalPages ?? Math.ceil((payload.total ?? raw.length) / LIMIT)) || 1);
+                setTotal(nextTotal);
+                setTotalPages(nextTotalPages || 1);
             } catch (err: unknown) {
                 console.error("Lỗi tải danh sách khách hàng:", err);
                 setError("Không thể tải danh sách khách hàng. Vui lòng thử lại.");
@@ -182,7 +271,7 @@ const AdminCustomers = () => {
         };
 
         fetchCustomers();
-    }, [page]);
+    }, [page, searchQuery]);
 
     // ----------------------------------------------------------
     // Derived stats
@@ -196,8 +285,8 @@ const AdminCustomers = () => {
     // Filter (client-side trên trang hiện tại)
     // ----------------------------------------------------------
     const filtered = customers.filter((c) => {
-        const matchSeg = activeSegment === "all" || c.status === activeSegment;
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.trim().toLowerCase();
+        const matchSeg = q ? true : activeSegment === "all" || c.status === activeSegment;
         const matchQ =
             !q ||
             c.name.toLowerCase().includes(q) ||
@@ -395,7 +484,7 @@ const AdminCustomers = () => {
                                             Tỷ lệ hủy
                                         </th>
                                         <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider text-right">
-                                            Điểm
+                                            Tích lũy
                                         </th>
                                         <th className="px-6 py-4 text-xs font-bold uppercase text-[#9a734c] tracking-wider text-right">
                                             Thao tác
@@ -642,9 +731,19 @@ const AdminCustomers = () => {
                                     )}
                                     {activeTab === "incidents" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab("recommendations")}
+                                    className={clsx(
+                                        "px-4 py-3 text-sm font-bold transition-all relative",
+                                        activeTab === "recommendations" ? "text-orange-600" : "text-[#9a734c]"
+                                    )}
+                                >
+                                    Gợi ý món
+                                    {activeTab === "recommendations" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
+                                </button>
                             </div>
 
-                            {activeTab === "overview" ? (
+                            {activeTab === "overview" && (
                                 <>
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="p-4 bg-[#fcfaf8] rounded-2xl border border-[#e7dbcf]/50">
@@ -672,7 +771,9 @@ const AdminCustomers = () => {
                                         </div>
                                     </div>
                                 </>
-                            ) : (
+                            )}
+
+                            {activeTab === "incidents" && (
                                 <div className="space-y-4">
                                     {loadingIncidents ? (
                                         <div className="py-10 flex justify-center">
@@ -694,6 +795,264 @@ const AdminCustomers = () => {
                                                 </p>
                                             </div>
                                         ))
+                                    )}
+                                </div>
+                            )}
+
+                            {activeTab === "recommendations" && (
+                                <div className="space-y-5">
+                                    {loadingRecommendationInsights ? (
+                                        <div className="py-10 flex justify-center">
+                                            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    ) : recommendationInsightsError ? (
+                                        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                                            <p className="text-sm font-bold text-red-700">{recommendationInsightsError}</p>
+                                        </div>
+                                    ) : recommendationInsights ? (
+                                        (() => {
+                                            const profileLabels = getProfileLabels(recommendationInsights);
+
+                                            return (
+                                                <>
+                                                    <div className="p-4 bg-[#fcfaf8] border border-[#e7dbcf] rounded-2xl">
+                                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                                                                    <Info size={20} />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-black text-[#1b140d]">Cách hệ thống ra gợi ý</p>
+                                                                    <p className="text-xs text-[#7b5737] mt-1 leading-relaxed">
+                                                                        Hệ thống đọc hồ sơ và lịch sử mua, so khớp với nhóm khách tương đồng, sau đó chọn các món có bằng chứng phù hợp nhất.
+                                                                    </p>
+                                                                    <p className="text-[11px] text-[#9a734c] font-bold mt-2">
+                                                                        Nguồn: {recommendationInsights.algorithmVersion} · Cập nhật {new Date(recommendationInsights.computedAt).toLocaleString("vi-VN")}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                                                            {[
+                                                                { icon: History, title: "1. Đọc dữ liệu", detail: `${recommendationInsights.interactionSummary.completedOrders} đơn, ${recommendationInsights.interactionSummary.reviewedProducts} đánh giá, ${recommendationInsights.interactionSummary.viewedProducts ?? 0} món đã xem` },
+                                                                { icon: UsersRound, title: "2. So khớp", detail: `${recommendationInsights.topSimilarUsers.length} nhóm khách tương đồng` },
+                                                                { icon: ShoppingBag, title: "3. Gợi ý món", detail: `${recommendationInsights.recommendations.length} món đang phù hợp` },
+                                                            ].map((step) => (
+                                                                <div key={step.title} className="flex items-start gap-2 rounded-xl border border-[#e7dbcf] bg-white px-3 py-2">
+                                                                    <step.icon size={16} className="text-orange-600 mt-0.5 shrink-0" />
+                                                                    <div>
+                                                                        <p className="text-xs font-black text-[#1b140d]">{step.title}</p>
+                                                                        <p className="text-[11px] text-[#9a734c] font-semibold">{step.detail}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        {recommendationInsights.fallback.usedPopularityFallback && (
+                                                            <div className="mt-3 flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800 font-semibold">
+                                                                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                                                                <span>{recommendationInsights.fallback.reason}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="p-4 bg-white border border-[#e7dbcf] rounded-2xl">
+                                                        <div className="flex items-start gap-3 mb-4">
+                                                            <div className="w-9 h-9 rounded-xl bg-[#f3ede7] text-[#7b5737] flex items-center justify-center shrink-0">
+                                                                <HeartPulse size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-[#1b140d]">1. Dữ liệu đầu vào của khách</h4>
+                                                                <p className="text-xs text-[#9a734c] mt-1">
+                                                                    Đây là phần hệ thống dùng để hiểu khẩu vị, thói quen và ràng buộc sức khỏe.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+                                                            <div className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] px-3 py-2">
+                                                                <p className="text-lg font-black text-[#1b140d]">{recommendationInsights.interactionSummary.completedOrders}</p>
+                                                                <p className="text-[10px] font-bold text-[#9a734c] uppercase">Đơn hoàn tất</p>
+                                                            </div>
+                                                            <div className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] px-3 py-2">
+                                                                <p className="text-lg font-black text-[#1b140d]">{recommendationInsights.interactionSummary.reviewedProducts}</p>
+                                                                <p className="text-[10px] font-bold text-[#9a734c] uppercase">Món đã đánh giá</p>
+                                                            </div>
+                                                            <div className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] px-3 py-2">
+                                                                <p className="text-lg font-black text-[#1b140d]">{recommendationInsights.interactionSummary.viewedProducts ?? 0}</p>
+                                                                <p className="text-[10px] font-bold text-[#9a734c] uppercase">Món đã xem</p>
+                                                            </div>
+                                                            <div className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] px-3 py-2">
+                                                                <p className="text-lg font-black text-[#1b140d]">{recommendationInsights.interactionSummary.recommendationClicks ?? 0}</p>
+                                                                <p className="text-[10px] font-bold text-[#9a734c] uppercase">Click gợi ý</p>
+                                                            </div>
+                                                            <div className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] px-3 py-2">
+                                                                <p className="text-lg font-black text-[#1b140d]">{profileLabels.length}</p>
+                                                                <p className="text-[10px] font-bold text-[#9a734c] uppercase">Tín hiệu hồ sơ</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {profileLabels.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {profileLabels.map((label) => (
+                                                                    <span key={label} className="px-2.5 py-1 bg-[#f3ede7] text-[#1b140d] rounded-lg text-xs font-bold">
+                                                                        {label}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-start gap-2 rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] p-3">
+                                                                <Info size={16} className="text-[#9a734c] shrink-0 mt-0.5" />
+                                                                <p className="text-sm text-[#9a734c] italic">Khách hàng chưa có hồ sơ sở thích/sức khỏe, hệ thống sẽ ưu tiên lịch sử mua và món phổ biến.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="p-4 bg-white border border-[#e7dbcf] rounded-2xl">
+                                                        <div className="flex items-start gap-3 mb-4">
+                                                            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center shrink-0">
+                                                                <UsersRound size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-[#1b140d]">2. Bằng chứng từ khách hàng tương đồng</h4>
+                                                                <p className="text-xs text-[#9a734c] mt-1">
+                                                                    Những khách này có món đã mua, đánh giá hoặc tín hiệu khẩu vị giống khách đang xem.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {recommendationInsights.topSimilarUsers.length === 0 ? (
+                                                            <div className="flex items-start gap-2 rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] p-3">
+                                                                <Info size={16} className="text-[#9a734c] shrink-0 mt-0.5" />
+                                                                <p className="text-sm text-[#9a734c] italic">Chưa đủ lịch sử mua hàng để tìm nhóm khách tương đồng.</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-3">
+                                                                {recommendationInsights.topSimilarUsers.map((user) => (
+                                                                    <div key={user.userIdHash} className="rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] p-3">
+                                                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                                            <div>
+                                                                                <p className="text-sm font-black text-[#1b140d]">Khách tương tự {user.userIdHash}</p>
+                                                                                <p className="text-xs text-[#9a734c] mt-0.5">
+                                                                                    {user.sharedSignals.slice(0, 3).join(" · ") || "Có hành vi mua tương đồng"}
+                                                                                </p>
+                                                                            </div>
+                                                                            <span className="w-fit px-2 py-1 bg-orange-50 text-orange-700 rounded-lg text-xs font-black">
+                                                                                {getSimilarityLabel(user.similarity)}
+                                                                            </span>
+                                                                        </div>
+                                                                        {user.supportingProducts.length > 0 && (
+                                                                            <div className="mt-3 flex items-start gap-2">
+                                                                                <Tags size={14} className="text-[#9a734c] mt-0.5 shrink-0" />
+                                                                                <p className="text-xs text-[#7b5737] font-semibold">
+                                                                                    Món làm bằng chứng: {user.supportingProducts.map((p) => p.productName).join(", ")}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                                                                <CheckCircle2 size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-sm font-black text-[#1b140d]">3. Món được gợi ý và lý do</h4>
+                                                                <p className="text-xs text-[#9a734c] mt-1">
+                                                                    Mỗi món bên dưới có lý do chính, tín hiệu khớp và bằng chứng cụ thể để admin kiểm chứng.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {recommendationInsights.recommendations.length === 0 ? (
+                                                            <div className="p-4 bg-[#fcfaf8] border border-[#e7dbcf] rounded-2xl text-sm text-[#9a734c] italic">
+                                                                Chưa có món phù hợp sau khi lọc an toàn.
+                                                            </div>
+                                                        ) : (
+                                                            recommendationInsights.recommendations.map((item, index) => {
+                                                                const activeSignals = getActiveSignalLabels(item.explanation.scoreBreakdown);
+                                                                const headline = getRecommendationHeadline(item.explanation.scoreBreakdown);
+
+                                                                return (
+                                                                    <div key={item.product._id} className="p-4 bg-white border border-[#e7dbcf] rounded-2xl">
+                                                                        <div className="flex items-start gap-3">
+                                                                            {item.product.image ? (
+                                                                                <img src={item.product.image} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover border border-[#e7dbcf] shrink-0" />
+                                                                            ) : (
+                                                                                <div className="w-16 h-16 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 font-black shrink-0">
+                                                                                    {index + 1}
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                                                    <div>
+                                                                                        <p className="text-sm font-black text-[#1b140d]">{item.product.name}</p>
+                                                                                        <p className="text-xs text-[#9a734c]">{item.product.category}</p>
+                                                                                    </div>
+                                                                                    <span className="w-fit px-2 py-1 bg-orange-50 text-orange-700 rounded-lg text-xs font-black">
+                                                                                        Gợi ý #{index + 1}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="mt-3 rounded-xl bg-orange-50 border border-orange-100 p-3">
+                                                                                    <p className="text-[10px] font-black text-orange-700 uppercase mb-1">Lý do chính</p>
+                                                                                    <p className="text-xs font-black text-[#1b140d]">{headline}</p>
+                                                                                    <p className="text-xs text-[#7b5737] mt-1 leading-relaxed">{item.explanation.reason}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {activeSignals.length > 0 && (
+                                                                            <div className="mt-3">
+                                                                                <p className="text-[10px] font-black text-[#9a734c] uppercase mb-2">Tín hiệu khớp</p>
+                                                                                <div className="flex flex-wrap gap-2">
+                                                                                    {activeSignals.map((label) => (
+                                                                                        <span key={label} className="px-2.5 py-1 bg-[#fcfaf8] border border-[#e7dbcf] rounded-lg text-[11px] text-[#5f4630] font-bold">
+                                                                                            {label}
+                                                                                        </span>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {item.explanation.matchedSignals.length > 0 && (
+                                                                            <div className="mt-3 rounded-xl bg-[#fcfaf8] border border-[#e7dbcf] p-3">
+                                                                                <p className="text-[10px] font-black text-[#9a734c] uppercase mb-2">Bằng chứng cụ thể</p>
+                                                                                <div className="space-y-1.5">
+                                                                                    {item.explanation.matchedSignals.map((signal) => (
+                                                                                        <div key={signal} className="flex items-start gap-2 text-xs text-[#5f4630]">
+                                                                                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                                                                                            <span>{signal}</span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {item.explanation.similarProducts.length > 0 && (
+                                                                            <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
+                                                                                <p className="text-[10px] font-black text-blue-700 uppercase mb-1">Món liên quan để đối chiếu</p>
+                                                                                <p className="text-xs text-blue-900 font-semibold">
+                                                                                    {item.explanation.similarProducts.map((p) => p.productName).join(", ")}
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </>
+                                            );
+                                        })()
+                                    ) : (
+                                        <div className="py-10 text-center text-gray-500 text-sm italic">
+                                            Chọn tab để tải phân tích gợi ý món.
+                                        </div>
                                     )}
                                 </div>
                             )}

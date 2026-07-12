@@ -5,6 +5,13 @@ export interface AIRecommendation {
     product: Product;
     aiReason: string;
     healthScore: number;
+    explanation?: {
+        reason: string;
+        algorithmVersion: string;
+        finalScore: number;
+        scoreBreakdown: Record<string, number>;
+        matchedSignals: string[];
+    };
 }
 
 export interface SafeFoodsResponse {
@@ -23,6 +30,9 @@ export interface SafeFoodsResponse {
 }
 
 const recommendationService = {
+    getPersonalizedRecommendations: (params?: { storeId?: string; refresh?: boolean }) => {
+        return apiClient.get<{ data: AIRecommendation[] }>('/products/recommendations', { params });
+    },
     getAIRecommendations: (params?: { storeId?: string; refresh?: boolean }) => {
         return apiClient.get<{ data: AIRecommendation[] }>('/products/recommendations', { params });
     },

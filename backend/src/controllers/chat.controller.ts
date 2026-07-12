@@ -20,7 +20,6 @@ redis.on('error', (err) => {
         console.warn('[Redis] chat.controller cache unavailable:', err.message);
     }
 });
-
 const getDisplayPrice = (product: { price: number; campaignPrice?: number }) =>
     product.campaignPrice ?? product.price;
 

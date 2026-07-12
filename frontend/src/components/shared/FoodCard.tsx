@@ -30,6 +30,7 @@ export interface FoodCardProps {
         value: number;
         label: string;
     };
+    onViewDetails?: (id: string) => void;
     onAddToCart?: (id: string, trigger?: HTMLButtonElement | null) => void;
     className?: string;
 }
@@ -57,6 +58,7 @@ export function FoodCard({
     variant = 'vertical',
     customBadge,
     progress,
+    onViewDetails,
     onAddToCart,
     className = '',
 }: FoodCardProps) {
@@ -73,6 +75,11 @@ export function FoodCard({
         onAddToCart(id, e.currentTarget);
     };
 
+    const handleViewDetails = () => {
+        onViewDetails?.(id);
+        navigate(`/food/${id}`);
+    };
+
     const discountPercentage = originalPrice && originalPrice > price
         ? Math.round(((originalPrice - price) / originalPrice) * 100)
         : null;
@@ -81,7 +88,7 @@ export function FoodCard({
         return (
             <div
                 className={`group flex bg-white rounded-2xl p-4 gap-4 shadow-sm border border-orange-50 hover:shadow-xl hover:shadow-orange-500/10 transition-all cursor-pointer ${className}`}
-                onClick={() => navigate(`/food/${id}`)}
+                onClick={handleViewDetails}
             >
                 {/* Image */}
                 <div className="relative w-28 h-28 rounded-xl overflow-hidden shrink-0 bg-orange-50">
@@ -159,7 +166,7 @@ export function FoodCard({
     return (
         <div
             className={`group relative bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-2xl hover:shadow-orange-900/5 transition-all duration-500 cursor-pointer ${className}`}
-            onClick={() => navigate(`/food/${id}`)}
+            onClick={handleViewDetails}
         >
             {/* Image Container */}
             <div className="relative aspect-[4/3] overflow-hidden m-2 rounded-2xl">

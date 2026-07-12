@@ -281,7 +281,7 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 export const getCustomersWithStats = async (page: number = 1, limit: number = 10, search?: string) => {
   const skip = (page - 1) * limit;
 
-  const matchQuery: any = { role: Role.CUSTOMER };
+  const matchQuery: any = { role: { $in: [Role.CUSTOMER, 'CUSTOMER'] } };
 
   if (search && search.trim() !== '') {
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

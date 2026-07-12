@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  PRODUCT_BEHAVIOR_EVENT_SOURCES,
+  PRODUCT_BEHAVIOR_EVENT_TYPES,
+} from '@/models/product-behavior-event.model';
 
 const variantOptionValidator = z.object({
   choice: z.string().min(1, 'Option choice is required').trim(),
@@ -42,3 +46,9 @@ export const productValidator = z.object({
 });
 
 export const updateProductValidator = productValidator.partial();
+
+export const productBehaviorEventValidator = z.object({
+  eventType: z.enum(PRODUCT_BEHAVIOR_EVENT_TYPES),
+  source: z.enum(PRODUCT_BEHAVIOR_EVENT_SOURCES).optional().default('unknown'),
+  storeId: z.string().length(24, 'storeId không hợp lệ').optional().nullable(),
+});
