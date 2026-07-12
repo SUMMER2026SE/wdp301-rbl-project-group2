@@ -14,6 +14,12 @@ const redis = new Redis({
     password: (redisConfig as any).password,
 });
 
+redis.on('error', (err) => {
+    // Suppress unhandled error crash — Redis optional in local dev (chat rate-limiting cache)
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Redis] chat.controller cache unavailable:', err.message);
+    }
+});
 const getDisplayPrice = (product: { price: number; campaignPrice?: number }) =>
     product.campaignPrice ?? product.price;
 

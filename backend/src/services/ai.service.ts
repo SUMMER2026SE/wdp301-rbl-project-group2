@@ -1032,9 +1032,12 @@ YÊU CẦU ĐỀ XUẤT CHIẾN DỊCH:
 3. Chọn loại chiến dịch (type): 'discount' (khuyến mãi phần trăm giảm giá) hoặc 'fixed_price' (bán với giá cố định).
 4. Đề xuất số ngày chạy chiến dịch (durationDays) từ 1 đến 30 ngày, nên phù hợp với ${days} ngày phân tích.
 5. Chọn đúng ${preferredCount} món từ danh sách trên (TUYỆT ĐỐI không bịa thêm sản phẩm khác, chỉ dùng productId từ danh sách).
-   - Nếu type là 'discount', đề xuất phần trăm giảm giá "discount" (từ 5 đến 50).
+   - Nếu type là 'discount', đề xuất phần trăm giảm giá "discount" (từ 5 đến 50). Quy tắc lựa chọn % giảm giá:
+     * boost_sales (hàng bán chạy): giảm nhẹ 10-20% để giữ biên lợi nhuận cao, vì hàng đã có nhu cầu tốt — không cần giảm sâu.
+     * clear_stock (hàng tồn kho): giảm mạnh 20-40% để tạo động lực mạnh cho khách hàng thử món mới.
+     * contextual (phù hợp mùa/lễ): giảm 15-25% vừa tạo hấp dẫn vừa phù hợp tâm lý mùa vụ.
    - Nếu type là 'fixed_price', đề xuất giá mới "fixedPrice" (thấp hơn giá gốc từ 10% đến 50%).
-   - Cung cấp lý do ngắn gọn "reason" vì sao chọn món này (1-2 câu).
+   - QUAN TRỌNG: Trường "reason" phải giải thích CẢ HAI: (a) tại sao chọn món này, VÀ (b) tại sao chọn mức % giảm giá cụ thể đó. Ví dụ: "Món bán chạy nhất với 45 suất — giảm 15% để kích thích thêm lượt đặt mà vẫn giữ biên lợi nhuận." hoặc "Món bán chậm chỉ 2 suất — giảm 30% để tạo động lực mạnh cho khách hàng lần đầu thử."
 6. Viết lý do tổng quan (rationale) vì sao chiến dịch này hiệu quả với mục tiêu, thời tiết và dịp lễ đã chọn.
 7. Lập báo cáo hiệu suất dự tính (performanceReport) bao gồm:
    - estimatedDaysToProfit: Số ngày dự tính chạy chiến dịch để đạt điểm hòa vốn hoặc bắt đầu có lời (phải là số nguyên nằm trong khoảng từ 1 đến durationDays).
@@ -1064,7 +1067,7 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
       "name": "Tên sản phẩm tương ứng",
       "discount": 15,
       "fixedPrice": null,
-      "reason": "Lý do ngắn gọn bằng tiếng Việt"
+      "reason": "Món bán chạy nhất với 45 suất trong 14 ngày — giảm 15% để kích thích thêm lượt đặt mà vẫn giữ biên lợi nhuận cao."
     }
   ],
   "rationale": "Lý do tổng quan...",
@@ -1076,69 +1079,71 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
 }
 `;
 
-  try {
-    console.log('[AI Campaign] Calling Gemini with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
-    const result = await withTimeout(model.generateContent(prompt), 30000);
+  // ── Primary: Groq (api.groq.com — more accessible from Vietnam) ──────────
+  const tryGroq = async () => {
+    console.log('[AI Campaign] Calling Groq (primary) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
+    const completion = await withTimeout(
+      groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.4,
+        response_format: { type: 'json_object' },
+      }),
+      15000
+    );
+    const raw = completion.choices[0]?.message?.content ?? '{}';
+    console.log('[AI Campaign] Groq raw response:', raw.slice(0, 500));
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in Groq campaign response');
+    const rawData = JSON.parse(jsonMatch[0]);
+    const parsed = aiCampaignSuggestionResponseSchema.safeParse(rawData);
+    if (!parsed.success) {
+      console.error('[AI Campaign] Groq Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
+      throw new Error('Invalid Groq campaign suggestion shape');
+    }
+    console.log('[AI Campaign] Groq succeeded.');
+    return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
+  };
+
+  // ── Secondary: Gemini ─────────────────────────────────────────────────────
+  const tryGemini = async () => {
+    console.log('[AI Campaign] Calling Gemini (fallback) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
+    const result = await withTimeout(model.generateContent(prompt), 20000);
     const text = result.response.text();
-    console.log('[AI Campaign] Raw response:', text.slice(0, 500));
-
+    console.log('[AI Campaign] Gemini raw response:', text.slice(0, 500));
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in AI campaign suggestion response');
-
+    if (!jsonMatch) throw new Error('No JSON in Gemini campaign suggestion response');
     let rawData: unknown;
     try {
       rawData = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
-      console.error('[AI Campaign] JSON parse error:', parseErr, '\nRaw match:', jsonMatch[0].slice(0, 300));
-      throw new Error('AI response is not valid JSON');
+      console.error('[AI Campaign] Gemini JSON parse error:', parseErr);
+      throw new Error('Gemini response is not valid JSON');
     }
-
     const parsed = aiCampaignSuggestionResponseSchema.safeParse(rawData);
     if (!parsed.success) {
-      console.error('[AI Campaign] Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
-      console.error('[AI Campaign] Raw data that failed:', JSON.stringify(rawData, null, 2));
-      throw new Error('Invalid AI campaign suggestion shape');
+      console.error('[AI Campaign] Gemini Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
+      throw new Error('Invalid Gemini campaign suggestion shape');
     }
-
+    console.log('[AI Campaign] Gemini succeeded.');
     return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
-  } catch (geminiError) {
-    console.error('[AI Campaign] Gemini FAILED:', geminiError instanceof Error ? geminiError.message : String(geminiError));
-    console.log('[AI Campaign] Trying Groq fallback...');
+  };
 
-    // ── Groq fallback ─────────────────────────────────────────────────────
+  try {
+    return await tryGroq();
+  } catch (groqError) {
+    console.error('[AI Campaign] Groq FAILED:', groqError instanceof Error ? groqError.message : String(groqError));
+    console.log('[AI Campaign] Trying Gemini fallback...');
     try {
-      const completion = await withTimeout(
-        groq.chat.completions.create({
-          messages: [{ role: 'user', content: prompt }],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.4,
-          response_format: { type: 'json_object' },
-        }),
-        25000
-      );
-
-      const raw = completion.choices[0]?.message?.content ?? '{}';
-      console.log('[AI Campaign] Groq raw response:', raw.slice(0, 500));
-
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in Groq campaign response');
-
-      const rawData = JSON.parse(jsonMatch[0]);
-      const parsed = aiCampaignSuggestionResponseSchema.safeParse(rawData);
-      if (!parsed.success) {
-        console.error('[AI Campaign] Groq Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
-        throw new Error('Invalid Groq campaign suggestion shape');
-      }
-
-      console.log('[AI Campaign] Groq succeeded.');
-      return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
-    } catch (groqError) {
-      console.error('[AI Campaign] Groq FAILED:', groqError instanceof Error ? groqError.message : String(groqError));
+      return await tryGemini();
+    } catch (geminiError) {
+      console.error('[AI Campaign] Gemini FAILED:', geminiError instanceof Error ? geminiError.message : String(geminiError));
     }
-
-    // ── Deterministic fallback (both AI providers failed) ─────────────────
-    return buildDeterministicFallback({ contextualCandidates, bestSellers, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
   }
+
+  // ── Deterministic fallback (both AI providers failed) ─────────────────────
+  console.warn('[AI Campaign] Both AI providers failed. Using deterministic fallback.');
+  return buildDeterministicFallback({ contextualCandidates, bestSellers, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
 };
 
 const calculateEstimatedPerformanceReport = (
@@ -1202,17 +1207,20 @@ const buildAICampaignResult = (
   const parsedStart = startTime ? new Date(startTime) : null;
   const parsedEnd = endTime ? new Date(endTime) : null;
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const defaultStart = new Date();
   defaultStart.setDate(defaultStart.getDate() + 1);
   defaultStart.setHours(0, 0, 0, 0);
 
-  if (!parsedStart || isNaN(parsedStart.getTime())) {
+  if (!parsedStart || isNaN(parsedStart.getTime()) || parsedStart < today) {
     startTime = defaultStart.toISOString();
   } else {
     startTime = parsedStart.toISOString();
   }
 
-  if (!parsedEnd || isNaN(parsedEnd.getTime())) {
+  if (!parsedEnd || isNaN(parsedEnd.getTime()) || parsedEnd <= new Date(startTime)) {
     const sDate = new Date(startTime);
     sDate.setDate(sDate.getDate() + (aiData.durationDays || 7));
     endTime = sDate.toISOString();
@@ -1248,27 +1256,31 @@ const buildDeterministicFallback = (ctx: {
 
   const chosen = candidates.slice(0, ctx.preferredCount);
 
-  // Goal-aware product reason
-  const productReason = (p: any): string => {
+  // Goal-aware product reason — explains BOTH why the product was chosen AND why the specific % was picked
+  const productReason = (p: any, discount: number): string => {
     const soldQty = ctx.salesByProduct?.[p.productId] || ctx.bestSellersSoldMap?.[p.productId] || p.totalQtySold || 0;
     if (ctx.goal === 'boost_sales') {
-      return `Món bán chạy với ${soldQty} suất trong khoảng phân tích — phù hợp để khuếch đại doanh thu.`;
+      return `Món bán chạy với ${soldQty} suất trong ${ctx.days} ngày qua — giảm ${discount}% để kích thích thêm lượt đặt hàng mà vẫn giữ biên lợi nhuận cao, vì hàng đã có nhu cầu tốt sẵn.`;
     }
     if (ctx.goal === 'clear_stock') {
-      return `Món bán chậm (${soldQty} suất) — cần đẩy tồn kho qua khuyến mãi hấp dẫn.`;
+      return `Món bán chậm (chỉ ${soldQty} suất trong ${ctx.days} ngày) — giảm ${discount}% để tạo động lực mạnh, giúp khách hàng mạnh dạn thử món mới và giải phóng tồn kho hiệu quả.`;
     }
-    return `Món phù hợp với ngữ cảnh ${ctx.occasion !== 'none' ? ctx.occasion : ctx.weatherInfo?.type ?? ''} — tạo trải nghiệm ẩm thực đặc biệt.`;
+    const contextLabel = ctx.occasion !== 'none' ? ctx.occasion : (ctx.weatherInfo?.type ?? 'hiện tại');
+    return `Món phù hợp với ngữ cảnh ${contextLabel} — giảm ${discount}% để tạo sức hút vừa phải, phù hợp tâm lý mua sắm theo mùa vụ.`;
   };
 
   const products = chosen.map((p) => {
     const windowSales = ctx.salesByProduct?.[p.productId] ?? 0;
     const soldQuantity = windowSales > 0 ? windowSales : (ctx.bestSellersSoldMap?.[p.productId] ?? p.totalQtySold ?? 0);
+    // Discount % chosen based on goal: clear_stock needs deep discount to move slow items;
+    // boost_sales uses lighter discount to preserve margin on already-popular items.
+    const discount = ctx.goal === 'clear_stock' ? 20 : ctx.goal === 'contextual' ? 18 : 15;
     return {
       productId: p.productId,
       name: p.name,
-      discount: ctx.goal === 'clear_stock' ? 20 : 15,
+      discount,
       fixedPrice: undefined as number | undefined,
-      reason: productReason(p),
+      reason: productReason(p, discount),
       soldQuantity,
     };
   });
