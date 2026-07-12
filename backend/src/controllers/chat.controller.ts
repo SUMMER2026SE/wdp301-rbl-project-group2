@@ -5,7 +5,8 @@ import ProductModel from '@/models/product.model';
 import Redis from 'ioredis';
 import { redisConfig } from '@/config/redis';
 import { applyCampaignPricing } from '@/services/product.service';
-
+import { chatRequestValidator } from '@/validators/chat.validator';
+import { parseChatSearchPlan } from '@/services/chat-query-planner.service';
 
 const redis = new Redis({
     host: (redisConfig as any).host,
@@ -14,7 +15,7 @@ const redis = new Redis({
 });
 
 redis.on('error', (err) => {
-    // Suppress unhandled error crash — Redis is optional in local dev (used for chat rate-limiting cache)
+    // Suppress unhandled error crash — Redis optional in local dev (chat rate-limiting cache)
     if (process.env.NODE_ENV !== 'production') {
         console.warn('[Redis] chat.controller cache unavailable:', err.message);
     }
@@ -27,12 +28,15 @@ const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}đ`;
 
 export const handleChat = async (req: Request, res: Response) => {
     try {
-        const { message, history } = req.body;
-        const userId = req.userId;
-
-        if (!message) {
-            return res.status(400).json({ message: 'Vui lòng nhập tin nhắn.' });
+        const parsedBody = chatRequestValidator.safeParse(req.body);
+        if (!parsedBody.success) {
+            const firstIssue = parsedBody.error.issues[0];
+            return res.status(400).json({ message: firstIssue?.message || 'Dữ liệu chat không hợp lệ.' });
         }
+
+        const { message, history } = parsedBody.data;
+        const userId = req.userId;
+        const initialSearchPlan = parseChatSearchPlan(message);
 
         const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
 
@@ -77,9 +81,16 @@ export const handleChat = async (req: Request, res: Response) => {
             }
         }
 
+        if (initialSearchPlan.hasNoBudget) {
+            return res.json({
+                response: 'Nếu hiện tại bạn chưa có ngân sách, mình chưa nên gợi ý món cần thanh toán trong thực đơn. Bạn có thể lưu lại vài món giá thấp để tham khảo sau, hoặc xem ưu đãi/voucher khi có nhu cầu đặt món nhé.',
+                recommendedProducts: []
+            });
+        }
+
         // 1. Phân loại ý định (Intent Routing)
         const intent = await classifyIntent(message);
-        console.log(`[Chatbot] Classified intent: ${intent} for message: "${message.slice(0, 40)}"`);
+        console.log(`[Chatbot] Classified intent: ${intent}`);
 
         // Xử lý các intent ngắn (Rule-based templates)
         if (intent === 'GREETING') {
@@ -121,7 +132,8 @@ export const handleChat = async (req: Request, res: Response) => {
             if (user) {
                 const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [], tastes: [] };
                 userContext = {
-                    fullName: (user.username || user.fullName || 'Người dùng').toString(),
+                    userId: userId.toString(),
+                    fullName: 'Người dùng',
                     preferences: preferences as any,
                     safeProducts: [] // Keep empty as we do tool calling now
                 };
@@ -129,9 +141,9 @@ export const handleChat = async (req: Request, res: Response) => {
         }
 
         // Format history for Gemini/Groq
-        const formattedHistory = (history || []).map((h: any) => ({
-            role: h.role === 'user' ? 'user' : 'model',
-            parts: [{ text: h.content || h.parts[0].text }],
+        const formattedHistory = history.map((h) => ({
+            role: h.role === 'user' ? 'user' as const : 'model' as const,
+            parts: [{ text: h.content }],
         }));
 
         // Call the AI Agent
@@ -148,19 +160,53 @@ export const handleChat = async (req: Request, res: Response) => {
         if (verifiedIds.length > 0) {
             const products = await ProductModel.find({ _id: { $in: verifiedIds } }).lean();
             if (products.length > 0) {
+                const orderById = new Map(verifiedIds.map((id, index) => [id, index]));
+                products.sort((a, b) =>
+                    (orderById.get(a._id.toString()) ?? Number.MAX_SAFE_INTEGER)
+                    - (orderById.get(b._id.toString()) ?? Number.MAX_SAFE_INTEGER)
+                );
+
                 // Apply campaign pricing logic
                 const pricedProducts = await applyCampaignPricing(products);
-                recommendedProducts = pricedProducts.map(p => ({
+                const budgetVnd = aiChatResponse.budgetVnd ?? parseChatSearchPlan(message).budgetVnd ?? undefined;
+                let displayProducts = pricedProducts;
+
+                if (budgetVnd) {
+                    let remainingBudget = budgetVnd;
+                    displayProducts = [];
+
+                    for (const product of pricedProducts) {
+                        const price = getDisplayPrice(product);
+                        if (price <= remainingBudget) {
+                            displayProducts.push(product);
+                            remainingBudget -= price;
+                        }
+                    }
+                }
+
+                recommendedProducts = displayProducts.map(p => ({
                     _id: p._id.toString(),
                     name: p.name,
-                    price: p.campaignPrice ?? p.price,
+                    price: getDisplayPrice(p),
                     image: p.image || '',
                     category: p.category,
                     description: p.description
                 }));
-                finalMessage += "\n\n**Các món ăn gợi ý cho bạn:**\n" + pricedProducts.map(p =>
-                    `- **${p.name}** (${(p.campaignPrice ?? p.price).toLocaleString()}đ${p.campaignPrice ? ' - Giá gốc: ~~' + p.price.toLocaleString() + 'đ~~' : ''}): ${p.description || ''}`
-                ).join('\n');
+
+                if (displayProducts.length > 0) {
+                    const totalPrice = displayProducts.reduce((sum, product) => sum + getDisplayPrice(product), 0);
+                    const productLines = displayProducts.map(p =>
+                        `- **${p.name}** (${formatVnd(getDisplayPrice(p))}${p.campaignPrice ? ' - Giá gốc: ~~' + formatVnd(p.price) + '~~' : ''}): ${p.description || ''}`
+                    ).join('\n');
+
+                    if (budgetVnd) {
+                        finalMessage = `Với ngân sách ${formatVnd(budgetVnd)}, mình đã lọc combo sao cho tổng không vượt ngân sách. Tổng tạm tính: ${formatVnd(totalPrice)}, còn dư khoảng ${formatVnd(budgetVnd - totalPrice)}.\n\n**Combo gợi ý cho bạn:**\n${productLines}`;
+                    } else {
+                        finalMessage += "\n\n**Các món ăn gợi ý cho bạn:**\n" + productLines;
+                    }
+                } else if (budgetVnd) {
+                    finalMessage = `Mình chưa tìm thấy món phù hợp trong ngân sách ${formatVnd(budgetVnd)} ở thực đơn hiện tại. Bạn có thể tăng ngân sách một chút hoặc hỏi theo món cụ thể hơn nhé.`;
+                }
             }
         }
 
