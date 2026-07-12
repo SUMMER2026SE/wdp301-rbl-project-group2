@@ -16,6 +16,13 @@ export const createCampaignValidator = z.object({
 }).refine(data => new Date(data.startTime) < new Date(data.endTime), {
   message: 'Thời gian bắt đầu phải trước thời gian kết thúc',
   path: ['endTime'],
+}).refine(data => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(data.startTime) >= today;
+}, {
+  message: 'Thời gian bắt đầu phải từ ngày hôm nay trở đi',
+  path: ['startTime'],
 });
 
 export const updateCampaignValidator = z.object({
@@ -33,6 +40,16 @@ export const updateCampaignValidator = z.object({
 }, {
   message: 'Thời gian bắt đầu phải trước thời gian kết thúc',
   path: ['endTime'],
+}).refine(data => {
+  if (data.startTime) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(data.startTime) >= today;
+  }
+  return true;
+}, {
+  message: 'Thời gian bắt đầu phải từ ngày hôm nay trở đi',
+  path: ['startTime'],
 });
 
 export const suggestCampaignValidator = z.object({
