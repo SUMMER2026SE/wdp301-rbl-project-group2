@@ -1,11 +1,12 @@
 import { apiClient } from "@/lib/api-client";
 
-export type CampaignStatus = "pending" | "approved" | "rejected";
+export type CampaignStatus = "pending" | "approved" | "rejected" | "draft";
 
 export const CampaignStatus = {
   PENDING: "pending" as const,
   APPROVED: "approved" as const,
   REJECTED: "rejected" as const,
+  DRAFT: "draft" as const,
 };
 
 export interface CampaignProductItem {
@@ -39,6 +40,7 @@ export interface CreateCampaignPayload {
   }[];
   startTime: string;
   endTime: string;
+  status?: CampaignStatus;
 }
 
 export interface CampaignSuggestionProduct {

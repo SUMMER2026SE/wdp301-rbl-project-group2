@@ -136,7 +136,9 @@ export const createCampaign = async (
   });
   appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
 
-  const status = userRole === Role.ADMIN ? CampaignStatus.APPROVED : CampaignStatus.PENDING;
+  const status = params.status !== undefined
+    ? params.status as CampaignStatus
+    : CampaignStatus.DRAFT;
 
   const campaign = await CampaignModel.create({
     ...params,
@@ -192,7 +194,7 @@ export const updateCampaign = async (
   const campaign = await CampaignModel.findById(id);
   appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
 
-  // Manager can only edit their own pending campaigns
+  // Manager can only edit their own pending or draft campaigns
   if (userRole === Role.MANAGER) {
     appAssert(
       campaign.createdBy.toString() === userId.toString(),
@@ -200,7 +202,7 @@ export const updateCampaign = async (
       'Bạn không có quyền chỉnh sửa chiến dịch của người khác'
     );
     appAssert(
-      campaign.status === CampaignStatus.PENDING,
+      campaign.status === CampaignStatus.PENDING || campaign.status === CampaignStatus.DRAFT,
       BAD_REQUEST,
       'Không thể chỉnh sửa chiến dịch đã được phê duyệt hoặc từ chối'
     );
@@ -218,15 +220,29 @@ export const updateCampaign = async (
   });
   appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
 
+  const wasApproved = campaign.status === CampaignStatus.APPROVED;
+
   // Update properties
   if (params.name !== undefined) campaign.name = params.name;
   if (params.type !== undefined) campaign.type = params.type;
   if (params.products !== undefined) campaign.products = params.products as any;
   if (params.startTime !== undefined) campaign.startTime = new Date(params.startTime);
   if (params.endTime !== undefined) campaign.endTime = new Date(params.endTime);
+  if (params.status !== undefined) {
+    if (params.status === CampaignStatus.APPROVED && userRole !== Role.ADMIN) {
+      campaign.status = CampaignStatus.PENDING;
+    } else {
+      campaign.status = params.status as CampaignStatus;
+    }
+  }
 
   await campaign.save();
   await syncCampaignProducts(campaign);
+
+  const isApprovedNow = campaign.status === CampaignStatus.APPROVED;
+  if (!wasApproved && isApprovedNow) {
+    notifyCustomersOfCampaign(campaign);
+  }
 
   return campaign;
 };
@@ -242,7 +258,7 @@ export const deleteCampaign = async (id: string, userId: mongoose.Types.ObjectId
       'Bạn không có quyền xóa chiến dịch của người khác'
     );
     appAssert(
-      campaign.status === CampaignStatus.PENDING,
+      campaign.status === CampaignStatus.PENDING || campaign.status === CampaignStatus.DRAFT,
       BAD_REQUEST,
       'Không thể xóa chiến dịch đã được phê duyệt hoặc từ chối'
     );

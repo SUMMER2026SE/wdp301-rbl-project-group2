@@ -10,6 +10,7 @@ export enum CampaignStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  DRAFT = 'draft',
 }
 
 export interface ICampaign extends mongoose.Document<mongoose.Types.ObjectId> {

@@ -50,4 +50,12 @@ export const startEmailWorker = () => {
   worker.on('failed', (job, err) => {
     console.error(`[EmailWorker] Job #${job?.id} thất bại khi gửi tới ${job?.data.email}. Lỗi:`, err.message);
   });
+
+  worker.on('error', (err) => {
+    console.error('[Redis Error] email worker connection failed:', err.message);
+  });
 };
+
+emailQueue.on('error', (err) => {
+  console.error('[Redis Error] emailQueue connection failed:', err.message);
+});

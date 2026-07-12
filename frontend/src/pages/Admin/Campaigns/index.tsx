@@ -102,7 +102,7 @@ const AdminCampaigns = () => {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "all" | "pending" | "running" | "upcoming" | "ended_rejected"
+    "all" | "pending" | "running" | "upcoming" | "ended_rejected" | "draft"
   >("all");
   const [viewMode, setViewMode] = useState<"list" | "analytics">("list");
   const [analyticsPeriod, setAnalyticsPeriod] = useState<
@@ -140,6 +140,7 @@ const AdminCampaigns = () => {
   const [aiCampaignName, setAiCampaignName] = useState("Chiến dịch Ưu đãi Đặc biệt");
   const [aiStartTime, setAiStartTime] = useState("");
   const [aiEndTime, setAiEndTime] = useState("");
+  const [createdAiCampaignDraft, setCreatedAiCampaignDraft] = useState<Campaign | null>(null);
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -234,12 +235,14 @@ const AdminCampaigns = () => {
     setIsCustomOccasion(false);
     setCustomOccasion("");
     setShowConfirmModal(false);
+    setCreatedAiCampaignDraft(null);
     setShowAIModal(true);
   };
 
   const handleGenerateAISuggestion = async () => {
     setAiSuggestion(null); // Xóa kết quả cũ ngay lập tức trước khi gọi API mới
     setAiSuggestionContext(null);
+    setCreatedAiCampaignDraft(null);
     setAiLoading(true);
     const requestContext: AISuggestionContext = {
       goal: aiGoal,
@@ -256,42 +259,62 @@ const AdminCampaigns = () => {
       if (res.success) {
         setAiSuggestion(res.data);
         setAiSuggestionContext(requestContext);
-        toast.success("Đã tạo gợi ý chiến dịch thành công");
+
+        // Auto-save generated suggestion to database as a draft immediately
+        const startVal = res.data.startTime
+          ? res.data.startTime
+          : new Date().toISOString();
+
+        const endVal = res.data.endTime
+          ? res.data.endTime
+          : new Date(new Date(startVal).getTime() + (res.data.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString();
+
+        const now = new Date();
+        const timeString = now.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const draftPayload = {
+          name: `${res.data.name || "Chiến dịch Ưu đãi Đặc biệt"} (${timeString})`,
+          type: res.data.type || "discount",
+          products: res.data.products.map((product: any) => ({
+            productId: product.productId,
+            fixedPrice:
+              res.data.type === "fixed_price"
+                ? (product.fixedPrice ?? null)
+                : null,
+            discount:
+              res.data.type === "discount"
+                ? (product.discount ?? 10)
+                : null,
+          })),
+          startTime: startVal,
+          endTime: endVal,
+          status: CampaignStatus.DRAFT,
+        };
+
+        const createRes = await campaignAPI.createCampaign(draftPayload);
+        if (createRes.success) {
+          setCreatedAiCampaignDraft(createRes.data);
+          toast.success("Đã tự động lưu gợi ý AI thành bản nháp!");
+          fetchCampaigns();
+        }
       } else {
         toast.error(res.message || "Không thể tạo gợi ý chiến dịch");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating AI campaign suggestion:", error);
-      toast.error("Không thể tạo gợi ý chiến dịch lúc này");
+      const errMsg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Không thể tạo gợi ý chiến dịch lúc này";
+      toast.error(errMsg);
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleApplyAISuggestion = () => {
-    if (!aiSuggestion) return;
-
-    setPendingAICampaign(aiSuggestion);
-    setPendingAIContext(aiSuggestionContext);
-    // Use the AI-generated contextual name as default (based on occasion/weather/goal)
-    // User can still edit it before confirming
-    setAiCampaignName(aiSuggestion.name || "Chiến dịch Ưu đãi Đặc biệt");
-
-    const startVal = aiSuggestion.startTime
-      ? toLocalDatetimeInput(aiSuggestion.startTime)
-      : toLocalDatetimeInput(new Date().toISOString());
-
-    const endVal = aiSuggestion.endTime
-      ? toLocalDatetimeInput(aiSuggestion.endTime)
-      : toLocalDatetimeInput(
-        new Date(new Date(startVal).getTime() + (aiSuggestion.durationDays || 7) * 24 * 60 * 60 * 1000).toISOString()
-      );
-
-    setAiStartTime(startVal);
-    setAiEndTime(endVal);
-
+    if (!createdAiCampaignDraft) return;
     setShowAIModal(false);
-    setShowConfirmModal(true);
+    handleOpenEditModal(createdAiCampaignDraft);
   };
 
   const handleConfirmAICampaign = async () => {
@@ -351,7 +374,8 @@ const AdminCampaigns = () => {
     try {
       const res = await campaignAPI.createCampaign(payload);
       if (res.success) {
-        toast.success("Đã tạo chiến dịch từ gợi ý AI thành công");
+        toast.success("Đã tạo bản nháp chiến dịch từ gợi ý AI thành công");
+        setActiveTab("draft");
         fetchCampaigns();
         setShowConfirmModal(false);
         setPendingAICampaign(null);
@@ -581,7 +605,7 @@ const AdminCampaigns = () => {
     return Math.round(basePrice * (1 - rule.discount / 100));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, isDraftSubmit: boolean = false) => {
     e.preventDefault();
     setWasSubmitted(true);
     if (!formName.trim()) return toast.error("Vui lòng nhập tên chiến dịch");
@@ -590,18 +614,11 @@ const AdminCampaigns = () => {
     if (new Date(startTime) >= new Date(endTime))
       return toast.error("Thời gian bắt đầu phải trước thời gian kết thúc");
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isNewCampaign = !editingCampaign;
-    const isStartTimeModified =
-      editingCampaign &&
-      new Date(startTime).getTime() !==
-      new Date(editingCampaign.startTime).getTime();
-    if ((isNewCampaign || isStartTimeModified) && new Date(startTime) < today) {
-      return toast.error("Thời gian bắt đầu phải từ ngày hôm nay trở đi");
-    }
 
-    if (campaignProducts.length === 0)
+
+    const finalIsDraft = !editingCampaign || isDraftSubmit;
+
+    if (!finalIsDraft && campaignProducts.length === 0)
       return toast.error("Chiến dịch phải có ít nhất một sản phẩm");
 
     // Check if another campaign has the same name and overlaps in time
@@ -625,29 +642,39 @@ const AdminCampaigns = () => {
     }
 
     // Check product rules
-    for (const p of campaignProducts) {
-      if (
-        formType === "fixed_price" &&
-        (p.fixedPrice === undefined ||
-          p.fixedPrice === null ||
-          p.fixedPrice < 0)
-      ) {
-        return toast.error(
-          "Vui lòng nhập giá cố định hợp lệ cho tất cả sản phẩm",
-        );
-      }
-      if (
-        formType === "discount" &&
-        (p.discount === undefined ||
-          p.discount === null ||
-          p.discount < 0 ||
-          p.discount > 100)
-      ) {
-        return toast.error(
-          "Vui lòng nhập phần trăm giảm giá (0-100) cho tất cả sản phẩm",
-        );
+    if (!finalIsDraft) {
+      for (const p of campaignProducts) {
+        if (
+          formType === "fixed_price" &&
+          (p.fixedPrice === undefined ||
+            p.fixedPrice === null ||
+            p.fixedPrice < 0)
+        ) {
+          return toast.error(
+            "Vui lòng nhập giá cố định hợp lệ cho tất cả sản phẩm",
+          );
+        }
+        if (
+          formType === "discount" &&
+          (p.discount === undefined ||
+            p.discount === null ||
+            p.discount < 0 ||
+            p.discount > 100)
+        ) {
+          return toast.error(
+            "Vui lòng nhập phần trăm giảm giá (0-100) cho tất cả sản phẩm",
+          );
+        }
       }
     }
+
+    const statusVal = finalIsDraft
+      ? CampaignStatus.DRAFT
+      : editingCampaign
+        ? (editingCampaign.status === CampaignStatus.DRAFT
+            ? (isAdmin ? CampaignStatus.APPROVED : CampaignStatus.PENDING)
+            : editingCampaign.status)
+        : (isAdmin ? CampaignStatus.APPROVED : CampaignStatus.PENDING);
 
     const payload = {
       name: formName.trim(),
@@ -659,6 +686,7 @@ const AdminCampaigns = () => {
       })),
       startTime: new Date(startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
+      status: statusVal,
     };
 
     setSubmitting(true);
@@ -669,18 +697,19 @@ const AdminCampaigns = () => {
           payload,
         );
         if (res.success) {
-          toast.success("Cập nhật chiến dịch thành công");
+          toast.success(
+            isDraftSubmit
+              ? "Cập nhật bản nháp thành công"
+              : "Cập nhật chiến dịch thành công"
+          );
           fetchCampaigns();
           setShowModal(false);
         }
       } else {
         const res = await campaignAPI.createCampaign(payload);
         if (res.success) {
-          toast.success(
-            isAdmin
-              ? "Tạo và phê duyệt chiến dịch thành công"
-              : "Gửi đề xuất chiến dịch thành công",
-          );
+          toast.success("Lưu bản nháp thành công");
+          setActiveTab("draft");
           fetchCampaigns();
           setShowModal(false);
         }
@@ -776,6 +805,13 @@ const AdminCampaigns = () => {
             Từ chối
           </span>
         );
+      case CampaignStatus.DRAFT:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="size-1.5 rounded-full bg-slate-400" />
+            Bản nháp
+          </span>
+        );
       case CampaignStatus.PENDING:
       default:
         return (
@@ -810,6 +846,8 @@ const AdminCampaigns = () => {
     let matchesTab = true;
     if (activeTab === "pending") {
       matchesTab = c.status === CampaignStatus.PENDING;
+    } else if (activeTab === "draft") {
+      matchesTab = c.status === CampaignStatus.DRAFT;
     } else if (activeTab === "running") {
       matchesTab =
         c.status === CampaignStatus.APPROVED &&
@@ -1472,6 +1510,18 @@ const AdminCampaigns = () => {
                 highlight: false,
               },
               {
+                key: "pending",
+                label: "Chờ duyệt",
+                count: campaigns.filter((c) => c.status === CampaignStatus.PENDING).length,
+                highlight: true,
+              },
+              {
+                key: "draft",
+                label: "Bản nháp",
+                count: campaigns.filter((c) => c.status === CampaignStatus.DRAFT).length,
+                highlight: false,
+              },
+              {
                 key: "ended_rejected",
                 label: "Hết hạn / Từ chối",
                 count: campaigns.filter(
@@ -1621,7 +1671,9 @@ const AdminCampaigns = () => {
                       c.createdBy._id === user?._id;
                     const canModify =
                       isAdmin ||
-                      (isCreator && c.status === CampaignStatus.PENDING);
+                      (isCreator &&
+                        (c.status === CampaignStatus.PENDING ||
+                          c.status === CampaignStatus.DRAFT));
 
                     return (
                       <tr
@@ -3387,6 +3439,16 @@ const AdminCampaigns = () => {
                 >
                   Hủy bỏ
                 </button>
+                {editingCampaign && editingCampaign.status === CampaignStatus.DRAFT && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubmit(e, true)}
+                    disabled={submitting}
+                    className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm transition-all text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Lưu nháp
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={submitting}
@@ -3395,10 +3457,10 @@ const AdminCampaigns = () => {
                   {submitting
                     ? "Đang xử lý..."
                     : editingCampaign
-                      ? "Lưu thay đổi"
-                      : isAdmin
-                        ? "Kích hoạt chiến dịch"
-                        : "Gửi đề xuất"}
+                      ? (editingCampaign.status === CampaignStatus.DRAFT
+                        ? (isAdmin ? "Kích hoạt chiến dịch" : "Gửi đề xuất")
+                        : "Lưu thay đổi")
+                      : "Tạo bản nháp"}
                 </button>
               </div>
             </form>

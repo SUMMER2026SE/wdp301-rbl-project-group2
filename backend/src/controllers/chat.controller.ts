@@ -6,11 +6,24 @@ import Redis from 'ioredis';
 import { redisConfig } from '@/config/redis';
 import { applyCampaignPricing } from '@/services/product.service';
 
+
 const redis = new Redis({
     host: (redisConfig as any).host,
     port: (redisConfig as any).port,
     password: (redisConfig as any).password,
 });
+
+redis.on('error', (err) => {
+    // Suppress unhandled error crash — Redis is optional in local dev (used for chat rate-limiting cache)
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Redis] chat.controller cache unavailable:', err.message);
+    }
+});
+
+const getDisplayPrice = (product: { price: number; campaignPrice?: number }) =>
+    product.campaignPrice ?? product.price;
+
+const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}đ`;
 
 export const handleChat = async (req: Request, res: Response) => {
     try {
