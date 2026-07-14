@@ -58,6 +58,8 @@ export const suggestCampaignValidator = z.object({
   occasion: z.string().default('none'),
   goal: z.enum(['boost_sales', 'clear_stock', 'contextual', 'engagement']).default('boost_sales'),
   productCount: z.number().int().min(2).max(6).optional().default(3),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
 });
 
 export const updateCampaignStatusValidator = z.object({

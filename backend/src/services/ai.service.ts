@@ -937,11 +937,22 @@ export const getAICampaignSuggestion = async (
   goal: string,
   days: number,
   productCount: number,
-  salesByProduct?: Record<string, number>
+  salesByProduct?: Record<string, number>,
+  startTime?: string,
+  endTime?: string
 ): Promise<TAICampaignSuggestionResponse> => {
   const weatherText = weatherInfo.description
     ? `${weatherInfo.description} (Nhiệt độ khoảng ${weatherInfo.temp}°C, phân loại: ${weatherInfo.type})`
     : `Thời tiết phân loại: ${weatherInfo.type}`;
+
+  let overrideDurationDays: number | undefined = undefined;
+  if (startTime && endTime) {
+    const s = new Date(startTime);
+    const e = new Date(endTime);
+    if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e > s) {
+      overrideDurationDays = Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+  }
 
   const preferredCount = Math.min(6, Math.max(2, productCount));
   const contextualCandidates = buildContextualProductRanking({
@@ -1079,9 +1090,33 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
 }
 `;
 
-  // ── Primary: Groq (api.groq.com — more accessible from Vietnam) ──────────
+  // ── Primary: Gemini ────────────────────────────────────────────────────────
+  const tryGemini = async () => {
+    console.log('[AI Campaign] Calling Gemini (primary) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
+    const result = await withTimeout(model.generateContent(prompt), 20000);
+    const text = result.response.text();
+    console.log('[AI Campaign] Gemini raw response:', text.slice(0, 500));
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in Gemini campaign suggestion response');
+    let rawData: unknown;
+    try {
+      rawData = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      console.error('[AI Campaign] Gemini JSON parse error:', parseErr);
+      throw new Error('Gemini response is not valid JSON');
+    }
+    const parsed = aiCampaignSuggestionResponseSchema.safeParse(rawData);
+    if (!parsed.success) {
+      console.error('[AI Campaign] Gemini Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
+      throw new Error('Invalid Gemini campaign suggestion shape');
+    }
+    console.log('[AI Campaign] Gemini succeeded.');
+    return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion, startTime, endTime, overrideDurationDays });
+  };
+
+  // ── Secondary: Groq (fallback) ────────────────────────────────────────────
   const tryGroq = async () => {
-    console.log('[AI Campaign] Calling Groq (primary) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
+    console.log('[AI Campaign] Calling Groq (fallback) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
     const completion = await withTimeout(
       groq.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
@@ -1102,72 +1137,139 @@ Trả về duy nhất dữ liệu dạng JSON hợp lệ theo cấu trúc sau, k
       throw new Error('Invalid Groq campaign suggestion shape');
     }
     console.log('[AI Campaign] Groq succeeded.');
-    return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
-  };
-
-  // ── Secondary: Gemini ─────────────────────────────────────────────────────
-  const tryGemini = async () => {
-    console.log('[AI Campaign] Calling Gemini (fallback) with occasion=%s goal=%s weather=%s', occasion, goal, weatherInfo.type);
-    const result = await withTimeout(model.generateContent(prompt), 20000);
-    const text = result.response.text();
-    console.log('[AI Campaign] Gemini raw response:', text.slice(0, 500));
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in Gemini campaign suggestion response');
-    let rawData: unknown;
-    try {
-      rawData = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      console.error('[AI Campaign] Gemini JSON parse error:', parseErr);
-      throw new Error('Gemini response is not valid JSON');
-    }
-    const parsed = aiCampaignSuggestionResponseSchema.safeParse(rawData);
-    if (!parsed.success) {
-      console.error('[AI Campaign] Gemini Zod validation failed:', JSON.stringify(parsed.error.format(), null, 2));
-      throw new Error('Invalid Gemini campaign suggestion shape');
-    }
-    console.log('[AI Campaign] Gemini succeeded.');
-    return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
+    return buildAICampaignResult(parsed.data, { contextualCandidates, bestSellers, allAvailableProducts, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion, startTime, endTime, overrideDurationDays });
   };
 
   try {
-    return await tryGroq();
-  } catch (groqError) {
-    console.error('[AI Campaign] Groq FAILED:', groqError instanceof Error ? groqError.message : String(groqError));
-    console.log('[AI Campaign] Trying Gemini fallback...');
+    return await tryGemini();
+  } catch (geminiError) {
+    console.error('[AI Campaign] Gemini FAILED:', geminiError instanceof Error ? geminiError.message : String(geminiError));
+    console.log('[AI Campaign] Trying Groq fallback...');
     try {
-      return await tryGemini();
-    } catch (geminiError) {
-      console.error('[AI Campaign] Gemini FAILED:', geminiError instanceof Error ? geminiError.message : String(geminiError));
+      return await tryGroq();
+    } catch (groqError) {
+      console.error('[AI Campaign] Groq FAILED:', groqError instanceof Error ? groqError.message : String(groqError));
     }
   }
 
   // ── Deterministic fallback (both AI providers failed) ─────────────────────
   console.warn('[AI Campaign] Both AI providers failed. Using deterministic fallback.');
-  return buildDeterministicFallback({ contextualCandidates, bestSellers, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion });
+  return buildDeterministicFallback({ contextualCandidates, bestSellers, salesByProduct, bestSellersSoldMap, preferredCount, goal, days, weatherInfo, occasion, startTime, endTime, overrideDurationDays });
 };
 
 const calculateEstimatedPerformanceReport = (
   goal: string,
   durationDays: number,
-  campaignName: string
-) => {
-  let estimatedDaysToProfit = 3;
-  let estimatedProfit = '';
-  let analysis = '';
-
-  if (goal === 'boost_sales') {
-    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.3) || 2));
-    estimatedProfit = `Khoảng ${(durationDays * 600000).toLocaleString('vi-VN')}đ - ${(durationDays * 900000).toLocaleString('vi-VN')}đ`;
-    analysis = `Chiến dịch "${campaignName}" tập trung thúc đẩy nhóm món ăn bán chạy nhất của cửa hàng. Với nhu cầu sẵn có cao từ lượng khách hàng trung thành, việc áp dụng ưu đãi dự kiến sẽ kích thích lượt đặt hàng tăng mạnh ngay lập tức. Cửa hàng dự kiến sẽ nhanh chóng đạt điểm hòa vốn và bắt đầu có lời chỉ sau ${estimatedDaysToProfit} ngày chạy nhờ doanh thu từ lượng đơn hàng tăng thêm bù đắp hoàn toàn chi phí chiết khấu.`;
-  } else if (goal === 'clear_stock') {
-    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.7) || 5));
-    estimatedProfit = `Khoảng ${(durationDays * 350000).toLocaleString('vi-VN')}đ - ${(durationDays * 550000).toLocaleString('vi-VN')}đ`;
-    analysis = `Chiến dịch "${campaignName}" tập trung giải phóng hàng tồn kho và quảng bá các món bán chậm. Nhóm sản phẩm này cần thời gian tiếp cận và thuyết phục khách hàng thử món mới thông qua mức chiết khấu sâu. Tốc độ chuyển đổi sẽ chậm hơn thông thường, vì vậy dự kiến cửa hàng cần khoảng ${estimatedDaysToProfit} ngày để tích lũy đủ số lượng đơn hàng và đạt điểm hòa vốn, giúp giải phóng tối đa dung lượng kho và tối ưu chi phí vận hành.`;
-  } else {
-    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.5) || 3));
-    estimatedProfit = `Khoảng ${(durationDays * 450000).toLocaleString('vi-VN')}đ - ${(durationDays * 700000).toLocaleString('vi-VN')}đ`;
-    analysis = `Chiến dịch "${campaignName}" được thiết kế phù hợp với xu hướng thời tiết/dịp lễ hiện tại để tối ưu trải nghiệm khách hàng. Nhờ đánh trúng tâm lý tiêu dùng theo mùa, lượng đơn hàng dự kiến sẽ tăng trưởng ổn định. Cửa hàng ước tính đạt điểm hòa vốn và sinh lời từ ngày thứ ${estimatedDaysToProfit} của chiến dịch khi lượng khách hàng đặt mua đạt đỉnh điểm theo làn sóng lễ hội/thời tiết.`;
+  campaignName: string,
+  productContext?: {
+    products: { name: string; discount: number; fixedPrice?: number; soldQuantity: number; price?: number }[];
+    analysisDays: number;
   }
+) => {
+  // ── Nếu không có dữ liệu sản phẩm, dùng ước lượng cơ bản ────────────────
+  if (!productContext || productContext.products.length === 0) {
+    const estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.5) || 3));
+    return {
+      estimatedDaysToProfit,
+      estimatedProfit: `Khoảng ${(durationDays * 450000).toLocaleString('vi-VN')}đ - ${(durationDays * 700000).toLocaleString('vi-VN')}đ`,
+      analysis: `Chiến dịch "${campaignName}" được tạo với dữ liệu sản phẩm hạn chế. Dự kiến hoàn vốn sau khoảng ${estimatedDaysToProfit} ngày dựa trên mức trung bình ngành F&B.`,
+    };
+  }
+
+  const { products, analysisDays } = productContext;
+  const fmt = (n: number) => n.toLocaleString('vi-VN');
+
+  // ── Bước 1: Tính toán dữ liệu cơ sở từ sản phẩm thực tế ─────────────────
+  const totalSoldInWindow = products.reduce((s, p) => s + p.soldQuantity, 0);
+  const avgDailySales = analysisDays > 0 ? totalSoldInWindow / analysisDays : 0;
+  const avgPrice = products.length > 0
+    ? products.reduce((s, p) => s + (p.price || 0), 0) / products.length
+    : 0;
+  const avgDiscount = products.length > 0
+    ? products.reduce((s, p) => s + (p.discount || 0), 0) / products.length
+    : 15;
+
+  // ── Bước 2: Ước tính tỷ lệ tăng đơn hàng dựa trên mức giảm giá ──────────
+  // Mô hình kinh tế học hành vi F&B: mỗi 5% giảm giá → tăng ~8-12% lượt đặt
+  const salesUpliftRate = goal === 'boost_sales'
+    ? 1 + (avgDiscount / 5) * 0.10   // Hàng bán chạy: mỗi 5% → +10% đơn
+    : goal === 'clear_stock'
+    ? 1 + (avgDiscount / 5) * 0.15   // Hàng tồn: cần chiết khấu sâu → hiệu ứng mạnh hơn, +15%/5%
+    : 1 + (avgDiscount / 5) * 0.12;  // Theo mùa: hiệu ứng trung bình, +12%/5%
+
+  const projectedDailySales = avgDailySales * salesUpliftRate;
+
+  // ── Bước 3: Tính doanh thu và chi phí chiết khấu trực tiếp ───────────────
+  const dailyRevenueBeforeDiscount = projectedDailySales * avgPrice;
+  const dailyDiscountCost = dailyRevenueBeforeDiscount * (avgDiscount / 100);
+  const dailyNetRevenue = dailyRevenueBeforeDiscount - dailyDiscountCost;
+
+  const baselineDailyRevenue = avgDailySales * avgPrice;
+  const directIncrementalRevenue = dailyNetRevenue - baselineDailyRevenue;
+
+  // ── Bước 3.5: Tính giá trị gia tăng gián tiếp (Cross-selling & Traffic) ───
+  // F&B: Khách mua món khuyến mãi thường kèm theo nước/đồ phụ (tỷ lệ 50%, giá trị trung bình 25.000đ, tỷ suất LN 70%)
+  const dailyCrossSellProfit = projectedDailySales * 0.5 * 25000 * 0.7;
+  // Quảng bá chiến dịch làm tăng 10% doanh số toàn cửa hàng (tính 30% tỷ suất LN trên baseline)
+  const dailyTrafficBoostProfit = baselineDailyRevenue * 0.10 * 0.30;
+
+  const dailyIncrementalRevenue = directIncrementalRevenue + dailyCrossSellProfit + dailyTrafficBoostProfit;
+
+  // ── Bước 4: Tính số ngày hoàn vốn ────────────────────────────────────────
+  let estimatedDaysToProfit: number;
+  if (dailyIncrementalRevenue > 0) {
+    // Tổng chi phí chiết khấu ngày đầu / doanh thu tăng thêm mỗi ngày
+    const totalInitialDiscountCost = dailyDiscountCost * 2; // 2 ngày đầu là giai đoạn "đầu tư"
+    estimatedDaysToProfit = Math.max(1, Math.min(durationDays, Math.ceil(totalInitialDiscountCost / dailyIncrementalRevenue) + 1));
+  } else {
+    // Nếu doanh thu tăng thêm <= 0, hoàn vốn ở mức cơ bản theo goal
+    estimatedDaysToProfit = goal === 'boost_sales'
+      ? Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.3) || 2))
+      : goal === 'clear_stock'
+      ? Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.7) || 5))
+      : Math.max(1, Math.min(durationDays, Math.floor(durationDays * 0.5) || 3));
+  }
+
+  // ── Bước 5: Tính lợi nhuận dự tính ───────────────────────────────────────
+  // Lợi nhuận = tổng doanh thu tăng thêm sau hoàn vốn × số ngày còn lại
+  const profitableDays = Math.max(0, durationDays - estimatedDaysToProfit);
+  const minProfit = Math.round(profitableDays * dailyIncrementalRevenue * 0.8); // Kịch bản thận trọng (-20%)
+  const maxProfit = Math.round(profitableDays * dailyIncrementalRevenue * 1.3); // Kịch bản lạc quan (+30%)
+
+  const estimatedProfit = minProfit > 0 && maxProfit > 0
+    ? `Khoảng ${fmt(minProfit)}đ - ${fmt(maxProfit)}đ (cho ${durationDays} ngày chạy)`
+    : `Khoảng ${fmt(durationDays * 350000)}đ - ${fmt(durationDays * 550000)}đ (cho ${durationDays} ngày chạy)`;
+
+  // ── Bước 6: Viết phân tích chi tiết giải thích quá trình tính toán ────────
+  const productNames = products.map(p => p.name).join(', ');
+  const salesUpliftPercent = Math.round((salesUpliftRate - 1) * 100);
+
+  const goalLabel = goal === 'boost_sales' ? 'tăng doanh thu'
+    : goal === 'clear_stock' ? 'giải phóng tồn kho'
+    : 'phù hợp mùa vụ/thời tiết';
+
+  const analysis = [
+    `Chiến dịch "${campaignName}" dự kiến diễn ra trong ${durationDays} ngày, gồm ${products.length} sản phẩm (${productNames}) với mục tiêu ${goalLabel}.`,
+    ``,
+    `📊 **Dữ liệu bán hàng gốc:** Trong ${analysisDays} ngày phân tích gần nhất, tổng cộng bán được ${fmt(totalSoldInWindow)} suất (trung bình ${fmt(Math.round(avgDailySales * 10) / 10)} suất/ngày).`,
+    `💰 **Giá trung bình:** ${fmt(Math.round(avgPrice))}đ/suất. Mức giảm giá trung bình: ${fmt(Math.round(avgDiscount * 10) / 10)}%.`,
+    ``,
+    `📈 **Dự đoán tăng trưởng:** Dựa trên mô hình kinh tế hành vi F&B, mức giảm ${fmt(Math.round(avgDiscount))}% dự kiến kích thích tăng khoảng ${salesUpliftPercent}% lượt đặt hàng — từ ${fmt(Math.round(avgDailySales * 10) / 10)} suất/ngày lên khoảng ${fmt(Math.round(projectedDailySales * 10) / 10)} suất/ngày.`,
+    ``,
+    `🧮 **Cách tính hiệu suất ngày:**`,
+    `- **Chênh lệch doanh thu món chính:** Doanh thu thực thu sau giảm giá dự kiến là ${fmt(Math.round(dailyNetRevenue))}đ/ngày (so với doanh thu gốc ${fmt(Math.round(baselineDailyRevenue))}đ/ngày, tăng thêm ${fmt(Math.round(directIncrementalRevenue))}đ/ngày).`,
+    `- **Lợi nhuận từ món mua kèm (Cross-selling):** Ước tính 50% lượt đặt sẽ mua thêm đồ uống/món phụ kèm theo, đóng góp thêm ${fmt(Math.round(dailyCrossSellProfit))}đ lợi nhuận/ngày.`,
+    `- **Hiệu ứng quảng bá (Traffic Boost):** Chiến dịch xuất hiện trên bảng tin giúp tăng doanh số chung của cửa hàng thêm 10%, đóng góp thêm ${fmt(Math.round(dailyTrafficBoostProfit))}đ lợi nhuận/ngày.`,
+    `👉 **Tổng lợi nhuận ròng gia tăng mỗi ngày:** ${fmt(Math.round(dailyIncrementalRevenue))}đ.`,
+    ``,
+    dailyIncrementalRevenue > 0
+      ? `⏱ **Điểm hòa vốn:** Chi phí chiết khấu giai đoạn đầu tư (2 ngày đầu) khoảng ${fmt(Math.round(dailyDiscountCost * 2))}đ. Với tổng lợi nhuận gia tăng ${fmt(Math.round(dailyIncrementalRevenue))}đ/ngày, cửa hàng dự kiến hoàn vốn sau ${estimatedDaysToProfit} ngày và có lời ${profitableDays} ngày còn lại.`
+      : `⏱ **Điểm hòa vốn:** Do dữ liệu bán hàng gốc chưa cao, hệ thống ước tính hoàn vốn sau khoảng ${estimatedDaysToProfit} ngày dựa trên mức trung bình ngành F&B.`,
+    ``,
+    minProfit > 0 && maxProfit > 0
+      ? `💵 **Lợi nhuận dự tính:** Sau khi hòa vốn, cửa hàng có ${profitableDays} ngày sinh lời trong tổng số ${durationDays} ngày chạy chiến dịch. Lấy ${profitableDays} ngày có lời × ${fmt(Math.round(dailyIncrementalRevenue))}đ/ngày = khoảng ${fmt(minProfit)}đ (thận trọng, -20%) đến ${fmt(maxProfit)}đ (lạc quan, +30%).`
+      : `💵 **Lợi nhuận dự tính:** Ước tính cơ bản dựa trên doanh thu trung bình ngành F&B do dữ liệu bán hàng còn hạn chế (cho ${durationDays} ngày chạy).`,
+  ].join('\n');
 
   return { estimatedDaysToProfit, estimatedProfit, analysis };
 };
@@ -1185,6 +1287,9 @@ const buildAICampaignResult = (
     days: number;
     weatherInfo: any;
     occasion: string;
+    startTime?: string;
+    endTime?: string;
+    overrideDurationDays?: number;
   }
 ): TAICampaignSuggestionResponse => {
   const products = aiData.products.map((p) => {
@@ -1196,12 +1301,13 @@ const buildAICampaignResult = (
     return {
       ...p,
       name: matched ? matched.name : p.name,
+      price: matched ? matched.price : undefined,
       soldQuantity,
     };
   });
 
-  let startTime = aiData.startTime;
-  let endTime = aiData.endTime;
+  let startTime = ctx.startTime || aiData.startTime;
+  let endTime = ctx.endTime || aiData.endTime;
 
   // Validate AI dates
   const parsedStart = startTime ? new Date(startTime) : null;
@@ -1220,18 +1326,41 @@ const buildAICampaignResult = (
     startTime = parsedStart.toISOString();
   }
 
+  const finalDuration = ctx.overrideDurationDays || aiData.durationDays || 7;
+
   if (!parsedEnd || isNaN(parsedEnd.getTime()) || parsedEnd <= new Date(startTime)) {
     const sDate = new Date(startTime);
-    sDate.setDate(sDate.getDate() + (aiData.durationDays || 7));
+    sDate.setDate(sDate.getDate() + finalDuration);
     endTime = sDate.toISOString();
   } else {
     endTime = parsedEnd.toISOString();
   }
 
-  const performanceReport = aiData.performanceReport || calculateEstimatedPerformanceReport(ctx.goal, aiData.durationDays || 7, aiData.name);
+  const performanceReport = calculateEstimatedPerformanceReport(
+    ctx.goal,
+    finalDuration,
+    aiData.name,
+    {
+      products: products.map((p) => {
+        let discount = p.discount;
+        if (discount === undefined && p.fixedPrice !== undefined && p.price !== undefined && p.price > 0) {
+          discount = Math.round(((p.price - p.fixedPrice) / p.price) * 100);
+        }
+        return {
+          name: p.name || '',
+          discount: discount || 15,
+          fixedPrice: p.fixedPrice,
+          soldQuantity: p.soldQuantity || 0,
+          price: p.price,
+        };
+      }),
+      analysisDays: ctx.days,
+    }
+  );
 
   return {
     ...aiData,
+    durationDays: finalDuration,
     products,
     startTime,
     endTime,
@@ -1249,6 +1378,9 @@ const buildDeterministicFallback = (ctx: {
   days: number;
   weatherInfo: any;
   occasion: string;
+  startTime?: string;
+  endTime?: string;
+  overrideDurationDays?: number;
 }): TAICampaignSuggestionResponse => {
   const candidates = ctx.contextualCandidates.length > 0
     ? ctx.contextualCandidates
@@ -1278,6 +1410,7 @@ const buildDeterministicFallback = (ctx: {
     return {
       productId: p.productId,
       name: p.name,
+      price: p.price,
       discount,
       fixedPrice: undefined as number | undefined,
       reason: productReason(p, discount),
@@ -1304,43 +1437,92 @@ const buildDeterministicFallback = (ctx: {
   };
   const fallbackName = fallbackNames[ctx.goal] || 'Chiến Dịch Ưu Đãi Đặc Biệt';
 
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  start.setHours(0, 0, 0, 0);
+  const start = ctx.startTime ? new Date(ctx.startTime) : (() => {
+    const s = new Date();
+    s.setDate(s.getDate() + 1);
+    s.setHours(0, 0, 0, 0);
+    return s;
+  })();
+
+  const finalDuration = ctx.overrideDurationDays || 7;
 
   let startTime = start.toISOString();
-  let endTime = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  let timeframeRationale = 'Bắt đầu từ ngày mai kéo dài trong 7 ngày để thử nghiệm hiệu suất chiến dịch.';
+  let endTime = ctx.endTime
+    ? new Date(ctx.endTime).toISOString()
+    : new Date(start.getTime() + finalDuration * 24 * 60 * 60 * 1000).toISOString();
+  let timeframeRationale = ctx.startTime && ctx.endTime
+    ? `Chiến dịch được thiết lập diễn ra từ ${new Date(ctx.startTime).toLocaleDateString('vi-VN')} đến ${new Date(ctx.endTime).toLocaleDateString('vi-VN')} theo cấu hình của cửa hàng.`
+    : 'Bắt đầu từ ngày mai kéo dài trong 7 ngày để thử nghiệm hiệu suất chiến dịch.';
 
   const currentYear = start.getFullYear();
 
-  if (ctx.occasion === 'christmas') {
-    const s = new Date(currentYear, 11, 20, 0, 0, 0, 0); // Dec 20
-    const e = new Date(currentYear + 1, 0, 5, 0, 0, 0, 0); // Jan 5
-    startTime = s.toISOString();
-    endTime = e.toISOString();
-    timeframeRationale = 'Chiến dịch chạy từ 20/12 đến 05/01 năm sau để đồng hành cùng mùa lễ hội Noel và chào đón năm mới.';
-  } else if (ctx.occasion === 'tet') {
-    const s = new Date(currentYear, 0, 20, 0, 0, 0, 0); // Jan 20
-    const e = new Date(currentYear, 1, 15, 0, 0, 0, 0); // Feb 15
-    startTime = s.toISOString();
-    endTime = e.toISOString();
-    timeframeRationale = 'Chiến dịch đón Tết Nguyên Đán, bắt đầu từ ngày 20/01 đến 15/02 để bắt trọn tuần lễ mua sắm trước Tết và dịp ăn uống họp mặt đầu năm.';
-  } else if (ctx.occasion === 'valentine') {
-    const s = new Date(currentYear, 1, 7, 0, 0, 0, 0); // Feb 7
-    const e = new Date(currentYear, 1, 17, 0, 0, 0, 0); // Feb 17
-    startTime = s.toISOString();
-    endTime = e.toISOString();
-    timeframeRationale = 'Mở rộng trong 10 ngày từ 07/02 đến 17/02 để phục vụ nhu cầu đặt tiệc của các cặp đôi trong mùa lễ tình nhân Valentine.';
-  } else if (ctx.occasion === 'summer') {
-    const s = new Date(currentYear, 4, 1, 0, 0, 0, 0); // May 1
-    const e = new Date(currentYear, 7, 31, 0, 0, 0, 0); // Aug 31
-    startTime = s.toISOString();
-    endTime = e.toISOString();
-    timeframeRationale = 'Chiến dịch chạy suốt mùa hè từ 01/05 đến 31/08 để tận dụng tối đa thời gian nghỉ hè của học sinh, sinh viên.';
+  if (!ctx.startTime || !ctx.endTime) {
+    if (ctx.occasion === 'christmas') {
+      let s = new Date(currentYear, 11, 20, 0, 0, 0, 0); // Dec 20
+      let e = new Date(currentYear + 1, 0, 5, 0, 0, 0, 0); // Jan 5
+      if (e < start) {
+        s.setFullYear(currentYear + 1);
+        e.setFullYear(currentYear + 2);
+      } else if (s < start) {
+        s = new Date(start);
+      }
+      startTime = s.toISOString();
+      endTime = e.toISOString();
+      timeframeRationale = 'Chiến dịch chạy từ 20/12 đến 05/01 năm sau để đồng hành cùng mùa lễ hội Noel và chào đón năm mới.';
+    } else if (ctx.occasion === 'tet') {
+      let s = new Date(currentYear, 0, 20, 0, 0, 0, 0); // Jan 20
+      let e = new Date(currentYear, 1, 15, 0, 0, 0, 0); // Feb 15
+      if (e < start) {
+        s.setFullYear(currentYear + 1);
+        e.setFullYear(currentYear + 1);
+      } else if (s < start) {
+        s = new Date(start);
+      }
+      startTime = s.toISOString();
+      endTime = e.toISOString();
+      timeframeRationale = 'Chiến dịch đón Tết Nguyên Đán, bắt đầu từ ngày 20/01 đến 15/02 để bắt trọn tuần lễ mua sắm trước Tết và dịp ăn uống họp mặt đầu năm.';
+    } else if (ctx.occasion === 'valentine') {
+      let s = new Date(currentYear, 1, 7, 0, 0, 0, 0); // Feb 7
+      let e = new Date(currentYear, 1, 17, 0, 0, 0, 0); // Feb 17
+      if (e < start) {
+        s.setFullYear(currentYear + 1);
+        e.setFullYear(currentYear + 1);
+      } else if (s < start) {
+        s = new Date(start);
+      }
+      startTime = s.toISOString();
+      endTime = e.toISOString();
+      timeframeRationale = 'Mở rộng trong 10 ngày từ 07/02 đến 17/02 để phục vụ nhu cầu đặt tiệc của các cặp đôi trong mùa lễ tình nhân Valentine.';
+    } else if (ctx.occasion === 'summer') {
+      let s = new Date(currentYear, 4, 1, 0, 0, 0, 0); // May 1
+      let e = new Date(currentYear, 7, 31, 0, 0, 0, 0); // Aug 31
+      if (e < start) {
+        s.setFullYear(currentYear + 1);
+        e.setFullYear(currentYear + 1);
+      } else if (s < start) {
+        s = new Date(start);
+      }
+      startTime = s.toISOString();
+      endTime = e.toISOString();
+      timeframeRationale = 'Chiến dịch chạy suốt mùa hè từ 01/05 đến 31/08 để tận dụng tối đa thời gian nghỉ hè của học sinh, sinh viên.';
+    }
   }
 
-  const performanceReport = calculateEstimatedPerformanceReport(ctx.goal, 7, fallbackName);
+  const performanceReport = calculateEstimatedPerformanceReport(
+    ctx.goal,
+    finalDuration,
+    fallbackName,
+    {
+      products: products.map((p) => ({
+        name: p.name,
+        discount: p.discount,
+        fixedPrice: p.fixedPrice,
+        soldQuantity: p.soldQuantity,
+        price: p.price,
+      })),
+      analysisDays: ctx.days,
+    }
+  );
 
   return {
     name: fallbackName,
@@ -1350,7 +1532,7 @@ const buildDeterministicFallback = (ctx: {
         ? `Ưu đãi đặc biệt mùa ${contextLabel} — đừng bỏ lỡ!`
         : 'Chiến dịch ưu đãi tự động dựa trên hiệu suất bán hàng gần nhất.',
     type: 'discount',
-    durationDays: 7,
+    durationDays: finalDuration,
     products,
     rationale: '⚠ Gợi ý tự động do hệ thống AI tạm thời không phản hồi. Sản phẩm được xếp hạng theo dữ liệu bán hàng thực tế.',
     startTime,

@@ -59,6 +59,21 @@ type AISuggestionContext = {
   days: number;
 };
 
+const renderFormattedText = (text: string) => {
+  if (!text) return null;
+  const parts = text.split(/\*\*([^*]+)\*\*/g);
+  return parts.map((part, index) => {
+    if (index % 2 === 1) {
+      return (
+        <strong key={index} className="font-bold text-emerald-900">
+          {part}
+        </strong>
+      );
+    }
+    return part;
+  });
+};
+
 const AdminCampaigns = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -274,6 +289,8 @@ const AdminCampaigns = () => {
         productCount: aiProductCount,
         ...(aiWeather !== "auto" && { weather: aiWeather }),
         ...(aiOccasion !== "auto" && { occasion: aiOccasion }),
+        ...(aiStartTime && { startTime: new Date(aiStartTime).toISOString() }),
+        ...(aiEndTime && { endTime: new Date(aiEndTime).toISOString() }),
       });
       if (res.success) {
         setAiSuggestion(res.data);
@@ -2508,8 +2525,8 @@ const AdminCampaigns = () => {
                           {aiSuggestion.performanceReport.estimatedProfit}
                         </span>
                       </p>
-                      <p className="leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30">
-                        {aiSuggestion.performanceReport.analysis}
+                      <p className="leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30 whitespace-pre-line">
+                        {renderFormattedText(aiSuggestion.performanceReport.analysis)}
                       </p>
                       <div className="mt-2.5 border-t border-emerald-100/60 pt-2 text-[10px] text-emerald-700/85 leading-relaxed font-medium">
                         {renderedAISuggestionGoal === "boost_sales" ? (
@@ -2679,8 +2696,8 @@ const AdminCampaigns = () => {
                       {pendingAICampaign.performanceReport.estimatedProfit}
                     </span>
                   </p>
-                  <p className="text-xs text-slate-600 leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30">
-                    {pendingAICampaign.performanceReport.analysis}
+                  <p className="text-xs text-slate-600 leading-relaxed bg-white/60 p-2.5 rounded-xl border border-emerald-100/30 whitespace-pre-line">
+                    {renderFormattedText(pendingAICampaign.performanceReport.analysis)}
                   </p>
                   <div className="mt-2 border-t border-emerald-100/60 pt-2 text-[10px] text-emerald-800/80 leading-relaxed font-medium">
                     {pendingAIContext?.goal === "boost_sales" || !pendingAIContext ? (

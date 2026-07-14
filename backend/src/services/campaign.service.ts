@@ -108,6 +108,8 @@ export const suggestCampaignWithAI = async (params: {
   occasion?: string;
   goal?: string;
   productCount?: number;
+  startTime?: string;
+  endTime?: string;
 }) => {
   const weather = params.weather ?? 'normal';
   const occasion = params.occasion ?? 'none';
@@ -115,10 +117,18 @@ export const suggestCampaignWithAI = async (params: {
   const days = params.days ?? 14;
   const productCount = Math.min(6, Math.max(2, params.productCount ?? 3));
 
-  console.log('[AI Campaign] suggestCampaignWithAI params → goal=%s weather=%s occasion=%s days=%d count=%d',
-    goal, weather, occasion, days, productCount);
+  console.log('[AI Campaign] suggestCampaignWithAI params → goal=%s weather=%s occasion=%s days=%d count=%d startTime=%s endTime=%s',
+    goal, weather, occasion, days, productCount, params.startTime, params.endTime);
 
-  return getAICampaignSuggestionService({ weather, occasion, goal, days, productCount });
+  return getAICampaignSuggestionService({
+    weather,
+    occasion,
+    goal,
+    days,
+    productCount,
+    startTime: params.startTime,
+    endTime: params.endTime,
+  });
 };
 
 export const createCampaign = async (
@@ -365,6 +375,8 @@ export const getAICampaignSuggestionService = async (params: {
   goal: string;
   days: number;
   productCount: number;
+  startTime?: string;
+  endTime?: string;
 }) => {
   // 1. Lấy dữ liệu 10 món bán chạy nhất trong 30 ngày qua
   // Bao gồm tất cả trạng thái đơn hàng đã hoàn thành (không bao gồm cancelled/refunded)
@@ -480,7 +492,9 @@ export const getAICampaignSuggestionService = async (params: {
     params.goal,
     salesWindowDays,
     params.productCount,
-    salesByProductMap
+    salesByProductMap,
+    params.startTime,
+    params.endTime
   );
 
   return suggestion;
