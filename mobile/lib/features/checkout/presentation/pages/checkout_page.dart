@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
@@ -519,7 +522,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ),
+                  ), 
                   const SizedBox(height: 16),
                   const Text(
                     'Thêm địa chỉ',
@@ -760,6 +763,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // ── Place Order ──
 
+  Future<void> _cancelPendingPayosOrder(int? payosOrderCode) async {
+    if (payosOrderCode == null) return;
+    try {
+      await _dio.get(
+        ApiEndpoints.paymentsPayosCancel,
+        queryParameters: {'orderCode': payosOrderCode},
+      );
+    } catch (e) {
+      debugPrint('CHECKOUT_CANCEL_PAYOS_ERROR: $e');
+    }
+  }
+
   Future<void> _removeCheckedOutItemsFromCart() async {
     try {
       await Future.wait(
@@ -813,6 +828,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (_appliedVoucher != null) 'voucher': _appliedVoucher,
         if (_noteController.text.trim().isNotEmpty)
           'note': _noteController.text.trim(),
+        if (_paymentMethod == 'bank_transfer') ...{
+          'returnUrl': '${Uri.base.origin}/#/payos-callback',
+          'cancelUrl': '${Uri.base.origin}/#/payos-callback',
+        },
         'deliveryAddress': {
           'receiverName': _selectedAddress!['receiverName'] ?? '',
           'phone': _selectedAddress!['phone'] ?? '',
@@ -859,19 +878,41 @@ class _CheckoutPageState extends State<CheckoutPage> {
           : <String, dynamic>{};
       final id = od['_id'] as String? ?? od['id'] as String? ?? '';
       final checkoutUrl = od['checkoutUrl'] as String?;
+      final payosOrderCode = (od['payment'] as Map<String, dynamic>?)?['payosOrderCode'] as int?;
 
       if (!mounted) return;
 
       if (checkoutUrl != null && checkoutUrl.isNotEmpty) {
-        final result = await context.push<bool>(
+        await _removeCheckedOutItemsFromCart();
+        if (!mounted) return;
+
+        if (kIsWeb) {
+          // Flutter Web: redirect current tab to PayOS via _self.
+          // PayOS will redirect back to /payos-callback in this same app.
+          final uri = Uri.parse(checkoutUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(
+              uri,
+              mode: LaunchMode.platformDefault,
+              webOnlyWindowName: '_self',
+            );
+          }
+          // _self redirect replaces this page — code below only runs if blocked.
+          return;
+        }
+
+        // Native (Android/iOS): show PayOS WebView in-app and wait for the result.
+        final paid = await context.push<bool>(
           '/payment-webview',
           extra: checkoutUrl,
         );
-        if (result == true && mounted && id.isNotEmpty) {
-          await _removeCheckedOutItemsFromCart();
-          if (!mounted) return;
+
+        if (!mounted) return;
+
+        if (paid == true) {
           context.pushReplacement('/order-success/$id');
-        } else if (mounted && id.isNotEmpty) {
+        } else {
+          unawaited(_cancelPendingPayosOrder(payosOrderCode));
           context.pushReplacement('/order-failed/$id');
         }
         return;
@@ -910,6 +951,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             return;
           }
         }
+      } else if (statusCode == 500 && _paymentMethod == 'bank_transfer') {
+        msg = 'Hệ thống thanh toán PayOS đang bảo trì. '
+            'Vui lòng chọn COD (tiền mặt) để tiếp tục.';
       }
       _snack(msg, AppColors.error);
       setState(() => _isPlacing = false);

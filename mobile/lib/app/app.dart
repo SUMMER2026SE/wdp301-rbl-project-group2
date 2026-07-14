@@ -6,6 +6,7 @@ import 'package:foa_mobile/core/theme/app_theme.dart';
 import 'package:foa_mobile/core/services/socket_service.dart';
 import 'package:foa_mobile/core/di/injection.dart';
 import 'package:foa_mobile/features/stores/presentation/cubit/store_cubit.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 
 // Import Staff Blocs
 import 'package:foa_mobile/features/staff_orders/presentation/blocs/staff_orders_bloc.dart';
@@ -72,6 +73,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
             ..hydrateStore()
             ..fetchStores(),
         ),
+        BlocProvider<CartCubit>(
+          create: (context) => sl<CartCubit>()..loadCart(),
+        ),
         // Add Staff Blocs globally to share states and socket listeners
         BlocProvider<StaffOrdersBloc>(
           create: (context) => sl<StaffOrdersBloc>(),
@@ -86,11 +90,18 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           create: (context) => sl<StaffCustomersBloc>(),
         ),
       ],
-      child: MaterialApp.router(
-        title: 'FoodieDash',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        routerConfig: _appRouter.router,
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthAuthenticated) {
+            context.read<CartCubit>().loadCart();
+          }
+        },
+        child: MaterialApp.router(
+          title: 'FoodieDash',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          routerConfig: _appRouter.router,
+        ),
       ),
     );
   }

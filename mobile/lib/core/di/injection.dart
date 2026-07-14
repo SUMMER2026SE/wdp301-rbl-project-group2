@@ -21,6 +21,12 @@ import 'package:foa_mobile/features/products/data/datasources/product_remote_dat
 import 'package:foa_mobile/features/products/data/repositories/product_repository_impl.dart';
 import 'package:foa_mobile/features/products/domain/repositories/product_repository.dart';
 
+// Cart Feature
+import 'package:foa_mobile/features/cart/data/datasources/cart_remote_datasource.dart';
+import 'package:foa_mobile/features/cart/data/repositories/cart_repository_impl.dart';
+import 'package:foa_mobile/features/cart/domain/repositories/cart_repository.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
+
 // Staff Orders Feature
 import 'package:foa_mobile/features/staff_orders/data/datasources/staff_orders_remote_datasource.dart';
 import 'package:foa_mobile/features/staff_orders/data/repositories/staff_orders_repository_impl.dart';
@@ -112,6 +118,17 @@ Future<void> initDependencies() async {
   );
   sl.registerLazySingleton<ProductRepository>(
     () => ProductRepositoryImpl(sl<ProductRemoteDataSource>()),
+  );
+
+  // ── Cart Feature ──
+  sl.registerLazySingleton<CartRemoteDataSource>(
+    () => CartRemoteDataSource(),
+  );
+  sl.registerLazySingleton<CartRepository>(
+    () => CartRepositoryImpl(sl<CartRemoteDataSource>()),
+  );
+  sl.registerLazySingleton<CartCubit>(
+    () => CartCubit(sl<CartRepository>()),
   );
 
   // ── Staff Orders Feature ──

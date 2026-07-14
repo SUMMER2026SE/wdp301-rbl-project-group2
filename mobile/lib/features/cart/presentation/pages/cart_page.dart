@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
 import 'package:foa_mobile/core/utils/formatters.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 
 /// Full-featured Cart page with food-delivery UI style.
 class CartPage extends StatefulWidget {
@@ -44,11 +46,13 @@ class _CartPageState extends State<CartPage> {
 
   // ── API ──
 
-  Future<void> _loadCart() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadCart({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final response = await _dio.get(ApiEndpoints.cart);
       final data = response.data;
@@ -60,23 +64,41 @@ class _CartPageState extends State<CartPage> {
         _items = itemsRaw.map((e) => e as Map<String, dynamic>).toList();
         _storeName = cartData['storeName'] as String?;
         _isLoading = false;
+        _error = null;
       });
+      if (mounted) {
+        context.read<CartCubit>().updateCartItems(_items, _storeName);
+      }
     } on DioException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _error =
-            e.type == DioExceptionType.connectionError ||
-                e.type == DioExceptionType.connectionTimeout
-            ? 'Không có kết nối mạng'
-            : 'Không thể tải giỏ hàng';
-      });
+      if (silent) {
+        _showSnack(
+          e.type == DioExceptionType.connectionError ||
+                  e.type == DioExceptionType.connectionTimeout
+              ? 'Không có kết nối mạng'
+              : 'Không thể cập nhật giỏ hàng',
+          AppColors.error,
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error =
+              e.type == DioExceptionType.connectionError ||
+                  e.type == DioExceptionType.connectionTimeout
+              ? 'Không có kết nối mạng'
+              : 'Không thể tải giỏ hàng';
+        });
+      }
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _error = 'Không thể tải giỏ hàng';
-      });
+      if (silent) {
+        _showSnack('Không thể cập nhật giỏ hàng', AppColors.error);
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = 'Không thể tải giỏ hàng';
+        });
+      }
     }
   }
 
@@ -157,6 +179,9 @@ class _CartPageState extends State<CartPage> {
         item['quantity'] = qty;
       }
     });
+    if (mounted) {
+      context.read<CartCubit>().updateCartItems(_items, _storeName);
+    }
 
     try {
       final item = _items.firstWhere(
@@ -193,7 +218,7 @@ class _CartPageState extends State<CartPage> {
               : 'Không thể cập nhật giỏ hàng',
           AppColors.error,
         );
-        await _loadCart();
+        await _loadCart(silent: true);
       }
     }
   }
@@ -213,7 +238,7 @@ class _CartPageState extends State<CartPage> {
         ApiEndpoints.cartRemove,
         data: {'productId': productId, 'variations': variations},
       );
-      await _loadCart();
+      await _loadCart(silent: true);
       if (mounted) _showSnack('Đã xóa khỏi giỏ hàng', AppColors.success);
       return true;
     } catch (_) {
@@ -237,7 +262,7 @@ class _CartPageState extends State<CartPage> {
           'Đã thêm "${product['name'] ?? ''}" vào giỏ hàng',
           AppColors.success,
         );
-        await _loadCart();
+        await _loadCart(silent: true);
       }
     } on DioException catch (e) {
       final msg = e.response?.data is Map
@@ -273,7 +298,7 @@ class _CartPageState extends State<CartPage> {
     if (confirm != true) return;
     try {
       await _dio.delete(ApiEndpoints.cartClear);
-      await _loadCart();
+      await _loadCart(silent: true);
     } catch (_) {}
   }
 
@@ -316,6 +341,7 @@ class _CartPageState extends State<CartPage> {
         content: Text(msg),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -378,7 +404,7 @@ class _CartPageState extends State<CartPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadCart,
+      onRefresh: () => _loadCart(silent: true),
       color: AppColors.primary,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),

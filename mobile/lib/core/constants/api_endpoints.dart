@@ -106,6 +106,9 @@ class ApiEndpoints {
   // ── Settings ──
   static const String settings = '/settings';
 
+  // ── Payments ──
+  static const String paymentsPayosCancel = '/payments/payos/cancel';
+
   // ── Location ──
   static const String location = '/location';
 }

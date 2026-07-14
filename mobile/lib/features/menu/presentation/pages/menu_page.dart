@@ -20,6 +20,7 @@ import 'package:foa_mobile/features/products/data/models/product_model.dart';
 import 'package:foa_mobile/features/menu/presentation/blocs/menu_bloc.dart';
 import 'package:foa_mobile/features/menu/presentation/blocs/menu_event.dart';
 import 'package:foa_mobile/features/menu/presentation/blocs/menu_state.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 
 /// Menu listing page wrapper providing [MenuBloc].
 class MenuPage extends StatelessWidget {
@@ -1546,6 +1547,7 @@ class _MenuPageContentState extends State<MenuPageContent> {
         data: {'productId': product.id, 'quantity': 1, 'price': product.price},
       );
       if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã thêm "${product.name}" vào giỏ hàng'),
@@ -1554,7 +1556,7 @@ class _MenuPageContentState extends State<MenuPageContent> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
           ),
         );
       }

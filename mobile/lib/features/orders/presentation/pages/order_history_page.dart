@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:dio/dio.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -251,11 +254,13 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       }
       if (mounted) {
         Navigator.pop(context); // Dismiss loading dialog
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Đã thêm các món ăn vào giỏ hàng thành công!'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 1),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

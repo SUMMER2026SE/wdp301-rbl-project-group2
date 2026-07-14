@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:dio/dio.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
@@ -35,6 +37,11 @@ class _OrderSuccessPageState extends State<OrderSuccessPage>
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        context.read<CartCubit>().loadCart();
+      }
+    });
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),

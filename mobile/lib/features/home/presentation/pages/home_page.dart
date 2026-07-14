@@ -13,6 +13,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:foa_mobile/features/stores/presentation/cubit/store_cubit.dart';
 import 'package:foa_mobile/features/stores/presentation/cubit/store_state.dart';
 import 'package:foa_mobile/features/stores/presentation/widgets/store_selector_bottom_sheet.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:foa_mobile/shared/widgets/product_grid_card.dart';
 import 'package:foa_mobile/features/products/data/models/product_model.dart';
 import 'package:foa_mobile/features/home/presentation/widgets/loyalty_preview_section.dart';
@@ -71,11 +72,12 @@ class _HomePageState extends State<HomePage> {
 
   // API data
   List<Map<String, dynamic>> _categories = [];
-  List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _recommendations = [];
   List<Map<String, dynamic>> _vouchers = [];
   List<Map<String, dynamic>> _bestSellers = [];
   int _unreadCount = 0;
+  Map<String, dynamic>? _activeCampaign;
+  List<Map<String, dynamic>> _flashSaleProducts = [];
 
   Map<String, dynamic>? _membership;
   List<Map<String, dynamic>> _recentOrders = [];
@@ -177,12 +179,14 @@ class _HomePageState extends State<HomePage> {
         data: {'productId': productId, 'quantity': 1},
       );
       if (!mounted) return;
+      unawaited(context.read<CartCubit>().loadCart());
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Đã thêm "${product['name'] ?? ''}" vào giỏ hàng!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -250,9 +254,6 @@ class _HomePageState extends State<HomePage> {
       final results = await Future.wait([
         safeCall(_dio.get(ApiEndpoints.productCategories)),
         safeCall(
-          _dio.get(ApiEndpoints.products, queryParameters: {'limit': 20}),
-        ),
-        safeCall(
           _dio.get(
             ApiEndpoints.recommendations,
             queryParameters: _selectedStore != null
@@ -282,6 +283,7 @@ class _HomePageState extends State<HomePage> {
         safeCall(
           _dio.get(ApiEndpoints.featuredReviews, queryParameters: {'limit': 5}),
         ),
+        safeCall(_dio.get(ApiEndpoints.campaigns)),
       ]);
 
       if (!mounted) return;
@@ -315,26 +317,8 @@ class _HomePageState extends State<HomePage> {
         return {'id': e.toString(), 'name': e.toString()};
       }).toList();
 
-      // Parse products (for flash sale — sort by salesCount)
-      var productsRaw = parseList(
-        results[1],
-      ).where((p) => p['status'] == 'active' || p['status'] == null).toList();
-      final uniqueProducts = <String, Map<String, dynamic>>{};
-      for (final p in productsRaw) {
-        final id = p['_id'] as String? ?? '';
-        if (id.isNotEmpty) {
-          uniqueProducts[id] = p;
-        }
-      }
-      var products = uniqueProducts.values.toList();
-      products.sort((a, b) {
-        final aSales = (a['salesCount'] as num?)?.toDouble() ?? 0;
-        final bSales = (b['salesCount'] as num?)?.toDouble() ?? 0;
-        return bSales.compareTo(aSales);
-      });
-
       // Parse recommendations. Backend returns [{ product, aiReason, healthScore }].
-      final recommendations = parseList(results[2])
+      final recommendations = parseList(results[1])
           .map((item) {
             final product = item['product'];
             if (product is Map<String, dynamic>) {
@@ -350,11 +334,11 @@ class _HomePageState extends State<HomePage> {
           .toList();
 
       // Parse vouchers
-      final vouchers = parseList(results[3]);
+      final vouchers = parseList(results[2]);
 
       // Parse unread count
       int unreadCount = 0;
-      final notifResponse = results[4];
+      final notifResponse = results[3];
       if (notifResponse != null) {
         final d = notifResponse.data;
         if (d is Map) {
@@ -370,7 +354,7 @@ class _HomePageState extends State<HomePage> {
 
       // Parse best sellers
       final bestSellersRaw = parseList(
-        results[5],
+        results[4],
       ).where((p) => p['status'] == 'active' || p['status'] == null).toList();
       final uniqueBestSellers = <String, Map<String, dynamic>>{};
       for (final p in bestSellersRaw) {
@@ -383,7 +367,7 @@ class _HomePageState extends State<HomePage> {
 
       // Parse membership
       Map<String, dynamic>? membership;
-      final memRes = results[6];
+      final memRes = results[5];
       if (memRes != null) {
         membership =
             memRes.data['data'] as Map<String, dynamic>? ??
@@ -394,7 +378,7 @@ class _HomePageState extends State<HomePage> {
 
       // Parse recent orders
       List<Map<String, dynamic>> recentOrders = [];
-      final ordersRes = results[7];
+      final ordersRes = results[6];
       if (ordersRes != null) {
         final data = ordersRes.data;
         final raw = data is Map
@@ -407,7 +391,7 @@ class _HomePageState extends State<HomePage> {
 
       // Parse reviews
       List<Map<String, dynamic>> latestReviews = [];
-      final revRes = results[8];
+      final revRes = results[7];
       if (revRes != null) {
         final data = revRes.data;
         final raw = data is Map
@@ -418,9 +402,57 @@ class _HomePageState extends State<HomePage> {
         _reviewsError = true;
       }
 
+      // Parse campaigns
+      Map<String, dynamic>? activeCampaign;
+      List<Map<String, dynamic>> flashSaleProducts = [];
+      final campRes = results.length > 8 ? results[8] : null;
+      if (campRes != null) {
+        final campaignsList = parseList(campRes);
+        final now = DateTime.now();
+        final activeCampaigns = campaignsList.where((c) {
+          final startTimeStr = c['startTime'] as String?;
+          final endTimeStr = c['endTime'] as String?;
+          if (startTimeStr == null || endTimeStr == null) return false;
+          final start = DateTime.parse(startTimeStr);
+          final end = DateTime.parse(endTimeStr);
+          final status = c['status'] as String?;
+          final products = c['products'] as List<dynamic>? ?? [];
+          return status == 'approved' &&
+              now.isAfter(start) &&
+              now.isBefore(end) &&
+              products.isNotEmpty;
+        }).toList();
+
+        if (activeCampaigns.isNotEmpty) {
+          final campaign = activeCampaigns[0];
+          final productsRaw = campaign['products'] as List<dynamic>? ?? [];
+          final mappedProducts = productsRaw
+              .where((p) => p['productId'] != null)
+              .map((p) {
+                final product = Map<String, dynamic>.from(p['productId'] as Map<String, dynamic>);
+                final originalPrice = (product['price'] as num?)?.toDouble() ?? 0;
+                final fixedPrice = (p['fixedPrice'] as num?)?.toDouble();
+                final discount = (p['discount'] as num?)?.toDouble();
+                double campaignPrice = originalPrice;
+                if (fixedPrice != null) {
+                  campaignPrice = fixedPrice;
+                } else if (discount != null) {
+                  campaignPrice = originalPrice * (100 - discount) / 100;
+                }
+                product['price'] = campaignPrice;
+                product['originalPrice'] = originalPrice;
+                product['campaignFixedPrice'] = fixedPrice;
+                product['campaignDiscount'] = discount;
+                return product;
+              })
+              .toList();
+          activeCampaign = campaign;
+          flashSaleProducts = mappedProducts;
+        }
+      }
+
       setState(() {
         _categories = categories;
-        _products = products;
         _recommendations = recommendations;
         _vouchers = vouchers;
         _unreadCount = unreadCount;
@@ -428,6 +460,8 @@ class _HomePageState extends State<HomePage> {
         _membership = membership;
         _recentOrders = recentOrders;
         _latestReviews = latestReviews;
+        _activeCampaign = activeCampaign;
+        _flashSaleProducts = flashSaleProducts;
         _isLoading = false;
       });
     } on DioException catch (_) {
@@ -472,8 +506,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredProducts = getFilteredProducts(_products);
     final filteredBestSellers = getFilteredProducts(_bestSellers);
+    final filteredFlashSale = getFilteredProducts(_flashSaleProducts);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -522,9 +556,13 @@ class _HomePageState extends State<HomePage> {
                           _buildBannerCarousel(),
 
                           // Flash Sale (Now displayed below Banner Carousel, above Category Section)
-                          if (filteredProducts.isNotEmpty) ...[
-                            _buildFlashSaleSectionHeader(),
-                            _buildProductGrid(filteredProducts),
+                          if (_activeCampaign != null && filteredFlashSale.isNotEmpty) ...[
+                            _CampaignHeaderWithTimer(
+                              title: _activeCampaign!['name'] as String? ?? 'Flash Sale',
+                              endTimeStr: _activeCampaign!['endTime'] as String? ?? '',
+                              onViewAll: () => context.push('/campaign/${_activeCampaign!['_id']}'),
+                            ),
+                            _buildProductGrid(filteredFlashSale),
                           ],
 
                           // AI Recommendations
@@ -1325,37 +1363,6 @@ class _HomePageState extends State<HomePage> {
       onAddToCart: () => _addToCart(product),
     );
   }
-
-  // ── Flash Sale ──
-
-  Widget _buildFlashSaleSectionHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.flash_on, color: Colors.red),
-              SizedBox(width: 4),
-              Text(
-                'Flash Sale',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          TextButton(
-            onPressed: () => context.push('/menu'),
-            child: const Text('Xem tất cả'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -1387,5 +1394,161 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
     return oldDelegate.height != height || oldDelegate.child != child;
+  }
+}
+
+class _CampaignHeaderWithTimer extends StatefulWidget {
+  final String title;
+  final String endTimeStr;
+  final VoidCallback onViewAll;
+
+  const _CampaignHeaderWithTimer({
+    required this.title,
+    required this.endTimeStr,
+    required this.onViewAll,
+  });
+
+  @override
+  State<_CampaignHeaderWithTimer> createState() => _CampaignHeaderWithTimerState();
+}
+
+class _CampaignHeaderWithTimerState extends State<_CampaignHeaderWithTimer> {
+  Timer? _timer;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _calculateRemaining();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _calculateRemaining() {
+    try {
+      final endTime = DateTime.parse(widget.endTimeStr);
+      _remaining = endTime.difference(DateTime.now());
+      if (_remaining.isNegative) _remaining = Duration.zero;
+    } catch (_) {
+      _remaining = Duration.zero;
+    }
+  }
+
+  String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
+  @override
+  Widget build(BuildContext context) {
+    final hours = _twoDigits(_remaining.inHours);
+    final minutes = _twoDigits(_remaining.inMinutes.remainder(60));
+    final seconds = _twoDigits(_remaining.inSeconds.remainder(60));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.flash_on, color: Colors.red, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                if (_remaining != Duration.zero)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.timer_outlined,
+                        color: Colors.red,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Kết thúc sau:',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.red.shade100, width: 0.8),
+                        ),
+                        child: Text(
+                          '$hours:$minutes:$seconds',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.red,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    'Đã kết thúc',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: widget.onViewAll,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Xem tất cả',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

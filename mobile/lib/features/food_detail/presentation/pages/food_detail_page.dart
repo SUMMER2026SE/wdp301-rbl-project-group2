@@ -9,6 +9,8 @@ import 'package:foa_mobile/core/constants/api_endpoints.dart';
 import 'package:foa_mobile/core/utils/formatters.dart';
 import 'package:foa_mobile/shared/widgets/error_widget.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:foa_mobile/core/storage/local_storage.dart';
 import 'package:foa_mobile/features/products/data/models/product_model.dart';
 import 'package:foa_mobile/shared/widgets/product_grid_card.dart';
@@ -198,6 +200,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       );
 
       if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -208,10 +211,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
           ),
         );
-        context.pop();
       }
     } on DioException catch (e) {
       final msg =
@@ -276,6 +278,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           if (variations.isNotEmpty) 'variations': variations,
         },
       );
+
+      if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
+      }
 
       // Fetch the updated cart items to find the ID of this newly added item
       final cartResponse = await _dio.get(ApiEndpoints.cart);
@@ -378,6 +384,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       );
 
       if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã thêm ${product.name} vào giỏ hàng'),
@@ -386,7 +393,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -782,7 +789,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                           if (extraPrice > 0) ...[
                             const SizedBox(width: 4),
                             Text(
-                              '+${Formatters.compactCurrency(extraPrice)}',
+                              '+${Formatters.currency(extraPrice)}',
                               style: TextStyle(
                                 color: isSelected
                                     ? Colors.white70
@@ -1525,7 +1532,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                         ),
                       )
                     : Text(
-                        'Mua ngay - ${Formatters.compactCurrency(_totalPrice)}',
+                        'Mua ngay - ${Formatters.currency(_totalPrice)}',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,

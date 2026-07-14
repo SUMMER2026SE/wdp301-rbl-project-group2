@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
-import 'package:foa_mobile/core/utils/formatters.dart';
 import 'package:foa_mobile/shared/widgets/error_widget.dart';
+import 'package:foa_mobile/core/storage/local_storage.dart';
+import 'package:foa_mobile/shared/widgets/product_grid_card.dart';
+import 'package:foa_mobile/features/products/data/models/product_model.dart';
 
 /// Campaign products page showing campaign header and discounted products.
 class CampaignProductsPage extends StatefulWidget {
@@ -28,10 +31,17 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
 
+  List<Map<String, dynamic>> _activeCampaigns = [];
+  late String _selectedCampaignId;
+  List<String> _userAllergies = [];
+
   @override
   void initState() {
     super.initState();
+    _selectedCampaignId = widget.id;
+    _userAllergies = LocalStorage.selectedAllergies;
     _loadCampaign();
+    _loadAllActiveCampaigns();
   }
 
   @override
@@ -47,7 +57,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
     });
 
     try {
-      final response = await _dio.get(ApiEndpoints.campaignById(widget.id));
+      final response = await _dio.get(ApiEndpoints.campaignById(_selectedCampaignId));
       final data = response.data;
       final campaignData = data is Map<String, dynamic>
           ? (data['data'] as Map<String, dynamic>? ?? data)
@@ -63,9 +73,21 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           .where((p) => p['productId'] != null)
           .map((p) {
             final product = p['productId'] as Map<String, dynamic>;
-            // Merge campaign pricing into product
-            product['campaignFixedPrice'] = p['fixedPrice'];
-            product['campaignDiscount'] = p['discount'];
+            final originalPrice = (product['price'] as num?)?.toDouble() ?? 0;
+            final fixedPrice = (p['fixedPrice'] as num?)?.toDouble();
+            final discount = (p['discount'] as num?)?.toDouble();
+
+            double campaignPrice = originalPrice;
+            if (fixedPrice != null) {
+              campaignPrice = fixedPrice;
+            } else if (discount != null) {
+              campaignPrice = originalPrice * (100 - discount) / 100;
+            }
+
+            product['originalPrice'] = originalPrice;
+            product['price'] = campaignPrice;
+            product['campaignFixedPrice'] = fixedPrice;
+            product['campaignDiscount'] = discount;
             return product;
           })
           .toList();
@@ -103,6 +125,37 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
     }
   }
 
+  Future<void> _loadAllActiveCampaigns() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.campaigns);
+      final data = response.data;
+      final List<dynamic> raw = data is Map
+          ? (data['data'] as List<dynamic>? ?? [])
+          : (data as List<dynamic>? ?? []);
+      final list = raw.map((e) => e as Map<String, dynamic>).toList();
+      final now = DateTime.now();
+      final active = list.where((c) {
+        final startTimeStr = c['startTime'] as String?;
+        final endTimeStr = c['endTime'] as String?;
+        if (startTimeStr == null || endTimeStr == null) return false;
+        final start = DateTime.parse(startTimeStr);
+        final end = DateTime.parse(endTimeStr);
+        final status = c['status'] as String?;
+        final products = c['products'] as List<dynamic>? ?? [];
+        return status == 'approved' &&
+            now.isAfter(start) &&
+            now.isBefore(end) &&
+            products.isNotEmpty;
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _activeCampaigns = active;
+        });
+      }
+    } catch (_) {}
+  }
+
   void _startCountdown(DateTime endTime) {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -128,14 +181,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  double _getCampaignPrice(Map<String, dynamic> product) {
-    final originalPrice = (product['price'] as num?)?.toDouble() ?? 0;
-    final fixedPrice = (product['campaignFixedPrice'] as num?)?.toDouble();
-    final discount = (product['campaignDiscount'] as num?)?.toDouble();
-    if (fixedPrice != null) return fixedPrice;
-    if (discount != null) return originalPrice * (100 - discount) / 100;
-    return originalPrice;
-  }
+
 
   void _addToCart(Map<String, dynamic> product) async {
     try {
@@ -148,6 +194,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
         },
       );
       if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã thêm "${product['name']}" vào giỏ hàng'),
@@ -156,7 +203,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
           ),
         );
       }
@@ -227,7 +274,7 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
       slivers: [
         // Campaign header
         SliverAppBar(
-          expandedHeight: 220,
+          expandedHeight: 260,
           pinned: true,
           backgroundColor: AppColors.primary,
           flexibleSpace: FlexibleSpaceBar(background: _buildHeader()),
@@ -244,6 +291,12 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
           ),
         ),
 
+        // Multi-Campaign Selector Tabs (if multiple campaigns are active)
+        if (_activeCampaigns.length > 1)
+          SliverToBoxAdapter(
+            child: _buildCampaignTabs(),
+          ),
+
         // Products grid
         if (_products.isEmpty)
           SliverFillRemaining(child: _buildEmptyState())
@@ -253,9 +306,9 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.72,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
+                childAspectRatio: 0.90,
+                crossAxisSpacing: 6,
+                mainAxisSpacing: 6,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _buildGridItem(_products[index]),
@@ -264,6 +317,70 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildCampaignTabs() {
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.only(top: 16, bottom: 4),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _activeCampaigns.length,
+        itemBuilder: (context, index) {
+          final c = _activeCampaigns[index];
+          final id = c['_id'] as String? ?? '';
+          final name = c['name'] as String? ?? 'Chiến dịch';
+          final isSelected = id == _selectedCampaignId;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              onTap: isSelected
+                  ? null
+                  : () {
+                      setState(() {
+                        _selectedCampaignId = id;
+                      });
+                      _loadCampaign();
+                    },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : Colors.transparent,
+                    width: 1.2,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -284,10 +401,10 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
         ),
       ),
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 56,
+        top: MediaQuery.of(context).padding.top + 48,
         left: 20,
         right: 20,
-        bottom: 24,
+        bottom: 12,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,31 +426,42 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.timer_outlined, color: Colors.white70, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                _remaining == Duration.zero
-                    ? 'Đã kết thúc'
-                    : 'Kết thúc sau: ${_formatCountdown(_remaining)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.timer_outlined, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  _remaining == Duration.zero
+                      ? 'Đã kết thúc'
+                      : 'Kết thúc sau: ${_formatCountdown(_remaining)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -384,245 +512,16 @@ class _CampaignProductsPageState extends State<CampaignProductsPage> {
   }
 
   Widget _buildGridItem(Map<String, dynamic> product) {
-    final name = product['name'] as String? ?? 'Món ăn';
-    final originalPrice = (product['price'] as num?)?.toDouble() ?? 0;
-    final campaignPrice = _getCampaignPrice(product);
-    final image = product['image'] as String?;
-    final rating = (product['rating'] as num?)?.toDouble();
-    final isAvailable = product['isAvailable'] as bool? ?? true;
-    final hasDiscount = campaignPrice < originalPrice;
+    final entity = ProductModel.fromJson(product).toEntity();
+    final conflictingAllergies = entity.allergenTags
+        .where((a) => _userAllergies.contains(a))
+        .toList();
 
-    return GestureDetector(
-      onTap: () => context.push('/food/${product['_id']}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            Expanded(
-              flex: 6,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    image != null && image.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: image,
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) =>
-                                Container(color: Colors.grey[200]),
-                            errorWidget: (_, _, _) => Container(
-                              color: Colors.orange[50],
-                              child: const Icon(
-                                Icons.restaurant,
-                                color: AppColors.primary,
-                                size: 40,
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: Colors.orange[50],
-                            child: const Icon(
-                              Icons.restaurant,
-                              color: AppColors.primary,
-                              size: 40,
-                            ),
-                          ),
-                    if (!isAvailable)
-                      Container(
-                        color: Colors.black54,
-                        child: const Center(
-                          child: Text(
-                            'Hết hàng',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (hasDiscount)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '-${((originalPrice - campaignPrice) / originalPrice * 100).round()}%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (rating != null)
-                      Positioned(
-                        bottom: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                                size: 12,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                rating.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    // Campaign badge
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.local_offer,
-                              color: Colors.white,
-                              size: 10,
-                            ),
-                            SizedBox(width: 2),
-                            Text(
-                              'KM',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Info
-            Expanded(
-              flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          Formatters.compactCurrency(campaignPrice),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        if (hasDiscount) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            Formatters.compactCurrency(originalPrice),
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[400],
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const Spacer(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (isAvailable)
-                          GestureDetector(
-                            onTap: () => _addToCart(product),
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ProductGridCard(
+      product: entity,
+      isAllergic: conflictingAllergies.isNotEmpty,
+      onTap: () => context.push('/food/${entity.id}'),
+      onAddToCart: () => _addToCart(product),
     );
   }
 }

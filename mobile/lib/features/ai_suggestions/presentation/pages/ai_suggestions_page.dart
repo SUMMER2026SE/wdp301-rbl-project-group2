@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
@@ -191,6 +194,7 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
         },
       );
       if (mounted) {
+        unawaited(context.read<CartCubit>().loadCart());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã thêm "${product['name']}" vào giỏ hàng'),
@@ -199,7 +203,7 @@ class _AiSuggestionsPageState extends State<AiSuggestionsPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 1),
           ),
         );
       }

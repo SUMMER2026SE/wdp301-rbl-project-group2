@@ -69,7 +69,12 @@ class _ProfilePageState extends State<ProfilePage> {
           context.read<AuthBloc>().add(const AuthCheckRequested());
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            MediaQuery.of(context).padding.bottom + 96,
+          ),
           children: [
             _ProfileHeroCard(
               name: name,
@@ -712,6 +717,7 @@ class _LogoutTile extends StatelessWidget {
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.logout_rounded, color: AppColors.error),
               SizedBox(width: 12),

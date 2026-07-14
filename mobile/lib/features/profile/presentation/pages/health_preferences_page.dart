@@ -4,8 +4,7 @@ import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/constants/api_endpoints.dart';
 import 'package:foa_mobile/core/constants/allergy_options.dart';
 import 'package:foa_mobile/core/network/api_client.dart';
-import 'package:foa_mobile/shared/widgets/error_widget.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:foa_mobile/core/storage/local_storage.dart';
 
 class HealthPreferencesPage extends StatefulWidget {
   const HealthPreferencesPage({super.key});
@@ -16,13 +15,9 @@ class HealthPreferencesPage extends StatefulWidget {
 
 class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
   late final Dio _dio;
-
-  bool _loading = true;
   bool _saving = false;
-  String? _error;
 
   final Set<String> _allergies = {};
-  Map<String, dynamic> _preferences = <String, dynamic>{};
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -30,7 +25,7 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
   void initState() {
     super.initState();
     _dio = ApiClient().dio;
-    _loadPreferences();
+    _allergies.addAll(LocalStorage.selectedAllergies);
   }
 
   @override
@@ -39,124 +34,37 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
     super.dispose();
   }
 
-
-  Map<String, dynamic> _extractPreferences(Map<String, dynamic> user) {
-    final preferences = user['preferences'];
-    if (preferences is Map<String, dynamic>) {
-      return Map<String, dynamic>.from(preferences);
-    }
-    return <String, dynamic>{};
-  }
-
-  Iterable<String> _extractAllergies(Map<String, dynamic> preferences) {
-    final allergies = preferences['allergies'];
-    if (allergies is List) {
-      return allergies
-          .map((item) => item.toString())
-          .where((item) => item.trim().isNotEmpty);
-    }
-    return const <String>[];
-  }
-
-  String _messageFromErrorResponse(dynamic responseData, String fallback) {
-    if (responseData is Map<String, dynamic>) {
-      final message = responseData['message'];
-      if (message is String && message.trim().isNotEmpty) return message;
-    }
-    return fallback;
-  }
-
-  Future<void> _loadPreferences() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final res = await _dio.get(ApiEndpoints.userPreferences);
-      if (!mounted) return;
-
-      // Handle multiple possible response shapes from the backend:
-      // 1. { data: { preferences: {...} } }  — most common
-      // 2. { data: { user: { preferences: {...} } } }
-      // 3. { preferences: {...} }             — bare object
-      // 4. { user: { preferences: {...} } }
-      final raw = res.data;
-      Map<String, dynamic> userMap = <String, dynamic>{};
-
-      if (raw is Map<String, dynamic>) {
-        if (raw['data'] is Map<String, dynamic>) {
-          final data = raw['data'] as Map<String, dynamic>;
-          // data might be the user directly, or wrapped in 'user'
-          if (data['user'] is Map<String, dynamic>) {
-            userMap = data['user'] as Map<String, dynamic>;
-          } else {
-            userMap = data;
-          }
-        } else if (raw['user'] is Map<String, dynamic>) {
-          userMap = raw['user'] as Map<String, dynamic>;
-        } else {
-          userMap = raw;
-        }
-      }
-
-      final prefs = _extractPreferences(userMap);
-      setState(() {
-        _preferences = prefs;
-        _allergies
-          ..clear()
-          ..addAll(_extractAllergies(prefs));
-        _loading = false;
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = _messageFromErrorResponse(
-          e.response?.data,
-          'Không thể tải tuỳ chọn sức khỏe. Vui lòng thử lại.',
-        );
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Đã xảy ra lỗi. Vui lòng thử lại.';
-        _loading = false;
-      });
-    }
-  }
-
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final nextPreferences = {
-        ..._preferences,
-        'allergies': _allergies.toList(),
-      };
       await _dio.patch(
         ApiEndpoints.userPreferences,
-        data: {'preferences': nextPreferences},
+        data: {'preferences': {'allergies': _allergies.toList()}},
       );
-      _preferences = nextPreferences;
+      await LocalStorage.setSelectedAllergies(_allergies.toList());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã lưu'),
+            content: Text('Đã lưu hồ sơ dị ứng'),
             backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } on DioException catch (e) {
-      final msg = _messageFromErrorResponse(e.response?.data, 'Không thể lưu');
+      final msg = (e.response?.data is Map)
+          ? ((e.response?.data as Map)['message'] as String?) ?? 'Không thể lưu'
+          : 'Không thể lưu';
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+        );
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Đã xảy ra lỗi')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xảy ra lỗi'), backgroundColor: AppColors.error),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -167,12 +75,14 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
     if (_searchQuery.isEmpty) return allergyOptions;
     final q = _searchQuery.toLowerCase();
     return allergyOptions
-        .where(
-          (o) =>
-              o.label.toLowerCase().contains(q) ||
-              o.subtitle.toLowerCase().contains(q),
-        )
+        .where((o) => o.label.toLowerCase().contains(q) || o.subtitle.toLowerCase().contains(q))
         .toList();
+  }
+
+  bool get _hasChanges {
+    final initial = LocalStorage.selectedAllergies.toSet();
+    if (initial.length != _allergies.length) return true;
+    return !initial.containsAll(_allergies);
   }
 
   @override
@@ -187,240 +97,365 @@ class _HealthPreferencesPageState extends State<HealthPreferencesPage> {
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: _loading
-          ? _buildShimmer()
-          : _error != null
-          ? AppErrorWidget(message: _error!, onRetry: _loadPreferences)
-          : RefreshIndicator(
-              onRefresh: _loadPreferences,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    _buildIntroCard(),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                      decoration: InputDecoration(
-                        hintText: 'Tìm kiếm nguyên liệu dị ứng...',
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColors.textHint,
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withValues(alpha: 0.7),
+                          ],
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: AppColors.divider),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: AppColors.divider),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 1.5,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.health_and_safety_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hồ sơ dị ứng của bạn',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Chúng tôi sẽ lọc món ăn phù hợp',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _allergies.isNotEmpty
+                            ? AppColors.primary.withValues(alpha: 0.1)
+                            : AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${_allergies.length} đã chọn',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: _allergies.isNotEmpty
+                              ? AppColors.primary
+                              : AppColors.textHint,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (_filteredOptions.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.divider),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'Tìm kiếm nguyên liệu...',
+                    hintStyle: const TextStyle(fontSize: 14),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textHint,
+                      size: 22,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textHint,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _filteredOptions.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48,
+                          color: AppColors.textHint.withValues(alpha: 0.5),
                         ),
-                        child: const Text(
-                          'Không tìm thấy dị ứng phù hợp',
-                          textAlign: TextAlign.center,
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Không tìm thấy nguyên liệu',
                           style: TextStyle(
                             color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
                         ),
-                      )
-                    else
-                      ..._filteredOptions.map(_buildAllergyOption),
-                  ],
+                      ],
+                    ),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 2.2,
+                    ),
+                    itemCount: _filteredOptions.length,
+                    itemBuilder: (context, index) {
+                      final option = _filteredOptions[index];
+                      final isSelected = _allergies.contains(option.id);
+                      return Material(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          onTap: () => setState(() {
+                            isSelected
+                                ? _allergies.remove(option.id)
+                                : _allergies.add(option.id);
+                          }),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.4)
+                                    : AppColors.divider.withValues(alpha: 0.5),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primary.withValues(alpha: 0.15)
+                                        : AppColors.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    option.icon,
+                                    size: 20,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        option.label,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: isSelected
+                                              ? AppColors.primary
+                                              : AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        option.subtitle,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isSelected
+                                              ? AppColors.primary.withValues(alpha: 0.7)
+                                              : AppColors.textSecondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  isSelected
+                                      ? Icons.check_circle_rounded
+                                      : Icons.add_circle_outline_rounded,
+                                  size: 22,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.textHint,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              8,
+              16,
+              MediaQuery.of(context).padding.bottom + 12,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.divider.withValues(alpha: 0.3),
+                  width: 0.8,
                 ),
               ),
-            ),
-      bottomNavigationBar: _loading || _error != null
-          ? null
-          : SafeArea(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_allergies.length} dị ứng đã chọn',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _allergies.isEmpty
+                              ? 'Chọn nguyên liệu bạn bị dị ứng'
+                              : _allergies
+                                  .map((id) => allergyOptions
+                                      .firstWhere((o) => o.id == id)
+                                      .label)
+                                  .join(', '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Đã chọn ${_allergies.length} dị ứng',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: (_saving || !_hasChanges) ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Icon(
+                            _hasChanges
+                                ? Icons.save_rounded
+                                : Icons.check_circle_rounded,
+                            size: 18,
+                            color: _hasChanges ? Colors.white : Colors.green[600],
+                          ),
+                    label: Text(
+                      _saving
+                          ? 'Đang lưu...'
+                          : _hasChanges
+                              ? 'Lưu thay đổi'
+                              : 'Đã lưu',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: _hasChanges ? Colors.white : Colors.green[800],
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Lưu dị ứng'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _hasChanges
+                          ? AppColors.primary
+                          : Colors.green[50],
+                      foregroundColor: _hasChanges ? Colors.white : Colors.green[800],
+                      elevation: 0,
+                      minimumSize: const Size(0, 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: _hasChanges
+                            ? BorderSide.none
+                            : BorderSide(color: Colors.green.shade200),
+                      ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
-  Widget _buildIntroCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Chọn các nguyên liệu bạn bị dị ứng để chúng tôi cảnh báo và gợi ý món ăn phù hợp.',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.amber.shade900,
-                height: 1.4,
+                  ),
+                ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAllergyOption(AllergyOptionData option) {
-    final isSelected = _allergies.contains(option.id);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: () => setState(() {
-          if (isSelected) {
-            _allergies.remove(option.id);
-          } else {
-            _allergies.add(option.id);
-          }
-        }),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.red.shade50 : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? Colors.red.shade300 : AppColors.divider,
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.red.shade100
-                      : AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  option.icon,
-                  color: isSelected ? Colors.red : AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.label,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: isSelected
-                            ? Colors.red.shade900
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      option.subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected
-                            ? Colors.red.shade700
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                color: isSelected ? Colors.red : AppColors.textHint,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShimmer() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: List.generate(
-        3,
-        (_) => Shimmer.fromColors(
-          baseColor: AppColors.shimmerBase,
-          highlightColor: AppColors.shimmerHighlight,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
       ),
     );
   }

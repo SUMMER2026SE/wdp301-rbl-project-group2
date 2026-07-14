@@ -224,12 +224,16 @@ class WebViewPage extends StatelessWidget {
   final String paymentUrl;
   final VoidCallback onSuccess;
   final VoidCallback onFailed;
+  final String? successRedirectPattern;
+  final String? failedRedirectPattern;
 
   const WebViewPage({
     super.key,
     required this.paymentUrl,
     required this.onSuccess,
     required this.onFailed,
+    this.successRedirectPattern,
+    this.failedRedirectPattern,
   });
 
   @override
@@ -241,6 +245,8 @@ class WebViewPage extends StatelessWidget {
           paymentUrl: paymentUrl,
           onSuccess: onSuccess,
           onFailed: onFailed,
+          successRedirectPattern: successRedirectPattern,
+          failedRedirectPattern: failedRedirectPattern,
         ),
       ),
     );

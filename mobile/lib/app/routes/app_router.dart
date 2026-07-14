@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_cubit.dart';
+import 'package:foa_mobile/features/cart/presentation/blocs/cart_state.dart';
 import 'package:foa_mobile/app/app_blocs/auth/auth_bloc.dart';
 import 'package:foa_mobile/core/constants/app_colors.dart';
 import 'package:foa_mobile/core/models/chat_model.dart';
@@ -46,6 +49,8 @@ import 'package:foa_mobile/features/staff_customers/presentation/pages/customer_
 import 'package:foa_mobile/features/staff_customers/presentation/pages/customer_detail_page.dart';
 import 'package:foa_mobile/features/orders/presentation/pages/order_success_page.dart';
 import 'package:foa_mobile/features/orders/presentation/pages/order_failed_page.dart';
+import 'package:foa_mobile/features/orders/presentation/pages/payment_processing_page.dart';
+import 'package:foa_mobile/features/orders/presentation/pages/payos_callback_page.dart';
 import 'package:foa_mobile/shared/widgets/payos_webview.dart';
 
 /// GoRouter configuration with auth and role-based guards.
@@ -166,6 +171,10 @@ class AppRouter {
             onFailed: () {
               if (context.mounted) context.pop(false);
             },
+            // PayOS redirects to APP_ORIGIN/success?... and APP_ORIGIN/failed?...
+            // after payment. Match these patterns (not the mobile route paths).
+            successRedirectPattern: '/success',
+            failedRedirectPattern: '/failed',
           );
         },
       ),
@@ -178,6 +187,17 @@ class AppRouter {
         path: '/order-failed/:id',
         builder: (context, state) =>
             OrderFailedPage(id: state.pathParameters['id'] ?? ''),
+      ),
+      GoRoute(
+        path: '/payos-callback',
+        builder: (context, state) => const PayosCallbackPage(),
+      ),
+      GoRoute(
+        path: '/payment-processing/:id',
+        builder: (context, state) => PaymentProcessingPage(
+          id: state.pathParameters['id'] ?? '',
+          payosOrderCode: state.extra as int?,
+        ),
       ),
       GoRoute(
         path: '/vouchers',
@@ -307,6 +327,10 @@ class AppRouter {
     final authState = authBloc.state;
     final currentPath = state.uri.path;
 
+    // PayOS callback: full page reload on web → allow unconditionally.
+    // Auth state may not have restored yet after redirect.
+    if (currentPath == '/payos-callback') return null;
+
     // Public routes that don't require auth.
     const publicPaths = [
       '/splash',
@@ -316,6 +340,8 @@ class AppRouter {
       '/forgot-password',
       '/reset-password',
       '/onboarding',
+      // PayOS callback — full page reload on web, auth state not yet restored.
+      '/payos-callback',
     ];
     final isPublicRoute = publicPaths.contains(currentPath);
 
@@ -403,16 +429,59 @@ class _CustomerShell extends StatelessWidget {
     return Scaffold(
       body: child,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        width: 50,
-        height: 50,
-        child: FloatingActionButton(
-          onPressed: () => _onTabTapped(context, 2),
-          elevation: 4,
-          shape: const CircleBorder(),
-          backgroundColor: AppColors.primary,
-          child: const Icon(Icons.shopping_cart, color: Colors.white, size: 24),
-        ),
+      floatingActionButton: BlocBuilder<CartCubit, CartState>(
+        builder: (context, state) {
+          int count = 0;
+          if (state is CartLoaded) {
+            count = state.totalCount;
+          }
+          return SizedBox(
+            width: 50,
+            height: 50,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: FloatingActionButton(
+                    onPressed: () => _onTabTapped(context, 2),
+                    elevation: 4,
+                    shape: const CircleBorder(),
+                    backgroundColor: AppColors.primary,
+                    child: const Icon(Icons.shopping_cart, color: Colors.white, size: 24),
+                  ),
+                ),
+                if (count > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
       bottomNavigationBar: BottomAppBar(
         height: 54,
