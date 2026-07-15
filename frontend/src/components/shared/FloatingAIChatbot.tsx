@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { sendChatMessage, type ChatMessage as ChatServiceMessage } from '@/services/chat.service';
+import { sendChatMessage, type ChatMessage as ChatServiceMessage, type ChatOrderCard } from '@/services/chat.service';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // ---- Types ----
@@ -11,9 +11,18 @@ interface Message {
     content: string;
     timestamp: Date;
     recommendedProducts?: any[];
+    orderCards?: ChatOrderCard[];
 }
 
 const CHAT_HISTORY_LIMIT = 12;
+
+const formatCurrency = (amount: number) => `${amount.toLocaleString('vi-VN')}đ`;
+
+const formatDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('vi-VN');
+};
 
 // Simple Markdown parser to avoid React 19 JSX namespace conflicts with react-markdown
 function SimpleMarkdown({ children }: { children: string }) {
@@ -174,22 +183,25 @@ export function FloatingAIChatbot() {
         setIsTyping(true);
 
         try {
-            // Convert current messages to the format expected by the service
+            // Chỉ gửi lại lời người dùng; assistant history trong sessionStorage không còn là nguồn đáng tin cho backend.
             const history: ChatServiceMessage[] = messages
-                .filter((msg, index) => !(index === 0 && msg.role === 'assistant'))
+                .filter((msg) => msg.role === 'user')
                 .slice(-CHAT_HISTORY_LIMIT)
                 .map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'model',
+                    role: 'user',
                     content: msg.content
                 }));
 
-            const result = await sendChatMessage(userMsgContent, history);
+            const result = await sendChatMessage(userMsgContent, history, {
+                clientMessageId: userMessage.id,
+            });
  
             const aiMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: result.response,
                 recommendedProducts: result.recommendedProducts,
+                orderCards: result.orderCards,
                 timestamp: new Date(),
             };
             setMessages((prev) => [...prev, aiMessage]);
@@ -286,6 +298,41 @@ export function FloatingAIChatbot() {
                                                             Xem
                                                         </button>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {msg.orderCards && msg.orderCards.length > 0 && (
+                                    <div
+                                        onWheel={handleHorizontalWheel}
+                                        className="max-w-[92%] mt-2 flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-orange-500/20 scrollbar-track-transparent hover:scrollbar-thumb-orange-500/40 transition-colors"
+                                    >
+                                        {msg.orderCards.map((order) => (
+                                            <div key={order._id} className="min-w-[180px] max-w-[180px] bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 shadow-sm">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-bold text-[12px] text-foreground leading-snug truncate">{order.code}</h4>
+                                                        <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(order.createdAt)}</p>
+                                                    </div>
+                                                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-300 max-w-[76px] truncate">
+                                                        {order.status}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground line-clamp-1 mt-2">
+                                                    {order.firstItemName || `${order.itemCount} món`}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                                    <span className="text-[11px] font-extrabold text-orange-500">{formatCurrency(order.totalPrice)}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsOpen(false);
+                                                            navigate(`/orders/${order._id}`);
+                                                        }}
+                                                        className="text-[9px] bg-orange-500 hover:bg-orange-600 text-white font-bold px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                                    >
+                                                        Xem đơn
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}

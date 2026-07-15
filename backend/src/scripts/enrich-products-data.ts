@@ -27,12 +27,13 @@ if (!GROQ_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-2' });
 const groqClient = new Groq({ apiKey: GROQ_API_KEY });
+const GROQ_ENRICHMENT_MODEL = process.env.GROQ_ENRICHMENT_MODEL || process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b';
 
-// Delay helper to avoid hitting rate limits (RPM)
+// Helper delay để tránh chạm rate limit khi chạy script enrich dữ liệu.
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const ensureIngredientInDb = async (name: string, allergenTags: string[]): Promise<mongoose.Types.ObjectId> => {
-  // Normalize capitalization
+  // Chuẩn hóa viết hoa tên nguyên liệu trước khi lưu.
   const capitalizedName = name
     .trim()
     .split(/\s+/)
@@ -50,11 +51,11 @@ const ensureIngredientInDb = async (name: string, allergenTags: string[]): Promi
       });
       console.log(`[Database] Created missing ingredient: "${capitalizedName}"`);
     } else {
-      // Mock object for dry run
+      // Object giả lập cho chế độ dry run, không ghi DB.
       return new mongoose.Types.ObjectId();
     }
   } else if (APPLY && allergenTags.length > 0) {
-    // Merge new allergen tags if missing
+    // Gộp thêm allergen tag còn thiếu cho nguyên liệu đã tồn tại.
     const existingTags = new Set(ingredient.allergenTags || []);
     let updated = false;
     for (const tag of allergenTags) {
@@ -97,7 +98,7 @@ Instructions:
   try {
     const result = await groqClient.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.1-8b-instant',
+      model: GROQ_ENRICHMENT_MODEL,
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
@@ -200,7 +201,7 @@ const main = async () => {
     }
 
     updatedCount++;
-    // Delay to respect API limits
+    // Tạm nghỉ giữa các request để tôn trọng giới hạn API.
     await delay(2500);
   }
 

@@ -1,17 +1,39 @@
 import apiClient from '@/lib/api-client';
 
 export interface ChatMessage {
-    role: 'user' | 'model';
+    role: 'user';
     content: string;
 }
 
-export const sendChatMessage = async (message: string, history: ChatMessage[]) => {
+export interface ChatOrderCard {
+    _id: string;
+    code: string;
+    status: string;
+    totalPrice: number;
+    createdAt: string;
+    firstItemName?: string;
+    itemCount: number;
+}
+
+interface SendChatOptions {
+    clientMessageId?: string;
+    conversationId?: string;
+    storeId?: string;
+    fulfillmentType?: 'delivery' | 'pickup' | 'dine_in';
+}
+
+export const sendChatMessage = async (message: string, history: ChatMessage[], options: SendChatOptions = {}) => {
     const response = await apiClient.post('/chat', {
         message,
+        clientMessageId: options.clientMessageId,
+        conversationId: options.conversationId,
+        storeId: options.storeId,
+        fulfillmentType: options.fulfillmentType,
         history,
     });
     return {
         response: response.data.response,
-        recommendedProducts: response.data.recommendedProducts || []
+        recommendedProducts: response.data.recommendedProducts || [],
+        orderCards: response.data.orderCards || []
     };
 };

@@ -1,20 +1,24 @@
-import { model, groq, embeddingModel, cosineSimilarity } from './ai.service';
+import { model, groq, embeddingModel } from './ai.service';
 import ProductModel from '@/models/product.model';
 import { CampaignModel } from '@/models/campaign.model';
 import OrderModel from '@/models/order.model';
-import VoucherModel from '@/models/voucher.model';
 import UserVoucherModel from '@/models/user-voucher.model';
 import { StoreModel } from '@/models/store.model';
 import { ALLERGEN_CATALOG } from '@/constants/allergen-catalog';
 import { ATLAS_PRODUCT_SEARCH_INDEX, ATLAS_PRODUCT_VECTOR_INDEX } from '@/constants/env';
 import { normalizeVietnameseText, parseChatSearchPlan, type ChatSearchPlan } from './chat-query-planner.service';
-import { ProductCategory } from '@/types/product.type';
+import { ProductCategory, ProductStatus } from '@/types/product.type';
+import { OrderStatus } from '@/types/order.type';
 import { z } from 'zod';
+import { ChatRequestContext, withChatDeadline } from './chat-deadline.service';
+import { logChatStage } from './chat-observability.service';
+import { getAIModelProfile } from './ai-model-registry.service';
 
 const INTENT_TIMEOUT_MS = 6000;
 const SEMANTIC_PLANNER_TIMEOUT_MS = 2500;
 const EMBEDDING_TIMEOUT_MS = 8000;
 const CHAT_COMPLETION_TIMEOUT_MS = 12000;
+const MONGO_SEARCH_MAX_TIME_MS = 900;
 const HYBRID_SEARCH_LIMIT = 50;
 const HYBRID_RESULT_LIMIT = 10;
 const HYBRID_VECTOR_NUM_CANDIDATES = 150;
@@ -70,6 +74,25 @@ const aiChatResponseSchema = z.object({
   recommendedProductIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).max(10).default([]),
 });
 
+const chatOrderStatusValues = [
+  OrderStatus.PENDING,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PROCESSING,
+  OrderStatus.PREPARING,
+  OrderStatus.READY_FOR_DELIVERY,
+  OrderStatus.SHIPPING,
+  OrderStatus.DELIVERING,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED,
+] as const;
+
+const orderHistoryToolArgsSchema = z.object({
+  statuses: z.array(z.enum(chatOrderStatusValues)).max(chatOrderStatusValues.length).default([]),
+  limit: z.coerce.number().int().min(1).max(5).default(5),
+});
+
 const tastePreferenceSchema = z.array(z.string().trim().min(1).max(50)).max(10);
 
 const semanticSearchPlanSchema = z.object({
@@ -107,8 +130,6 @@ type BudgetComboConstraints = {
   requiresDrink?: boolean;
   requiresFood?: boolean;
 };
-
-const regexEscape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const productLooksHot = (product: ProductSearchResult) => {
   const haystack = normalizeVietnameseText([
@@ -164,6 +185,12 @@ const uniqueProductsById = (products: ProductSearchResult[]) => {
     seen.add(id);
     return true;
   });
+};
+
+const productIsActiveAtStore = (product: ProductSearchResult, storeId?: string) => {
+  if (!storeId) return true;
+  const availability = product.storeAvailability || [];
+  return availability.some((item: any) => item.storeId?.toString() === storeId && item.status === ProductStatus.ACTIVE);
 };
 
 const scoreBudgetCombo = (
@@ -256,6 +283,15 @@ const parseJsonObject = (raw: string) => {
   return JSON.parse(jsonMatch[0]);
 };
 
+const parseToolArguments = (raw?: string) => {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+};
+
 const shouldUseSemanticPlanner = (plan: ChatSearchPlan) => {
   if (plan.budgetVnd || plan.hasNoBudget || plan.requiresDrink || plan.requiresFood) return false;
   if (plan.healthNeeds.length > 0 || plan.excludeTraits.length > 0 || plan.includeTastes.length > 0) return false;
@@ -288,7 +324,7 @@ const mergeSemanticSearchPlan = (
   };
 };
 
-const buildHybridSearchPlan = async (message: string): Promise<ChatSearchPlan> => {
+const buildHybridSearchPlan = async (message: string, requestContext?: ChatRequestContext): Promise<ChatSearchPlan> => {
   const fallbackPlan = parseChatSearchPlan(message);
   if (!shouldUseSemanticPlanner(fallbackPlan)) return fallbackPlan;
 
@@ -329,10 +365,11 @@ Quy tắc:
 Tin nhắn người dùng: "${message.slice(0, 500)}"`;
 
   try {
-    const completion = await withAITimeout(
-      groq.chat.completions.create({
+    const completion = await withChatDeadline(
+      requestContext,
+      () => groq.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'llama-3.1-8b-instant',
+        model: getAIModelProfile('semantic_planner').modelId,
         response_format: { type: 'json_object' },
         temperature: 0,
         max_tokens: 350,
@@ -347,7 +384,7 @@ Tin nhắn người dùng: "${message.slice(0, 500)}"`;
     if (!parsed.success) return fallbackPlan;
     return mergeSemanticSearchPlan(fallbackPlan, parsed.data);
   } catch (err) {
-    console.warn('[AI Semantic Planner] Using deterministic fallback.');
+    logChatStage(requestContext, 'chat.semantic_planner.fallback');
     return fallbackPlan;
   }
 };
@@ -401,32 +438,27 @@ const findProductsWithAtlasSearch = async (queryText: string, dbQuery: Record<st
     },
     { $addFields: { score: { $meta: 'searchScore' } } },
     { $limit: HYBRID_SEARCH_LIMIT },
-  ]);
+  ]).option({ maxTimeMS: MONGO_SEARCH_MAX_TIME_MS });
 };
 
 const findProductsWithKeywordFallback = async (queryText: string, dbQuery: Record<string, unknown>) => {
-  const escapedQuery = regexEscape(queryText);
   const textCandidates = await ProductModel.find(
     { ...dbQuery, $text: { $search: queryText } },
     { score: { $meta: 'textScore' } }
   )
     .sort({ score: { $meta: 'textScore' } })
     .limit(HYBRID_SEARCH_LIMIT)
-    .lean();
+    .lean()
+    .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
 
   if (textCandidates.length > 0) return textCandidates;
 
-  return ProductModel.find({
-    ...dbQuery,
-    $or: [
-      { name: { $regex: escapedQuery, $options: 'i' } },
-      { description: { $regex: escapedQuery, $options: 'i' } },
-      { tags: { $regex: escapedQuery, $options: 'i' } },
-      { healthTags: { $regex: escapedQuery, $options: 'i' } },
-    ],
-  })
+  // Fallback an toàn cho production: không regex nhiều field để tránh collection scan khi Atlas Search lỗi.
+  return ProductModel.find(dbQuery)
+    .sort({ rating: -1, reviewCount: -1, price: 1 })
     .limit(HYBRID_SEARCH_LIMIT)
-    .lean();
+    .lean()
+    .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
 };
 
 const getLexicalRankedProducts = async (queryText: string, dbQuery: Record<string, unknown>) => {
@@ -453,21 +485,7 @@ const findProductsWithAtlasVectorSearch = async (queryEmbedding: number[], dbQue
       },
     },
     { $addFields: { score: { $meta: 'vectorSearchScore' } } },
-  ]);
-};
-
-const findProductsWithInMemorySemanticSearch = (
-  queryEmbedding: number[],
-  products: ProductSearchResult[]
-) => {
-  return products
-    .map((p) => {
-      const score = cosineSimilarity(queryEmbedding, p.embedding || []);
-      return { ...p, score };
-    })
-    .filter((p) => p.score > 0.35)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, HYBRID_SEARCH_LIMIT);
+  ]).option({ maxTimeMS: MONGO_SEARCH_MAX_TIME_MS });
 };
 
 const getSemanticRankedProducts = async (
@@ -479,10 +497,10 @@ const getSemanticRankedProducts = async (
     const vectorResults = await findProductsWithAtlasVectorSearch(queryEmbedding, dbQuery);
     if (vectorResults.length > 0) return vectorResults;
   } catch (err) {
-    console.warn('[AI Hybrid Search] Atlas Vector Search unavailable, using in-memory semantic fallback.');
+    console.warn('[AI Hybrid Search] Atlas Vector Search unavailable, using lexical-only fallback.');
   }
 
-  return findProductsWithInMemorySemanticSearch(queryEmbedding, fallbackProducts);
+  return [];
 };
 
 const classifyIntentByRules = (message: string): ChatIntent | null => {
@@ -540,7 +558,7 @@ const classifyIntentByRules = (message: string): ChatIntent | null => {
   return null;
 };
 
-export const classifyIntent = async (message: string): Promise<ChatIntent> => {
+export const classifyIntent = async (message: string, requestContext?: ChatRequestContext): Promise<ChatIntent> => {
   const ruleBasedIntent = classifyIntentByRules(message);
   if (ruleBasedIntent) return ruleBasedIntent;
 
@@ -564,10 +582,11 @@ Return JSON only:
 }`;
 
   try {
-    const completion = await withAITimeout(
-      groq.chat.completions.create({
+    const completion = await withChatDeadline(
+      requestContext,
+      () => groq.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'llama-3.1-8b-instant',
+        model: getAIModelProfile('intent').modelId,
         response_format: { type: 'json_object' },
         temperature: 0.0,
         max_tokens: 50,
@@ -582,7 +601,7 @@ Return JSON only:
     if (parsed.success) return parsed.data.intent;
     return 'MENU_SEARCH';
   } catch (err) {
-    console.error('[AI] Intent classification error:', err);
+    logChatStage(requestContext, 'chat.intent.fallback', { reason: err instanceof Error ? err.message : 'unknown' });
     return 'MENU_SEARCH';
   }
 };
@@ -592,30 +611,92 @@ export interface AIChatResponse {
   recommendedProductIds: string[];
   allowlistIds: string[];
   budgetVnd?: number;
+  orderCards?: ChatOrderCard[];
+}
+
+export interface ChatOrderCard {
+  _id: string;
+  code: string;
+  status: string;
+  totalPrice: number;
+  createdAt: string;
+  firstItemName?: string;
+  itemCount: number;
 }
 
 export const getAIResponseForChat = async (
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+  history: { role: 'user'; parts: { text: string }[] }[],
   message: string,
   userContext?: {
     userId?: string;
     fullName: string;
     preferences: Preferences;
     safeProducts: { name: string; description: string }[]
-  } | null
+  } | null,
+  options: {
+    requestContext?: ChatRequestContext;
+    storeId?: string;
+  } = {}
 ): Promise<AIChatResponse> => {
   const allowlistIds: string[] = [];
-  const messageSearchPlan = await buildHybridSearchPlan(message);
+  const orderCards: ChatOrderCard[] = [];
+  const messageSearchPlan = await buildHybridSearchPlan(message, options.requestContext);
+
+  const buildOrderCards = (orders: any[]): ChatOrderCard[] => orders.map((order: any) => ({
+    _id: order._id.toString(),
+    code: order.code || order._id.toString(),
+    status: order.status,
+    totalPrice: Number(order.totalPrice || 0),
+    createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : String(order.createdAt),
+    firstItemName: order.items?.[0]?.name,
+    itemCount: order.items?.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0) || 0,
+  }));
+
+  const buildOrderToolFallbackResponse = (): AIChatResponse => {
+    if (!userContext?.userId) {
+      return {
+        message: 'Bạn cần đăng nhập để mình kiểm tra lịch sử đơn hàng của tài khoản nhé.',
+        recommendedProductIds: [],
+        allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
+      };
+    }
+
+    if (orderCards.length === 0) {
+      return {
+        message: 'Mình chưa thấy đơn hàng phù hợp trong tài khoản của bạn. Bạn có thể mở mục Lịch sử đơn hàng để kiểm tra thêm các đơn cũ hơn nhé.',
+        recommendedProductIds: [],
+        allowlistIds: [...new Set(allowlistIds)],
+        budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
+      };
+    }
+
+    const lines = orderCards.map((order) => {
+      const firstItem = order.firstItemName ? ` - ${order.firstItemName}` : '';
+      return `- **${order.code}**: ${order.status}, tổng ${order.totalPrice.toLocaleString('vi-VN')}đ${firstItem}`;
+    });
+
+    return {
+      message: `Mình tìm thấy các đơn hàng phù hợp trong tài khoản của bạn:\n${lines.join('\n')}\n\nBạn có thể bấm vào từng thẻ đơn hàng bên dưới để xem chi tiết.`,
+      recommendedProductIds: [],
+      allowlistIds: [...new Set(allowlistIds)],
+      budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      orderCards,
+    };
+  };
 
   if (messageSearchPlan.hasNoBudget) {
     return {
       message: 'Nếu hiện tại bạn chưa có ngân sách, mình chưa nên gợi ý món cần thanh toán trong thực đơn. Bạn có thể lưu lại vài món giá thấp để tham khảo sau, hoặc xem ưu đãi/voucher khi có nhu cầu đặt món nhé.',
       recommendedProductIds: [],
       allowlistIds: [],
+      orderCards,
     };
   }
 
-  // Helper to fetch and filter safe products
+  // Hàm gom toàn bộ logic tìm món, lọc chi nhánh và lọc dị ứng trước khi tạo allowlist.
   const fetchAndFilterSafeProducts = async (
     queryText?: string,
     category?: string,
@@ -623,8 +704,9 @@ export const getAIResponseForChat = async (
     searchPlan = parseChatSearchPlan(queryText || message)
   ) => {
     const dbQuery: any = { isAvailable: true };
+    const storeId = options.storeId;
 
-    // Category mapping helper for loose input
+    // Ánh xạ category từ ngôn ngữ tự nhiên sang category chuẩn trong database.
     let resolvedCategory = '';
     if (category) {
       const lowerCat = category.toLowerCase().trim();
@@ -649,15 +731,24 @@ export const getAIResponseForChat = async (
       dbQuery.category = resolvedCategory;
     }
 
-    let products: ProductSearchResult[] = await ProductModel.find(dbQuery).lean();
+    let products: ProductSearchResult[] = await ProductModel.find(
+      storeId
+        ? { ...dbQuery, storeAvailability: { $elemMatch: { storeId, status: ProductStatus.ACTIVE } } }
+        : dbQuery
+    )
+      .sort({ rating: -1, reviewCount: -1, price: 1 })
+      .limit(HYBRID_SEARCH_LIMIT)
+      .lean()
+      .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
 
     if (queryText && queryText.trim().length > 0) {
       const normalizedQuery = queryText.trim();
       const expandedQuery = searchPlan.expandedQuery || normalizedQuery;
       try {
         const lexicalRanked = await getLexicalRankedProducts(expandedQuery, dbQuery);
-        const embedResponse = await withAITimeout(
-          embeddingModel.embedContent(expandedQuery),
+        const embedResponse = await withChatDeadline(
+          options.requestContext,
+          () => embeddingModel.embedContent(expandedQuery),
           EMBEDDING_TIMEOUT_MS,
           'Embedding search'
         );
@@ -680,6 +771,10 @@ export const getAIResponseForChat = async (
       } catch (err) {
         console.error('[AI Hybrid Search] Failed, using keyword fallback:', err);
         products = await findProductsWithKeywordFallback(normalizedQuery, dbQuery);
+      }
+
+      if (storeId) {
+        products = products.filter((product) => productIsActiveAtStore(product, storeId));
       }
 
       if (searchPlan.excludeTraits.includes('hot')) {
@@ -714,7 +809,7 @@ export const getAIResponseForChat = async (
       const productAllergens = (product.allergenTags || []).map((t: string) => t.toLowerCase().trim());
       const productMayContain = (product.mayContain || []).map((t: string) => t.toLowerCase().trim());
 
-      // If user has a high risk, and cross-contamination flag is true
+      // Nếu người dùng có dị ứng, món có nguy cơ nhiễm chéo sẽ bị loại để fail-closed.
       if (userAllergies.length > 0 && product.crossContaminationRisk) {
         return false;
       }
@@ -757,7 +852,7 @@ export const getAIResponseForChat = async (
     return finalSafeList;
   };
 
-  // Define tools for function calling
+  // Tool calling vẫn còn là đường dự phòng cho câu hỏi phức tạp; các domain rõ đã được xử lý ở controller.
   const tools = [
     {
       type: 'function',
@@ -823,10 +918,24 @@ export const getAIResponseForChat = async (
       type: 'function',
       function: {
         name: 'get_user_order_history',
-        description: 'Lấy lịch sử các đơn hàng gần đây nhất của người dùng hiện tại.',
+        description: `Lấy lịch sử/trạng thái đơn hàng của người dùng hiện tại. Hãy tự suy luận statuses từ câu hỏi rồi truyền bằng enum hợp lệ: ${chatOrderStatusValues.join(', ')}. Ví dụ: chưa giao/chưa nhận/chưa hoàn tất => pending, confirmed, processing, preparing, ready_for_delivery, shipping, delivering; đang giao => shipping, delivering; đã giao/đã nhận => delivered, completed; đã hủy => cancelled, refunded.`,
         parameters: {
           type: 'object',
-          properties: {},
+          properties: {
+            statuses: {
+              type: 'array',
+              items: { type: 'string', enum: chatOrderStatusValues },
+              description: 'Danh sách trạng thái đơn hàng cần lọc. Bỏ trống nếu khách chỉ hỏi lịch sử/gần đây.',
+              maxItems: chatOrderStatusValues.length,
+            },
+            limit: {
+              type: 'number',
+              description: 'Số đơn cần lấy, tối đa 5.',
+              minimum: 1,
+              maximum: 5,
+              default: 5,
+            },
+          },
         },
       },
     },
@@ -858,7 +967,7 @@ export const getAIResponseForChat = async (
   ];
 
   const messages = history.map((h) => ({
-    role: h.role === 'model' ? 'assistant' : 'user',
+    role: 'user',
     content: h.parts[0].text,
   }));
 
@@ -889,7 +998,7 @@ export const getAIResponseForChat = async (
             }
             3. Nếu khách hàng hỏi về các món ngoài danh sách an toàn, hãy nhắc nhở họ kiểm tra kỹ thành phần và hiển thị miễn trừ trách nhiệm y tế: "Mặc dù hệ thống đã lọc, xin lưu ý quá trình chế biến có nguy cơ nhiễm chéo. Vui lòng xác nhận với nhân viên nếu bạn bị dị ứng cực kỳ nặng."
             4. GIỚI HẠN GỌI CÔNG CỤ: Chỉ được gọi công cụ (tool) từ 1 đến tối đa 2 lần trong một câu trả lời. Tuyệt đối không gọi song song nhiều tool trùng lặp hoặc lặp lại cùng một từ khóa tìm kiếm nhiều lần.
-            5. BẮT BUỘC GỌI TOOL: Đối với BẤT KỲ câu hỏi nào liên quan đến tìm kiếm thực đơn, gợi ý món ăn (mặn, chay, cay, ngọt...), món ăn bán chạy/hot, khuyến mãi/giảm giá, hoặc kiểm tra tình trạng còn hàng ở các chi nhánh, bạn BẮT BUỘC phải gọi công cụ tương ứng (search_products, search_allergy_safe_products, get_hot_products, get_active_campaigns, check_product_store_availability) để lấy dữ liệu thực tế từ database. Tuyệt đối không tự trả lời từ trí nhớ hoặc bộ nhớ huấn luyện của bạn. Đặc biệt: KHÔNG ĐƯỢC gọi tool 'get_hot_products' cho các câu hỏi tìm kiếm theo đặc tính dinh dưỡng/sức khỏe (ví dụ: ít dầu mỡ, chay, healthy, ít béo). Đối với các câu hỏi này, bạn phải gọi 'search_allergy_safe_products' (nếu khách có dị ứng) hoặc 'search_products' (nếu không có dị ứng) kèm từ khóa tương ứng (ví dụ: 'ít dầu mỡ', 'thanh đạm') để hệ thống lọc chính xác.
+            5. BẮT BUỘC GỌI TOOL: Đối với BẤT KỲ câu hỏi nào liên quan đến tìm kiếm thực đơn, gợi ý món ăn (mặn, chay, cay, ngọt...), món ăn bán chạy/hot, khuyến mãi/giảm giá, lịch sử/trạng thái đơn hàng, hoặc kiểm tra tình trạng còn hàng ở các chi nhánh, bạn BẮT BUỘC phải gọi công cụ tương ứng (search_products, search_allergy_safe_products, get_hot_products, get_active_campaigns, get_user_order_history, check_product_store_availability) để lấy dữ liệu thực tế từ database. Tuyệt đối không tự trả lời từ trí nhớ hoặc bộ nhớ huấn luyện của bạn. Với câu hỏi đơn hàng, hãy điền tham số statuses của get_user_order_history theo ý nghĩa câu hỏi bằng enum hợp lệ; backend sẽ tự validate và chỉ trả đơn của tài khoản hiện tại. Đặc biệt: KHÔNG ĐƯỢC gọi tool 'get_hot_products' cho các câu hỏi tìm kiếm theo đặc tính dinh dưỡng/sức khỏe (ví dụ: ít dầu mỡ, chay, healthy, ít béo). Đối với các câu hỏi này, bạn phải gọi 'search_allergy_safe_products' (nếu khách có dị ứng) hoặc 'search_products' (nếu không có dị ứng) kèm từ khóa tương ứng (ví dụ: 'ít dầu mỡ', 'thanh đạm') để hệ thống lọc chính xác.
             6. ĐÁNH GIÁ KỸ KẾT QUẢ TÌM KIẾM: Bạn phải đọc kỹ tên và mô tả của các món ăn nhận được từ kết quả gọi công cụ. Hãy loại bỏ những món mâu thuẫn trực tiếp với yêu cầu của khách hàng (ví dụ: Khách yêu cầu "ít dầu mỡ/ít béo" thì tuyệt đối KHÔNG gợi ý món có tên hoặc mô tả chứa từ "xối mỡ", "chiên ngập dầu", "nướng mỡ hành", "béo ngậy"; hoặc khách yêu cầu "ăn chay" thì loại bỏ các món chứa thịt, cá, hải sản).`,
   };
 
@@ -904,6 +1013,7 @@ export const getAIResponseForChat = async (
         recommendedProductIds: [],
         allowlistIds: [...new Set(allowlistIds)],
         budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
       };
     }
 
@@ -915,6 +1025,7 @@ export const getAIResponseForChat = async (
       recommendedProductIds,
       allowlistIds: [...new Set(allowlistIds)],
       budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      orderCards,
     };
   };
 
@@ -963,6 +1074,7 @@ export const getAIResponseForChat = async (
         recommendedProductIds: [],
         allowlistIds: [...new Set(allowlistIds)],
         budgetVnd,
+        orderCards,
       };
     }
 
@@ -975,6 +1087,7 @@ export const getAIResponseForChat = async (
       recommendedProductIds,
       allowlistIds: [...new Set(allowlistIds)],
       budgetVnd,
+      orderCards,
     };
   };
 
@@ -997,12 +1110,14 @@ export const getAIResponseForChat = async (
 
   try {
     const groqMessages = [systemPrompt, ...messages, { role: 'user', content: message }];
+    let usedOrderTool = false;
 
-    // First call to check if LLM wants to call a tool
-    let response = await withAITimeout(
-      groq.chat.completions.create({
+    // Lượt đầu chỉ để LLM chọn tool khi deterministic router không xử lý được.
+    let response = await withChatDeadline(
+      options.requestContext,
+      () => groq.chat.completions.create({
         messages: groqMessages as any,
-        model: 'llama-3.1-8b-instant',
+        model: getAIModelProfile('chat').modelId,
         tools: tools as any,
         tool_choice: 'auto',
         temperature: 0.1,
@@ -1014,14 +1129,14 @@ export const getAIResponseForChat = async (
     const responseMessage = response.choices[0]?.message;
 
     if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
-      // Limit to max 3 parallel tool calls to prevent token limit / API limit issues
+      // Giới hạn tối đa 3 tool call để tránh vượt token/API limit.
       const toolCallsToExecute = responseMessage.tool_calls.slice(0, 3);
       console.log('[AI] LLM decided to call tools (executing top 3):', toolCallsToExecute.map(tc => tc.function.name));
       groqMessages.push(responseMessage as any);
       const toolProductResults: ProductSearchResult[] = [];
 
       for (const toolCall of toolCallsToExecute) {
-        const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+        const args = parseToolArguments(toolCall.function.arguments);
         let resultData: any[] = [];
         let contentString = '';
 
@@ -1043,7 +1158,10 @@ export const getAIResponseForChat = async (
             status: { $in: ['APPROVED', 'approved'] },
             startTime: { $lte: now },
             endTime: { $gte: now }
-          }).populate('products.productId', 'name price description').lean();
+          })
+            .populate('products.productId', 'name price description')
+            .lean()
+            .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
           
           campaigns.forEach(c => {
             c.products.forEach((p: any) => {
@@ -1066,7 +1184,7 @@ export const getAIResponseForChat = async (
           })));
         } else if (toolCall.function.name === 'get_hot_products') {
           const safeProducts = await fetchAndFilterSafeProducts(undefined, undefined);
-          // Sort by rating desc
+          // Sắp xếp món hot theo rating sau khi đã qua bộ lọc an toàn.
           safeProducts.sort((a, b) => (b.rating || 0) - (a.rating || 0));
           const topHot = safeProducts.slice(0, 5);
           const ids = topHot.map((p) => p._id.toString());
@@ -1076,8 +1194,12 @@ export const getAIResponseForChat = async (
           if (userContext?.userId) {
             const userVouchers = await UserVoucherModel.find({
               userId: userContext.userId,
-              status: 'AVAILABLE'
-            }).populate('voucherId').lean();
+              status: 'available'
+            })
+              .populate('voucherId')
+              .limit(5)
+              .lean()
+              .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
             contentString = JSON.stringify(userVouchers.map((uv: any) => ({
               code: uv.voucherId?.code,
               title: uv.voucherId?.title,
@@ -1091,23 +1213,42 @@ export const getAIResponseForChat = async (
             contentString = JSON.stringify({ message: "Người dùng chưa đăng nhập hoặc không có voucher." });
           }
         } else if (toolCall.function.name === 'get_user_order_history') {
+          usedOrderTool = true;
           if (userContext?.userId) {
-            const orders = await OrderModel.find({ userId: userContext.userId })
+            const parsedArgs = orderHistoryToolArgsSchema.safeParse(args);
+            const orderArgs = parsedArgs.success ? parsedArgs.data : { statuses: [], limit: 5 };
+            const orderQuery = orderArgs.statuses.length > 0
+              ? { cusId: userContext.userId, status: { $in: orderArgs.statuses } }
+              : { cusId: userContext.userId };
+
+            // LLM chỉ được điền filter đã validate; quyền xem đơn luôn bị khóa theo cusId từ auth.
+            const orders = await OrderModel.find(orderQuery)
+              .select('code totalPrice status items createdAt')
               .sort({ createdAt: -1 })
-              .limit(5)
-              .lean();
-            contentString = JSON.stringify(orders.map((o: any) => ({
-              orderCode: o.orderCode || o._id.toString(),
-              totalPrice: o.totalPrice,
-              status: o.status,
-              items: o.items.map((i: any) => `${i.name} (x${i.quantity})`),
-              createdAt: o.createdAt
-            })));
+              .limit(orderArgs.limit)
+              .lean()
+              .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
+            orderCards.push(...buildOrderCards(orders));
+            contentString = JSON.stringify({
+              filters: { statuses: orderArgs.statuses },
+              orders: orders.map((o: any) => ({
+                orderId: o._id.toString(),
+                orderCode: o.code || o._id.toString(),
+                totalPrice: o.totalPrice,
+                status: o.status,
+                items: (o.items || []).map((i: any) => `${i.name} (x${i.quantity})`),
+                createdAt: o.createdAt
+              }))
+            });
           } else {
             contentString = JSON.stringify({ message: "Người dùng chưa đăng nhập." });
           }
         } else if (toolCall.function.name === 'get_store_list') {
-          const stores = await StoreModel.find({ isActive: true }).lean();
+          const stores = await StoreModel.find({ isActive: true })
+            .select('name address district')
+            .limit(5)
+            .lean()
+            .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
           contentString = JSON.stringify(stores.map(s => ({
             id: s._id.toString(),
             name: s.name,
@@ -1117,12 +1258,13 @@ export const getAIResponseForChat = async (
         } else if (toolCall.function.name === 'check_product_store_availability') {
           const prod = await ProductModel.findById(args.productId)
             .populate('storeAvailability.storeId', 'name address')
-            .lean();
+            .lean()
+            .maxTimeMS(MONGO_SEARCH_MAX_TIME_MS);
           if (prod) {
             const availability = (prod.storeAvailability || []).map((sa: any) => ({
               storeName: sa.storeId?.name || 'Chi nhánh',
               address: sa.storeId?.address || '',
-              status: sa.status === 'ACTIVE' ? 'Còn hàng' : 'Hết hàng'
+              status: sa.status === ProductStatus.ACTIVE ? 'Còn hàng' : 'Hết hàng'
             }));
             contentString = JSON.stringify({
               productName: prod.name,
@@ -1141,12 +1283,13 @@ export const getAIResponseForChat = async (
         } as any);
       }
 
-      // Second call to get the final response from LLM using the tool results
+      // Lượt hai để LLM diễn đạt kết quả tool thành JSON cuối.
       try {
-        response = await withAITimeout(
-          groq.chat.completions.create({
+        response = await withChatDeadline(
+          options.requestContext,
+          () => groq.chat.completions.create({
             messages: groqMessages as any,
-            model: 'llama-3.1-8b-instant',
+            model: getAIModelProfile('chat').modelId,
             temperature: 0.1,
             response_format: { type: 'json_object' }
           }),
@@ -1155,14 +1298,15 @@ export const getAIResponseForChat = async (
         );
       } catch (finalResponseErr) {
         console.warn('[AI] Chat final response failed, using tool-result fallback.');
-        return buildDeterministicProductResponse(toolProductResults);
+        return usedOrderTool ? buildOrderToolFallbackResponse() : buildDeterministicProductResponse(toolProductResults);
       }
     } else {
-      // If LLM didn't call any tools, but we still require it to output JSON
-      response = await withAITimeout(
-        groq.chat.completions.create({
+      // Nếu LLM không gọi tool, vẫn ép output JSON để backend validate được.
+      response = await withChatDeadline(
+        options.requestContext,
+        () => groq.chat.completions.create({
           messages: groqMessages as any,
-          model: 'llama-3.1-8b-instant',
+          model: getAIModelProfile('chat').modelId,
           temperature: 0.1,
           response_format: { type: 'json_object' }
         }),
@@ -1181,16 +1325,19 @@ export const getAIResponseForChat = async (
         recommendedProductIds: [],
         allowlistIds: [...new Set(allowlistIds)],
         budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
       };
     }
 
     const parsed = aiChatResponseSchema.safeParse(JSON.parse(jsonMatch[0]));
     if (!parsed.success) {
+      if (usedOrderTool) return buildOrderToolFallbackResponse();
       return {
         message: 'Xin lỗi, tôi gặp lỗi khi xử lý thông tin.',
         recommendedProductIds: [],
         allowlistIds: [...new Set(allowlistIds)],
         budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
       };
     }
 
@@ -1199,6 +1346,7 @@ export const getAIResponseForChat = async (
       recommendedProductIds: parsed.data.recommendedProductIds,
       allowlistIds: [...new Set(allowlistIds)],
       budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+      orderCards,
     };
   } catch (err: any) {
     console.error('[AI] Groq Chat agent error:', err);
@@ -1211,6 +1359,7 @@ export const getAIResponseForChat = async (
         recommendedProductIds: [],
         allowlistIds: [],
         budgetVnd: messageSearchPlan.budgetVnd ?? undefined,
+        orderCards,
       };
     }
   }
@@ -1228,7 +1377,7 @@ export const extractPreferencesFromMessage = async (message: string): Promise<st
     const result = await withAITimeout(
       model.generateContent(prompt),
       CHAT_COMPLETION_TIMEOUT_MS,
-      'Preference extraction'
+      `Preference extraction (${getAIModelProfile('preference_extraction').modelId})`
     );
     const text = result.response.text();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
