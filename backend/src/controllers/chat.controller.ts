@@ -1,84 +1,52 @@
 import { Request, Response } from 'express';
-import { getAIResponseForChat, classifyIntent, extractPreferencesFromMessage } from '@/services/chatbot.service';
+import { getAIResponseForChat, classifyIntent } from '@/services/chatbot.service';
 import UserModel from '@/models/user.model';
 import ProductModel from '@/models/product.model';
-import Redis from 'ioredis';
-import { redisConfig } from '@/config/redis';
 import { applyCampaignPricing } from '@/services/product.service';
 import { chatRequestValidator } from '@/validators/chat.validator';
 import { parseChatSearchPlan } from '@/services/chat-query-planner.service';
-
-const redis = new Redis({
-    host: (redisConfig as any).host,
-    port: (redisConfig as any).port,
-    password: (redisConfig as any).password,
-});
-
-redis.on('error', (err) => {
-    // Suppress unhandled error crash — Redis optional in local dev (chat rate-limiting cache)
-    if (process.env.NODE_ENV !== 'production') {
-        console.warn('[Redis] chat.controller cache unavailable:', err.message);
-    }
-});
+import { acquireChatLimit, releaseChatLimit } from '@/services/chat-rate-limit.service';
+import { createChatRequestContext } from '@/services/chat-deadline.service';
+import { logChatStage } from '@/services/chat-observability.service';
+import { enqueueChatPreferenceExtraction } from '@/jobs/chat-preference-queue';
+import { buildDeterministicDomainResponse } from '@/services/chat-domain-response.service';
 const getDisplayPrice = (product: { price: number; campaignPrice?: number }) =>
     product.campaignPrice ?? product.price;
 
 const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}đ`;
 
 export const handleChat = async (req: Request, res: Response) => {
+    const requestContext = createChatRequestContext();
+    let rateLimitLease: Awaited<ReturnType<typeof acquireChatLimit>> | undefined;
+
     try {
+        req.on('close', () => {
+            if (!res.writableEnded) {
+                requestContext.abort();
+            }
+        });
+
         const parsedBody = chatRequestValidator.safeParse(req.body);
         if (!parsedBody.success) {
             const firstIssue = parsedBody.error.issues[0];
             return res.status(400).json({ message: firstIssue?.message || 'Dữ liệu chat không hợp lệ.' });
         }
 
-        const { message, history } = parsedBody.data;
+        const { message, history, clientMessageId, storeId, fulfillmentType } = parsedBody.data;
         const userId = req.userId;
         const initialSearchPlan = parseChatSearchPlan(message);
 
         const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
+        const ip = Array.isArray(clientIp) ? clientIp[0] : String(clientIp || 'unknown');
 
-        // Rate Limiter for Logged-in Users (20 requests per day)
-        if (userId) {
-            try {
-                const today = new Date().toISOString().split('T')[0];
-                const redisKey = `chat_limit:${userId}:${today}`;
-                const currentCount = await redis.get(redisKey);
-                const count = currentCount ? parseInt(currentCount, 10) : 0;
+        logChatStage(requestContext, 'chat.validate', {
+            hasUser: Boolean(userId),
+            hasStore: Boolean(storeId),
+            fulfillmentType: fulfillmentType || 'unknown',
+        });
 
-                if (count >= 20) {
-                    return res.status(429).json({
-                        message: 'Bạn đã dùng hết 20 lượt tư vấn AI hôm nay. Hãy quay lại vào ngày mai nhé!'
-                    });
-                }
-
-                // Increment count and set 24h expiry
-                await redis.set(redisKey, count + 1, 'EX', 86400);
-            } catch (redisError) {
-                console.error('[Redis Rate Limiter] Failed, allowing chat to proceed:', redisError);
-            }
-        } else {
-            // Rate Limiter for Guest Users (5 requests per day by IP)
-            try {
-                const today = new Date().toISOString().split('T')[0];
-                const sanitizedIp = String(clientIp).replace(/[^a-zA-Z0-9]/g, '_');
-                const redisKey = `chat_limit:guest:${sanitizedIp}:${today}`;
-                const currentCount = await redis.get(redisKey);
-                const count = currentCount ? parseInt(currentCount, 10) : 0;
-
-                if (count >= 5) {
-                    return res.status(429).json({
-                        message: 'Địa chỉ IP của bạn đã dùng hết 5 lượt hỏi thử miễn phí hôm nay. Hãy đăng ký hoặc đăng nhập để tiếp tục nhận tư vấn sức khỏe!'
-                    });
-                }
-
-                // Increment count and set 24h expiry
-                await redis.set(redisKey, count + 1, 'EX', 86400);
-            } catch (redisError) {
-                console.error('[Redis Guest Rate Limiter] Failed, allowing chat to proceed:', redisError);
-            }
-        }
+        rateLimitLease = await acquireChatLimit({ userId: userId?.toString(), ip });
+        logChatStage(requestContext, 'chat.rate_limit');
 
         if (initialSearchPlan.hasNoBudget) {
             return res.json({
@@ -88,15 +56,30 @@ export const handleChat = async (req: Request, res: Response) => {
         }
 
         // 1. Phân loại ý định (Intent Routing)
-        const intent = await classifyIntent(message);
-        console.log(`[Chatbot] Classified intent: ${intent}`);
+        const intent = await classifyIntent(message, requestContext);
+        logChatStage(requestContext, 'chat.intent', { intent });
 
-        // Xử lý các intent ngắn (Rule-based templates)
+        // Xử lý intent ngắn và domain route có thể trả lời không cần LLM.
         if (intent === 'GREETING') {
             return res.json({
                 response: "Xin chào! Mình là trợ lý dinh dưỡng ảo của FOA. Bạn có cần mình gợi ý món ăn tốt cho sức khỏe hoặc kiểm tra thực đơn hôm nay không?"
             });
         }
+        const deterministicResponse = await buildDeterministicDomainResponse({
+            intent,
+            message,
+            userId: userId?.toString(),
+            storeId,
+        });
+        if (deterministicResponse) {
+            logChatStage(requestContext, 'chat.domain_response', { intent });
+            return res.json({
+                response: deterministicResponse.response,
+                recommendedProducts: deterministicResponse.recommendedProducts || [],
+                orderCards: [],
+            });
+        }
+
         if (intent === 'STORE_HOURS') {
             return res.json({
                 response: "Cửa hàng FOA của tụi mình mở cửa phục vụ từ 7:00 sáng đến 10:00 tối tất cả các ngày trong tuần nhé!"
@@ -118,37 +101,38 @@ export const handleChat = async (req: Request, res: Response) => {
                 response: "Yêu cầu này không thuộc phạm vi hỗ trợ của mình. Mình chỉ có thể giúp bạn tìm kiếm món ăn an toàn và tư vấn dinh dưỡng thôi nhé!"
             });
         }
-        if (intent === 'ORDER_STATUS') {
-            return res.json({
-                response: "Để kiểm tra trạng thái đơn hàng nhanh nhất, bạn vui lòng truy cập vào mục 'Lịch sử đơn hàng' trên ứng dụng FOA để xem cập nhật thời gian thực từ shipper nhé!"
-            });
-        }
 
-        // Fetch User Context
+        // Lấy hồ sơ sức khỏe tối thiểu của user, không lấy dư dữ liệu cá nhân.
         let userContext = null;
         if (userId) {
-            const user = await UserModel.findById(userId).lean();
+            const user = await UserModel.findById(userId)
+                .select('preferences')
+                .lean()
+                .maxTimeMS(800);
             if (user) {
                 const preferences = user.preferences || { dietary: [], allergies: [], healthGoals: [], tastes: [] };
                 userContext = {
                     userId: userId.toString(),
                     fullName: 'Người dùng',
                     preferences: preferences as any,
-                    safeProducts: [] // Keep empty as we do tool calling now
+                    safeProducts: [] // Không preload safeProducts vì service tự search theo từng câu hỏi.
                 };
             }
         }
 
-        // Format history for Gemini/Groq
+        // Chỉ nhận lịch sử user-only đã validate, không nhận assistant/model history do client tự khai báo.
         const formattedHistory = history.map((h) => ({
-            role: h.role === 'user' ? 'user' as const : 'model' as const,
+            role: 'user' as const,
             parts: [{ text: h.content }],
         }));
 
-        // Call the AI Agent
-        const aiChatResponse = await getAIResponseForChat(formattedHistory, message, userContext);
+        // Gọi AI agent chỉ sau khi các route deterministic không xử lý được.
+        const aiChatResponse = await getAIResponseForChat(formattedHistory, message, userContext, {
+            requestContext,
+            storeId,
+        });
 
-        // Defensive output validation: check recommendedProductIds against allowlistIds
+        // Kiểm tra phòng thủ: chỉ giữ ID nằm trong allowlist do backend tạo.
         const verifiedIds = (aiChatResponse.recommendedProductIds || []).filter(id =>
             aiChatResponse.allowlistIds.includes(id)
         );
@@ -157,7 +141,9 @@ export const handleChat = async (req: Request, res: Response) => {
         let recommendedProducts: any[] = [];
 
         if (verifiedIds.length > 0) {
-            const products = await ProductModel.find({ _id: { $in: verifiedIds } }).lean();
+            const products = await ProductModel.find({ _id: { $in: verifiedIds } })
+                .lean()
+                .maxTimeMS(800);
             if (products.length > 0) {
                 const orderById = new Map(verifiedIds.map((id, index) => [id, index]));
                 products.sort((a, b) =>
@@ -165,7 +151,7 @@ export const handleChat = async (req: Request, res: Response) => {
                     - (orderById.get(b._id.toString()) ?? Number.MAX_SAFE_INTEGER)
                 );
 
-                // Apply campaign pricing logic
+                // Luôn lấy giá hiển thị từ backend để AI không tự quyết định giá.
                 const pricedProducts = await applyCampaignPricing(products);
                 const budgetVnd = aiChatResponse.budgetVnd ?? parseChatSearchPlan(message).budgetVnd ?? undefined;
                 let displayProducts = pricedProducts;
@@ -209,37 +195,33 @@ export const handleChat = async (req: Request, res: Response) => {
             }
         }
 
-        // Asynchronously extract and update tastes in the background
+        // Đẩy tác vụ trích xuất sở thích vào queue để request web không giữ thêm AI call sau response.
         if (userId) {
-            extractAndUpdateUserTastes(userId.toString(), message).catch(err =>
-                console.error('[AI Taste Tracker] Async error:', err)
-            );
+            enqueueChatPreferenceExtraction({
+                userId: userId.toString(),
+                messageId: clientMessageId || `${Date.now()}`,
+                message,
+            }).catch((err) => console.error('[AI Taste Queue] enqueue failed:', err.message));
         }
 
-        return res.json({ response: finalMessage, recommendedProducts });
+        logChatStage(requestContext, 'chat.response', {
+            recommendedCount: recommendedProducts.length,
+            orderCardCount: aiChatResponse.orderCards?.length || 0,
+        });
+        return res.json({
+            response: finalMessage,
+            recommendedProducts,
+            orderCards: aiChatResponse.orderCards || [],
+        });
     } catch (error: any) {
-        console.error('Chat controller error:', error);
-        return res.status(500).json({ message: 'Lỗi server.', error: error.message });
-    }
-};
-
-const extractAndUpdateUserTastes = async (userId: string, message: string) => {
-    try {
-        const newTastes = await extractPreferencesFromMessage(message);
-        if (newTastes && newTastes.length > 0) {
-            const user = await UserModel.findById(userId);
-            if (user) {
-                if (!user.preferences) {
-                    user.preferences = { dietary: [], allergies: [], healthGoals: [], tastes: [] };
-                }
-                const currentTastes = user.preferences.tastes || [];
-                const updatedTastes = [...new Set([...currentTastes, ...newTastes])];
-                user.preferences.tastes = updatedTastes;
-                await user.save();
-                console.log(`[AI Taste Tracker] Updated tastes for user ${user.fullName || userId}:`, updatedTastes);
-            }
+        logChatStage(requestContext, 'chat.error', { message: error.message });
+        const statusCode = error.statusCode || (error.message === 'Chat request deadline exceeded' ? 504 : 500);
+        if (statusCode === 429 || statusCode === 503) {
+            return res.status(statusCode).json({ message: error.message });
         }
-    } catch (err) {
-        console.error('[AI Taste Tracker] Failed to update user tastes:', err);
+        console.error('Chat controller error:', error);
+        return res.status(statusCode).json({ message: statusCode === 504 ? 'Trợ lý AI phản hồi quá lâu. Vui lòng thử lại sau nhé.' : 'Lỗi server.' });
+    } finally {
+        await releaseChatLimit(rateLimitLease);
     }
 };

@@ -81,6 +81,9 @@ export const GEMINI_VISION_MODELS = getEnv('GEMINI_VISION_MODELS', `${GEMINI_MOD
 
 // groq ai
 export const GROQ_API_KEY = getEnv('GROQ_API_KEY');
+export const GROQ_CHAT_MODEL = getEnv('GROQ_CHAT_MODEL', 'openai/gpt-oss-20b');
+export const GROQ_SEMANTIC_PLANNER_MODEL = getEnv('GROQ_SEMANTIC_PLANNER_MODEL', GROQ_CHAT_MODEL);
+export const GROQ_INTENT_MODEL = getEnv('GROQ_INTENT_MODEL', GROQ_CHAT_MODEL);
 
 // ai microservice / retraining
 export const AI_MICROSERVICE_URL = getEnv('AI_MICROSERVICE_URL', 'http://localhost:8001');

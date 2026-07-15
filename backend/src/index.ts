@@ -15,6 +15,8 @@ import cron from 'node-cron';
 import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
 import { startEmailWorker } from '@/jobs/email-queue';
+import { startChatPreferenceWorker } from '@/jobs/chat-preference-queue';
+import { warnIfDeprecatedChatModel } from '@/services/ai-model-registry.service';
 
 
 // dns.setServers(['8.8.8.8', '1.1.1.1']);
@@ -195,5 +197,8 @@ server.listen(PORT, async () => {
   
   // Khởi chạy hàng đợi gửi mail chạy ngầm
   startEmailWorker();
+  startChatPreferenceWorker();
+  warnIfDeprecatedChatModel();
   console.log('[Queue] BullMQ Email Worker đã sẵn sàng nhận nhiệm vụ.');
+  console.log('[Queue] BullMQ Chat Preference Worker đã sẵn sàng nhận nhiệm vụ.');
 });
