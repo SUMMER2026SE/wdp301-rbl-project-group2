@@ -341,6 +341,29 @@ const deleteRejectedReviewImage = async (file: {
 
   await FileModel.findByIdAndDelete(file._id);
 };
+const deleteRejectedReview = async ({
+  reviewId,
+  userId,
+}: {
+  reviewId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+}) => {
+  const deletedReview = await ReviewModel.findOneAndDelete({ _id: reviewId, userId }).select('productId images');
+  if (!deletedReview) return null;
+
+  await ReviewReactionModel.deleteMany({ reviewId: deletedReview._id });
+
+  const files = await FileModel.find({
+    _id: { $in: deletedReview.images },
+    owner_id: userId,
+    owner_type: FileOwnerType.REVIEW,
+  }).select('_id public_id resource_type');
+
+  await Promise.all(files.map(deleteRejectedReviewImage));
+  await updateProductOverallRating(deletedReview.productId.toString());
+
+  return deletedReview;
+};
 
 const moderateSavedReviewImages = async ({
   reviewId,
@@ -385,26 +408,17 @@ const moderateSavedReviewImages = async ({
         continue;
       }
 
-      await ReviewModel.updateOne({ _id: reviewId }, { $pull: { images: file._id } });
-      await FileModel.updateOne(
-        { _id: file._id },
-        {
-          $set: {
-            moderationStatus: FileModerationStatus.REJECTED,
-            moderationCategory: moderation.category,
-            moderationConfidence: moderation.confidence,
-            moderationReason: moderation.reason,
-            moderatedAt: now,
-          },
-        }
-      );
-      await deleteRejectedReviewImage(file);
+      const activeReviewImage = await ReviewModel.exists({ _id: reviewId, userId, images: file._id });
+      if (!activeReviewImage) continue;
+
+      const deletedReview = await deleteRejectedReview({ reviewId, userId });
+      if (!deletedReview) return;
 
       const notification = await NotificationModel.create({
         userId,
         orderId,
-        title: 'Ảnh đánh giá đã bị gỡ',
-        body: `Một ảnh trong đánh giá của bạn đã bị gỡ do không phù hợp với chính sách nội dung.${moderation.reason ? ` Lý do: ${moderation.reason}` : ''}`,
+        title: '\u0110\u00e1nh gi\u00e1 \u0111\u00e3 b\u1ecb g\u1ee1',
+        body: `\u0110\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n \u0111\u00e3 b\u1ecb g\u1ee1 v\u00ec c\u00f3 \u1ea3nh kh\u00f4ng ph\u00f9 h\u1ee3p v\u1edbi ch\u00ednh s\u00e1ch n\u1ed9i dung.${moderation.reason ? ` L\u00fd do: ${moderation.reason}` : ''}`,
         type: NotificationType.SYSTEM,
         isRead: false,
       });
