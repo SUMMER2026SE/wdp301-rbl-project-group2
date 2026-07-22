@@ -1765,8 +1765,8 @@ const CheckoutPage = () => {
                         isCurrentStore
                           ? "border-2 border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-900/10 dark:hover:border-emerald-800 dark:hover:bg-emerald-900/20"
                           : isNearestCandidate
-                          ? "border-2 border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-900/10 dark:hover:border-orange-800 dark:hover:bg-orange-900/20"
-                          : "border border-gray-200 hover:border-slate-300 hover:bg-slate-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
+                            ? "border-2 border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-900/10 dark:hover:border-orange-800 dark:hover:bg-orange-900/20"
+                            : "border border-gray-200 hover:border-slate-300 hover:bg-slate-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1775,8 +1775,8 @@ const CheckoutPage = () => {
                             isCurrentStore
                               ? "text-emerald-600 dark:text-emerald-400"
                               : isNearestCandidate
-                              ? "text-orange-600"
-                              : "text-slate-400"
+                                ? "text-orange-600"
+                                : "text-slate-400"
                           }`}
                         >
                           {isCurrentStore

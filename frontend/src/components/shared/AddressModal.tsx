@@ -1,18 +1,54 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { AuthAddress } from "@/store/authStore";
-import {
-  DELIVERABLE_WARDS,
-  DELIVERABLE_CITY,
-} from "@/utils/shipping";
+import { DELIVERABLE_WARDS, DELIVERABLE_CITY } from "@/utils/shipping";
 import { isValidPhone, normalizePhone } from "@/utils/address";
+import {
+  canSearchAddressSuggestions,
+  resolveAddressSuggestionDetails,
+  searchAddressSuggestionsForAddress,
+  type AddressSuggestion,
+} from "@/utils/geocoding";
 
 const OTHER_CITY = "Khác";
 const CITY_OPTIONS = [DELIVERABLE_CITY, OTHER_CITY];
 
+const normalizeWardLookupText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/\b(phuong|xa)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const findWardFromSuggestion = (suggestion: AddressSuggestion) => {
+  const haystack = normalizeWardLookupText(
+    [
+      suggestion.ward,
+      suggestion.detail,
+      suggestion.secondary,
+      suggestion.label,
+    ].join(" "),
+  );
+
+  return [...DELIVERABLE_WARDS]
+    .sort((a, b) => b.length - a.length)
+    .find((ward) => {
+      const normalizedWard = normalizeWardLookupText(ward);
+      return haystack.split(" ").join(" ").includes(normalizedWard);
+    });
+};
+
 export type AddressLabel = "home" | "work" | "other";
 
-export const LABEL_OPTIONS: { value: AddressLabel; text: string; icon: string }[] = [
+export const LABEL_OPTIONS: {
+  value: AddressLabel;
+  text: string;
+  icon: string;
+}[] = [
   { value: "home", text: "Nhà", icon: "home" },
   { value: "work", text: "Cơ quan", icon: "work" },
   { value: "other", text: "Khác", icon: "fitness_center" },
@@ -21,7 +57,8 @@ export const LABEL_OPTIONS: { value: AddressLabel; text: string; icon: string }[
 export const LABEL_ICON_BG: Record<AddressLabel, string> = {
   home: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
   work: "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400",
-  other: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
+  other:
+    "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400",
 };
 
 interface AddressForm {
@@ -32,6 +69,8 @@ interface AddressForm {
   ward: string;
   city: string;
   isDefault: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 const EMPTY_FORM: AddressForm = {
@@ -63,6 +102,15 @@ export const AddressModal = ({
   const [form, setForm] = useState<AddressForm>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    AddressSuggestion[]
+  >([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isAddressInputFocused, setIsAddressInputFocused] = useState(false);
+  const [hasAddressSuggestionMiss, setHasAddressSuggestionMiss] =
+    useState(false);
+  const [selectedSuggestionDetail, setSelectedSuggestionDetail] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -75,18 +123,112 @@ export const AddressModal = ({
           ward: initialData.ward ?? "",
           city: initialData.city ?? "",
           isDefault: initialData.isDefault ?? false,
+          latitude: initialData.latitude,
+          longitude: initialData.longitude,
         });
       } else {
         setForm({ ...EMPTY_FORM, isDefault: isFirstAddress });
       }
       setError(null);
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      setIsAddressInputFocused(false);
+      setHasAddressSuggestionMiss(false);
+      setSelectedSuggestionDetail(initialData?.detail ?? "");
     }
   }, [isOpen, initialData, isFirstAddress]);
 
-  if (!isOpen) return null;
-
-  const setField = <K extends keyof AddressForm>(key: K, val: AddressForm[K]) => {
+  const setField = <K extends keyof AddressForm>(
+    key: K,
+    val: AddressForm[K],
+  ) => {
     setForm((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const previewAddress = useMemo<Partial<AuthAddress>>(
+    () => ({
+      detail: form.detail,
+      ward: form.ward,
+      city: form.city,
+      latitude: form.latitude,
+      longitude: form.longitude,
+    }),
+    [form.city, form.detail, form.latitude, form.longitude, form.ward],
+  );
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !form.city.trim() ||
+      form.detail.trim() === selectedSuggestionDetail ||
+      !canSearchAddressSuggestions(previewAddress)
+    ) {
+      setAddressSuggestions([]);
+      setIsSearchingAddress(false);
+      setShowAddressSuggestions(false);
+      setHasAddressSuggestionMiss(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsSearchingAddress(true);
+    setHasAddressSuggestionMiss(false);
+
+    searchAddressSuggestionsForAddress(previewAddress, controller.signal, 5)
+      .then((suggestions) => {
+        setAddressSuggestions(suggestions);
+        setHasAddressSuggestionMiss(suggestions.length === 0);
+        setShowAddressSuggestions(
+          isAddressInputFocused && canSearchAddressSuggestions(previewAddress),
+        );
+      })
+      .catch((err) => {
+        if ((err as DOMException).name === "AbortError") return;
+        setAddressSuggestions([]);
+        setHasAddressSuggestionMiss(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsSearchingAddress(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    form.city,
+    form.detail,
+    isAddressInputFocused,
+    isOpen,
+    previewAddress,
+    selectedSuggestionDetail,
+  ]);
+
+  const handleChooseAddressSuggestion = async (
+    suggestion: AddressSuggestion,
+  ) => {
+    const resolvedSuggestion = await resolveAddressSuggestionDetails(
+      suggestion,
+    ).catch(() => suggestion);
+    const suggestedWard = findWardFromSuggestion(resolvedSuggestion);
+
+    const nextDetail = resolvedSuggestion.detail || resolvedSuggestion.label;
+
+    setForm((prev) => ({
+      ...prev,
+      detail: nextDetail,
+      ward:
+        prev.city === DELIVERABLE_CITY && suggestedWard
+          ? suggestedWard
+          : prev.ward,
+      latitude: resolvedSuggestion.coordinates?.lat,
+      longitude: resolvedSuggestion.coordinates?.lng,
+    }));
+    setSelectedSuggestionDetail(nextDetail.trim());
+    setIsAddressInputFocused(false);
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+    setHasAddressSuggestionMiss(false);
   };
 
   const handleSave = async () => {
@@ -118,14 +260,18 @@ export const AddressModal = ({
     }
 
     const newAddr: AuthAddress = {
-      label: form.label || 'home',
+      label: form.label || "home",
       receiverName: form.receiverName.trim(),
       phone: normalizePhone(form.phone),
       detail: form.detail.trim(),
       // Nếu không phải Đà Nẵng thì ward không có dropdown, dùng city làm giá trị placeholder
-      ward: form.city === DELIVERABLE_CITY ? form.ward.trim() : form.city.trim(),
+      ward:
+        form.city === DELIVERABLE_CITY ? form.ward.trim() : form.city.trim(),
       city: form.city.trim(),
       isDefault: form.isDefault,
+      ...(Number.isFinite(form.latitude) && Number.isFinite(form.longitude)
+        ? { latitude: form.latitude, longitude: form.longitude }
+        : {}),
     };
 
     try {
@@ -136,20 +282,33 @@ export const AddressModal = ({
       const apiMsg =
         err?.response?.data?.message ??
         err?.response?.data?.errors?.[0]?.message;
-      setError(apiMsg ?? err?.message ?? "Lưu địa chỉ thất bại. Vui lòng thử lại.");
+      setError(
+        apiMsg ?? err?.message ?? "Lưu địa chỉ thất bại. Vui lòng thử lại.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={!saving ? onClose : undefined} />
+    <div
+      className="fixed inset-0 z-[100] overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+        onClick={!saving ? onClose : undefined}
+      />
       <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
         <div className="relative transform overflow-hidden rounded-2xl bg-card text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-border animate-in zoom-in-95 fade-in duration-200">
           <div className="px-6 py-4 border-b border-border flex justify-between items-center">
             <h3 className="text-lg font-bold text-foreground">
-              {initialData ? "Chỉnh sửa địa chỉ" : t("customer:addresses.addNewAddress")}
+              {initialData
+                ? "Chỉnh sửa địa chỉ"
+                : t("customer:addresses.addNewAddress")}
             </h3>
             <button
               type="button"
@@ -231,8 +390,16 @@ export const AddressModal = ({
               <select
                 value={form.city}
                 onChange={(e) => {
-                  setField("city", e.target.value);
-                  setField("ward", "");
+                  setForm((prev) => ({
+                    ...prev,
+                    city: e.target.value,
+                    ward: "",
+                    latitude: undefined,
+                    longitude: undefined,
+                  }));
+                  setSelectedSuggestionDetail("");
+                  setShowAddressSuggestions(false);
+                  setIsAddressInputFocused(false);
                 }}
                 className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
@@ -245,7 +412,9 @@ export const AddressModal = ({
               </select>
               {form.city && form.city !== DELIVERABLE_CITY && (
                 <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[13px]">block</span>
+                  <span className="material-symbols-outlined text-[13px]">
+                    block
+                  </span>
                   Hiện chỉ giao hàng trong khu vực Đà Nẵng
                 </p>
               )}
@@ -259,7 +428,16 @@ export const AddressModal = ({
                   </label>
                   <select
                     value={form.ward}
-                    onChange={(e) => setField("ward", e.target.value)}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        ward: e.target.value,
+                        latitude: undefined,
+                        longitude: undefined,
+                      }))
+                    }
+                    onFocus={() => setSelectedSuggestionDetail("")}
+                    onBlur={() => setShowAddressSuggestions(false)}
                     className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">-- Chọn phường/xã --</option>
@@ -278,15 +456,89 @@ export const AddressModal = ({
               <label className="block text-xs font-medium text-foreground mb-1">
                 Địa chỉ chi tiết (số nhà, tên đường) *
               </label>
-              <input
-                type="text"
-                value={form.detail}
-                onChange={(e) => setField("detail", e.target.value)}
-                placeholder="123 Đường Lê Lợi"
-                className="block w-full rounded-lg border border-input py-2 px-3 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={form.detail}
+                  onFocus={() => {
+                    setIsAddressInputFocused(true);
+                    setShowAddressSuggestions(
+                      canSearchAddressSuggestions(previewAddress),
+                    );
+                  }}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      setIsAddressInputFocused(false);
+                      setShowAddressSuggestions(false);
+                    }, 120);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setIsAddressInputFocused(false);
+                      setShowAddressSuggestions(false);
+                    }
+                  }}
+                  onChange={(e) => {
+                    const nextAddress = {
+                      ...previewAddress,
+                      detail: e.target.value,
+                    };
+                    setShowAddressSuggestions(
+                      canSearchAddressSuggestions(nextAddress),
+                    );
+                    setForm((prev) => ({
+                      ...prev,
+                      detail: e.target.value,
+                      latitude: undefined,
+                      longitude: undefined,
+                    }));
+                    setSelectedSuggestionDetail("");
+                  }}
+                  placeholder="nhập địa chỉ chi tiết"
+                  className="block w-full rounded-lg border border-input py-2 px-3 pr-9 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {isAddressInputFocused &&
+                  showAddressSuggestions &&
+                  addressSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                      {addressSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() =>
+                            handleChooseAddressSuggestion(suggestion)
+                          }
+                          className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted"
+                        >
+                          <span className="material-symbols-outlined mt-0.5 text-[18px] text-orange-600">
+                            location_on
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-foreground">
+                              {suggestion.detail || suggestion.label}
+                            </span>
+                            {suggestion.secondary && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {suggestion.secondary}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                {isAddressInputFocused &&
+                  showAddressSuggestions &&
+                  !isSearchingAddress &&
+                  hasAddressSuggestionMiss && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 shadow-lg dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Không tìm thấy địa chỉ này. Hãy nhập rõ số nhà, tên đường
+                      hoặc chọn một địa điểm gần đó.
+                    </div>
+                  )}
+              </div>
             </div>
-
             {/* Set default */}
             <label className="flex items-center gap-2 cursor-pointer pt-1">
               <input
