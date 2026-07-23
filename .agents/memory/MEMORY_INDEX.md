@@ -22,15 +22,19 @@ This index is the first file agents should read after `AGENTS.md` for non-trivia
 ## Auto-generated card index
 
 <!-- AUTO-GENERATED:START -->
-_Generated on 2026-06-23 from `.agents/memory` cards._
+_Generated on 2026-07-16 from `.agents/memory` cards._
 
 ### Lesson
 
 | Severity | Status | Tags | Applies to | Card |
 |---|---|---|---|---|
+| low | active | `[mongoose, database, index, configuration]` | `[backend]` | [Lesson: Mongoose Duplicate Schema Indexes and Local DB Connection](lessons/0001-mongoose-duplicate-indexes.md) |
+| high | active | `[product, menu, store-scope, availability, admin, manager]` | `[backend, frontend]` | [Lesson: Product Availability Updates Must Stay Operationally Scoped](lessons/0002-product-availability-scope.md) |
 | medium | active | `[referral, membership, points, frontend, legacy-data]` | `[backend, frontend]` | [Lesson: Referral UI must complete both invite and claim flows](lessons/2026-06-22-referral-ui-must-complete-both-invite-and-claim-flows.md) |
 | medium | active | `[search, menu, product, mongodb, ux]` | `[backend, frontend]` | [Lesson: Menu search is literal by product name](lessons/2026-06-23-menu-search-is-literal-by-product-name.md) |
 | medium | active | `[allergy, cart, product-detail, frontend, ux]` | `[frontend]` | [Lesson: Product detail allergy disclosure is a single confirmation point](lessons/2026-06-23-product-detail-allergy-warning-is-single-confirmation.md) |
+| medium | active | `[cart, checkout, product, store, availability]` | `[backend, frontend]` | [Lesson: Cart Availability Must Resolve Store Overrides](lessons/2026-06-29-cart-availability-must-resolve-store-overrides.md) |
+| high | active | `[manager, cod, revenue, mongodb, date, order]` | `[backend, frontend]` | [Lesson: COD filters must compose and revenue must use completion time](lessons/2026-07-16-manager-cod-date-filters-must-compose.md) |
 
 ### Pattern
 
