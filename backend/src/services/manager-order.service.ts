@@ -6,7 +6,7 @@ import { OrderStatus } from '@/types/order.type';
 import { AuditEntityType, AuditLogAction } from '@/types/audit-log.type';
 import { createAuditLog } from '@/services/audit-log.service';
 import { createOrderStatusNotification } from '@/services/notification.service';
-import { qualifyReferralFromCompletedOrder } from '@/services/membership.service';
+import { awardOrderCompletionPoints, qualifyReferralFromCompletedOrder } from '@/services/membership.service';
 
 const SENSITIVE_ACTIONS = new Set(['cancel', 'reject', 'move_status_backward', 'reassign_driver', 'manual_complete']);
 
@@ -156,6 +156,13 @@ export const managerOverrideOrderStatus = async (params: {
   await order.save();
 
   if (toStatus === OrderStatus.COMPLETED) {
+    await awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
+
     await qualifyReferralFromCompletedOrder(order._id)
       .catch((err) => console.error('Failed to process referral reward:', err));
   }

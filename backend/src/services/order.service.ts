@@ -25,7 +25,6 @@ import { parseOrderNoteForStaff } from './ai.service';
 import { createAuditLog } from './audit-log.service';
 import { AuditEntityType, AuditLogAction, NotificationType, Role, UserVoucherStatus } from '@/types';
 import * as membershipService from './membership.service';
-import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
 import { attachSharedToppingVariants } from './shared-topping.service';
@@ -733,18 +732,12 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
   await order.save();
 
   if (status === OrderStatus.COMPLETED) {
-    const pointsAwarded = Math.floor(order.totalPrice / 1000);
-    if (pointsAwarded > 0) {
-      membershipService
-        .addPoints(
-          order.cusId as any,
-          pointsAwarded,
-          PointTransactionType.EARN,
-          `Điểm tích lũy từ đơn hàng #${order.code}`,
-          order._id as any
-        )
-        .catch((err) => console.error('Failed to award points:', err));
-    }
+    await membershipService.awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
     scheduleAiModelRetrain(`order #${order.code} completed (status update)`);
 
     await membershipService
@@ -1032,6 +1025,12 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
 export const completeOrderInternal = async (orderId: string, actorId?: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   if (order.status === OrderStatus.COMPLETED) {
+    await membershipService.awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
     await membershipService
       .qualifyReferralFromCompletedOrder(order._id)
       .catch((err) => console.error('Failed to process referral reward:', err));
@@ -1078,18 +1077,12 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
 
   appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
 
-  const pointsAwarded = Math.floor(updatedOrder.totalPrice / 1000);
-  if (pointsAwarded > 0) {
-    membershipService
-      .addPoints(
-        updatedOrder.cusId as any,
-        pointsAwarded,
-        PointTransactionType.EARN,
-        `Điểm tích lũy từ đơn hàng #${updatedOrder.code}`,
-        updatedOrder._id as any
-      )
-      .catch((err) => console.error('Failed to award points:', err));
-  }
+  await membershipService.awardOrderCompletionPoints({
+    orderId: updatedOrder._id,
+    userId: updatedOrder.cusId as mongoose.Types.ObjectId,
+    totalPrice: updatedOrder.totalPrice,
+    orderCode: updatedOrder.code,
+  });
 
   scheduleAiModelRetrain(`order #${updatedOrder.code} completed`);
 

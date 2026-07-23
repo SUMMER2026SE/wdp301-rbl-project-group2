@@ -39,6 +39,11 @@ export const addPoints = async (
     orderId?: mongoose.Types.ObjectId
 ) => {
     return withTransaction(async (session) => {
+        if (orderId && type === PointTransactionType.EARN) {
+            const existingTransaction = await PointTransactionModel.exists({ orderId, type }).session(session);
+            if (existingTransaction) return null;
+        }
+
         const user = await UserModel.findById(userId).session(session);
         appAssert(user, NOT_FOUND, 'Người dùng không tồn tại');
 
@@ -73,6 +78,31 @@ export const addPoints = async (
 
         return user;
     });
+};
+
+export const awardOrderCompletionPoints = async ({
+    orderId,
+    userId,
+    totalPrice,
+    orderCode,
+}: {
+    orderId: mongoose.Types.ObjectId;
+    userId: mongoose.Types.ObjectId;
+    totalPrice: number;
+    orderCode: string;
+}) => {
+    const pointsAwarded = Math.floor(totalPrice / 1000);
+    if (pointsAwarded <= 0) return { awarded: false, pointsAwarded: 0 };
+
+    const user = await addPoints(
+        userId,
+        pointsAwarded,
+        PointTransactionType.EARN,
+        `Điểm tích lũy từ đơn hàng #${orderCode}`,
+        orderId
+    );
+
+    return { awarded: Boolean(user), pointsAwarded };
 };
 
 export const REFERRAL_MIN_ORDER_TOTAL = 100_000;
@@ -382,7 +412,8 @@ export const qualifyReferralFromCompletedOrder = async (
             );
 
             processingInvitee.collectedPoints += INVITEE_REWARD_POINTS;
-            processingInvitee.tier = calculateTier(processingInvitee.collectedPoints);
+            processingInvitee.accumulatedPoints = (processingInvitee.accumulatedPoints ?? 0) + INVITEE_REWARD_POINTS;
+            processingInvitee.tier = calculateTier(processingInvitee.accumulatedPoints);
             processingInvitee.referralRewardStatus = ReferralRewardStatus.REWARDED;
             processingInvitee.referralRewardVoucherId = referralVoucher._id;
             processingInvitee.referralRewardedAt = now;
