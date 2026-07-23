@@ -100,6 +100,8 @@ export interface CreateVoucherRequest {
   usageLimit?: number | null;
   conditions: string[];
   minTier?: UserTier | string | null;
+  isReward?: boolean;
+  pointCost?: number;
   isActive?: boolean;
   isStackable?: boolean;
 }

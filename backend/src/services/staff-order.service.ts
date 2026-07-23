@@ -3,7 +3,7 @@ import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import OrderModel from '@/models/order.model';
 import { OrderStatus } from '@/types/order.type';
 import appAssert from '@/utils/app-assert';
-import { qualifyReferralFromCompletedOrder } from '@/services/membership.service';
+import { awardOrderCompletionPoints, qualifyReferralFromCompletedOrder } from '@/services/membership.service';
 
 const STAFF_TRANSITIONS: Record<string, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
@@ -119,6 +119,13 @@ export const transitionStaffOrderStatus = async (
   await order.save();
 
   if (nextStatus === OrderStatus.COMPLETED) {
+    await awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
+
     await qualifyReferralFromCompletedOrder(order._id)
       .catch((err) => console.error('Failed to process referral reward:', err));
   }

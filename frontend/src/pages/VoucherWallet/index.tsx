@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import voucherService from "@/services/voucher.service";
@@ -599,6 +599,7 @@ export const VoucherWalletContent = () => {
     const [hasMoreActivities, setHasMoreActivities] = useState(false);
     const [rewardVouchers, setRewardVouchers] = useState<Voucher[]>([]);
     const [rewardLoading, setRewardLoading] = useState(true);
+    const rewardCarouselRef = useRef<HTMLDivElement>(null);
 
     const fetchVouchers = useCallback(async () => {
         try {
@@ -702,6 +703,12 @@ export const VoucherWalletContent = () => {
         });
     };
 
+    const scrollRewardVouchers = (direction: -1 | 1) => {
+        rewardCarouselRef.current?.scrollBy({
+            left: direction * 320,
+            behavior: "smooth",
+        });
+    };
     const filtered = vouchers.filter((v) => {
         if (activeTab === "expired") return isExpired(v) || isExhausted(v);
         if (activeTab === "used") return isExhausted(v) && !isExpired(v);
@@ -845,16 +852,26 @@ export const VoucherWalletContent = () => {
                         <p className="text-muted-foreground text-sm">Đổi điểm lấy phần thưởng</p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="size-10 border border-border rounded-full flex items-center justify-center hover:bg-card transition-all">
+                        <button
+                            type="button"
+                            aria-label="Xem voucher trước"
+                            onClick={() => scrollRewardVouchers(-1)}
+                            className="size-10 border border-border rounded-full flex items-center justify-center hover:bg-card transition-all"
+                        >
                             <span className="material-symbols-outlined text-sm">arrow_back</span>
                         </button>
-                        <button className="size-10 border border-border rounded-full flex items-center justify-center hover:bg-card transition-all">
+                        <button
+                            type="button"
+                            aria-label="Xem voucher tiếp theo"
+                            onClick={() => scrollRewardVouchers(1)}
+                            className="size-10 border border-border rounded-full flex items-center justify-center hover:bg-card transition-all"
+                        >
                             <span className="material-symbols-outlined text-sm">arrow_forward</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="flex gap-6 overflow-x-auto no-scrollbar pb-6 -mx-1 px-1">
+                <div ref={rewardCarouselRef} className="flex gap-6 overflow-x-auto scroll-smooth no-scrollbar pb-6 -mx-1 px-1">
                     {rewardLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="w-60 h-[150px] bg-card rounded-[24px] border border-border animate-pulse shrink-0 flex-none" />
