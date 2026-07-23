@@ -29,6 +29,7 @@ import {
   updateStoreHandler,
   deactivateStoreHandler,
   activateStoreHandler,
+  getCustomerRecommendationInsightsHandler,
 } from '@/controllers/admin.controller';
 
 const adminRoutes = Router();
@@ -44,6 +45,12 @@ adminRoutes.get(
   authenticate,
   authorize(Role.ADMIN, Role.STAFF),
   getCustomerIncidentsHandler
+);
+adminRoutes.get(
+  '/customers/:userId/recommendation-insights',
+  authenticate,
+  authorize(Role.ADMIN, Role.STAFF),
+  getCustomerRecommendationInsightsHandler
 );
 adminRoutes.get('/cash-control', authenticate, authorize(Role.ADMIN), getCashControlHandler);
 adminRoutes.post('/collect-cash', authenticate, authorize(Role.ADMIN), collectCashHandler);

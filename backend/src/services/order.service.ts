@@ -25,10 +25,10 @@ import { parseOrderNoteForStaff } from './ai.service';
 import { createAuditLog } from './audit-log.service';
 import { AuditEntityType, AuditLogAction, NotificationType, Role, UserVoucherStatus } from '@/types';
 import * as membershipService from './membership.service';
-import { PointTransactionType } from '@/types/point-transaction.type';
 import { createOrderStatusNotification } from './notification.service';
 import { scheduleAiModelRetrain } from './ai-retrain.service';
 import { attachSharedToppingVariants } from './shared-topping.service';
+import { applyStoreAvailability } from '@/utils/product-store-availability';
 
 const INNER_WARDS = [
   'Hải Châu I',
@@ -262,17 +262,32 @@ interface ResolvedItem {
 
 const resolveOrderItems = async (
   rawItems: TPlaceOrderValidator['items'],
-  session: mongoose.ClientSession
+  session: mongoose.ClientSession,
+  storeId?: string
 ): Promise<{ resolvedItems: ResolvedItem[]; subTotal: number }> => {
   let subTotal = 0;
   const resolvedItems: ResolvedItem[] = [];
+  const storeObjectId = storeId && mongoose.Types.ObjectId.isValid(storeId)
+    ? new mongoose.Types.ObjectId(storeId)
+    : undefined;
+
+  if (storeId) {
+    appAssert(storeObjectId, BAD_REQUEST, 'Chi nhánh không hợp lệ');
+  }
 
   for (const item of rawItems) {
     const productDoc = await ProductModel.findById(item.productId).session(session);
-    const product = await attachSharedToppingVariants(productDoc?.toObject() as any);
+    const productObject = productDoc ? applyStoreAvailability(productDoc.toObject() as any, storeObjectId) : null;
+    const product = await attachSharedToppingVariants(productObject as any);
 
     appAssert(product, NOT_FOUND, `Không tìm thấy sản phẩm với id: ${item.productId}`);
     appAssert(product.isAvailable, BAD_REQUEST, `Sản phẩm "${product.name}" hiện không có sẵn`);
+    appAssert(
+      !['inactive', 'out_of_stock', 'deleted'].includes(String((product as any).status)),
+      BAD_REQUEST,
+      `Sản phẩm "${product.name}" hiện không có sẵn`
+    );
+
 
     const normalizedVariations = [];
     if (item.variations && item.variations.length > 0) {
@@ -336,7 +351,7 @@ const resolveOrderItems = async (
     subTotal += itemSubTotal;
 
     resolvedItems.push({
-      productId: new mongoose.Types.ObjectId(item.productId),
+      productId: new mongoose.Types.ObjectId(product._id),
       name: product.name,
       quantity: item.quantity,
       variations: normalizedVariations,
@@ -406,7 +421,7 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
   const { voucher: voucherInput, paymentMethod, items, deliveryAddress, returnUrl, cancelUrl } = input;
 
   return withTransaction(async (session) => {
-    const { resolvedItems, subTotal } = await resolveOrderItems(items, session);
+    const { resolvedItems, subTotal } = await resolveOrderItems(items, session, input.storeId);
 
     const user = await UserModel.findById(userId).session(session);
     appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');
@@ -717,18 +732,12 @@ export const updateOrderStatus = async (idOrCode: string, status: string) => {
   await order.save();
 
   if (status === OrderStatus.COMPLETED) {
-    const pointsAwarded = Math.floor(order.totalPrice / 1000);
-    if (pointsAwarded > 0) {
-      membershipService
-        .addPoints(
-          order.cusId as any,
-          pointsAwarded,
-          PointTransactionType.EARN,
-          `Điểm tích lũy từ đơn hàng #${order.code}`,
-          order._id as any
-        )
-        .catch((err) => console.error('Failed to award points:', err));
-    }
+    await membershipService.awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
     scheduleAiModelRetrain(`order #${order.code} completed (status update)`);
 
     await membershipService
@@ -1016,6 +1025,12 @@ export const completeDelivery = async (orderId: string, staffId: mongoose.Types.
 export const completeOrderInternal = async (orderId: string, actorId?: mongoose.Types.ObjectId) => {
   const order = await getOrderById(orderId);
   if (order.status === OrderStatus.COMPLETED) {
+    await membershipService.awardOrderCompletionPoints({
+      orderId: order._id,
+      userId: order.cusId as mongoose.Types.ObjectId,
+      totalPrice: order.totalPrice,
+      orderCode: order.code,
+    });
     await membershipService
       .qualifyReferralFromCompletedOrder(order._id)
       .catch((err) => console.error('Failed to process referral reward:', err));
@@ -1066,18 +1081,12 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
 
   appAssert(updatedOrder, NOT_FOUND, 'Không tìm thấy đơn hàng');
 
-  const pointsAwarded = Math.floor(updatedOrder.totalPrice / 1000);
-  if (pointsAwarded > 0) {
-    membershipService
-      .addPoints(
-        updatedOrder.cusId as any,
-        pointsAwarded,
-        PointTransactionType.EARN,
-        `Điểm tích lũy từ đơn hàng #${updatedOrder.code}`,
-        updatedOrder._id as any
-      )
-      .catch((err) => console.error('Failed to award points:', err));
-  }
+  await membershipService.awardOrderCompletionPoints({
+    orderId: updatedOrder._id,
+    userId: updatedOrder.cusId as mongoose.Types.ObjectId,
+    totalPrice: updatedOrder.totalPrice,
+    orderCode: updatedOrder.code,
+  });
 
   scheduleAiModelRetrain(`order #${updatedOrder.code} completed`);
 

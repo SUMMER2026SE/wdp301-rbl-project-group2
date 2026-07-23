@@ -6,6 +6,7 @@ import {
     getProductByIdHandler,
     getProductCategoriesHandler,
     getProductHealthRiskHandler,
+    recordProductBehaviorEventHandler,
     updateProductAvailabilityHandler,
     updateProductHandler
 } from '@/controllers/product.controller';
@@ -33,6 +34,7 @@ router.get('/safe-foods', authenticate, async (req, res, next) => {
 });
 
 router.get('/:id/health-risk', authenticate, getProductHealthRiskHandler);
+router.post('/:id/behavior', optionalAuthenticate, recordProductBehaviorEventHandler);
 router.get('/:id', optionalAuthenticate, getProductByIdHandler);
 
 // Staff + Admin: toggle product availability only

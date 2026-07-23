@@ -13,6 +13,8 @@ export interface CartItem {
   extras?: { id: string; name: string; price: number }[];
   note?: string;
   selected?: boolean;
+  unavailable?: boolean;
+  unavailableReason?: string;
 }
 
 interface CartState {
@@ -28,6 +30,10 @@ interface CartState {
   updateQuantity: (key: string, quantity: number) => void;
   toggleSelectItem: (key: string) => void;
   toggleSelectAll: (selected: boolean) => void;
+  deselectItems: (productIds: string[]) => void;
+  updateAvailability: (
+    availabilityMap: Record<string, { unavailable: boolean; reason?: string }>,
+  ) => void;
   setOrderNote: (note: string) => void;
   clearOrderNote: () => void;
 
@@ -157,17 +163,27 @@ export const useCartStore = create<CartState>((set, get) => ({
     const items = get().items;
     const incomingKey = itemKey(item);
     const existingIndex = items.findIndex((i) => itemKey(i) === incomingKey);
+    const normalizedItem = {
+      ...item,
+      unavailable: false,
+      unavailableReason: undefined,
+    };
 
     let newItems: CartItem[];
     if (existingIndex >= 0) {
       // Merge quantities
       newItems = items.map((i, idx) =>
         idx === existingIndex
-          ? { ...i, quantity: i.quantity + item.quantity }
+          ? {
+              ...i,
+              quantity: i.quantity + normalizedItem.quantity,
+              unavailable: false,
+              unavailableReason: undefined,
+            }
           : i,
       );
     } else {
-      newItems = [...items, item];
+      newItems = [...items, normalizedItem];
     }
 
     saveCart(newItems);
@@ -204,6 +220,52 @@ export const useCartStore = create<CartState>((set, get) => ({
     const newItems = get().items.map((i) => ({ ...i, selected }));
     saveCart(newItems);
     set({ items: newItems, ...computeTotals(newItems) });
+  },
+
+  deselectItems: (productIds) => {
+    const productIdSet = new Set(productIds);
+    if (productIdSet.size === 0) return;
+
+    const currentItems = get().items;
+    const newItems = currentItems.map((item) =>
+      productIdSet.has(item.productId) ? { ...item, selected: false } : item,
+    );
+
+    const hasChanged = newItems.some(
+      (item, idx) => item.selected !== currentItems[idx].selected,
+    );
+
+    if (hasChanged) {
+      saveCart(newItems);
+      set({ items: newItems, ...computeTotals(newItems) });
+    }
+  },
+
+  updateAvailability: (availabilityMap) => {
+    const currentItems = get().items;
+    const newItems = currentItems.map((item) => {
+      const status = availabilityMap[item.productId];
+      if (!status) return item;
+
+      return {
+        ...item,
+        unavailable: status.unavailable,
+        unavailableReason: status.unavailable ? status.reason : undefined,
+      };
+    });
+
+    const hasChanged = newItems.some((item, idx) => {
+      const current = currentItems[idx];
+      return (
+        item.unavailable !== current.unavailable ||
+        item.unavailableReason !== current.unavailableReason
+      );
+    });
+
+    if (hasChanged) {
+      saveCart(newItems);
+      set({ items: newItems, ...computeTotals(newItems) });
+    }
   },
 
   // NEW

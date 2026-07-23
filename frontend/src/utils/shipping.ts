@@ -183,7 +183,7 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
   return R * c;
 };
 
-const getWardCentroid = (wardName: string): [number, number] | null => {
+export const getWardCentroid = (wardName: string): [number, number] | null => {
   const normalized = wardName.trim().toLowerCase();
   for (const [key, coords] of Object.entries(WARD_CENTROIDS)) {
     if (key.toLowerCase() === normalized) {
@@ -191,6 +191,68 @@ const getWardCentroid = (wardName: string): [number, number] | null => {
     }
   }
   return null;
+};
+
+export const getAddressCoordinates = (address?: {
+  ward?: string;
+  latitude?: number;
+  longitude?: number;
+} | null): { lat: number; lng: number } | null => {
+  if (!address) return null;
+
+  if (
+    typeof address.latitude === "number" &&
+    Number.isFinite(address.latitude) &&
+    typeof address.longitude === "number" &&
+    Number.isFinite(address.longitude)
+  ) {
+    return { lat: address.latitude, lng: address.longitude };
+  }
+
+  const wardCentroid = address.ward ? getWardCentroid(address.ward) : null;
+  if (!wardCentroid) return null;
+
+  return { lat: wardCentroid[1], lng: wardCentroid[0] };
+};
+
+export const formatDistance = (km: number): string => {
+  if (km < 1) {
+    return `${Math.round(km * 1000)}m`;
+  }
+
+  return `${km.toFixed(1)}km`;
+};
+
+export const findNearestStore = <T extends {
+  location?: { coordinates?: number[] };
+}>(
+  addressCoordinates: { lat: number; lng: number } | null,
+  stores: T[],
+): { store: T; distance: number } | null => {
+  if (!addressCoordinates || stores.length === 0) return null;
+
+  let nearest: { store: T; distance: number } | null = null;
+
+  for (const store of stores) {
+    const coordinates = store.location?.coordinates;
+    if (!coordinates || coordinates.length !== 2) continue;
+
+    const [storeLng, storeLat] = coordinates;
+    if (!Number.isFinite(storeLat) || !Number.isFinite(storeLng)) continue;
+
+    const distance = calculateDistance(
+      addressCoordinates.lat,
+      addressCoordinates.lng,
+      storeLat,
+      storeLng,
+    );
+
+    if (!nearest || distance < nearest.distance) {
+      nearest = { store, distance };
+    }
+  }
+
+  return nearest;
 };
 
 /**

@@ -103,6 +103,9 @@ const CreateVoucherModal = ({
 
   const [newVoucherMinTier, setNewVoucherMinTier] = useState<UserTier | "">("");
 
+  const [newVoucherIsReward, setNewVoucherIsReward] = useState(false);
+  const [newVoucherPointCost, setNewVoucherPointCost] = useState("");
+
   const [newVoucherIsStackable, setNewVoucherIsStackable] = useState(false);
 
   useEffect(() => {
@@ -137,6 +140,8 @@ const CreateVoucherModal = ({
       );
 
       setNewVoucherMinTier((editingVoucher.minTier as UserTier | null) || "");
+      setNewVoucherIsReward(Boolean(editingVoucher.isReward));
+      setNewVoucherPointCost(editingVoucher.pointCost ? String(editingVoucher.pointCost) : "");
 
       setNewVoucherIsStackable(Boolean(editingVoucher.isStackable));
 
@@ -156,6 +161,8 @@ const CreateVoucherModal = ({
 
     setNewVoucherUsageLimit("");
     setNewVoucherMinTier("");
+    setNewVoucherIsReward(false);
+    setNewVoucherPointCost("");
     setNewVoucherIsStackable(false);
   }, [open, editingVoucher]);
 
@@ -175,6 +182,8 @@ const CreateVoucherModal = ({
 
     const usageLimit =
       newVoucherUsageLimit === "" ? null : Number(newVoucherUsageLimit);
+
+    const pointCost = newVoucherPointCost === "" ? 0 : Number(newVoucherPointCost);
 
     if (!newVoucherCode.trim()) {
       return toast.error("Không thể tạo mã voucher, thử lại sau");
@@ -211,6 +220,10 @@ const CreateVoucherModal = ({
       return toast.error("Giá trị đơn hàng tối thiểu không hợp lệ");
     }
 
+    if (newVoucherIsReward && (!Number.isFinite(pointCost) || pointCost <= 0)) {
+      return toast.error("Voucher đổi điểm cần có giá điểm lớn hơn 0");
+    }
+
     if (usageLimit !== null && usageLimit <= 0) {
       return toast.error("Giới hạn lượt dùng phải lớn hơn 0 hoặc để trống");
     }
@@ -233,6 +246,8 @@ const CreateVoucherModal = ({
 
       conditions: editingVoucher?.conditions || [],
       minTier: newVoucherMinTier || null,
+      isReward: newVoucherIsReward,
+      pointCost: newVoucherIsReward ? pointCost : 0,
       isStackable: newVoucherIsStackable,
       ...(isEditMode ? {} : { isActive: true }),
     };
@@ -469,6 +484,30 @@ const CreateVoucherModal = ({
                 />
               </label>
 
+              <label className="flex items-center gap-3 rounded-xl border border-[#eadfd4] bg-white px-4 py-3 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={newVoucherIsReward}
+                  onChange={(e) => setNewVoucherIsReward(e.target.checked)}
+                  className="h-5 w-5 rounded border-[#e7dbcf] accent-[#ee8c2b] focus:ring-[#ee8c2b]"
+                />
+                <div>
+                  <p className="font-semibold text-[#1b140d]">Voucher đổi điểm</p>
+                  <p className="text-xs text-[#9a734c]">Người dùng đổi điểm để nhận voucher này.</p>
+                </div>
+              </label>
+
+              {newVoucherIsReward && (
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-[#1b140d]">Giá đổi (điểm)</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={newVoucherPointCost}
+                    onChange={(e) => setNewVoucherPointCost(normalizeNumberInput(e.target.value))}
+                  />
+                </label>
+              )}
               <label className="space-y-2">
                 <span className="text-sm font-medium text-[#1b140d]">
                   Hạng thành viên áp dụng

@@ -4,14 +4,16 @@ import { IngredientModel } from '@/models/ingredient.model';
 import { StoreModel } from '@/models/store.model';
 import { CampaignModel } from '@/models/campaign.model';
 import { CampaignStatus } from '@/types/campaign.type';
+import { ProductStatus } from '@/types/product.type';
 import { IProduct } from '@/types';
 import appAssert from '@/utils/app-assert';
-import { NOT_FOUND } from '@/constants/http';
+import { BAD_REQUEST, NOT_FOUND } from '@/constants/http';
 import {
   attachSharedToppingVariants,
   attachSharedToppingVariantsToProducts,
 } from '@/services/shared-topping.service';
 import { evaluateProductHealthRisk } from '@/services/health-risk.service';
+import { applyStoreAvailabilityToProducts } from '@/utils/product-store-availability';
 
 export const DEFAULT_PUBLIC_STORE_ID = '60c72b2f9b1d8b2a3c8b4567';
 
@@ -97,7 +99,7 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
   return resolved;
 };
 
-async function applyCampaignPricing<T extends { _id: any; price: number }>(
+export async function applyCampaignPricing<T extends { _id: any; price: number }>(
   products: T[]
 ): Promise<(T & { campaignPrice?: number })[]> {
   if (!products.length) return products;
@@ -148,22 +150,30 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     limit = 12,
     isAvailable,
     healthTags,
+    storeId,
   } = filters;
 
   const query: any = {};
+  let requestedStoreId: mongoose.Types.ObjectId | undefined;
 
-  // Default: only show available & active products to customers.
+  if (storeId) {
+    appAssert(mongoose.isValidObjectId(storeId), BAD_REQUEST, 'Store id không hợp lệ');
+    requestedStoreId = new mongoose.Types.ObjectId(storeId);
+  }
+
+  // Default: only show available products to customers.
   // Staff/admin pass showAll=true to bypass this filter in management views.
+  const shouldFilterCustomerVisibilityAfterStoreOverride = Boolean(requestedStoreId && !filters.showAll);
+
   if (filters.showAll) {
-    // Staff/admin management: show everything except deleted
-    query.status = { $ne: 'deleted' };
     if (isAvailable !== undefined) {
       query.isAvailable = isAvailable;
     }
+  } else if (shouldFilterCustomerVisibilityAfterStoreOverride) {
+    // Store override rows must win before customer visibility filtering.
   } else {
-    // Customer view: only show available & active products
+    // Customer view: only show available products.
     query.isAvailable = isAvailable !== undefined ? isAvailable : true;
-    query.status = { $nin: ['deleted', 'inactive', 'out_of_stock'] };
   }
   if (healthTags?.length) {
     query.healthTags = { $in: healthTags };
@@ -188,6 +198,38 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
     query.name = { $regex: escapeRegex(literalSearch), $options: 'i' };
   }
 
+  if (shouldFilterCustomerVisibilityAfterStoreOverride) {
+    const expectedAvailability = isAvailable !== undefined ? isAvailable : true;
+    if (expectedAvailability) {
+      query.$or = [
+        {
+          storeAvailability: {
+            $elemMatch: {
+              storeId: requestedStoreId,
+              status: ProductStatus.ACTIVE,
+            },
+          },
+        },
+        {
+          $and: [
+            {
+              storeAvailability: {
+                $not: {
+                  $elemMatch: {
+                    storeId: requestedStoreId,
+                  },
+                },
+              },
+            },
+            { isAvailable: true },
+          ],
+        },
+      ];
+    } else {
+      query._id = { $exists: false };
+    }
+  }
+
   let sortOptions: any = {};
   switch (sort) {
     case 'price_asc':
@@ -209,6 +251,13 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
 
   const skip = (page - 1) * limit;
 
+  const enrichProducts = async (productsToEnrich: any[]) => {
+    const productsWithIngredients = productsToEnrich.map((product) => withRecipeNames(product));
+    const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
+    const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
+    return applyCampaignPricing(productsWithRisk);
+  };
+
   const [products, total] = await Promise.all([
     ProductModel.find(query)
       .populate(PRODUCT_RECIPE_POPULATE)
@@ -218,11 +267,10 @@ export const getAllProducts = async (filters: ProductFilters, preferences?: any)
       .lean(),
     ProductModel.countDocuments(query),
   ]);
-  const productsWithIngredients = products.map((product) => withRecipeNames(product));
-  const productsWithToppings = await attachSharedToppingVariantsToProducts(productsWithIngredients);
-  const productsWithRisk = productsWithToppings.map((product: any) => attachHealthRisk(product, preferences));
-
-  const productsWithCampaign = await applyCampaignPricing(productsWithRisk);
+  const scopedProducts = requestedStoreId
+    ? applyStoreAvailabilityToProducts(products, requestedStoreId)
+    : products;
+  const productsWithCampaign = await enrichProducts(scopedProducts);
 
   return {
     products: productsWithCampaign,

@@ -15,6 +15,12 @@ import { useToast } from "@/hooks/useToast";
 import { showAddToCartFeedback } from "@/utils/flyToCart";
 import { useStoreStore } from "@/store/storeStore";
 
+const UNAVAILABLE_ITEM_MESSAGE =
+  "Sản phẩm này đã hết, vui lòng chọn sản phẩm khác";
+
+const productAvailabilityKey = (product: { category?: string; name?: string }) =>
+  `${String(product.category ?? "").trim().toLowerCase()}::${String(product.name ?? "").trim().toLowerCase()}`;
+
 const ShoppingCartPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation(["customer", "common"]);
@@ -32,6 +38,7 @@ const ShoppingCartPage = () => {
     setOrderNote,
     toggleSelectItem,
     toggleSelectAll,
+    updateAvailability,
     clearCart,
   } = useSafeCart();
 
@@ -40,6 +47,11 @@ const ShoppingCartPage = () => {
   const [loadingUpsell, setLoadingUpsell] = useState(true);
   const selectedStore = useStoreStore((s) => s.selectedStore);
   const [originalPrices, setOriginalPrices] = useState<Record<string, number>>({});
+  const unavailableItems = cartItems.filter(
+    (item) => item.unavailable && item.selected !== false,
+  );
+  const hasUnavailableItems = unavailableItems.length > 0;
+  const cartProductIds = cartItems.map((item) => item.productId).join("|");
 
   useEffect(() => {
     const fetchUpsellProducts = async () => {
@@ -65,13 +77,22 @@ const ShoppingCartPage = () => {
     const syncPrices = async () => {
       if (cartItems.length === 0) return;
       try {
-        const [productsRes, campaignsRes] = await Promise.all([
+        const [productsRes, campaignsRes, storeVisibleProductsRes] = await Promise.all([
           Promise.all(
             cartItems.map((item) =>
               productAPI.getProductById(item.productId).catch(() => null)
             )
           ),
           campaignAPI.getCampaigns().catch(() => ({ data: [] })),
+          selectedStore?._id
+            ? productAPI
+              .getProducts({
+                storeId: selectedStore._id,
+                limit: 1000,
+                isAvailable: true,
+              })
+              .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         const now = new Date();
@@ -92,31 +113,74 @@ const ShoppingCartPage = () => {
 
         const priceMap: Record<string, number> = {};
         const origPriceMap: Record<string, number> = {};
-        productsRes.forEach((res) => {
-          if (!res || !res.success || !res.data) return;
-          const product = res.data;
-          let price = product.price;
-          origPriceMap[product._id] = product.price;
+        const availabilityMap: Record<
+          string,
+          { unavailable: boolean; reason?: string }
+        > = {};
+        const visibleStoreProductById = new Map<string, Product>();
+        const visibleStoreProductByKey = new Map<string, Product>();
 
-          const rule = campaignRuleMap[product._id];
+        for (const product of storeVisibleProductsRes?.data ?? []) {
+          visibleStoreProductById.set(product._id, product);
+          visibleStoreProductByKey.set(productAvailabilityKey(product), product);
+        }
+
+        productsRes.forEach((res, index) => {
+          const cartItem = cartItems[index];
+          if (!cartItem) return;
+
+          if (!res || !res.success || !res.data) {
+            if (cartItem) {
+              availabilityMap[cartItem.productId] = {
+                unavailable: true,
+                reason: UNAVAILABLE_ITEM_MESSAGE,
+              };
+            }
+            return;
+          }
+          const product = res.data;
+          const visibleStoreProduct = selectedStore?._id
+            ? visibleStoreProductById.get(cartItem.productId) ??
+            visibleStoreProductByKey.get(productAvailabilityKey(product))
+            : undefined;
+          const effectiveProduct = visibleStoreProduct ?? product;
+          let price = effectiveProduct.price;
+          origPriceMap[cartItem.productId] = effectiveProduct.price;
+
+          const rule =
+            campaignRuleMap[effectiveProduct._id] ??
+            campaignRuleMap[cartItem.productId];
           if (rule) {
             if (rule.fixedPrice !== null && rule.fixedPrice !== undefined) {
               price = rule.fixedPrice;
             } else if (rule.discount !== null && rule.discount !== undefined) {
-              price = product.price * (1 - rule.discount / 100);
+              price = effectiveProduct.price * (1 - rule.discount / 100);
             }
           }
-          priceMap[product._id] = price;
+          priceMap[cartItem.productId] = price;
+
+          const unavailable = selectedStore?._id
+            ? !visibleStoreProduct
+            : effectiveProduct.isAvailable === false ||
+            ["inactive", "out_of_stock", "deleted"].includes(
+              effectiveProduct.status,
+            );
+
+          availabilityMap[cartItem.productId] = {
+            unavailable,
+            reason: unavailable ? UNAVAILABLE_ITEM_MESSAGE : undefined,
+          };
         });
 
         setOriginalPrices(origPriceMap);
         useCartStore.getState().updateItemPrices(priceMap);
+        updateAvailability(availabilityMap);
       } catch (err) {
         console.error("Failed to sync cart prices with active campaigns:", err);
       }
     };
     syncPrices();
-  }, [cartItems.length]);
+  }, [cartProductIds, cartItems, selectedStore?._id, updateAvailability]);
 
   // Mock upsell items (vẫn giữ để UI đẹp)
   const upsellItems = MOCK_UPSELL_ITEMS;
@@ -167,14 +231,14 @@ const ShoppingCartPage = () => {
                   </div>
                   <div className="flex items-center gap-4">
                     {cartItems.some((i) => i.selected === false) && (
-                      <button 
+                      <button
                         onClick={() => toggleSelectAll(true)}
                         className="text-xs text-orange-600 font-bold hover:underline"
                       >
                         Chọn lại tất cả
                       </button>
                     )}
-                    <button 
+                    <button
                       onClick={() => setShowClearCartModal(true)}
                       className="text-xs text-red-500 font-bold hover:underline flex items-center gap-1"
                     >
@@ -200,110 +264,128 @@ const ShoppingCartPage = () => {
                   </Link>
                 </div>
               ) : (
-                cartItems.map((item) => (
-                  <div
-                    key={itemKey(item)}
-                    onClick={() => toggleSelectItem(itemKey(item))}
-                    className="flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer"
-                  >
-                    <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={item.selected !== false}
-                        onChange={() => toggleSelectItem(itemKey(item))}
-                        className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                      />
-                    </div>
+                cartItems.map((item) => {
+                  const isUnavailable = Boolean(item.unavailable);
+
+                  return (
                     <div
-                      className="bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100"
-                      style={{ backgroundImage: `url("${item.image}")` }}
-                    />
-                    <div className="flex flex-1 flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-bold text-text-main dark:text-white line-clamp-1">
-                            {item.name}
-                          </h3>
-                          <p className="text-[#9a734c] text-sm mt-1">
-                            {item.size || "Standard"}
-                          </p>
-
-                          {(() => {
-                            const chips = buildVariantChips(
-                              (item as any).variations,
-                            );
-                            if (!chips.length) return null;
-
-                            return (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {chips.map((c) => (
-                                  <span
-                                    key={c.key}
-                                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
-                                    title={
-                                      c.extra > 0
-                                        ? `+${c.extra.toLocaleString("vi-VN")}đ`
-                                        : undefined
-                                    }
-                                  >
-                                    {c.text}
-                                    {c.extra > 0 && (
-                                      <span className="text-[#9a734c] font-bold">
-                                        +{c.extra.toLocaleString("vi-VN")}đ
-                                      </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-text-main dark:text-white">
-                            {(item.price * item.quantity).toLocaleString("vi-VN")}đ
-                          </p>
-                          {originalPrices[item.productId] !== undefined &&
-                            originalPrices[item.productId] > item.price && (
-                              <p className="text-xs text-gray-400 dark:text-slate-400/70 line-through font-medium">
-                                {(originalPrices[item.productId] * item.quantity).toLocaleString("vi-VN")}đ
+                      key={itemKey(item)}
+                      onClick={() => toggleSelectItem(itemKey(item))}
+                      aria-disabled={isUnavailable}
+                      className={`flex flex-col sm:flex-row gap-4 px-6 py-6 border-b border-gray-100 dark:border-white/10 last:border-b-0 hover:bg-gray-50/30 dark:hover:bg-white/5 transition-colors group cursor-pointer ${isUnavailable ? "bg-gray-50/70 dark:bg-white/[0.03]" : ""
+                        }`}
+                    >
+                      <div className="flex items-center self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={item.selected !== false}
+                          onChange={() => toggleSelectItem(itemKey(item))}
+                          className="w-5 h-5 rounded border-gray-300 accent-orange-600 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        />
+                      </div>
+                      <div
+                        className={`bg-center bg-no-repeat aspect-video bg-cover rounded-lg h-[100px] w-full sm:w-[160px] shrink-0 bg-gray-100 ${isUnavailable ? "grayscale opacity-60" : ""
+                          }`}
+                        style={{ backgroundImage: `url("${item.image}")` }}
+                      />
+                      <div
+                        className={`flex flex-1 flex-col justify-between ${isUnavailable ? "grayscale" : ""
+                          }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-bold text-text-main dark:text-white line-clamp-1">
+                              {item.name}
+                            </h3>
+                            {isUnavailable && (
+                              <p className="mt-1 text-sm font-bold text-red-600 dark:text-red-400">
+                                {item.unavailableReason ||
+                                  UNAVAILABLE_ITEM_MESSAGE}
                               </p>
                             )}
+                            <p className="text-[#9a734c] text-sm mt-1">
+                              {item.size || "Standard"}
+                            </p>
+
+                            {(() => {
+                              const chips = buildVariantChips(
+                                (item as any).variations,
+                              );
+                              if (!chips.length) return null;
+
+                              return (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {chips.map((c) => (
+                                    <span
+                                      key={c.key}
+                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-gray-100 dark:bg-white/10 text-text-main dark:text-white text-xs font-semibold"
+                                      title={
+                                        c.extra > 0
+                                          ? `+${c.extra.toLocaleString("vi-VN")}đ`
+                                          : undefined
+                                      }
+                                    >
+                                      {c.text}
+                                      {c.extra > 0 && (
+                                        <span className="text-[#9a734c] font-bold">
+                                          +{c.extra.toLocaleString("vi-VN")}đ
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-text-main dark:text-white">
+                              {(item.price * item.quantity).toLocaleString("vi-VN")}đ
+                            </p>
+                            {originalPrices[item.productId] !== undefined &&
+                              originalPrices[item.productId] > item.price && (
+                                <p className="text-xs text-gray-400 dark:text-slate-400/70 line-through font-medium">
+                                  {(originalPrices[item.productId] * item.quantity).toLocaleString("vi-VN")}đ
+                                </p>
+                              )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-4 sm:mt-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeItem(itemKey(item));
-                          }}
-                          className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            delete
-                          </span>
-                          {t("common:actions.delete")}
-                        </button>
-                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mt-4 sm:mt-0">
                           <button
-                            onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeItem(itemKey(item));
+                            }}
+                            className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline"
                           >
-                            -
+                            <span className="material-symbols-outlined text-lg">
+                              delete
+                            </span>
+                            {t("common:actions.delete")}
                           </button>
-                          <span className="text-base font-bold w-8 text-center bg-transparent dark:text-white">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(itemKey(item), item.quantity + 1)}
-                            className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors"
-                          >
-                            +
-                          </button>
+                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => updateQuantity(itemKey(item), item.quantity - 1)}
+                              disabled={isUnavailable}
+                              className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
+                            >
+                              -
+                            </button>
+                            <span className="text-base font-bold w-8 text-center bg-transparent dark:text-white">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateQuantity(itemKey(item), item.quantity + 1)}
+                              disabled={isUnavailable}
+                              className="text-base font-bold flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-orange-500/20 transition-colors disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-gray-100 dark:disabled:hover:bg-white/10"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -369,12 +451,21 @@ const ShoppingCartPage = () => {
                       }
                       navigate("/checkout");
                     }}
-                    disabled={totalPrice === 0}
+                    disabled={totalPrice === 0 || hasUnavailableItems}
                     className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg mt-8 hover:bg-orange-700 shadow-lg shadow-orange-600/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                   >
                     {t("customer:cart.checkout", "Tiến hành thanh toán")}
                     <span className="material-symbols-outlined">arrow_forward</span>
                   </button>
+
+                  {hasUnavailableItems && (
+                    <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs font-bold text-red-600 dark:text-red-400">
+                      <span className="material-symbols-outlined text-sm">
+                        block
+                      </span>
+                      Vui lòng xóa hoặc chọn sản phẩm khác cho món đã hết hàng
+                    </p>
+                  )}
 
                   <p className="text-center text-[10px] text-[#9a734c] mt-4 uppercase tracking-widest font-bold">
                     Thanh toán bảo mật qua cổng kết nối an toàn
@@ -440,11 +531,11 @@ const ShoppingCartPage = () => {
                             price: item.campaignPrice ?? item.price,
                             quantity: 1,
                           }, () => {
-                          showAddToCartFeedback(
-                            e.currentTarget,
-                            imageUrl,
-                            t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
-                          );
+                            showAddToCartFeedback(
+                              e.currentTarget,
+                              imageUrl,
+                              t('customer:foodCard.addedToCart', 'Đã thêm sản phẩm vào giỏ hàng!'),
+                            );
                           });
                         }}
                         className="bg-orange-50 dark:bg-white/5 p-1.5 rounded-lg text-orange-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm active:scale-90 cursor-pointer"
@@ -467,11 +558,11 @@ const ShoppingCartPage = () => {
       {/* Custom Clear Cart Confirmation Modal */}
       {showClearCartModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div 
-            className="absolute inset-0 cursor-pointer" 
+          <div
+            className="absolute inset-0 cursor-pointer"
             onClick={() => setShowClearCartModal(false)}
           />
-          
+
           <div className="bg-white dark:bg-slate-900 rounded-[28px] p-6 max-w-sm w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative z-10 text-center animate-in zoom-in-95 duration-200">
             {/* Warning Icon Container */}
             <div className="mx-auto size-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4 text-red-500 border border-red-100 dark:border-red-900/30">
@@ -479,15 +570,15 @@ const ShoppingCartPage = () => {
                 warning
               </span>
             </div>
-            
+
             <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2">
               Xóa toàn bộ giỏ hàng?
             </h3>
-            
+
             <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-6">
               Hành động này sẽ loại bỏ tất cả các món ăn bạn đã chọn ra khỏi giỏ hàng. Bạn không thể hoàn tác thao tác này.
             </p>
-            
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -496,7 +587,7 @@ const ShoppingCartPage = () => {
               >
                 Hủy bỏ
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => {

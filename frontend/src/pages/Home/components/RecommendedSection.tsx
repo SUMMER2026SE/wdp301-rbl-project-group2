@@ -14,7 +14,7 @@ import { getProductAllergenInfo, getProductHealthStatus } from "@/utils/productH
 import { showAddToCartFeedback } from "@/utils/flyToCart";
 
 
-// Nhãn gợi ý mặc định khi dùng fallback (không có AI)
+// Nhãn gợi ý mặc định khi dùng fallback
 const FALLBACK_TAGS = ["Healthy Choice", "Top Pick", "Best Match"];
 
 // ── Skeleton ─────────────────────────────────────────────
@@ -34,7 +34,7 @@ const RecommendedSkeleton = () => (
 // ── Types (union để render chung) ─────────────────────────
 
 type DisplayItem =
-  | { type: "ai"; data: { product: Product; healthScore: number; aiReason: string } }
+  | { type: "personalized"; data: { product: Product; healthScore: number; aiReason: string } }
   | { type: "fallback"; data: Product; tag: string };
 
 const getProductKey = (product: Product) =>
@@ -45,7 +45,7 @@ const getProductKey = (product: Product) =>
 const uniqueDisplayItems = (list: DisplayItem[]) => {
   const seen = new Set<string>();
   return list.filter((item) => {
-    const product = item.type === "ai" ? item.data.product : item.data;
+    const product = item.type === "personalized" ? item.data.product : item.data;
     const key = getProductKey(product);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -63,7 +63,7 @@ const RecommendedSection = () => {
 
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAIMode, setIsAIMode] = useState(false);
+  const [isPersonalizedMode, setIsPersonalizedMode] = useState(false);
   const selectedStore = useStoreStore((s) => s.selectedStore);
 
   useEffect(() => {
@@ -73,17 +73,17 @@ const RecommendedSection = () => {
       setLoading(true);
       try {
         if (isAuthenticated) {
-          // ── Thử lấy AI recommendations ──
+          // ── Thử lấy gợi ý cá nhân hóa ──
           try {
-            const res = await recommendationService.getAIRecommendations({ storeId: selectedStore?._id });
+            const res = await recommendationService.getPersonalizedRecommendations({ storeId: selectedStore?._id });
             const aiData = res.data.data;
             if (!cancelled && aiData && aiData.length > 0) {
-              setItems(uniqueDisplayItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "ai", data: d }))));
-              setIsAIMode(true);
+              setItems(uniqueDisplayItems(aiData.map((d: { product: Product; healthScore: number; aiReason: string }) => ({ type: "personalized", data: d }))));
+              setIsPersonalizedMode(true);
               return;
             }
           } catch {
-            // AI endpoint failed → fallback silently
+            // Recommendation endpoint failed → fallback silently
           }
         }
 
@@ -102,7 +102,7 @@ const RecommendedSection = () => {
               tag: FALLBACK_TAGS[idx] ?? "Great Choice",
             }))).slice(0, 3),
           );
-          setIsAIMode(false);
+          setIsPersonalizedMode(false);
         }
       } catch (err) {
         console.error("RecommendedSection fetch error:", err);
@@ -133,14 +133,14 @@ const RecommendedSection = () => {
                 <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
                   {t("customer:home.aiSuggestion")}
                 </h2>
-                {isAIMode && (
+                {isPersonalizedMode && (
                   <span className="text-[10px] font-black bg-emerald-500 text-white px-3 py-1 rounded-full shadow-lg shadow-emerald-500/20 uppercase tracking-widest">
-                    AI Active
+                    Cá nhân hóa
                   </span>
                 )}
               </div>
               <p className="text-sm text-slate-500 font-medium mt-1">
-                {isAIMode
+                {isPersonalizedMode
                   ? t("customer:home.aiSuggestionSub", "Dựa trên sở thích và lịch sử đặt hàng của bạn")
                   : "Những món được đánh giá cao nhất hôm nay"}
               </p>
@@ -181,10 +181,10 @@ const RecommendedSection = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-slate-900">
-                    Đăng nhập để nhận gợi ý AI Cá nhân hóa
+                    Đăng nhập để nhận gợi ý cá nhân hóa
                   </h3>
                   <p className="text-sm text-slate-500 font-medium">
-                    Để AI hiểu khẩu vị của bạn và đề xuất những món ăn phù hợp nhất.
+                    Hệ thống sẽ dựa trên hồ sơ, khẩu vị và lịch sử đặt hàng để chọn món phù hợp hơn.
                   </p>
                 </div>
               </div>
@@ -206,7 +206,7 @@ const RecommendedSection = () => {
                 <Sparkles className="w-12 h-12 text-orange-400 animate-spin mx-auto mb-4" />
                 <h3 className="text-xl font-black text-slate-900 mb-2">Đang phân tích khẩu vị...</h3>
                 <p className="text-slate-500 font-medium animate-pulse">
-                  AI đang tìm kiếm những món ăn phù hợp với bạn nhất
+                  Hệ thống đang tìm những món ăn phù hợp với bạn nhất
                 </p>
               </div>
             ) : (
@@ -220,11 +220,11 @@ const RecommendedSection = () => {
         {/* Items */}
         {!loading &&
           items.map((item) => {
-            const isAI = item.type === "ai";
-            const product = isAI ? item.data.product : item.data;
-            const customBadge = isAI
+            const isPersonalized = item.type === "personalized";
+            const product = isPersonalized ? item.data.product : item.data;
+            const customBadge = isPersonalized
               ? {
-                text: `Điểm: ${item.data.healthScore}/10`,
+                text: "Phù hợp với bạn",
                 className: 'bg-emerald-100 text-emerald-700',
                 icon: <Sparkles className="w-3 h-3" />
               }
@@ -244,11 +244,26 @@ const RecommendedSection = () => {
                 rating={product.rating}
                 restaurant={product.restaurant}
                 time={product.time}
-                description={isAI ? item.data.aiReason : product.description}
+                description={isPersonalized ? item.data.aiReason : product.description}
                 healthStatus={getProductHealthStatus(product)}
                 allergenInfo={getProductAllergenInfo(product)}
                 variant="horizontal"
                 customBadge={customBadge}
+                onViewDetails={
+                  isPersonalized && isAuthenticated
+                    ? () => {
+                      productAPI
+                        .trackProductBehavior(product._id, {
+                          eventType: "recommendation_click",
+                          source: "recommendation_section",
+                          storeId: selectedStore?._id ?? null,
+                        })
+                        .catch(() => {
+                          // Best-effort analytics event; navigation should stay instant.
+                        });
+                    }
+                    : undefined
+                }
                 onAddToCart={(_, trigger) => {
                   const image = typeof product.image === 'object' && product.image?.secureUrl ? product.image.secureUrl : (typeof product.image === 'string' ? product.image : '');
                   safeAddItem(
@@ -279,7 +294,7 @@ const RecommendedSection = () => {
             <Sparkles className="w-12 h-12 text-orange-300 mx-auto mb-4" />
             <h3 className="text-xl font-black text-slate-900 mb-2">Chưa có gợi ý nào</h3>
             <p className="text-slate-500 max-w-sm mx-auto mb-6">
-              Bạn chưa có đủ dữ liệu để AI phân tích. Hãy cập nhật hồ sơ sức khỏe hoặc đặt hàng để AI hiểu bạn hơn nhé!
+              Bạn chưa có đủ dữ liệu để cá nhân hóa gợi ý. Hãy cập nhật hồ sơ sức khỏe hoặc đặt hàng thêm để hệ thống hiểu bạn hơn nhé!
             </p>
             <Button
               className="bg-orange-100 text-orange-600 font-bold rounded-xl px-8 py-6 hover:bg-orange-600 hover:text-white transition-all shadow-lg shadow-orange-200/50"

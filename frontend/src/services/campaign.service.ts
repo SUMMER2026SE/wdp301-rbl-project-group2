@@ -1,11 +1,12 @@
 import { apiClient } from "@/lib/api-client";
 
-export type CampaignStatus = "pending" | "approved" | "rejected";
+export type CampaignStatus = "pending" | "approved" | "rejected" | "draft";
 
 export const CampaignStatus = {
   PENDING: "pending" as const,
   APPROVED: "approved" as const,
   REJECTED: "rejected" as const,
+  DRAFT: "draft" as const,
 };
 
 export interface CampaignProductItem {
@@ -39,6 +40,35 @@ export interface CreateCampaignPayload {
   }[];
   startTime: string;
   endTime: string;
+  status?: CampaignStatus;
+}
+
+export interface CampaignSuggestionProduct {
+  productId: string;
+  name: string;
+  reason: string;
+  discount?: number;
+  fixedPrice?: number | null;
+  soldQuantity?: number;
+}
+
+export interface CampaignPerformanceReport {
+  estimatedDaysToProfit: number;
+  estimatedProfit: string;
+  analysis: string;
+}
+
+export interface CampaignSuggestionResponse {
+  name: string;
+  type: string;
+  summary: string;
+  startTime?: string;
+  endTime?: string;
+  products: CampaignSuggestionProduct[];
+  rationale?: string;
+  durationDays?: number;
+  timeframeRationale?: string;
+  performanceReport?: CampaignPerformanceReport;
 }
 
 class CampaignAPI {
@@ -54,6 +84,17 @@ class CampaignAPI {
 
   async createCampaign(data: CreateCampaignPayload): Promise<{ success: boolean; data: Campaign; message: string }> {
     const response = await apiClient.post("/campaigns", data);
+    return response.data;
+  }
+
+  async suggestCampaign(payload: {
+    days?: number;
+    weather?: "rainy" | "hot" | "cold" | "sunny" | "normal";
+    occasion?: string;
+    goal?: "boost_sales" | "clear_stock" | "contextual" | "engagement";
+    productCount?: number;
+  }): Promise<{ success: boolean; data: CampaignSuggestionResponse; message: string }> {
+    const response = await apiClient.post("/campaigns/ai-suggest", payload);
     return response.data;
   }
 

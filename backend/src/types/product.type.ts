@@ -7,6 +7,8 @@ export enum ProductStatus {
   DELETED = 'deleted',
 }
 
+export type OperationalProductStatus = ProductStatus.ACTIVE | ProductStatus.INACTIVE | ProductStatus.OUT_OF_STOCK;
+
 export enum ProductCategory {
   FOOD = 'food',
   DRINK = 'drink',
@@ -41,8 +43,13 @@ export interface IProductVariantGroup {
   options: IProductVariantOption[];
 }
 
+export interface IProductStoreAvailability {
+  storeId: mongoose.Types.ObjectId;
+  status: OperationalProductStatus;
+}
+
 export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
-  status: ProductStatus;
+  status?: ProductStatus;
   nameEmbedding?: string | null;
   imgEmbedding: string;
   name: string;
@@ -63,6 +70,10 @@ export interface IProduct extends mongoose.Document<mongoose.Types.ObjectId> {
   isAvailable?: boolean;
   isCampaignRunning: boolean;
   variationIds: mongoose.Types.ObjectId[];
+  storeAvailability?: IProductStoreAvailability[];
+  crossContaminationRisk?: boolean;
+  mayContain?: string[];
+  embedding?: number[];
   tags?: string[];
   operationalNote?: string;
   createdAt: Date;

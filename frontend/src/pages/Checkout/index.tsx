@@ -7,6 +7,8 @@ import { ToastContainer } from "@/hooks/useToast";
 import {
   calculateShippingFee,
   calculateDistance,
+  formatDistance,
+  getAddressCoordinates,
   WARD_CENTROIDS,
 } from "@/utils/shipping";
 import { AddressModal } from "@/components/shared/AddressModal";
@@ -18,6 +20,23 @@ import { TicketVoucher } from "@/components/shared/TicketVoucher";
 import paymentService from "@/services/payment.service";
 import { DiscountType, VoucherCategory } from "@/types/voucher";
 import type { Voucher } from "@/types/voucher";
+import productAPI from "@/services/product.service";
+import type { Product } from "@/types/product";
+import { useStoreStore, type IStore } from "@/store/storeStore";
+import { useCartStore } from "@/store/cartStore";
+
+const UNAVAILABLE_ITEM_MESSAGE =
+  "Sản phẩm này đã hết, vui lòng chọn sản phẩm khác";
+
+const productAvailabilityKey = (product: {
+  category?: string;
+  name?: string;
+}) =>
+  `${String(product.category ?? "")
+    .trim()
+    .toLowerCase()}::${String(product.name ?? "")
+    .trim()
+    .toLowerCase()}`;
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -25,6 +44,9 @@ const CheckoutPage = () => {
 
   const {
     cartItems,
+    selectedCartItems,
+    availableCartItems,
+    hasUnavailableCartItems,
     addresses,
     effectiveAddress,
     setSelectedAddress,
@@ -41,7 +63,10 @@ const CheckoutPage = () => {
     isDeliverable,
     shippingResult,
     settings,
+    stores,
     selectedStore,
+    selectedStoreDistance,
+    nearestStoreSuggestion,
     isSubmitting,
     handlePlaceOrder,
     vouchers,
@@ -50,8 +75,251 @@ const CheckoutPage = () => {
   } = useCheckout();
 
   const [isVouchersOpen, setIsVouchersOpen] = useState(false);
+  const [isNearestStoreModalOpen, setIsNearestStoreModalOpen] = useState(false);
+  const [switchingStoreId, setSwitchingStoreId] = useState<string | null>(null);
+  const [isCompatibleStoresModalOpen, setIsCompatibleStoresModalOpen] =
+    useState(false);
+  const [compatibleStores, setCompatibleStores] = useState<IStore[]>([]);
+  const [isLoadingCompatibleStores, setIsLoadingCompatibleStores] =
+    useState(false);
+  const [compatibleStoresError, setCompatibleStoresError] = useState<
+    string | null
+  >(null);
+  const [dismissedNearestStoreKey, setDismissedNearestStoreKey] = useState<
+    string | null
+  >(null);
 
   const { toasts, dismiss, toast } = useToast();
+  const selectStore = useStoreStore((s) => s.selectStore);
+  const updateCartAvailability = useCartStore((s) => s.updateAvailability);
+
+  const nearestStoreSuggestionKey =
+    selectedStore && nearestStoreSuggestion
+      ? [
+          selectedStore._id,
+          nearestStoreSuggestion.store._id,
+          effectiveAddress?.detail ?? "",
+          effectiveAddress?.ward ?? "",
+          effectiveAddress?.city ?? "",
+        ].join("|")
+      : null;
+
+  const hasCloserStoreSuggestion = Boolean(
+    selectedStore &&
+    nearestStoreSuggestion &&
+    selectedStore._id !== nearestStoreSuggestion.store._id,
+  );
+  useEffect(() => {
+    if (
+      hasCloserStoreSuggestion &&
+      nearestStoreSuggestionKey &&
+      dismissedNearestStoreKey !== nearestStoreSuggestionKey
+    ) {
+      setIsNearestStoreModalOpen(true);
+      return;
+    }
+
+    setIsNearestStoreModalOpen(false);
+  }, [
+    dismissedNearestStoreKey,
+    hasCloserStoreSuggestion,
+    nearestStoreSuggestionKey,
+  ]);
+
+  const keepCurrentStore = () => {
+    setDismissedNearestStoreKey(nearestStoreSuggestionKey);
+    setIsNearestStoreModalOpen(false);
+  };
+
+  const getStoreDistance = (store: IStore) => {
+    const addressCoordinates = getAddressCoordinates(effectiveAddress);
+    const coordinates = store.location?.coordinates;
+
+    if (!addressCoordinates || !coordinates || coordinates.length !== 2) {
+      return null;
+    }
+
+    const [storeLng, storeLat] = coordinates;
+    if (!Number.isFinite(storeLng) || !Number.isFinite(storeLat)) {
+      return null;
+    }
+
+    return calculateDistance(
+      addressCoordinates.lat,
+      addressCoordinates.lng,
+      storeLat,
+      storeLng,
+    );
+  };
+
+  const storesSortedByDistance = stores
+    .filter((store) => store.isActive !== false)
+    .map((store) => ({
+      store,
+      distance: getStoreDistance(store),
+    }))
+    .sort((a, b) => {
+      if (selectedStore?._id) {
+        if (a.store._id === selectedStore._id) return -1;
+        if (b.store._id === selectedStore._id) return 1;
+      }
+
+      const distanceA = a.distance ?? Number.MAX_SAFE_INTEGER;
+      const distanceB = b.distance ?? Number.MAX_SAFE_INTEGER;
+      return distanceA - distanceB;
+    });
+
+  const resolveAvailabilityForStore = async (storeId: string) => {
+    const productDetails = await Promise.all(
+      selectedCartItems.map((item) =>
+        productAPI.getProductById(item.productId).catch(() => null),
+      ),
+    );
+    const visibleProductsRes = await productAPI.getProducts({
+      storeId,
+      limit: 1000,
+      isAvailable: true,
+    });
+    const visibleProductById = new Map(
+      (visibleProductsRes.data ?? []).map((product) => [product._id, product]),
+    );
+    const visibleProductByKey = new Map(
+      (visibleProductsRes.data ?? []).map((product) => [
+        productAvailabilityKey(product),
+        product,
+      ]),
+    );
+    const availabilityMap: Record<
+      string,
+      { unavailable: boolean; reason?: string }
+    > = {};
+    const unavailableNames = new Set<string>();
+
+    selectedCartItems.forEach((item, index) => {
+      const product = productDetails[index]?.success
+        ? productDetails[index]!.data
+        : null;
+      const isUnavailable = product
+        ? !(
+            visibleProductById.has(item.productId) ||
+            visibleProductByKey.has(productAvailabilityKey(product))
+          )
+        : true;
+
+      availabilityMap[item.productId] = {
+        unavailable: isUnavailable,
+        reason: isUnavailable ? UNAVAILABLE_ITEM_MESSAGE : undefined,
+      };
+
+      if (isUnavailable) {
+        unavailableNames.add(item.name);
+      }
+    });
+
+    return {
+      availabilityMap,
+      unavailableNames: Array.from(unavailableNames),
+    };
+  };
+
+  const openCompatibleStoresModal = async () => {
+    setIsCompatibleStoresModalOpen(true);
+    setIsLoadingCompatibleStores(true);
+    setCompatibleStoresError(null);
+    setCompatibleStores([]);
+
+    try {
+      const productDetails = await Promise.all(
+        selectedCartItems.map((item) =>
+          productAPI.getProductById(item.productId).catch(() => null),
+        ),
+      );
+      const requiredKeys = productDetails
+        .map((result) =>
+          result?.success ? productAvailabilityKey(result.data) : null,
+        )
+        .filter((key): key is string => Boolean(key));
+
+      if (requiredKeys.length !== selectedCartItems.length) {
+        setCompatibleStoresError(
+          "Không thể kiểm tra đầy đủ món trong đơn hiện tại.",
+        );
+        return;
+      }
+
+      const storeResults = await Promise.all(
+        stores
+          .filter((store) => store.isActive !== false)
+          .map(async (store) => {
+            const res = await productAPI
+              .getProducts({
+                storeId: store._id,
+                limit: 1000,
+                isAvailable: true,
+              })
+              .catch(() => null);
+            const availableKeys = new Set(
+              (res?.data ?? []).map((product: Product) =>
+                productAvailabilityKey(product),
+              ),
+            );
+            return requiredKeys.every((key) => availableKeys.has(key))
+              ? store
+              : null;
+          }),
+      );
+
+      const matchedStores = storeResults
+        .filter((store): store is IStore => Boolean(store))
+        .sort((a, b) => {
+          const distanceA = getStoreDistance(a) ?? Number.MAX_SAFE_INTEGER;
+          const distanceB = getStoreDistance(b) ?? Number.MAX_SAFE_INTEGER;
+          return distanceA - distanceB;
+        });
+
+      setCompatibleStores(matchedStores);
+    } catch {
+      setCompatibleStoresError(
+        "Không thể tải danh sách chi nhánh phù hợp. Vui lòng thử lại.",
+      );
+    } finally {
+      setIsLoadingCompatibleStores(false);
+    }
+  };
+
+  const chooseCompatibleStore = (store: IStore) => {
+    const availabilityMap = Object.fromEntries(
+      selectedCartItems.map((item) => [
+        item.productId,
+        { unavailable: false, reason: undefined },
+      ]),
+    );
+    updateCartAvailability(availabilityMap);
+    selectStore(store);
+    setIsCompatibleStoresModalOpen(false);
+  };
+
+  const switchToStoreCandidate = async (store: IStore) => {
+    setSwitchingStoreId(store._id);
+
+    try {
+      const { availabilityMap, unavailableNames } =
+        await resolveAvailabilityForStore(store._id);
+      updateCartAvailability(availabilityMap);
+      selectStore(store);
+      setDismissedNearestStoreKey(nearestStoreSuggestionKey);
+      setIsNearestStoreModalOpen(false);
+
+      if (unavailableNames.length > 0) return;
+    } catch {
+      toast(
+        "Không thể kiểm tra tình trạng món ở chi nhánh này. Vui lòng thử lại.",
+        "warning",
+      );
+    } finally {
+      setSwitchingStoreId(null);
+    }
+  };
 
   // PayOS limit check: If total drops below 2,000 VND and paymentMethod is "bank_transfer", fallback to "cash"
   useEffect(() => {
@@ -234,6 +502,8 @@ const CheckoutPage = () => {
           ward: nearestWard,
           city: "Đà Nẵng",
           isDefault: false,
+          latitude,
+          longitude,
         };
         setSuggestedAddress(suggAddr);
 
@@ -297,6 +567,8 @@ const CheckoutPage = () => {
                 ward: resolvedWard,
                 city: "Đà Nẵng",
                 isDefault: false,
+                latitude,
+                longitude,
               };
               setSuggestedAddress(updatedSugg);
 
@@ -915,10 +1187,112 @@ const CheckoutPage = () => {
                           </div>
                         </div>
                       )}
+                      {hasUnavailableCartItems && (
+                        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/10">
+                          <span className="material-symbols-outlined text-red-500 text-xl shrink-0">
+                            info
+                          </span>
+                          <p className="text-sm font-bold text-red-700 dark:text-red-400">
+                            Một số món ở chi nhánh này đã hết. Nhấn vào sản phẩm
+                            để biết cửa hàng nào còn.
+                          </p>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
               </section>
+
+              {selectedStore &&
+                nearestStoreSuggestion &&
+                hasCloserStoreSuggestion && (
+                  <section
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setIsNearestStoreModalOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setIsNearestStoreModalOpen(true);
+                      }
+                    }}
+                    className={`rounded-xl border p-4 ${
+                      hasCloserStoreSuggestion
+                        ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 cursor-pointer transition-all hover:border-amber-300 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:hover:border-amber-700 dark:hover:bg-amber-900/20"
+                        : "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`material-symbols-outlined text-xl shrink-0 ${
+                            hasCloserStoreSuggestion
+                              ? "text-amber-600"
+                              : "text-emerald-600"
+                          }`}
+                        >
+                          {hasCloserStoreSuggestion ? "near_me" : "store"}
+                        </span>
+                        <div>
+                          <p
+                            className={`text-sm font-bold ${
+                              hasCloserStoreSuggestion
+                                ? "text-amber-800 dark:text-amber-300"
+                                : "text-emerald-800 dark:text-emerald-300"
+                            }`}
+                          >
+                            Có chi nhánh gần địa chỉ này hơn
+                          </p>
+                          <p className="text-sm font-semibold text-[#1b140d] dark:text-white mt-0.5">
+                            {nearestStoreSuggestion.store.name}
+                          </p>
+                          <p
+                            className={`text-xs mt-0.5 ${
+                              hasCloserStoreSuggestion
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-emerald-700 dark:text-emerald-400"
+                            }`}
+                          >
+                            {nearestStoreSuggestion.store.address}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                        {selectedStoreDistance !== null && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-zinc-900 px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-700">
+                            <span className="material-symbols-outlined text-[14px]">
+                              store
+                            </span>
+                            Đang chọn: {formatDistance(selectedStoreDistance)}
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full bg-white dark:bg-zinc-900 px-3 py-1 text-xs font-bold border ${
+                            hasCloserStoreSuggestion
+                              ? "text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                              : "text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            near_me
+                          </span>
+                          {formatDistance(nearestStoreSuggestion.distance)}
+                        </span>
+                        {hasCloserStoreSuggestion && (
+                          <button
+                            type="button"
+                            onClick={() => setIsNearestStoreModalOpen(true)}
+                            className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-700 transition-colors"
+                          >
+                            Xem gợi ý
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                )}
 
               {/* Payment Method */}
               <section className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -1081,38 +1455,75 @@ const CheckoutPage = () => {
                   </h3>
 
                   {/* Item List */}
-                  <div className="flex flex-col gap-3 mb-6 max-h-52 overflow-y-auto pr-1">
-                    {cartItems.map((item) => (
-                      <div
-                        key={item.productId}
-                        className="flex justify-between items-center gap-3"
-                      >
-                        <div className="flex gap-3 items-center min-w-0">
-                          {item.image && (
-                            <div
-                              className="size-10 rounded-lg bg-gray-100 bg-cover bg-center shrink-0"
-                              style={{
-                                backgroundImage: `url('${item.image}')`,
-                              }}
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold truncate">
-                              {item.quantity}× {item.name}
-                            </p>
-                            {item.size && (
-                              <p className="text-xs text-gray-500">
-                                {item.size}
-                              </p>
+                  <div className="flex flex-col gap-3 mb-6 max-h-52 overflow-y-auto overflow-x-hidden pr-1">
+                    {selectedCartItems.map((item) => {
+                      const isUnavailable = Boolean(item.unavailable);
+
+                      return (
+                        <div
+                          key={item.productId}
+                          aria-disabled={isUnavailable}
+                          role={isUnavailable ? "button" : undefined}
+                          tabIndex={isUnavailable ? 0 : undefined}
+                          onClick={
+                            isUnavailable
+                              ? openCompatibleStoresModal
+                              : undefined
+                          }
+                          onKeyDown={
+                            isUnavailable
+                              ? (event) => {
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === " "
+                                  ) {
+                                    event.preventDefault();
+                                    openCompatibleStoresModal();
+                                  }
+                                }
+                              : undefined
+                          }
+                          className={`flex w-full justify-between items-center gap-3 rounded-lg ${
+                            isUnavailable
+                              ? "cursor-pointer p-2 grayscale opacity-70 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300 dark:hover:bg-red-950/20"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex flex-1 gap-3 items-center min-w-0">
+                            {item.image && (
+                              <div
+                                className="size-10 rounded-lg bg-gray-100 bg-cover bg-center shrink-0"
+                                style={{
+                                  backgroundImage: `url('${item.image}')`,
+                                }}
+                              />
                             )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-bold truncate">
+                                {item.quantity}× {item.name}
+                              </p>
+                              {item.size && (
+                                <p className="text-xs text-gray-500">
+                                  {item.size}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="w-[86px] shrink-0 text-right">
+                            <p
+                              className={`text-sm font-bold ${
+                                isUnavailable ? "line-through" : ""
+                              }`}
+                            >
+                              {(item.price * item.quantity).toLocaleString(
+                                "vi-VN",
+                              )}
+                              đ
+                            </p>
                           </div>
                         </div>
-                        <p className="text-sm font-bold shrink-0">
-                          {(item.price * item.quantity).toLocaleString("vi-VN")}
-                          đ
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Voucher Input */}
@@ -1130,7 +1541,7 @@ const CheckoutPage = () => {
                           </span>
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-green-700 dark:text-green-400">
-                              {voucherState.appliedVoucher.code}
+                              {voucherState.appliedVoucher.title}
                             </span>
                             <span className="text-[10px] font-bold text-green-600">
                               Đã giảm: {discount.toLocaleString("vi-VN")}đ
@@ -1226,7 +1637,7 @@ const CheckoutPage = () => {
                     onClick={handleCheckoutSubmit}
                     disabled={
                       isSubmitting ||
-                      cartItems.length === 0 ||
+                      availableCartItems.length === 0 ||
                       !effectiveAddress ||
                       !isDeliverable
                     }
@@ -1248,6 +1659,16 @@ const CheckoutPage = () => {
                       </>
                     )}
                   </button>
+
+                  {hasUnavailableCartItems &&
+                    availableCartItems.length === 0 && (
+                      <p className="text-xs text-center text-red-600 mt-2 flex items-center justify-center gap-1">
+                        <span className="material-symbols-outlined text-sm">
+                          block
+                        </span>
+                        Không có sản phẩm khả dụng để thanh toán
+                      </p>
+                    )}
 
                   {!effectiveAddress && (
                     <p className="text-xs text-center text-amber-600 mt-2 flex items-center justify-center gap-1">
@@ -1297,6 +1718,188 @@ const CheckoutPage = () => {
           </div>
         </main>
       </div>
+
+      {isNearestStoreModalOpen &&
+        hasCloserStoreSuggestion &&
+        selectedStore &&
+        nearestStoreSuggestion && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 dark:border-zinc-800">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-2xl text-orange-600">
+                    near_me
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                    Chọn chi nhánh giao hàng
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={keepCurrentStore}
+                  className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
+                  aria-label="Đóng gợi ý chi nhánh"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    close
+                  </span>
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] space-y-3 overflow-y-auto p-6">
+                {storesSortedByDistance.map(({ store, distance }, index) => {
+                  const isCurrentStore = selectedStore._id === store._id;
+                  const isNearestCandidate = !isCurrentStore && index <= 1;
+
+                  return (
+                    <button
+                      key={store._id}
+                      type="button"
+                      onClick={() =>
+                        isCurrentStore
+                          ? keepCurrentStore()
+                          : switchToStoreCandidate(store)
+                      }
+                      disabled={Boolean(switchingStoreId)}
+                      className={`w-full rounded-xl p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:cursor-wait disabled:opacity-70 ${
+                        isCurrentStore
+                          ? "border-2 border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-900/10 dark:hover:border-emerald-800 dark:hover:bg-emerald-900/20"
+                          : isNearestCandidate
+                            ? "border-2 border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100 dark:border-orange-900/60 dark:bg-orange-900/10 dark:hover:border-orange-800 dark:hover:bg-orange-900/20"
+                            : "border border-gray-200 hover:border-slate-300 hover:bg-slate-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p
+                          className={`text-xs font-bold uppercase ${
+                            isCurrentStore
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : isNearestCandidate
+                                ? "text-orange-600"
+                                : "text-slate-400"
+                          }`}
+                        >
+                          {isCurrentStore
+                            ? "Đang chọn"
+                            : isNearestCandidate
+                              ? "Gần nhất"
+                              : "Chi nhánh"}
+                        </p>
+                        {distance !== null && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-bold dark:bg-zinc-900 ${
+                              isCurrentStore
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-orange-700 dark:text-orange-300"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[13px]">
+                              near_me
+                            </span>
+                            {formatDistance(distance)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {store.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        {store.address}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+      {isCompatibleStoresModalOpen && (
+        <div className="fixed inset-0 z-[115] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5 dark:border-zinc-800">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-2xl text-orange-600">
+                  store
+                </span>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                    Chi nhánh phù hợp
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Các chi nhánh dưới đây còn đủ món trong khối tổng cộng.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCompatibleStoresModalOpen(false)}
+                className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
+                aria-label="Đóng danh sách chi nhánh phù hợp"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto p-6">
+              {isLoadingCompatibleStores ? (
+                <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm font-bold text-orange-700 dark:border-orange-900/60 dark:bg-orange-900/10 dark:text-orange-300">
+                  Đang kiểm tra chi nhánh phù hợp...
+                </div>
+              ) : compatibleStoresError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-600 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400">
+                  {compatibleStoresError}
+                </div>
+              ) : compatibleStores.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-600 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-slate-300">
+                  Chưa có chi nhánh nào còn đủ các món trong đơn hiện tại.
+                </div>
+              ) : (
+                compatibleStores.map((store) => {
+                  const distance = getStoreDistance(store);
+                  const isCurrentStore = selectedStore?._id === store._id;
+
+                  return (
+                    <button
+                      key={store._id}
+                      type="button"
+                      onClick={() => chooseCompatibleStore(store)}
+                      className="w-full rounded-xl border border-gray-200 p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 dark:border-zinc-800 dark:hover:border-orange-900/70 dark:hover:bg-orange-900/10"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                          Còn đủ món
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {isCurrentStore && (
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                              Đang chọn
+                            </span>
+                          )}
+                          {distance !== null && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
+                              <span className="material-symbols-outlined text-[13px]">
+                                near_me
+                              </span>
+                              {formatDistance(distance)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {store.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {store.address}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <AddressModal
         isOpen={isAddressModalOpen}
@@ -1359,8 +1962,7 @@ const CheckoutPage = () => {
                       handleApplyVoucherCode(voucherState.code);
                     }}
                     disabled={
-                      !voucherState.code.trim() ||
-                      voucherState.isValidating
+                      !voucherState.code.trim() || voucherState.isValidating
                     }
                     className="bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
                   >
@@ -1403,7 +2005,8 @@ const CheckoutPage = () => {
                         const unavailableReason =
                           getVoucherUnavailableReason(v);
                         const isUnavailable = Boolean(unavailableReason);
-                        const isApplied = voucherState.appliedVoucher?._id === v._id;
+                        const isApplied =
+                          voucherState.appliedVoucher?._id === v._id;
 
                         return (
                           <div
@@ -1434,9 +2037,7 @@ const CheckoutPage = () => {
                                   : "0đ"
                               }
                               className={`${
-                                isApplied
-                                  ? "ring-2 ring-orange-600"
-                                  : ""
+                                isApplied ? "ring-2 ring-orange-600" : ""
                               } shadow-sm transition-all pointer-events-none`}
                             />
 
@@ -1457,7 +2058,9 @@ const CheckoutPage = () => {
 
                             {isApplied && (
                               <span className="absolute top-3 right-3 bg-orange-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow-sm flex items-center gap-1">
-                                <span className="material-symbols-outlined text-xs">check</span>
+                                <span className="material-symbols-outlined text-xs">
+                                  check
+                                </span>
                                 Đang dùng
                               </span>
                             )}

@@ -138,7 +138,24 @@ async function main() {
       console.log('       RUNNING AI CHECKS                ');
       console.log('========================================');
       console.log('[Husky] Compiling all Python files in the AI service directory to verify syntax...');
-      await runCommand('python3', ['-m', 'compileall', '-q', 'ai']);
+      
+      let pythonCmd = null;
+      for (const cmd of ['python3', 'python']) {
+        try {
+          execSync(`${cmd} -c "import sys"`, { stdio: 'ignore' });
+          pythonCmd = cmd;
+          break;
+        } catch (e) {
+          // command not available
+        }
+      }
+
+      if (pythonCmd) {
+        console.log(`[Husky] Compiling using ${pythonCmd}...`);
+        await runCommand(pythonCmd, ['-m', 'compileall', '-q', 'ai']);
+      } else {
+        console.log('[Husky Warning] Python is not installed or not in PATH. Skipping AI compilation checks.');
+      }
     } else {
       console.log('\n----------------------------------------');
       console.log('       AI skipped                       ');

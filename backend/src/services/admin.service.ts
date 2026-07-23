@@ -281,7 +281,7 @@ export const collectCashFromDriver = async (adminId: string, driverId: string) =
 export const getCustomersWithStats = async (page: number = 1, limit: number = 10, search?: string) => {
   const skip = (page - 1) * limit;
 
-  const matchQuery: any = { role: Role.CUSTOMER };
+  const matchQuery: any = { role: { $in: [Role.CUSTOMER, 'CUSTOMER'] } };
 
   if (search && search.trim() !== '') {
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -401,7 +401,7 @@ export const listAdminReviews = async (page: number = 1, limit: number = 20) => 
     const date = dt.toISOString().slice(0, 10); // YYYY-MM-DD
     const time = dt.toISOString().slice(11, 16); // HH:mm
     const hasResponse = !!r.reply;
-    const status = r.rating != null && Number(r.rating) <= 2 ? 'flagged' : 'published';
+    const status = 'published';
 
     return {
       id: String(r._id),

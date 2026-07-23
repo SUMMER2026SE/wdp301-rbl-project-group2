@@ -1,12 +1,16 @@
-import { CampaignModel, CampaignProductModel, UserModel } from '@/models';
+import { CampaignModel, CampaignProductModel, OrderModel, ProductModel, UserModel } from '@/models';
 import { CampaignStatus, ICampaign } from '@/types/campaign.type';
+import { ProductStatus } from '@/types';
 import { Role } from '@/types/user.type';
 import appAssert from '@/utils/app-assert';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import { TCreateCampaignParams, TUpdateCampaignParams } from '@/validators/campaign.validator';
 import mongoose from 'mongoose';
 import { emailQueue } from '@/jobs/email-queue';
-import { APP_ORIGIN } from '@/constants/env';
+import { APP_ORIGIN, OPENWEATHER_API_KEY } from '@/constants/env';
+import { getAICampaignSuggestion } from '@/services/ai.service';
+import axios from 'axios';
+
 
 // Helper to notify customers when a campaign is approved/activated
 async function notifyCustomersOfCampaign(campaign: ICampaign) {
@@ -98,6 +102,35 @@ async function syncCampaignProducts(campaign: ICampaign, session?: mongoose.Clie
   }
 }
 
+export const suggestCampaignWithAI = async (params: {
+  days?: number;
+  weather?: string;
+  occasion?: string;
+  goal?: string;
+  productCount?: number;
+  startTime?: string;
+  endTime?: string;
+}) => {
+  const weather = params.weather ?? 'normal';
+  const occasion = params.occasion ?? 'none';
+  const goal = params.goal ?? 'boost_sales';
+  const days = params.days ?? 14;
+  const productCount = Math.min(6, Math.max(2, params.productCount ?? 3));
+
+  console.log('[AI Campaign] suggestCampaignWithAI params → goal=%s weather=%s occasion=%s days=%d count=%d startTime=%s endTime=%s',
+    goal, weather, occasion, days, productCount, params.startTime, params.endTime);
+
+  return getAICampaignSuggestionService({
+    weather,
+    occasion,
+    goal,
+    days,
+    productCount,
+    startTime: params.startTime,
+    endTime: params.endTime,
+  });
+};
+
 export const createCampaign = async (
   userId: mongoose.Types.ObjectId,
   userRole: Role,
@@ -113,7 +146,9 @@ export const createCampaign = async (
   });
   appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
 
-  const status = userRole === Role.ADMIN ? CampaignStatus.APPROVED : CampaignStatus.PENDING;
+  const status = params.status !== undefined
+    ? params.status as CampaignStatus
+    : CampaignStatus.DRAFT;
 
   const campaign = await CampaignModel.create({
     ...params,
@@ -169,7 +204,7 @@ export const updateCampaign = async (
   const campaign = await CampaignModel.findById(id);
   appAssert(campaign, NOT_FOUND, 'Không tìm thấy chiến dịch');
 
-  // Manager can only edit their own pending campaigns
+  // Manager can only edit their own pending or draft campaigns
   if (userRole === Role.MANAGER) {
     appAssert(
       campaign.createdBy.toString() === userId.toString(),
@@ -177,7 +212,7 @@ export const updateCampaign = async (
       'Bạn không có quyền chỉnh sửa chiến dịch của người khác'
     );
     appAssert(
-      campaign.status === CampaignStatus.PENDING,
+      campaign.status === CampaignStatus.PENDING || campaign.status === CampaignStatus.DRAFT,
       BAD_REQUEST,
       'Không thể chỉnh sửa chiến dịch đã được phê duyệt hoặc từ chối'
     );
@@ -195,15 +230,29 @@ export const updateCampaign = async (
   });
   appAssert(!nameCollision, BAD_REQUEST, 'Đã có chiến dịch cùng tên hoạt động trong khoảng thời gian này');
 
+  const wasApproved = campaign.status === CampaignStatus.APPROVED;
+
   // Update properties
   if (params.name !== undefined) campaign.name = params.name;
   if (params.type !== undefined) campaign.type = params.type;
   if (params.products !== undefined) campaign.products = params.products as any;
   if (params.startTime !== undefined) campaign.startTime = new Date(params.startTime);
   if (params.endTime !== undefined) campaign.endTime = new Date(params.endTime);
+  if (params.status !== undefined) {
+    if (params.status === CampaignStatus.APPROVED && userRole !== Role.ADMIN) {
+      campaign.status = CampaignStatus.PENDING;
+    } else {
+      campaign.status = params.status as CampaignStatus;
+    }
+  }
 
   await campaign.save();
   await syncCampaignProducts(campaign);
+
+  const isApprovedNow = campaign.status === CampaignStatus.APPROVED;
+  if (!wasApproved && isApprovedNow) {
+    notifyCustomersOfCampaign(campaign);
+  }
 
   return campaign;
 };
@@ -219,7 +268,7 @@ export const deleteCampaign = async (id: string, userId: mongoose.Types.ObjectId
       'Bạn không có quyền xóa chiến dịch của người khác'
     );
     appAssert(
-      campaign.status === CampaignStatus.PENDING,
+      campaign.status === CampaignStatus.PENDING || campaign.status === CampaignStatus.DRAFT,
       BAD_REQUEST,
       'Không thể xóa chiến dịch đã được phê duyệt hoặc từ chối'
     );
@@ -264,3 +313,190 @@ export const trackCampaignActivity = async (id: string, action: 'view' | 'click'
   await campaign.save();
   return campaign;
 };
+
+// ── AI Campaign Suggestions ──────────────────────────────────────────────────
+
+async function fetchWeatherFromApi(city: string = 'Da Nang') {
+  if (!OPENWEATHER_API_KEY) {
+    return { type: 'normal', temp: 28, description: 'Trời mát mẻ, khí hậu bình thường' };
+  }
+  try {
+    const res = await axios.get(
+      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)},vn&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`,
+      { timeout: 3000 }
+    );
+    const temp = res.data.main?.temp ?? 28;
+    const description = res.data.weather?.[0]?.description ?? 'Thời tiết bình thường';
+
+    // Phân loại thời tiết thành: hot, rainy, cold, sunny, normal
+    let type = 'normal';
+    const mainCondition = (res.data.weather?.[0]?.main ?? '').toLowerCase();
+
+    if (mainCondition.includes('rain') || mainCondition.includes('drizzle') || mainCondition.includes('thunderstorm')) {
+      type = 'rainy';
+    } else if (temp > 33) {
+      type = 'hot';
+    } else if (temp < 22) {
+      type = 'cold';
+    } else if (mainCondition.includes('clear')) {
+      type = 'sunny';
+    }
+
+    return { type, temp, description };
+  } catch (error) {
+    console.error('[Weather API] Failed to fetch weather, using fallback:', error);
+    return { type: 'normal', temp: 28, description: 'Khí hậu ấm áp ổn định' };
+  }
+}
+
+async function resolveWeatherContext() {
+  return fetchWeatherFromApi('Da Nang');
+}
+
+function resolveOccasionContext(date = new Date()) {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  const isTetWindow = (month === 1 && day >= 20) || (month === 2 && day <= 10) || (month === 12 && day >= 25);
+  const isChristmasWindow = (month === 12 && day >= 20) || (month === 1 && day <= 5);
+  const isSummerWindow = month >= 5 && month <= 8;
+  const isValentineWindow = (month === 2 && day >= 7 && day <= 17) || (month === 2 && day === 14);
+
+  if (isTetWindow) return 'tet';
+  if (isChristmasWindow) return 'christmas';
+  if (isSummerWindow) return 'summer';
+  if (isValentineWindow) return 'valentine';
+  return 'none';
+}
+
+export const getAICampaignSuggestionService = async (params: {
+  weather: string;
+  occasion: string;
+  goal: string;
+  days: number;
+  productCount: number;
+  startTime?: string;
+  endTime?: string;
+}) => {
+  // 1. Lấy dữ liệu 10 món bán chạy nhất trong 30 ngày qua
+  // Bao gồm tất cả trạng thái đơn hàng đã hoàn thành (không bao gồm cancelled/refunded)
+  const FULFILLED_STATUSES = ['completed', 'delivered', 'shipping', 'delivering', 'ready_for_delivery'];
+  const bestSellers = await OrderModel.aggregate([
+    {
+      $match: {
+        status: { $in: FULFILLED_STATUSES },
+        createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+    },
+    { $unwind: '$items' },
+    {
+      $group: {
+        _id: '$items.productId',
+        totalQtySold: { $sum: '$items.quantity' },
+      },
+    },
+    { $sort: { totalQtySold: -1 } },
+    { $limit: 10 },
+    {
+      $lookup: {
+        from: 'products',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'product',
+      },
+    },
+    { $unwind: '$product' },
+  ]);
+
+  let bestSellersFormatted = bestSellers.map((r) => ({
+    productId: r._id.toString(),
+    name: r.product.name,
+    price: r.product.price,
+    totalQtySold: r.totalQtySold,
+    description: r.product.description || '',
+  }));
+
+  console.log('[AI Campaign] bestSellers found: %d (statuses: %s, window: 30d)', bestSellersFormatted.length, FULFILLED_STATUSES.join(','));
+
+  // Fallback nếu chưa có đơn hàng nào
+  if (bestSellersFormatted.length === 0) {
+    const fallbackProducts = await ProductModel.find({ status: ProductStatus.ACTIVE, isAvailable: true })
+      .limit(10)
+      .lean();
+    bestSellersFormatted = fallbackProducts.map((p) => ({
+      productId: p._id.toString(),
+      name: p.name,
+      price: p.price,
+      totalQtySold: 0,
+      description: p.description || '',
+    }));
+  }
+
+  // 2. Lấy danh sách toàn bộ sản phẩm đang kích hoạt để AI chọn lựa
+  const allProducts = await ProductModel.find({ status: ProductStatus.ACTIVE, isAvailable: true }).lean();
+  const allAvailableProductsFormatted = allProducts.map((p) => ({
+    productId: p._id.toString(),
+    name: p.name,
+    price: p.price,
+    category: p.category,
+    tags: p.tags || [],
+  }));
+
+  // 3. Phân tích thời tiết và dịp lễ tự động — hoặc dùng giá trị do user chọn
+  const weatherInfo = params.weather && params.weather !== 'normal'
+    ? (() => {
+      // User đã chọn thời tiết thủ công → dùng ngay, không gọi API
+      const typeMap: Record<string, string> = {
+        hot: 'Nắng nóng',
+        sunny: 'Nắng đẹp',
+        rainy: 'Mưa',
+        cold: 'Lạnh',
+        normal: 'Bình thường',
+      };
+      return { type: params.weather as string, temp: undefined as number | undefined, description: typeMap[params.weather] ?? 'Bình thường' };
+    })()
+    : await resolveWeatherContext();
+
+  const occasion = params.occasion && params.occasion !== 'none' && params.occasion !== 'auto'
+    ? params.occasion
+    : resolveOccasionContext();
+
+  const salesWindowDays = Math.max(1, params.days ?? 14);
+  const salesByProduct = await OrderModel.aggregate([
+    {
+      $match: {
+        status: { $in: FULFILLED_STATUSES },
+        createdAt: { $gte: new Date(Date.now() - salesWindowDays * 24 * 60 * 60 * 1000) },
+      },
+    },
+    { $unwind: '$items' },
+    {
+      $group: {
+        _id: '$items.productId',
+        totalQtySold: { $sum: '$items.quantity' },
+      },
+    },
+  ]);
+
+  const salesByProductMap = salesByProduct.reduce<Record<string, number>>((acc, item) => {
+    acc[item._id.toString()] = item.totalQtySold;
+    return acc;
+  }, {});
+
+  // 4. Gọi AI tạo gợi ý chiến dịch khuyến mãi
+  const suggestion = await getAICampaignSuggestion(
+    bestSellersFormatted,
+    allAvailableProductsFormatted,
+    weatherInfo,
+    occasion,
+    params.goal,
+    salesWindowDays,
+    params.productCount,
+    salesByProductMap,
+    params.startTime,
+    params.endTime
+  );
+
+  return suggestion;
+};
+

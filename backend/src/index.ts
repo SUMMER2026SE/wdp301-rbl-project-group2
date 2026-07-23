@@ -5,7 +5,7 @@ import http from 'http';
 import dns from 'node:dns';
 import { Server } from 'socket.io';
 import { parse as parseCookie } from 'cookie';
-import { APP_ORIGIN, PORT } from './constants/env';
+import { APP_ORIGIN, ORDER_AUTO_COMPLETE_DELAY_MINUTES, PORT } from './constants/env';
 import appRoutes from './routes';
 import connectToDatabase from './config/db';
 import { customResponse, errorHandler } from './middlewares';
@@ -15,8 +15,11 @@ import cron from 'node-cron';
 import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
 import { startEmailWorker } from '@/jobs/email-queue';
+import { startChatPreferenceWorker } from '@/jobs/chat-preference-queue';
+import { warnIfDeprecatedChatModel } from '@/services/ai-model-registry.service';
 
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+// dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const app = express();
 //middleware
@@ -109,7 +112,7 @@ io.on('connection', async (socket) => {
     } else {
       console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
     }
-  } catch (e) {}
+  } catch (e) { }
 
   socket.on('support:join', async (conversationId: string, cb?: (ok: boolean) => void) => {
     const userId = socket.data.userId as string | undefined;
@@ -145,7 +148,7 @@ io.on('connection', async (socket) => {
 // Auto-complete delivered orders after N minutes (default 30)
 cron.schedule('* * * * *', async () => {
   try {
-    const delayMinutes = Number(process.env.ORDER_AUTO_COMPLETE_DELAY_MINUTES) || 30;
+    const delayMinutes = ORDER_AUTO_COMPLETE_DELAY_MINUTES;
     const cutOffTime = new Date(Date.now() - delayMinutes * 60 * 1000);
 
     const pendingAutoCompletion = await OrderModel.find({
@@ -196,5 +199,8 @@ server.listen(PORT, async () => {
 
   // Khởi chạy hàng đợi gửi mail chạy ngầm
   startEmailWorker();
+  startChatPreferenceWorker();
+  warnIfDeprecatedChatModel();
   console.log('[Queue] BullMQ Email Worker đã sẵn sàng nhận nhiệm vụ.');
+  console.log('[Queue] BullMQ Chat Preference Worker đã sẵn sàng nhận nhiệm vụ.');
 });

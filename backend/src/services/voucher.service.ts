@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '@/constants/http';
 import VoucherModel from '@/models/voucher.model';
 import UserModel from '@/models/user.model';
-import { OrderModel, UserVoucherModel } from '@/models';
+import { OrderModel, PointTransactionModel, UserVoucherModel } from '@/models';
 import appAssert from '@/utils/app-assert';
 import {
   DiscountType,
@@ -13,6 +13,8 @@ import {
 } from '@/types/voucher.type';
 import { UserTier } from '@/types/user.type';
 import { UserVoucherStatus } from '@/types';
+import { PointTransactionType } from '@/types/point-transaction.type';
+import withTransaction from '@/utils/with-transaction';
 
 const tierRank: Record<string, number> = {
   bronze: 1,
@@ -56,6 +58,12 @@ const assertVoucherDiscountConfiguration = (data: Partial<IVoucher>) => {
   }
 };
 
+const assertRewardVoucherConfiguration = (data: Partial<IVoucher>) => {
+  if (!data.isReward) return;
+
+  const pointCost = getNumber(data.pointCost, Number.NaN);
+  appAssert(Number.isFinite(pointCost) && pointCost > 0, BAD_REQUEST, 'Voucher đổi điểm phải có giá điểm lớn hơn 0');
+};
 const normalizeValidateOptions = (
   options?: ValidateVoucherOptions | string | mongoose.Types.ObjectId | null
 ): ValidateVoucherOptions => {
@@ -293,6 +301,7 @@ export const createVoucher = async (data: Partial<IVoucher>) => {
   appAssert(data.title, BAD_REQUEST, 'Tên voucher là bắt buộc');
   appAssert(data.description, BAD_REQUEST, 'Mô tả voucher là bắt buộc');
   assertVoucherDiscountConfiguration(data);
+  assertRewardVoucherConfiguration(data);
 
   const existed = await VoucherModel.findOne({
     code: String(data.code).trim().toUpperCase(),
@@ -329,6 +338,10 @@ export const updateVoucher = async (id: string, data: Partial<IVoucher>) => {
   assertVoucherDiscountConfiguration({
     discountType: data.discountType ?? currentVoucher.discountType,
     discountValue: data.discountValue ?? currentVoucher.discountValue,
+  });
+  assertRewardVoucherConfiguration({
+    isReward: data.isReward ?? currentVoucher.isReward,
+    pointCost: data.pointCost ?? currentVoucher.pointCost,
   });
 
   if (data.code) {
@@ -426,48 +439,67 @@ export const useVoucher = async (id: string, session?: mongoose.ClientSession) =
 };
 
 export const redeemRewardVoucher = async (id: string, userId: mongoose.Types.ObjectId | string) => {
-  const voucher = await getVoucherById(id);
+  appAssert(mongoose.Types.ObjectId.isValid(String(userId)), BAD_REQUEST, 'Người dùng không hợp lệ');
 
-  appAssert(voucher.isReward, BAD_REQUEST, 'Voucher này không phải voucher đổi điểm');
-  appAssert(voucher.isActive, BAD_REQUEST, 'Voucher đã bị vô hiệu hóa');
+  return withTransaction(async (session) => {
+    const voucher = await VoucherModel.findById(id).session(session);
+    appAssert(voucher, NOT_FOUND, 'Không tìm thấy voucher');
+    appAssert(voucher.isReward, BAD_REQUEST, 'Voucher này không phải voucher đổi điểm');
+    appAssert(voucher.isActive, BAD_REQUEST, 'Voucher đã bị vô hiệu hóa');
 
-  const now = new Date();
+    const now = new Date();
+    appAssert(voucher.startAt <= now, BAD_REQUEST, 'Voucher chưa đến thời gian sử dụng');
+    appAssert(voucher.endAt >= now, BAD_REQUEST, 'Voucher đã hết hạn');
 
-  appAssert(voucher.startAt <= now, BAD_REQUEST, 'Voucher chưa đến thời gian sử dụng');
-  appAssert(voucher.endAt >= now, BAD_REQUEST, 'Voucher đã hết hạn');
+    const pointCost = getNumber(voucher.pointCost);
+    appAssert(pointCost > 0, BAD_REQUEST, 'Voucher đổi điểm phải có giá điểm lớn hơn 0');
 
-  const user = await UserModel.findById(userId);
-  appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');
+    const normalizedUserId = new mongoose.Types.ObjectId(String(userId));
+    const user = await UserModel.findById(normalizedUserId).select('collectedPoints accumulatedPoints tier').session(session);
+    appAssert(user, NOT_FOUND, 'Không tìm thấy người dùng');
 
-  const pointCost = Number(voucher.pointCost || 0);
+    if (voucher.minTier) {
+      appAssert(
+        getTierRank(user.tier) >= getTierRank(voucher.minTier),
+        FORBIDDEN,
+        `Voucher chỉ áp dụng từ hạng ${voucher.minTier}`
+      );
+    }
 
-  const pointField =
-    (user as any).points !== undefined
-      ? 'points'
-      : (user as any).loyaltyPoints !== undefined
-        ? 'loyaltyPoints'
-        : 'rewardPoints';
+    const alreadyRedeemed = await UserVoucherModel.exists({ userId: normalizedUserId, voucherId: voucher._id }).session(session);
+    appAssert(!alreadyRedeemed, BAD_REQUEST, 'Bạn đã đổi voucher này rồi');
 
-  const currentPoints = Number((user as any)[pointField] || 0);
+    const updatedUser = await UserModel.findOneAndUpdate(
+      { _id: normalizedUserId, collectedPoints: { $gte: pointCost } },
+      { $inc: { collectedPoints: -pointCost } },
+      { new: true, session }
+    );
+    appAssert(updatedUser, BAD_REQUEST, 'Bạn không đủ điểm để đổi voucher');
 
-  appAssert(currentPoints >= pointCost, BAD_REQUEST, 'Bạn không đủ điểm để đổi voucher');
+    await UserVoucherModel.create(
+      [
+        {
+          userId: normalizedUserId,
+          voucherId: voucher._id,
+          status: UserVoucherStatus.AVAILABLE,
+        },
+      ],
+      { session }
+    );
 
-  const existed = await UserVoucherModel.findOne({
-    userId,
-    voucherId: voucher._id,
-    status: UserVoucherStatus.AVAILABLE,
+    await PointTransactionModel.create(
+      [
+        {
+          userId: normalizedUserId,
+          amount: -pointCost,
+          type: PointTransactionType.REDEEM,
+          description: `Đổi ${pointCost} điểm lấy voucher ${voucher.code}`,
+          orderId: null,
+        },
+      ],
+      { session }
+    );
+
+    return voucher;
   });
-
-  appAssert(!existed, BAD_REQUEST, 'Bạn đã có voucher này');
-
-  (user as any)[pointField] = currentPoints - pointCost;
-  await user.save();
-
-  await UserVoucherModel.create({
-    userId,
-    voucherId: voucher._id,
-    status: UserVoucherStatus.AVAILABLE,
-  });
-
-  return voucher;
 };
