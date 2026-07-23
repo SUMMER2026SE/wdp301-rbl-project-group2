@@ -85,6 +85,13 @@ export const GROQ_CHAT_MODEL = getEnv('GROQ_CHAT_MODEL', 'openai/gpt-oss-20b');
 export const GROQ_SEMANTIC_PLANNER_MODEL = getEnv('GROQ_SEMANTIC_PLANNER_MODEL', GROQ_CHAT_MODEL);
 export const GROQ_INTENT_MODEL = getEnv('GROQ_INTENT_MODEL', GROQ_CHAT_MODEL);
 
+// chatbot latency budget
+export const CHAT_REQUEST_DEADLINE_MS = getNumberEnv('CHAT_REQUEST_DEADLINE_MS', 12_000);
+export const CHAT_INTENT_TIMEOUT_MS = getNumberEnv('CHAT_INTENT_TIMEOUT_MS', 3_000);
+export const CHAT_SEMANTIC_PLANNER_TIMEOUT_MS = getNumberEnv('CHAT_SEMANTIC_PLANNER_TIMEOUT_MS', 1_500);
+export const CHAT_EMBEDDING_TIMEOUT_MS = getNumberEnv('CHAT_EMBEDDING_TIMEOUT_MS', 4_000);
+export const CHAT_COMPLETION_TIMEOUT_MS = getNumberEnv('CHAT_COMPLETION_TIMEOUT_MS', 6_000);
+
 // ai microservice / retraining
 export const AI_MICROSERVICE_URL = getEnv('AI_MICROSERVICE_URL', 'http://localhost:8001');
 export const AI_RETRAIN_TOKEN = getOptionalEnv('AI_RETRAIN_TOKEN');

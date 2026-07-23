@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { sendChatMessage, type ChatMessage as ChatServiceMessage, type ChatOrderCard } from '@/services/chat.service';
+import {
+    sendChatMessage,
+    type ChatMessage as ChatServiceMessage,
+    type ChatOrderCard,
+    type ChatRecommendedProduct,
+} from '@/services/chat.service';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // ---- Types ----
@@ -10,7 +15,7 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
-    recommendedProducts?: any[];
+    recommendedProducts?: ChatRecommendedProduct[];
     orderCards?: ChatOrderCard[];
 }
 
@@ -275,32 +280,62 @@ export function FloatingAIChatbot() {
                                         onWheel={handleHorizontalWheel}
                                         className="max-w-[90%] mt-2 flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-orange-500/20 scrollbar-track-transparent hover:scrollbar-thumb-orange-500/40 transition-colors"
                                     >
-                                        {msg.recommendedProducts.map((product) => (
-                                            <div key={product._id} className="min-w-[140px] max-w-[140px] bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-2 flex flex-col justify-between shadow-sm">
-                                                {product.image && (
-                                                    <img src={product.image} alt={product.name} className="w-full h-16 object-cover rounded-lg mb-1.5" />
-                                                )}
-                                                <div className="flex-1 flex flex-col justify-between">
-                                                    <div>
-                                                        <h4 className="font-bold text-[11px] line-clamp-1 text-foreground leading-snug">{product.name}</h4>
-                                                        <p className="text-[9px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">{product.description}</p>
+                                        {msg.recommendedProducts.map((product) => {
+                                            const hasDiscount = Boolean(product.originalPrice && product.originalPrice > product.price);
+                                            const discountPercentage = product.discountPercentage
+                                                ?? (hasDiscount && product.originalPrice
+                                                    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+                                                    : undefined);
+
+                                            return (
+                                                <div key={product._id} className="min-w-[150px] max-w-[150px] bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-2 flex flex-col justify-between shadow-sm">
+                                                    <div className="relative">
+                                                        {product.image && (
+                                                            <img src={product.image} alt={product.name} className="w-full h-16 object-cover rounded-lg mb-1.5" />
+                                                        )}
+                                                        {hasDiscount && discountPercentage && (
+                                                            <span className="absolute left-1.5 top-1.5 rounded-md bg-red-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-sm">
+                                                                -{discountPercentage}%
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-700">
-                                                        <span className="text-[10px] font-extrabold text-orange-500">
-                                                            {product.price.toLocaleString()}đ
-                                                        </span>
-                                                        <button 
-                                                            onClick={() => {
-                                                                navigate(`/food/${product._id}`);
-                                                            }}
-                                                            className="text-[9px] bg-orange-500 hover:bg-orange-600 text-white font-bold px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                        >
-                                                            Xem
-                                                        </button>
+                                                    <div className="flex-1 flex flex-col justify-between">
+                                                        <div>
+                                                            <h4 className="font-bold text-[11px] line-clamp-1 text-foreground leading-snug">{product.name}</h4>
+                                                            <p className="text-[9px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">{product.description}</p>
+                                                            {product.campaignName && (
+                                                                <p className="mt-1 text-[9px] font-semibold text-red-500 line-clamp-1">{product.campaignName}</p>
+                                                            )}
+                                                            {product.campaignEndTime && (
+                                                                <p className="text-[8px] text-muted-foreground line-clamp-1">
+                                                                    Đến {formatDate(product.campaignEndTime)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-end justify-between gap-2 mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-700">
+                                                            <div className="min-w-0">
+                                                                {hasDiscount && product.originalPrice && (
+                                                                    <p className="text-[9px] text-muted-foreground line-through leading-none">
+                                                                        {product.originalPrice.toLocaleString()}đ
+                                                                    </p>
+                                                                )}
+                                                                <span className={`text-[10px] font-extrabold ${hasDiscount ? 'text-red-500' : 'text-orange-500'}`}>
+                                                                    {product.price.toLocaleString()}đ
+                                                                </span>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigate(`/food/${product._id}`);
+                                                                }}
+                                                                className="shrink-0 text-[9px] bg-orange-500 hover:bg-orange-600 text-white font-bold px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                            >
+                                                                Xem
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                                 {msg.orderCards && msg.orderCards.length > 0 && (
