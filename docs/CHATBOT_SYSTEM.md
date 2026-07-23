@@ -48,11 +48,12 @@ sequenceDiagram
     API->>AUTH: Gan req.userId neu co token hop le
     AUTH->>V: Validate body
     V->>C: Parsed request
-    C->>C: Tao ChatRequestContext(traceId, deadline 8s)
+    C->>C: Tao ChatRequestContext(traceId, deadline 12s mac dinh)
     C->>RL: Daily + burst + concurrency guard
     C->>IR: classifyIntent(message)
     alt Greeting / delivery fee / out-of-scope / jailbreak / no-budget
-        C-->>UI: Static safe response
+        C->>DB: Delivery fee doc cau hinh settings neu can
+        C-->>UI: Static/policy safe response
     else Promotion or Store deterministic
         C->>DR: buildDeterministicDomainResponse(intent, userId, storeId)
         DR->>DB: Query campaign/voucher/store co scope + maxTimeMS
@@ -175,9 +176,26 @@ Moi request co `ChatRequestContext`:
 - `startedAt`
 - `deadlineAt`
 - `AbortSignal`
-- global deadline mac dinh: 8 giay
+- global deadline mac dinh: 12 giay, cau hinh bang `CHAT_REQUEST_DEADLINE_MS`
 
 Moi Groq/Gemini stage dung `withChatDeadline` hoac timeout rieng de tranh giu request qua lau.
+
+Timeout co the cau hinh:
+
+| Env | Default | Vai tro |
+|---|---:|---|
+| `CHAT_REQUEST_DEADLINE_MS` | `12000` | Tong deadline cua mot request chatbot |
+| `CHAT_INTENT_TIMEOUT_MS` | `3000` | Timeout rieng cho Groq intent classifier |
+| `CHAT_SEMANTIC_PLANNER_TIMEOUT_MS` | `1500` | Timeout rieng cho semantic planner |
+| `CHAT_EMBEDDING_TIMEOUT_MS` | `4000` | Timeout rieng cho embedding search |
+| `CHAT_COMPLETION_TIMEOUT_MS` | `6000` | Timeout rieng cho Groq chat/tool/final response |
+
+Latency optimization hien tai:
+
+- Cac intent deterministic khong goi LLM.
+- `ORDER_STATUS` van dung Groq tool-calling de dien filter status, nhung skip semantic planner vi khong lien quan search.
+- `MENU_SEARCH` va `ALLERGY_SAFE_RECOMMENDATION` dang la goi y/tim mon thong thuong se di thang deterministic product search, khong goi Groq tool selection/final wording.
+- Cac cau hoi chi tiet mon, thanh phan, di ung, gia, rating, con hang van cho phep tool-calling de lay du lieu chinh xac.
 
 ### Tracing
 
@@ -225,15 +243,33 @@ Intent hien tai:
 - `ORDER_STATUS`
 - `DELIVERY_FEE`
 - `PROMOTION`
+- `DISCOUNTED_PRODUCTS`
 - `STORE_HOURS`
 - `OUT_OF_SCOPE`
 - `JAILBREAK`
 
 Flow phan loai:
 
-1. `classifyIntentByRules(message)` chay truoc.
-2. Neu rule khong chac, goi Groq intent model voi JSON schema.
-3. Neu Groq loi hoac JSON sai, fallback ve `MENU_SEARCH`.
+1. Controller chay fast-path `isDiscountedProductsQuestion(message)` cho cau hoi mon/san pham dang giam gia de tranh phu thuoc Groq intent timeout.
+2. Neu khong phai fast-path, `classifyIntentByRules(message)` chay truoc.
+3. Neu rule khong chac, goi Groq intent model voi JSON schema.
+4. Neu Groq loi hoac JSON sai, fallback ve `MENU_SEARCH`.
+
+### Delivery fee policy
+
+`DELIVERY_FEE` khong duoc hardcode theo range co dinh trong prompt. Controller doc cau hinh hien tai tu `SettingsModel` va tra policy theo dung cong thuc checkout:
+
+```txt
+fee = round((baseDeliveryFee + feePerKm * distanceKm) / 2)
+```
+
+Rule hien tai:
+
+- `baseDeliveryFee`, `feePerKm`, `freeDeliveryEnabled`, `freeDeliveryThreshold` lay tu settings.
+- Fallback khi chua co settings: `baseDeliveryFee=25.000d`, `feePerKm=5.000d/km`, `freeDeliveryThreshold=150.000d`, `freeDeliveryEnabled=true`.
+- Neu bat freeship va subtotal dat nguong, shipping fee = `0d`.
+- Phi ship chinh xac chi duoc backend tinh lai khi checkout, dua tren dia chi giao hang, ward/city duoc ho tro va chi nhanh duoc chon.
+- Backend khong tin `shippingFee` client gui khi tao don; `placeOrder` tu tinh lai `actualShippingFee`.
 
 Luu y hien trang:
 
@@ -318,6 +354,7 @@ Neu can LLM chat/tool, service goi Groq 2 luot:
 1. Luot chon tool:
    - `search_products`
    - `search_allergy_safe_products`
+   - `get_product_details`
    - `get_active_campaigns`
    - `get_hot_products`
    - `get_user_vouchers`
@@ -335,6 +372,16 @@ Neu can LLM chat/tool, service goi Groq 2 luot:
 ```
 
 Backend validate final JSON bang Zod.
+
+System prompt hien duoc refine theo ma tran chon tool:
+
+- `DISCOUNTED_PRODUCTS` hoac cau hoi "mon nao dang giam gia/SALE/gia uu dai" -> `get_active_campaigns`, tra product-level answer.
+- `ORDER_STATUS` -> `get_user_order_history`.
+- Cau hoi chi tiet mon/thanh phan/di ung/rating/gia -> `get_product_details`.
+- Goi y mon an toan di ung/suc khoe -> `search_allergy_safe_products`.
+- Goi y/tim mon thong thuong -> `search_products`.
+- Mon hot/ban chay -> `get_hot_products`.
+- Con hang o chi nhanh -> `check_product_store_availability`.
 
 ---
 
@@ -425,14 +472,30 @@ Flow search:
    - RRF fusion.
 5. Neu Atlas Search loi: fallback `$text`, sau do top products theo rating/review/price.
 6. Neu Atlas Vector loi: lexical-only fallback, khong cosine in-memory tren toan collection.
-7. Loc theo health/trait.
-8. Loc di ung:
+7. Loc theo food/drink boundary:
+   - Cau "mon an/do an/tot cho suc khoe" khong tra do uong/trang mieng.
+   - Chi tra do uong/trang mieng khi user hoi ro "do uong/nuoc uong/giai khat".
+8. Loc theo health/trait:
+   - "suc khoe", "tot cho suc khoe", "lanh manh", "healthy", "an kieng", "thanh dam" -> `healthNeeds: healthy`.
+   - Uu tien `Goc Healthy & An Kieng`, health tags va cac tin hieu nhu salad/rau cu/uc ga/it dau.
+   - Neu category healthy qua hep hoac bi allergy filter loai het, backend mo rong sang cac mon an khac nhung van giu allergy hard filter.
+   - Tieu duong/it duong tiep tuc loai cac mon co tin hieu ngot/duong/trang mieng.
+9. Loc di ung:
    - `allergenTags`
    - `mayContain`
    - `crossContaminationRisk`
    - `recipe[].name`
    - `ALLERGEN_CATALOG.aliases`
-9. Tao allowlist IDs.
+10. Neu user hoi dich danh mot mon bi allergy filter loai, service tao safety notice:
+   - Khong dua mon conflict vao allowlist/recommended cards.
+   - Noi ro "khong goi y mon X vi co the xung dot voi ho so di ung (...)".
+   - Khong tu hien thi list mon thay the mac dinh; chi goi y thay the khi user hoi "goi y mon thay the/tuong tu".
+   - Controller khong duoc overwrite safety notice bang message card-only chung.
+11. Short exact request nhu "toi muon com ga" van duoc xem la targeted request:
+   - Neu token user nhac trung allergen trong profile, chatbot phai canh bao thay vi im lang tra list mon khac.
+   - Neu khong conflict va match duoc mon, chi tra toi da 1 product card phu hop nhat.
+12. Neu user hoi dich danh mot mon va mon do an toan, chi tra toi da 1 product card dung ten mon do.
+13. Tao allowlist IDs.
 
 Controller verify sau cung:
 
@@ -451,6 +514,7 @@ Controller verify sau cung:
 Hien co 2 duong co the cham campaign:
 
 - Deterministic domain responder neu intent la `PROMOTION` va khong phai voucher.
+- Deterministic domain responder neu intent la `DISCOUNTED_PRODUCTS`; route nay query active campaign truc tiep va tra product card sale.
 - Tool `get_active_campaigns` neu cau hoi di qua Chatbot Service.
 
 Deterministic responder query:
@@ -459,6 +523,8 @@ Deterministic responder query:
 - `startTime <= now`.
 - `endTime >= now`.
 - limit 5.
+
+Neu user hoi product-level nhu "cac mon an nao dang duoc giam gia", controller fast-path hoac intent classifier tra `DISCOUNTED_PRODUCTS`. Intent nay di vao deterministic responder, khong phu thuoc LLM/tool-calling. Backend query active campaign, populate `products.productId`, tinh `salePrice`, loc san pham that su co `salePrice < originalPrice`, roi tra `recommendedProducts` kem `originalPrice`, `discountPercentage`, `campaignName`, `campaignEndTime`.
 
 Tool path query campaign va populate `products.productId`, sau do them product IDs vao allowlist neu co san pham trong campaign.
 

@@ -214,6 +214,7 @@ Intent hiện tại:
 - `ORDER_STATUS`
 - `DELIVERY_FEE`
 - `PROMOTION`
+- `DISCOUNTED_PRODUCTS`
 - `STORE_HOURS`
 - `OUT_OF_SCOPE`
 - `JAILBREAK`
@@ -262,6 +263,7 @@ Tool hiện có:
 
 - `search_products`
 - `search_allergy_safe_products`
+- `get_product_details`
 - `get_active_campaigns`
 - `get_hot_products`
 - `get_user_vouchers`
@@ -334,7 +336,17 @@ Giới hạn hiện tại:
 
 ### Global deadline và timeout
 
-Mỗi request có deadline khoảng 8 giây. Các call AI/database quan trọng được bọc timeout để tránh treo request.
+Mỗi request có deadline mặc định khoảng 12 giây, cấu hình bằng `CHAT_REQUEST_DEADLINE_MS`. Các call AI/database quan trọng được bọc timeout để tránh treo request.
+
+Các timeout có thể tune bằng env:
+
+| Env | Default |
+|---|---:|
+| `CHAT_REQUEST_DEADLINE_MS` | `12000` |
+| `CHAT_INTENT_TIMEOUT_MS` | `3000` |
+| `CHAT_SEMANTIC_PLANNER_TIMEOUT_MS` | `1500` |
+| `CHAT_EMBEDDING_TIMEOUT_MS` | `4000` |
+| `CHAT_COMPLETION_TIMEOUT_MS` | `6000` |
 
 ### Intent routing
 
@@ -349,7 +361,7 @@ Classifier chia message thành nhóm nghiệp vụ trước khi quyết định:
 Một số câu đơn giản không cần LLM:
 
 - Greeting.
-- Delivery fee.
+- Delivery fee: đọc `SettingsModel` và trả chính sách hiện tại theo công thức checkout, không hardcode range phí.
 - No-budget guardrail.
 - Campaign.
 - Voucher.
@@ -360,6 +372,37 @@ Một số câu đơn giản không cần LLM:
 ### LLM tool-calling
 
 Groq được dùng để chọn tool và điền tham số cho các câu phức tạp. Backend execute tool, không để LLM tự query database.
+
+Tối ưu latency hiện tại:
+
+- Các intent rõ như greeting, delivery fee, no-budget, promotion, voucher, discounted products, store-hours không gọi LLM chat.
+- `ORDER_STATUS` vẫn dùng Groq tool-calling để tự điền `statuses/limit`, nhưng bỏ semantic planner vì order không cần product search plan.
+- Gợi ý/tìm món thông thường đi thẳng qua deterministic product search và trả card UI, không gọi Groq tool selection/final wording.
+- Chỉ giữ tool-calling cho câu hỏi cần suy luận tool chi tiết: trạng thái đơn, thành phần/dị ứng/giá/rating của món cụ thể, còn hàng ở chi nhánh.
+
+System prompt hiện được tổ chức theo ma trận chọn tool:
+
+- `DISCOUNTED_PRODUCTS` hoặc câu hỏi món đang sale -> `get_active_campaigns`, trả product-level answer.
+- `ORDER_STATUS` -> `get_user_order_history`.
+- Câu hỏi chi tiết món/thành phần/dị ứng/rating/giá -> `get_product_details`.
+- Gợi ý món an toàn dị ứng/sức khỏe -> `search_allergy_safe_products`.
+- Gợi ý/tìm món thường -> `search_products`.
+- Món hot/bán chạy -> `get_hot_products`.
+- Còn hàng ở chi nhánh -> `check_product_store_availability`.
+
+### Chính sách phí giao hàng
+
+Phí giao hàng không phải là rule tĩnh kiểu "dưới 2km miễn phí". Hệ thống hiện tính phí theo cùng logic checkout:
+
+```txt
+fee = round((baseDeliveryFee + feePerKm * distanceKm) / 2)
+```
+
+- `baseDeliveryFee`, `feePerKm`, `freeDeliveryEnabled`, `freeDeliveryThreshold` lấy từ `SettingsModel`.
+- Nếu chưa có settings trong DB, backend/frontend fallback theo default hiện tại: `baseDeliveryFee=25.000đ`, `feePerKm=5.000đ/km`, `freeDeliveryThreshold=150.000đ`, `freeDeliveryEnabled=true`.
+- Nếu `freeDeliveryEnabled=true` và subtotal đạt `freeDeliveryThreshold`, phí giao hàng là `0đ`.
+- Backend tự tính lại phí khi tạo đơn bằng địa chỉ giao hàng, ward/city được hỗ trợ và chi nhánh được chọn; không tin `shippingFee` do frontend gửi lên.
+- Chatbot chỉ trả policy/ước lượng cách tính. Phí chính xác cần địa chỉ giao hàng và chi nhánh tại checkout.
 
 ### Structured output validation
 
@@ -413,6 +456,20 @@ Backend lọc dị ứng bằng code dựa trên:
 - `ALLERGEN_CATALOG.aliases`
 
 LLM không quyết định món nào an toàn dị ứng.
+
+### Product detail tool
+
+`get_product_details` là tool read-only để chatbot trả lời các câu hỏi về một món cụ thể:
+
+- thành phần
+- allergen tags
+- may contain
+- nguy cơ nhiễm chéo
+- health tags
+- rating/review count
+- mô tả và giá
+
+Tool nhận `productId` nếu đã biết, hoặc `query` tên món nếu chưa biết ID. Backend tự search, giới hạn tối đa 3 món, lọc theo store nếu có `storeId`, và chỉ trả dữ liệu rút gọn.
 
 ### Allowlist verification
 
@@ -543,13 +600,29 @@ Flow gợi ý món:
 2. `parseChatSearchPlan`/semantic planner tạo search plan.
 3. Backend search sản phẩm.
 4. Backend lọc theo store nếu có `storeId`.
-5. Backend lọc dị ứng.
-6. Backend tạo allowlist.
-7. Groq chỉ được recommend ID trong allowlist.
-8. Controller verify ID.
-9. Controller áp campaign price.
-10. Controller enforce budget.
-11. Frontend render product card.
+5. Backend lọc food/drink boundary:
+   - Câu hỏi món ăn/đồ ăn/sức khỏe không trả đồ uống hoặc tráng miệng.
+   - Chỉ trả đồ uống khi user hỏi rõ đồ uống/nước uống/giải khát.
+6. Backend lọc health/trait:
+   - `sức khỏe`, `tốt cho sức khỏe`, `lành mạnh`, `healthy`, `ăn kiêng`, `thanh đạm` -> `healthNeeds: healthy`.
+   - Ưu tiên category `Góc Healthy & Ăn Kiêng`, `healthTags`, rau củ/salad/ức gà/ít dầu.
+   - Nếu nhóm healthy quá hẹp hoặc bị dị ứng loại hết, backend mở rộng sang món ăn khác nhưng vẫn giữ allergy hard filter.
+7. Backend lọc dị ứng.
+8. Nếu user hỏi đích danh một món bị dị ứng:
+   - Backend không đưa món đó vào allowlist/card.
+   - Backend trả safety notice nói rõ không gợi ý món đó vì xung đột hồ sơ dị ứng.
+   - Backend không tự trả list món thay thế; chỉ gợi ý thay thế khi user hỏi rõ.
+   - Controller giữ nguyên safety notice, không đổi sang câu card-only chung.
+9. Short exact request như `tôi muốn cơm gà` cũng được xử lý như targeted request:
+   - Nếu query nhắc allergen trong hồ sơ user, backend phải cảnh báo.
+   - Nếu an toàn và match được món, backend chỉ trả tối đa 1 product card phù hợp nhất.
+10. Nếu user hỏi đích danh một món và món đó an toàn, backend chỉ trả tối đa 1 product card đúng món đó.
+11. Backend tạo allowlist.
+12. Groq chỉ được recommend ID trong allowlist.
+13. Controller verify ID.
+14. Controller áp campaign price.
+15. Controller enforce budget.
+16. Frontend render product card.
 
 ---
 
@@ -559,7 +632,7 @@ Flow gợi ý món:
 
 Hiện có thể đi qua:
 
-- Deterministic domain responder.
+- Deterministic domain responder cho câu hỏi danh sách chương trình/campaign.
 - Tool `get_active_campaigns` nếu câu hỏi đi vào chatbot service.
 
 Deterministic query:
@@ -568,6 +641,22 @@ Deterministic query:
 - `startTime <= now`.
 - `endTime >= now`.
 - Limit 5.
+
+Nếu user hỏi theo hướng product-level như:
+
+- "các món nào đang giảm giá"
+- "món ăn đang sale"
+- "món nào có giá ưu đãi"
+
+Intent nên được phân loại thành `DISCOUNTED_PRODUCTS`, không để trả nhầm danh sách campaign hoặc rơi về menu search. Flow đúng hiện tại là deterministic sale route:
+
+1. Controller chạy fast-path `isDiscountedProductsQuestion(message)` trước khi gọi Groq intent classifier.
+2. Intent được ép về `DISCOUNTED_PRODUCTS` nếu câu hỏi có nghĩa là món/sản phẩm/thực đơn đang giảm giá, sale hoặc giá ưu đãi.
+3. `buildDeterministicDomainResponse` xử lý trực tiếp intent này, không phụ thuộc LLM tool-calling.
+4. Backend query active campaign, populate `products.productId`, tính `salePrice` từ `fixedPrice` hoặc `% discount`.
+5. Backend chỉ giữ sản phẩm thật sự có `salePrice < originalPrice`.
+6. Response trả `recommendedProducts` đã enrich: `price`, `originalPrice`, `discountPercentage`, `campaignName`, `campaignEndTime`.
+7. Frontend chatbot render sale card: giá sale, giá gốc gạch ngang, badge phần trăm giảm, campaign và ngày kết thúc.
 
 ### Voucher
 
@@ -658,6 +747,13 @@ get_store_hours({ storeId?: string })
 - recommendation count
 
 5. Chuẩn hóa UI card cho campaign/voucher/store nếu muốn chatbot trả về nhiều dạng card hơn.
+
+6. Các tool có thể cân nhắc thêm nhưng chưa nên mở vội:
+
+- `get_product_reviews`: read-only, hữu ích cho câu "món này đánh giá sao".
+- `get_cart_summary`: chỉ đọc giỏ hàng của user hiện tại, nhưng cần cân nhắc riêng tư và wording để không biến thành checkout action.
+- `get_membership_status`: chỉ đọc hạng/điểm, hữu ích cho voucher/reward, nhưng cần scope user chặt.
+- Không mở tool tạo/sửa order, payment, cart mutation, voucher redeem hoặc admin/staff action cho LLM.
 
 ---
 

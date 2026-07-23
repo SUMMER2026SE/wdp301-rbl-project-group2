@@ -15,6 +15,19 @@ export interface ChatOrderCard {
     itemCount: number;
 }
 
+export interface ChatRecommendedProduct {
+    _id: string;
+    name: string;
+    price: number;
+    originalPrice?: number;
+    discountPercentage?: number;
+    campaignName?: string;
+    campaignEndTime?: string;
+    image?: string;
+    category?: string;
+    description?: string;
+}
+
 interface SendChatOptions {
     clientMessageId?: string;
     conversationId?: string;

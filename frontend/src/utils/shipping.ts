@@ -94,10 +94,10 @@ export interface ShippingConfig {
 
 // Default values used as fallback when settings haven't loaded yet
 export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
-  baseDeliveryFee: 15_000,
+  baseDeliveryFee: 25_000,
   feePerKm: 5_000,
   freeDeliveryEnabled: true,
-  freeDeliveryThreshold: 300_000,
+  freeDeliveryThreshold: 150_000,
 };
 
 export const WARD_CENTROIDS: Record<string, [number, number]> = {

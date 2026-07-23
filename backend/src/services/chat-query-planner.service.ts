@@ -92,7 +92,7 @@ const extractMaxItems = (normalized: string) => {
 
 const resolveCategory = (normalized: string) => {
   if (/\b(com|rice)\b/.test(normalized)) return ProductCategory.COM_DIA_TRUYEN_THONG;
-  if (/\b(healthy|an kieng|diet|chay|vegan)\b/.test(normalized)) return ProductCategory.GOC_HEALTHY_AN_KIENG;
+  if (/\b(healthy|suc khoe|tot cho suc khoe|lanh manh|an kieng|diet|chay|vegan)\b/.test(normalized)) return ProductCategory.GOC_HEALTHY_AN_KIENG;
   if (/\b(kem|side|extra|goi them|an kem)\b/.test(normalized)) return ProductCategory.GOI_THEM_AN_KEM;
   if (/\b(khat|uong|nuoc|trang mieng|dessert|drink|beverage)\b/.test(normalized)) return ProductCategory.GIAI_KHAT_TRANG_MIENG;
   if (/\b(mon nuoc|soup|pho|bun|chao)\b/.test(normalized)) return ProductCategory.TRU_DANH_MON_NUOC;
@@ -126,12 +126,13 @@ export const parseChatSearchPlan = (message: string): ChatSearchPlan => {
     healthNeeds.push('diabetes_friendly');
   }
   if (/\b(it beo|it dau|it dau mo|low fat)\b/.test(normalized)) healthNeeds.push('low_fat');
-  if (/\b(healthy|an kieng|thanh dam)\b/.test(normalized)) healthNeeds.push('healthy');
+  if (/\b(healthy|suc khoe|tot cho suc khoe|lanh manh|an kieng|thanh dam)\b/.test(normalized)) healthNeeds.push('healthy');
 
   const expansionTerms = [
     ...includeTastes,
     healthNeeds.includes('diabetes_friendly') ? 'ít đường không đường thanh đạm healthy ít béo rau củ protein' : '',
     healthNeeds.includes('low_fat') ? 'ít béo ít dầu thanh đạm hấp luộc' : '',
+    healthNeeds.includes('healthy') ? 'healthy tốt cho sức khỏe lành mạnh thanh đạm rau củ salad ức gà ít dầu' : '',
     excludeTraits.includes('hot') ? 'món lạnh món khô thanh mát' : '',
   ].filter(Boolean);
 
