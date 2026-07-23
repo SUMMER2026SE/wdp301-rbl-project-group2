@@ -171,6 +171,8 @@ export const managerOverrideOrderStatus = async (params: {
     userId: (order.cusId as any)._id ? (order.cusId as any)._id : order.cusId,
     orderCode: order.code,
     status: toStatus,
+    reason: params.reason,
+    orderId: order._id.toString(),
   });
 
   createAuditLog({

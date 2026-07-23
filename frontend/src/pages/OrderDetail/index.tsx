@@ -231,11 +231,12 @@ const OrderDetailPage = () => {
       case "confirmed":
         return 1;
       case "shipping":
+      case "delivering":
         return 2;
       case "delivered":
-        return 2.5;
-      case "completed":
         return 3;
+      case "completed":
+        return 4;
       default:
         return 0;
     }
@@ -422,13 +423,14 @@ const OrderDetailPage = () => {
               </div>
             </div>
 
-            {/* Delivery Details */}
+            {/* Delivery Details & Branch / Driver Info */}
             <div className="bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-6">
                 <MapPin className="w-5 h-5 text-orange-600" />
-                <h3 className="font-bold text-lg">Thông tin giao hàng</h3>
+                <h3 className="font-bold text-lg">Thông tin vận chuyển & Giao hàng</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Delivery Address */}
                 <div className="space-y-4">
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-orange-600/10 flex items-center justify-center text-orange-600 shrink-0">
@@ -436,7 +438,7 @@ const OrderDetailPage = () => {
                     </div>
                     <div>
                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">
-                        Địa chỉ giao hàng
+                        Địa chỉ nhận hàng
                       </p>
                       <p className="text-gray-900 dark:text-white font-bold leading-tight">
                         {order.deliveryAddress.detail}
@@ -448,6 +450,8 @@ const OrderDetailPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Receiver Info */}
                 <div className="space-y-4">
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-orange-600/10 flex items-center justify-center text-orange-600 shrink-0">
@@ -455,7 +459,7 @@ const OrderDetailPage = () => {
                     </div>
                     <div>
                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">
-                        Người nhận
+                        Người nhận hàng
                       </p>
                       <p className="text-gray-900 dark:text-white font-bold">
                         {order.deliveryAddress.receiverName}
@@ -464,6 +468,87 @@ const OrderDetailPage = () => {
                         <Phone className="w-3 h-3" />
                         {order.deliveryAddress.phone}
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Branch / Store Info */}
+                <div className="space-y-4 border-t border-gray-100 dark:border-white/10 pt-4 md:border-t-0 md:pt-0">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600/10 flex items-center justify-center text-blue-600 shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">store</span>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                        Chi nhánh xử lý
+                      </p>
+                      <p className="text-gray-900 dark:text-white font-bold">
+                        {typeof order.storeId === 'object' && order.storeId
+                          ? (order.storeId.name || order.storeId.storeName || 'Chi nhánh phục vụ')
+                          : 'Chi nhánh chính'}
+                      </p>
+                      {typeof order.storeId === 'object' && order.storeId?.address && (
+                        <p className="text-gray-500 text-sm mt-1">
+                          {order.storeId.address}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Staff / Driver Info */}
+                <div className="space-y-4 border-t border-gray-100 dark:border-white/10 pt-4 md:border-t-0 md:pt-0">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-600 shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">moped</span>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                        Nhân viên giao hàng
+                      </p>
+                      {(() => {
+                        if (order.status === 'cancelled') {
+                          return (
+                            <p className="text-gray-400 dark:text-gray-500 text-sm italic font-medium">
+                              — (Đơn hàng đã hủy)
+                            </p>
+                          );
+                        }
+
+                        const driverName =
+                          order.deliveryInfo?.driverName ||
+                          (typeof order.deliveryInfo?.driverId === 'object'
+                            ? order.deliveryInfo?.driverId?.fullName || order.deliveryInfo?.driverId?.username
+                            : null);
+
+                        const driverPhone =
+                          order.deliveryInfo?.driverPhone ||
+                          (typeof order.deliveryInfo?.driverId === 'object'
+                            ? order.deliveryInfo?.driverId?.phone
+                            : null);
+
+                        if (driverName) {
+                          return (
+                            <>
+                              <p className="text-gray-900 dark:text-white font-bold">{driverName}</p>
+                              {driverPhone && (
+                                <div className="flex items-center gap-1 text-gray-500 text-sm mt-1">
+                                  <Phone className="w-3 h-3" />
+                                  {driverPhone}
+                                </div>
+                              )}
+                            </>
+                          );
+                        }
+
+                        return (
+                          <p className="text-gray-500 text-sm italic font-medium">
+                            {['shipping', 'delivering', 'delivered', 'completed'].includes(order.status)
+                              ? 'Đang phân công giao hàng'
+                              : 'Chưa phân công'}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -724,17 +809,17 @@ const OrderDetailPage = () => {
                 </div>
 
                 {/* Step 4: Đã giao */}
-                <div className="relative flex gap-4">
+                <div className={`relative flex gap-4 ${statusIdx >= 3 ? "step-active" : ""}`}>
                   <div
                     className={`z-10 size-6 rounded-full flex items-center justify-center ${
-                      statusIdx === 3
-                        ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
-                        : order.status === "delivered"
+                      statusIdx > 3
+                        ? "bg-green-500 text-white"
+                        : statusIdx === 3
                           ? "bg-orange-600 text-white ring-4 ring-orange-600/20 animate-pulse"
                           : "bg-gray-100 dark:bg-white/10 text-gray-400"
                     }`}
                   >
-                    {statusIdx === 3 ? (
+                    {statusIdx > 3 ? (
                       <span className="material-symbols-outlined text-[16px] font-bold">
                         check
                       </span>
@@ -748,15 +833,15 @@ const OrderDetailPage = () => {
                     <p
                       className={`text-sm font-bold ${
                         statusIdx === 3
-                          ? "text-green-600"
-                          : order.status === "delivered"
-                            ? "text-orange-600"
+                          ? "text-orange-600"
+                          : statusIdx > 3
+                            ? "text-gray-900 dark:text-white"
                             : "text-gray-400"
                       }`}
                     >
                       Đã giao
                     </p>
-                    {order.status === "delivered" && (
+                    {statusIdx === 3 && (
                       <p className="text-xs text-orange-600/70 font-semibold animate-pulse">
                         Chờ xác nhận nhận hàng
                       </p>
@@ -766,9 +851,41 @@ const OrderDetailPage = () => {
                         {formatMilestoneTime(milestoneTimes.delivered)}
                       </p>
                     )}
-                    {statusIdx === 3 && milestoneTimes.completed && (
-                      <p className="text-xs text-green-600/70 mt-0.5 font-bold">
-                        Hoàn thành: {formatMilestoneTime(milestoneTimes.completed)}
+                  </div>
+                </div>
+
+                {/* Step 5: Hoàn thành */}
+                <div className="relative flex gap-4">
+                  <div
+                    className={`z-10 size-6 rounded-full flex items-center justify-center ${
+                      statusIdx >= 4
+                        ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
+                        : "bg-gray-100 dark:bg-white/10 text-gray-400"
+                    }`}
+                  >
+                    {statusIdx >= 4 ? (
+                      <span className="material-symbols-outlined text-[16px] font-bold">
+                        check
+                      </span>
+                    ) : (
+                      <span className="material-symbols-outlined text-[16px]">
+                        task_alt
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p
+                      className={`text-sm font-bold ${
+                        statusIdx >= 4
+                          ? "text-green-600"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      Hoàn thành
+                    </p>
+                    {milestoneTimes.completed && (
+                      <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                        {formatMilestoneTime(milestoneTimes.completed)}
                       </p>
                     )}
                   </div>
@@ -777,9 +894,19 @@ const OrderDetailPage = () => {
 
               {/* Special status for Cancelled */}
               {order.status === "cancelled" && (
-                <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-xl flex items-center gap-3 text-red-600">
-                  <span className="material-symbols-outlined">cancel</span>
-                  <div className="text-sm font-bold">Đơn hàng đã hủy</div>
+                <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl flex flex-col gap-2 text-red-600 dark:text-red-300">
+                  <div className="flex items-center gap-2 font-bold text-base">
+                    <span className="material-symbols-outlined text-red-600">cancel</span>
+                    <span>Đơn hàng đã bị hủy</span>
+                  </div>
+                  <div className="text-sm pl-7 space-y-1">
+                    <p className="font-semibold">
+                      Lý do: <span className="font-normal text-slate-700 dark:text-slate-200">{order.cancellation?.reason || order.statusHistory?.find((h: any) => h.status === 'cancelled')?.reason || 'Không có lý do'}</span>
+                    </p>
+                    <p className="text-xs text-red-500/90 font-medium">
+                      Bởi: {order.cancellation?.cancelledBy === 'staff' ? 'Nhân viên cửa hàng' : order.cancellation?.cancelledBy === 'customer' ? 'Khách hàng' : 'Hệ thống'}
+                    </p>
+                  </div>
                 </div>
               )}
 

@@ -1,4 +1,4 @@
-import { Ticket, Clock, CheckCircle2, ChevronRight } from "lucide-react";
+import { Ticket, Clock, CheckCircle2, ChevronRight, Percent, Truck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -7,7 +7,7 @@ import voucherAPI from "@/services/voucher.service";
 import type { Voucher } from "@/types/voucher";
 
 // Định nghĩa Type chuẩn để bỏ @ts-ignore
-type ThemeType = 'orange' | 'amber' | 'emerald';
+type ThemeType = 'orange' | 'amber' | 'emerald' | 'rose';
 
 interface UIVoucher {
     id: string;
@@ -16,6 +16,8 @@ interface UIVoucher {
     desc: string;
     expiry: string;
     theme: ThemeType;
+    discount: string;
+    discountType: string;
 }
 
 const VoucherSection = () => {
@@ -24,7 +26,7 @@ const VoucherSection = () => {
 
     // State giả lập việc "Lưu mã"
     const [savedVouchers, setSavedVouchers] = useState<string[]>([]);
-    
+
     // State dữ liệu thật
     const [vouchers, setVouchers] = useState<UIVoucher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -40,10 +42,16 @@ const VoucherSection = () => {
                         let theme: ThemeType = 'orange';
                         if (v.category === 'freeship') theme = 'amber';
                         if (v.category === 'newuser') theme = 'emerald';
-                        
+                        if (v.category === 'special') theme = 'rose';
+
                         // Format date
                         const endDate = new Date(v.endAt);
                         const expiry = `Hết hạn: ${endDate.toLocaleDateString('vi-VN')}`;
+
+                        // Format discount
+                        const discount = v.discountType === 'percentage'
+                            ? `${v.discountValue}%`
+                            : `${(v.discountValue / 1000).toFixed(0)}K`;
 
                         return {
                             id: v._id,
@@ -51,7 +59,9 @@ const VoucherSection = () => {
                             title: v.title,
                             desc: v.description,
                             expiry,
-                            theme
+                            theme,
+                            discount,
+                            discountType: v.discountType,
                         };
                     });
                     setVouchers(mapped);
@@ -66,31 +76,43 @@ const VoucherSection = () => {
         fetchVouchers();
     }, []);
 
-    // Map class tĩnh cho Tailwind thay vì dùng split()
+    // Map class tĩnh cho Tailwind
     const themeStyles = {
         orange: {
-            headerBg: "bg-gradient-to-br from-orange-500 to-orange-400",
+            gradient: "from-orange-500 to-amber-500",
             iconBg: "bg-orange-600/20",
             badgeText: "text-orange-700",
             badgeBg: "bg-orange-100",
             btnDefault: "bg-orange-50 text-orange-700 hover:bg-orange-100/80",
             btnSaved: "bg-orange-500 text-white hover:bg-orange-600",
+            icon: Percent,
         },
         amber: {
-            headerBg: "bg-gradient-to-br from-amber-500 to-amber-400",
-            iconBg: "bg-amber-600/20",
-            badgeText: "text-amber-700",
-            badgeBg: "bg-amber-100",
-            btnDefault: "bg-amber-50 text-amber-700 hover:bg-amber-100/80",
-            btnSaved: "bg-amber-500 text-white hover:bg-amber-600",
+            gradient: "from-blue-500 to-cyan-500",
+            iconBg: "bg-blue-600/20",
+            badgeText: "text-blue-700",
+            badgeBg: "bg-blue-100",
+            btnDefault: "bg-blue-50 text-blue-700 hover:bg-blue-100/80",
+            btnSaved: "bg-blue-500 text-white hover:bg-blue-600",
+            icon: Truck,
         },
         emerald: {
-            headerBg: "bg-gradient-to-br from-emerald-500 to-emerald-400",
-            iconBg: "bg-emerald-600/20",
-            badgeText: "text-emerald-700",
-            badgeBg: "bg-emerald-100",
-            btnDefault: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80",
-            btnSaved: "bg-emerald-500 text-white hover:bg-emerald-600",
+            gradient: "from-violet-500 to-purple-500",
+            iconBg: "bg-violet-600/20",
+            badgeText: "text-violet-700",
+            badgeBg: "bg-violet-100",
+            btnDefault: "bg-violet-50 text-violet-700 hover:bg-violet-100/80",
+            btnSaved: "bg-violet-500 text-white hover:bg-violet-600",
+            icon: Sparkles,
+        },
+        rose: {
+            gradient: "from-rose-500 to-pink-500",
+            iconBg: "bg-rose-600/20",
+            badgeText: "text-rose-700",
+            badgeBg: "bg-rose-100",
+            btnDefault: "bg-rose-50 text-rose-700 hover:bg-rose-100/80",
+            btnSaved: "bg-rose-500 text-white hover:bg-rose-600",
+            icon: Ticket,
         },
     };
 
@@ -136,18 +158,20 @@ const VoucherSection = () => {
                 {vouchers.map((vc, idx) => {
                     const styles = themeStyles[vc.theme];
                     const isSaved = savedVouchers.includes(vc.code);
+                    const IconComp = styles.icon;
 
                     return (
                         <div
                             key={idx}
-                            onClick={() => navigate(`/vouchers/${vc.code}`)}
+                            onClick={() => navigate(`/vouchers/${vc.id || vc.code}`)}
                             className="relative flex flex-col bg-white rounded-[24px] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden border border-slate-100 group"
                         >
                             {/* Phần Header Vé (Nửa trên) */}
-                            <div className={`relative p-5 ${styles.headerBg} text-white overflow-hidden`}>
-                                {/* Pattern mờ */}
-                                <div className="absolute right-[-10px] top-[-20px] opacity-10 rotate-12 pointer-events-none">
-                                    <Ticket className="w-32 h-32" />
+                            <div className={`relative p-5 bg-gradient-to-br ${styles.gradient} text-white overflow-hidden`}>
+                                {/* Background pattern */}
+                                <div className="absolute inset-0 opacity-10 pointer-events-none">
+                                    <div className="absolute -right-4 -top-4 w-20 h-20 border-[2px] border-white rounded-full" />
+                                    <div className="absolute -left-3 -bottom-3 w-16 h-16 border-[2px] border-white rounded-full" />
                                 </div>
 
                                 <div className="relative z-10 flex justify-between items-start">
@@ -155,26 +179,30 @@ const VoucherSection = () => {
                                         MÃ: {vc.code}
                                     </div>
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md ${styles.iconBg}`}>
-                                        <Ticket className="w-4 h-4 text-white" />
+                                        <IconComp className="w-4 h-4 text-white" />
                                     </div>
                                 </div>
 
-                                <div className="relative z-10 mt-4">
-                                    <h3 className="text-2xl font-black leading-tight drop-shadow-sm">{vc.title}</h3>
+                                <div className="relative z-10 mt-3 flex items-end justify-between">
+                                    <h3 className="text-lg font-black leading-tight drop-shadow-sm flex-1 mr-3">{vc.title}</h3>
+                                    <div className="text-right shrink-0">
+                                        <div className="text-3xl font-black leading-none drop-shadow-md">{vc.discount}</div>
+                                        <div className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70 mt-0.5">Giảm</div>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Dải phân cách vé (Nét đứt + Lỗ tròn cắt) */}
-                            <div className="relative h-4 w-full bg-white flex items-center">
-                                {/* Lỗ tròn bên trái. Lưu ý: bg-slate-50 phải trùng với màu nền của trang (HomePage) */}
-                                <div className="absolute -left-2 w-4 h-4 rounded-full bg-slate-50 border-r border-slate-200/50 z-10"></div>
-                                <div className="w-full border-t-[1.5px] border-dashed border-slate-200 mx-3"></div>
+                            <div className="relative h-5 w-full bg-white flex items-center">
+                                {/* Lỗ tròn bên trái */}
+                                <div className="absolute -left-2.5 w-5 h-5 rounded-full bg-slate-50 border-r border-slate-200/60 z-10" />
+                                <div className="w-full border-t-[1.5px] border-dashed border-slate-200 mx-4" />
                                 {/* Lỗ tròn bên phải */}
-                                <div className="absolute -right-2 w-4 h-4 rounded-full bg-slate-50 border-l border-slate-200/50 z-10"></div>
+                                <div className="absolute -right-2.5 w-5 h-5 rounded-full bg-slate-50 border-l border-slate-200/60 z-10" />
                             </div>
 
                             {/* Phần Chi tiết (Nửa dưới) */}
-                            <div className="p-5 pt-2 flex flex-col flex-1 bg-white">
+                            <div className="p-5 pt-1 flex flex-col flex-1 bg-white">
                                 <p className="text-[13px] text-slate-500 font-medium line-clamp-2 leading-relaxed mb-4 flex-1">
                                     {vc.desc}
                                 </p>

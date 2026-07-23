@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import NotificationModel from '@/models/notification.model';
 
 export const getMyNotifications = async (req: any, res: any) => {
@@ -24,9 +25,18 @@ export const getUnreadNotificationCount = async (req: any, res: any) => {
 };
 
 export const markNotificationAsRead = async (req: any, res: any) => {
+  const { id } = req.params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id) || id.startsWith('temp-')) {
+    return res.json({
+      success: true,
+      data: null,
+    });
+  }
+
   const notification = await NotificationModel.findOneAndUpdate(
     {
-      _id: req.params.id,
+      _id: id,
       userId: req.userId,
     },
     {

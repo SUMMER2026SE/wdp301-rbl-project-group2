@@ -601,6 +601,9 @@ export const placeOrder = async (userId: mongoose.Types.ObjectId, input: TPlaceO
 export const getUserOrders = async (userId: mongoose.Types.ObjectId) => {
   const orders = await OrderModel.find({ cusId: userId })
     .sort({ createdAt: -1 })
+    .populate('storeId', 'name address district location phone')
+    .populate('deliveryInfo.driverId', 'username fullName phone')
+    .populate('staffId', 'username fullName phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -650,6 +653,9 @@ export const getOrders = async (query: any = {}) => {
     .skip(skip)
     .limit(safeLimit)
     .populate('cusId', 'username fullName email phone')
+    .populate('storeId', 'name address district location phone')
+    .populate('deliveryInfo.driverId', 'username fullName phone')
+    .populate('staffId', 'username fullName phone')
     .populate({
       path: 'items.productId',
       select: 'name image price',
@@ -666,10 +672,15 @@ export const getOrderById = async (idOrCode: string) => {
       ? { $or: [{ code: idOrCode }, { 'payment.payosOrderCode': Number(idOrCode) }] }
       : { code: idOrCode };
 
-  const order = await OrderModel.findOne(query).populate('cusId', 'username fullName email phone').populate({
-    path: 'items.productId',
-    select: 'name image price',
-  });
+  const order = await OrderModel.findOne(query)
+    .populate('cusId', 'username fullName email phone')
+    .populate('storeId', 'name address district location phone')
+    .populate('deliveryInfo.driverId', 'username fullName phone')
+    .populate('staffId', 'username fullName phone')
+    .populate({
+      path: 'items.productId',
+      select: 'name image price',
+    });
 
   appAssert(order, NOT_FOUND, 'Không tìm thấy đơn hàng');
   return order;
@@ -1061,7 +1072,11 @@ export const completeOrderInternal = async (orderId: string, actorId?: mongoose.
       $push: {
         statusHistory: {
           status: OrderStatus.COMPLETED,
-          changedBy: actorId || (order.cusId as any)?._id || order.cusId || new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
+          changedBy:
+            actorId ||
+            (order.cusId as any)?._id ||
+            order.cusId ||
+            new mongoose.Types.ObjectId('60c72b2f9b1d8b2a3c8b4567'),
           actorRole,
           createdAt: completedAt,
         },

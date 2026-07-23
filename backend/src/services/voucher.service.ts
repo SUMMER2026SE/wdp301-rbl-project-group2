@@ -277,13 +277,13 @@ export const getAllVouchers = async (
 };
 
 export const getVoucherById = async (id: string) => {
-  appAssert(mongoose.Types.ObjectId.isValid(id), BAD_REQUEST, 'Voucher ID không hợp lệ');
+  const trimmed = id.trim();
+  if (mongoose.Types.ObjectId.isValid(trimmed)) {
+    const voucher = await VoucherModel.findById(trimmed);
+    if (voucher) return voucher;
+  }
 
-  const voucher = await VoucherModel.findById(id);
-
-  appAssert(voucher, NOT_FOUND, 'Không tìm thấy voucher');
-
-  return voucher;
+  return getVoucherByCode(trimmed);
 };
 
 export const getVoucherByCode = async (code: string) => {

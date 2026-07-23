@@ -95,18 +95,37 @@ const fallbackStaff = [
   { name: "Lê Hoàng C", "Đơn hoàn thành": 15, "Doanh thu": 2450000, "Doanh thu (k₫)": 2450 },
 ];
 
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const getBangkokDateKey = (date: Date) =>
+  new Date(date.getTime() + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);
+
+const shiftDateKey = (dateKey: string, days: number) => {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const getOrderCompletedAt = (order: Order) => {
+  const history = [...(order.statusHistory ?? [])]
+    .reverse()
+    .find((entry) => entry?.status === "completed" && entry?.createdAt);
+
+  return new Date(history?.createdAt ?? order.deliveryInfo?.deliveredAt ?? order.updatedAt);
+};
+
 const getTodayHourlyData = (completedOrders: Order[]) => {
   const hours = [8, 10, 12, 14, 16, 18, 20, 22];
-  const todayStr = new Date().toDateString();
+  const todayStr = getBangkokDateKey(new Date());
   const todayOrders = completedOrders.filter(
-    (o) => new Date(o.createdAt).toDateString() === todayStr
+    (o) => getBangkokDateKey(getOrderCompletedAt(o)) === todayStr
   );
 
   return hours.map((hour) => {
     const label = `${hour.toString().padStart(2, "0")}:00`;
     const total = todayOrders
       .filter((o) => {
-        const h = new Date(o.createdAt).getHours();
+        const h = new Date(getOrderCompletedAt(o).getTime() + BANGKOK_OFFSET_MS).getUTCHours();
         return h >= hour && h < hour + 2;
       })
       .reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
@@ -115,34 +134,37 @@ const getTodayHourlyData = (completedOrders: Order[]) => {
 };
 
 const getWeeklyData = (completedOrders: Order[]) => {
-  const days = [];
+  const days: string[] = [];
+  const todayKey = getBangkokDateKey(new Date());
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d);
+    days.push(shiftDateKey(todayKey, -i));
   }
-  return days.map((day) => {
-    const dateStr = day.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric" });
-    const dateKey = day.toDateString();
+  return days.map((dateKey) => {
+    const dateStr = new Date(`${dateKey}T00:00:00.000+07:00`).toLocaleDateString("vi-VN", {
+      weekday: "short",
+      day: "numeric",
+      timeZone: "Asia/Bangkok",
+    });
     const total = completedOrders
-      .filter((o) => new Date(o.createdAt).toDateString() === dateKey)
+      .filter((o) => getBangkokDateKey(getOrderCompletedAt(o)) === dateKey)
       .reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
     return { name: dateStr, "Doanh thu": total };
   });
 };
 
 const getMonthlyData = (completedOrders: Order[]) => {
-  const days = [];
+  const days: string[] = [];
+  const todayKey = getBangkokDateKey(new Date());
   for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d);
+    days.push(shiftDateKey(todayKey, -i));
   }
-  return days.map((day) => {
-    const dateStr = day.toLocaleDateString("vi-VN", { day: "numeric" });
-    const dateKey = day.toDateString();
+  return days.map((dateKey) => {
+    const dateStr = new Date(`${dateKey}T00:00:00.000+07:00`).toLocaleDateString("vi-VN", {
+      day: "numeric",
+      timeZone: "Asia/Bangkok",
+    });
     const total = completedOrders
-      .filter((o) => new Date(o.createdAt).toDateString() === dateKey)
+      .filter((o) => getBangkokDateKey(getOrderCompletedAt(o)) === dateKey)
       .reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
     return { name: dateStr, "Doanh thu": total };
   });
@@ -214,7 +236,7 @@ const ManagerDashboard = () => {
       orders.filter(
         (o) =>
           o.status === "completed" &&
-          new Date(o.createdAt).toDateString() === new Date().toDateString(),
+          getBangkokDateKey(getOrderCompletedAt(o)) === getBangkokDateKey(new Date()),
       ),
     [orders],
   );

@@ -18,14 +18,18 @@ const IN_PROGRESS_STATUSES = [
   OrderStatus.DELIVERED,
 ];
 
-const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
-const startOfWeek = (date = new Date()) => {
-  const day = date.getDay() || 7;
-  const start = startOfDay(date);
-  start.setDate(start.getDate() - day + 1);
-  return start;
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const formatBangkokDate = (date = new Date()) => {
+  const bangkokTime = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return bangkokTime.toISOString().slice(0, 10);
 };
-const startOfMonth = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), 1);
+
+const shiftDateText = (dateText: string, days: number) => {
+  const date = new Date(`${dateText}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 const codPaymentFilter = {
   $or: [{ 'payment.method': PaymentMethod.CASH }, { paymentMethod: PaymentMethod.CASH }],
@@ -37,15 +41,78 @@ const DEFAULT_OPEN_HOURS = { open: '08:00', close: '22:00' };
 
 const normalizeDateParam = (value: unknown) => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Date().toISOString().slice(0, 10);
+    return formatBangkokDate();
   }
   return value;
 };
 
 const getDayRange = (dateText: string) => {
   const start = new Date(`${dateText}T00:00:00.000+07:00`);
-  const end = new Date(`${dateText}T23:59:59.999+07:00`);
+  const end = new Date(`${shiftDateText(dateText, 1)}T00:00:00.000+07:00`);
   return { start, end };
+};
+
+const getDashboardRevenueRanges = (date = new Date()) => {
+  const todayText = formatBangkokDate(date);
+  const todayDayOfWeek = new Date(`${todayText}T00:00:00.000Z`).getUTCDay() || 7;
+  const weekStartText = shiftDateText(todayText, 1 - todayDayOfWeek);
+  const monthStartText = `${todayText.slice(0, 7)}-01`;
+
+  return {
+    today: getDayRange(todayText),
+    week: {
+      start: new Date(`${weekStartText}T00:00:00.000+07:00`),
+      end: getDayRange(todayText).end,
+    },
+    month: {
+      start: new Date(`${monthStartText}T00:00:00.000+07:00`),
+      end: getDayRange(todayText).end,
+    },
+  };
+};
+
+const buildCompletedAtRangeFilter = (start: Date, end: Date) => {
+  const noCompletedHistory = {
+    statusHistory: { $not: { $elemMatch: { status: OrderStatus.COMPLETED } } },
+  };
+  const range = { $gte: start, $lt: end };
+
+  return {
+    $or: [
+      {
+        statusHistory: {
+          $elemMatch: {
+            status: OrderStatus.COMPLETED,
+            createdAt: range,
+          },
+        },
+      },
+      {
+        $and: [noCompletedHistory, { 'deliveryInfo.deliveredAt': range }],
+      },
+      {
+        $and: [
+          noCompletedHistory,
+          { $nor: [{ 'deliveryInfo.deliveredAt': { $type: 'date' } }] },
+          { updatedAt: range },
+        ],
+      },
+    ],
+  };
+};
+
+type CompletionOrderLike = {
+  statusHistory?: Array<{ status?: string; createdAt?: Date | string }>;
+  deliveryInfo?: { deliveredAt?: Date | string | null };
+  updatedAt: Date | string;
+};
+
+const getCompletedAt = (order: CompletionOrderLike): Date => {
+  const completedHistory = [...(order.statusHistory ?? [])]
+    .reverse()
+    .find((entry) => entry.status === OrderStatus.COMPLETED && entry.createdAt);
+
+  return new Date(completedHistory?.createdAt ?? order.deliveryInfo?.deliveredAt ?? order.updatedAt);
 };
 
 const getStoreSettingsOrDefault = async (storeId: mongoose.Types.ObjectId) => {
@@ -73,11 +140,12 @@ const getDriverDisplay = (deliveryInfo: any) => {
   };
 };
 
-const sumCompletedRevenue = async (storeId: mongoose.Types.ObjectId, from: Date) => {
+const sumCompletedRevenue = async (storeId: mongoose.Types.ObjectId, start: Date, end: Date) => {
+  const completedAtFilter = buildCompletedAtRangeFilter(start, end);
   const orders = await OrderModel.find({
     storeId: storeId,
     status: OrderStatus.COMPLETED,
-    updatedAt: { $gte: from },
+    ...completedAtFilter,
   }).select('totalPrice');
 
   return orders.reduce((total, order) => total + getOrderTotal(order), 0);
@@ -90,12 +158,13 @@ const mapCashOrder = (order: any) => ({
   paymentMethod: order.paymentMethod,
   payment: order.payment,
   deliveryInfo: order.deliveryInfo,
-  completedAt: order.updatedAt,
+  completedAt: getCompletedAt(order),
   createdAt: order.createdAt,
   customer: order.cusId,
 });
 
 export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectId) => {
+  const revenueRanges = getDashboardRevenueRanges();
   const [newOrders, inProgress, completed, cancelled, completedOrders, today, week, month, codPendingOrders, products] =
     await Promise.all([
       OrderModel.countDocuments({ storeId: storeId, status: OrderStatus.PENDING }),
@@ -105,9 +174,9 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
       OrderModel.find({ storeId: storeId, status: OrderStatus.COMPLETED }).select(
         'createdAt updatedAt totalPrice payment paymentMethod deliveryInfo statusHistory'
       ),
-      sumCompletedRevenue(storeId, startOfDay()),
-      sumCompletedRevenue(storeId, startOfWeek()),
-      sumCompletedRevenue(storeId, startOfMonth()),
+      sumCompletedRevenue(storeId, revenueRanges.today.start, revenueRanges.today.end),
+      sumCompletedRevenue(storeId, revenueRanges.week.start, revenueRanges.week.end),
+      sumCompletedRevenue(storeId, revenueRanges.month.start, revenueRanges.month.end),
       OrderModel.find({
         storeId: storeId,
         status: OrderStatus.COMPLETED,
@@ -121,7 +190,7 @@ export const getManagerDashboardMetrics = async (storeId: mongoose.Types.ObjectI
     ? Math.round(
         completedOrders.reduce((total, order) => {
           const start = order.createdAt ? new Date(order.createdAt).getTime() : 0;
-          const end = order.updatedAt ? new Date(order.updatedAt).getTime() : start;
+          const end = getCompletedAt(order).getTime();
           return total + Math.max(0, end - start) / 60000;
         }, 0) / completedOrders.length
       )
@@ -235,18 +304,14 @@ export const getManagerCashOverview = async (storeId: mongoose.Types.ObjectId, d
   const selectedDate = normalizeDateParam(dateParam);
   const { start, end } = getDayRange(selectedDate);
   const settings = await getStoreSettingsOrDefault(storeId);
+  const completedAtFilter = buildCompletedAtRangeFilter(start, end);
 
   const cashOrders = await OrderModel.find({
     storeId: storeId,
     status: OrderStatus.COMPLETED,
-    ...codPaymentFilter,
-    $or: [
-      { 'deliveryInfo.deliveredAt': { $gte: start, $lte: end } },
-      { 'deliveryInfo.deliveredAt': null, updatedAt: { $gte: start, $lte: end } },
-      { 'deliveryInfo.deliveredAt': { $exists: false }, updatedAt: { $gte: start, $lte: end } },
-    ],
+    $and: [codPaymentFilter, completedAtFilter],
   })
-    .select('code totalPrice payment paymentMethod deliveryInfo createdAt updatedAt cusId')
+    .select('code totalPrice payment paymentMethod deliveryInfo statusHistory createdAt updatedAt cusId')
     .populate('cusId', 'username fullName email phone')
     .populate('deliveryInfo.driverId', 'username fullName phone')
     .sort({ updatedAt: -1 });
@@ -280,17 +345,14 @@ export const getManagerCashOverview = async (storeId: mongoose.Types.ObjectId, d
   }, {});
 
   const dailyTotals = collectedOrders.reduce<Record<string, number>>((totals, order) => {
-    const collectedAt = order.payment?.cashCollectedAt ?? order.updatedAt;
-    const day = new Date(collectedAt).toISOString().slice(0, 10);
+    const day = formatBangkokDate(getCompletedAt(order));
     totals[day] = (totals[day] ?? 0) + getOrderTotal(order);
     return totals;
   }, {});
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatBangkokDate();
   const closeTime = settings.openHours.close;
-  const [closeHour, closeMinute] = closeTime.split(':').map(Number);
-  const closeAt = new Date();
-  closeAt.setHours(closeHour, closeMinute, 0, 0);
+  const closeAt = new Date(`${today}T${closeTime}:00.000+07:00`);
   const shouldWarnCloseout = selectedDate === today && totalPending > 0 && new Date() >= closeAt;
 
   return {

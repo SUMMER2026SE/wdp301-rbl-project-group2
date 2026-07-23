@@ -89,7 +89,8 @@ const TrackOrderPage = () => {
             case 'confirmed': return 'confirmed';
             case 'processing':
             case 'ready_for_delivery': return 'preparing';
-            case 'shipping': return 'delivering';
+            case 'shipping':
+            case 'delivering': return 'delivering';
             case 'delivered': return 'delivered';
             case 'completed': return 'completed';
             default: return 'pending';
@@ -142,8 +143,8 @@ const TrackOrderPage = () => {
             case 'confirmed': return "Nhà hàng đã xác nhận đơn";
             case 'processing': return "Đầu bếp đang chuẩn bị món";
             case 'ready_for_delivery': return "Món ăn đã sẵn sàng giao";
-            case 'shipping': return "Shipper đang trên đường tới";
-            case 'delivered': return "Đơn hàng đã được giao tới bạn";
+            case 'shipping': return "Shipper đang trên đường giao hàng";
+            case 'delivered': return "Đã giao đến nơi (Vui lòng xác nhận)";
             case 'completed': return "Đã giao hàng thành công";
             case 'cancelled': return "Đơn hàng đã bị hủy";
             default: return "Đang cập nhật tiến trình";
@@ -233,10 +234,19 @@ const TrackOrderPage = () => {
                         {/* Progress Timeline */}
                         <div className="bg-white dark:bg-white/5 p-8 rounded-3xl shadow-sm border border-[#f4ece6] dark:border-white/10">
                             {order.status === 'cancelled' ? (
-                                <div className="flex flex-col items-center py-6">
+                                <div className="flex flex-col items-center py-6 text-center">
                                     <span className="material-symbols-outlined text-red-500 text-6xl mb-4">error_outline</span>
                                     <p className="text-xl font-bold text-red-600">Đơn hàng đã bị hủy</p>
-                                    <p className="text-slate-500 text-sm mt-2">Chúng tôi rất tiếc về sự bất tiện này.</p>
+                                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-2xl max-w-md w-full text-left">
+                                        <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                            Lý do hủy: <span className="font-normal text-slate-800 dark:text-slate-200">{order.cancellation?.reason || order.statusHistory?.find((h: any) => h.status === 'cancelled')?.reason || 'Không có lý do'}</span>
+                                        </p>
+                                        {order.cancellation?.cancelledBy && (
+                                            <p className="text-xs text-red-500 dark:text-red-400 mt-1 font-medium">
+                                                Hủy bởi: {order.cancellation.cancelledBy === 'staff' ? 'Nhân viên cửa hàng' : 'Khách hàng'}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <OrderTimeline currentStep={mapStatusToStep(order.status)} order={order} />
@@ -291,6 +301,67 @@ const TrackOrderPage = () => {
                                         <p className="text-sm text-slate-500 leading-snug">{order.deliveryAddress.detail}, {order.deliveryAddress.ward}, {order.deliveryAddress.city}</p>
                                     </div>
                                 </div>
+
+                                <div className="flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-blue-600 mt-0.5">store</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Chi nhánh giao hàng</p>
+                                        <p className="text-sm font-bold">
+                                            {typeof order.storeId === 'object' && order.storeId
+                                                ? (order.storeId.name || order.storeId.storeName || 'Chi nhánh phục vụ')
+                                                : 'Chi nhánh chính'}
+                                        </p>
+                                        {typeof order.storeId === 'object' && order.storeId?.address && (
+                                            <p className="text-sm text-slate-500 leading-snug">{order.storeId.address}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-emerald-600 mt-0.5">moped</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Nhân viên giao hàng</p>
+                                        {(() => {
+                                            if (order.status === 'cancelled') {
+                                                return (
+                                                    <p className="text-sm italic text-slate-400 font-medium">
+                                                        — (Đơn hàng đã hủy)
+                                                    </p>
+                                                );
+                                            }
+
+                                            const driverName =
+                                                order.deliveryInfo?.driverName ||
+                                                (typeof order.deliveryInfo?.driverId === 'object'
+                                                    ? order.deliveryInfo?.driverId?.fullName || order.deliveryInfo?.driverId?.username
+                                                    : null);
+
+                                            const driverPhone =
+                                                order.deliveryInfo?.driverPhone ||
+                                                (typeof order.deliveryInfo?.driverId === 'object'
+                                                    ? order.deliveryInfo?.driverId?.phone
+                                                    : null);
+
+                                            if (driverName) {
+                                                return (
+                                                    <>
+                                                        <p className="text-sm font-bold">{driverName}</p>
+                                                        {driverPhone && <p className="text-sm text-slate-500">{driverPhone}</p>}
+                                                    </>
+                                                );
+                                            }
+
+                                            return (
+                                                <p className="text-sm italic text-slate-500 font-medium">
+                                                    {['shipping', 'delivering', 'delivered', 'completed'].includes(order.status)
+                                                        ? 'Đang phân công giao hàng'
+                                                        : 'Chưa phân công'}
+                                                </p>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+
                                 <div className="flex items-start gap-3">
                                     <span className="material-symbols-outlined text-orange-600 mt-0.5">info</span>
                                     <div>

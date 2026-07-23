@@ -16,10 +16,11 @@ import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
 import { startEmailWorker } from '@/jobs/email-queue';
 import { startChatPreferenceWorker } from '@/jobs/chat-preference-queue';
+import { setNotificationSocketIO } from '@/services/notification.service';
 import { warnIfDeprecatedChatModel } from '@/services/ai-model-registry.service';
 
 
-// dns.setServers(['8.8.8.8', '1.1.1.1']);
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const app = express();
 //middleware
@@ -28,8 +29,10 @@ const allowedOrigins = [
   'https://fefoa.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:49152',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:49152',
 ];
 
 const corsOptions: cors.CorsOptions = {
@@ -68,6 +71,7 @@ export const io = new Server(server, {
 });
 
 app.set('io', io);
+setNotificationSocketIO(io);
 
 io.on('connection', async (socket) => {
   // Auth from cookie or bearer token for mobile clients.
@@ -110,7 +114,7 @@ io.on('connection', async (socket) => {
     } else {
       console.debug(`[Socket] Connected UNAUTHENTICATED (no payload) socketId=${socket.id}`);
     }
-  } catch (e) {}
+  } catch (e) { }
 
   socket.on('support:join', async (conversationId: string, cb?: (ok: boolean) => void) => {
     const userId = socket.data.userId as string | undefined;
@@ -194,8 +198,8 @@ cron.schedule('* * * * *', async () => {
 server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await connectToDatabase();
-  
-  // Khởi chạy hàng đợi gửi mail chạy ngầm
+
+  // Khởi chạy hàng đợi chạy ngầm (BullMQ + Redis)
   startEmailWorker();
   startChatPreferenceWorker();
   warnIfDeprecatedChatModel();

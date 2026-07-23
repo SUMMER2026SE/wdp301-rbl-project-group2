@@ -14,13 +14,13 @@ export interface OrderTimelineProps {
 
 // ---- Config ----
 
-const STEPS: { key: OrderStep; icon: string }[] = [
-    { key: 'pending', icon: 'hourglass_empty' },
-    { key: 'confirmed', icon: 'check_circle' },
-    { key: 'preparing', icon: 'skillet' },
-    { key: 'delivering', icon: 'delivery_dining' },
-    { key: 'delivered', icon: 'home' },
-    { key: 'completed', icon: 'task_alt' },
+const STEPS: { key: OrderStep; icon: string; defaultLabel: string }[] = [
+    { key: 'pending', icon: 'hourglass_empty', defaultLabel: 'Chờ xác nhận' },
+    { key: 'confirmed', icon: 'check_circle', defaultLabel: 'Đã xác nhận' },
+    { key: 'preparing', icon: 'skillet', defaultLabel: 'Đang chuẩn bị' },
+    { key: 'delivering', icon: 'delivery_dining', defaultLabel: 'Đang giao' },
+    { key: 'delivered', icon: 'home', defaultLabel: 'Đã giao' },
+    { key: 'completed', icon: 'task_alt', defaultLabel: 'Hoàn thành' },
 ];
 
 // ---- Helpers ----
@@ -137,7 +137,7 @@ export function OrderTimeline({ currentStep, order, className }: OrderTimelinePr
                                 isActive && 'text-orange-600 dark:text-orange-400 font-bold text-base',
                                 isUpcoming && 'text-muted-foreground'
                             )}>
-                                {t(`tracking.status.${step.key}`)}
+                                {t(`tracking.status.${step.key}`, step.defaultLabel)}
                             </p>
                             {stepTime && (
                                 <p className="text-xs text-muted-foreground/80 mt-1 font-medium">
@@ -146,12 +146,18 @@ export function OrderTimeline({ currentStep, order, className }: OrderTimelinePr
                             )}
                             {isActive && (
                                 <p className={cn(
-                                    "text-xs mt-1 animate-pulse",
-                                    step.key === 'delivered' ? "text-orange-600 dark:text-orange-400 font-semibold" : "text-muted-foreground"
+                                    "text-xs mt-1 font-medium",
+                                    step.key === 'delivered'
+                                        ? "text-orange-600 dark:text-orange-400 font-semibold animate-pulse"
+                                        : step.key === 'completed'
+                                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                                            : "text-muted-foreground animate-pulse"
                                 )}>
                                     {step.key === 'delivered'
-                                        ? t('tracking.confirmReceiptPrompt', 'Vui lòng xác nhận đã nhận hàng')
-                                        : t('tracking.inProgress', 'Đang xử lý...')}
+                                        ? t('tracking.deliveredPendingConfirm', 'Đã giao tới nơi (Vui lòng xác nhận nhận hàng)')
+                                        : step.key === 'completed'
+                                            ? t('tracking.completedSuccess', 'Đơn hàng đã hoàn thành')
+                                            : t('tracking.inProgress', 'Đang xử lý...')}
                                 </p>
                             )}
                         </div>

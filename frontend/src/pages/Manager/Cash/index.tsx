@@ -39,7 +39,16 @@ const getCustomerName = (customer: unknown) => {
   return "Khách lẻ";
 };
 
-const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const toDateInputValue = (date: Date) =>
+  new Date(date.getTime() + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);
+
+const shiftDateInputValue = (dateText: string, days: number) => {
+  const date = new Date(`${dateText}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 const ManagerCash = () => {
   const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()));
@@ -166,7 +175,7 @@ const ManagerCash = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setSelectedDate(toDateInputValue(new Date()))} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 hover:border-orange-300 hover:text-orange-600">Hôm nay</button>
-          <button type="button" onClick={() => { const date = new Date(); date.setDate(date.getDate() - 1); setSelectedDate(toDateInputValue(date)); }} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 hover:border-orange-300 hover:text-orange-600">Hôm qua</button>
+          <button type="button" onClick={() => setSelectedDate(shiftDateInputValue(toDateInputValue(new Date()), -1))} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 hover:border-orange-300 hover:text-orange-600">Hôm qua</button>
           <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 outline-none focus:border-orange-400" />
         </div>
       </div>
