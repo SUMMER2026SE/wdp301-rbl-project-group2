@@ -101,7 +101,14 @@ const resolveRecipeItems = async (recipe: Array<{ ingredientId?: string; ingredi
 
 export async function applyCampaignPricing<T extends { _id: any; price: number }>(
   products: T[]
-): Promise<(T & { campaignPrice?: number })[]> {
+): Promise<(T & {
+  campaignPrice?: number;
+  isCampaignRunning?: boolean;
+  campaignName?: string;
+  campaignEndTime?: Date;
+  campaignDiscount?: number | null;
+  campaignFixedPrice?: number | null;
+})[]> {
   if (!products.length) return products;
   const now = new Date();
   const campaigns = await CampaignModel.find({
@@ -113,12 +120,24 @@ export async function applyCampaignPricing<T extends { _id: any; price: number }
     return products.map((p) => ({ ...p, isCampaignRunning: false }));
   }
 
-  const pricingMap = new Map<string, { discount?: number | null; fixedPrice?: number | null; type: string }>();
+  const pricingMap = new Map<string, {
+    discount?: number | null;
+    fixedPrice?: number | null;
+    type: string;
+    campaignName: string;
+    campaignEndTime: Date;
+  }>();
   for (const c of campaigns) {
     for (const item of c.products) {
       const pid = item.productId.toString();
       if (!pricingMap.has(pid)) {
-        pricingMap.set(pid, { discount: item.discount, fixedPrice: item.fixedPrice, type: c.type });
+        pricingMap.set(pid, {
+          discount: item.discount,
+          fixedPrice: item.fixedPrice,
+          type: c.type,
+          campaignName: c.name,
+          campaignEndTime: c.endTime,
+        });
       }
     }
   }
@@ -132,8 +151,16 @@ export async function applyCampaignPricing<T extends { _id: any; price: number }
     } else if (rule.discount != null) {
       campaignPrice = Math.round(p.price * (1 - rule.discount / 100));
     }
-    return campaignPrice != null 
-      ? { ...p, campaignPrice, isCampaignRunning: true } 
+    return campaignPrice != null
+      ? {
+          ...p,
+          campaignPrice,
+          isCampaignRunning: true,
+          campaignName: rule.campaignName,
+          campaignEndTime: rule.campaignEndTime,
+          campaignDiscount: rule.discount,
+          campaignFixedPrice: rule.fixedPrice,
+        }
       : { ...p, isCampaignRunning: false };
   });
 }

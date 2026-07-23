@@ -20,19 +20,49 @@ interface DeterministicChatInput {
 const formatVnd = (amount?: number | null) => `${Number(amount || 0).toLocaleString('vi-VN')}đ`;
 const emptyRecommendations = (): unknown[] => [];
 
+const getSalePrice = (campaign: any, item: any, basePrice: number) => {
+  if (campaign.type === 'fixed_price' && item.fixedPrice != null) return Number(item.fixedPrice);
+  if (item.discount != null) return Math.round(basePrice * (1 - Number(item.discount) / 100));
+  return null;
+};
+
+const isProductActiveAtStore = (product: any, storeId?: string) => {
+  if (product?.isAvailable === false) return false;
+  if (!storeId || !mongoose.Types.ObjectId.isValid(storeId)) return true;
+
+  const availability = Array.isArray(product.storeAvailability) ? product.storeAvailability : [];
+  return availability.some((item: any) =>
+    item.storeId?.toString() === storeId && item.status === 'active'
+  );
+};
+
 const isVoucherQuestion = (message: string) =>
   /\b(voucher|ma giam gia|ma khuyen mai|coupon|uu dai cua toi|voucher cua toi)\b/.test(normalizeVietnameseText(message));
 
 const isStoreQuestion = (message: string) =>
   /\b(chi nhanh|cua hang|dia chi|gan nhat|store|branch)\b/.test(normalizeVietnameseText(message));
 
-const listActiveCampaigns = async () => {
+const getCampaignMatch = (storeId?: string) => {
   const now = new Date();
-  return CampaignModel.find({
+  const match: any = {
     status: { $in: ['APPROVED', 'approved'] },
     startTime: { $lte: now },
     endTime: { $gte: now },
-  })
+  };
+
+  if (storeId && mongoose.Types.ObjectId.isValid(storeId)) {
+    match.$or = [
+      { storeIds: { $exists: false } },
+      { storeIds: { $size: 0 } },
+      { storeIds: new mongoose.Types.ObjectId(storeId) },
+    ];
+  }
+
+  return match;
+};
+
+const listActiveCampaigns = async (storeId?: string) => {
+  return CampaignModel.find(getCampaignMatch(storeId))
     .select('name type discount fixedPrice startTime endTime products')
     .sort({ endTime: 1 })
     .limit(5)
@@ -40,8 +70,8 @@ const listActiveCampaigns = async () => {
     .maxTimeMS(800);
 };
 
-const buildCampaignResponse = async (): Promise<DeterministicChatResponse> => {
-  const campaigns = await listActiveCampaigns();
+const buildCampaignResponse = async (storeId?: string): Promise<DeterministicChatResponse> => {
+  const campaigns = await listActiveCampaigns(storeId);
   if (!campaigns.length) {
     return {
       response: 'Hiện tại FOA chưa có chiến dịch khuyến mãi đang chạy. Bạn có thể kiểm tra lại sau hoặc xem voucher trong tài khoản nếu đã đăng nhập nhé.',
@@ -61,6 +91,63 @@ const buildCampaignResponse = async (): Promise<DeterministicChatResponse> => {
   return {
     response: `Các chương trình đang hoạt động:\n${lines.join('\n')}`,
     recommendedProducts: emptyRecommendations(),
+  };
+};
+
+const buildDiscountedProductsResponse = async (storeId?: string): Promise<DeterministicChatResponse> => {
+  const campaigns = await CampaignModel.find(getCampaignMatch(storeId))
+    .select('name type startTime endTime products')
+    .populate('products.productId', 'name price description image category isAvailable storeAvailability')
+    .sort({ endTime: 1 })
+    .limit(8)
+    .lean()
+    .maxTimeMS(900);
+
+  const seenProductIds = new Set<string>();
+  const recommendedProducts: unknown[] = [];
+
+  for (const campaign of campaigns) {
+    for (const item of campaign.products || []) {
+      const product = (item as any).productId;
+      if (!product?._id || !isProductActiveAtStore(product, storeId)) continue;
+
+      const productId = product._id.toString();
+      if (seenProductIds.has(productId)) continue;
+
+      const originalPrice = Number(product.price || 0);
+      const salePrice = getSalePrice(campaign, item, originalPrice);
+      if (salePrice == null || salePrice >= originalPrice) continue;
+
+      seenProductIds.add(productId);
+      recommendedProducts.push({
+        _id: productId,
+        name: product.name,
+        price: salePrice,
+        originalPrice,
+        discountPercentage: Math.round(((originalPrice - salePrice) / originalPrice) * 100),
+        campaignName: campaign.name,
+        campaignEndTime: campaign.endTime,
+        image: product.image || '',
+        category: product.category,
+        description: product.description,
+      });
+
+      if (recommendedProducts.length >= 10) break;
+    }
+
+    if (recommendedProducts.length >= 10) break;
+  }
+
+  if (!recommendedProducts.length) {
+    return {
+      response: 'Hiện tại mình chưa thấy món nào đang được giảm giá trong hệ thống.',
+      recommendedProducts: emptyRecommendations(),
+    };
+  }
+
+  return {
+    response: 'Mình đã tìm thấy các món đang có ưu đãi trong hệ thống. Giá sale và giá gốc được hiển thị trong các thẻ món bên dưới.',
+    recommendedProducts,
   };
 };
 
@@ -144,7 +231,12 @@ export const buildDeterministicDomainResponse = async ({
   storeId,
 }: DeterministicChatInput): Promise<DeterministicChatResponse | null> => {
   if (intent === 'PROMOTION') {
-    return isVoucherQuestion(message) ? buildVoucherResponse(userId) : buildCampaignResponse();
+    if (isVoucherQuestion(message)) return buildVoucherResponse(userId);
+    return buildCampaignResponse(storeId);
+  }
+
+  if (intent === 'DISCOUNTED_PRODUCTS') {
+    return buildDiscountedProductsResponse(storeId);
   }
 
   if (intent === 'STORE_HOURS' || isStoreQuestion(message)) {

@@ -97,9 +97,9 @@ const OUTER_WARDS = [
 
 const DELIVERABLE_CITY = 'Đà Nẵng';
 
-const DEFAULT_BASE_FEE = 15_000;
+const DEFAULT_BASE_FEE = 25_000;
 const DEFAULT_FEE_PER_KM = 5_000;
-const DEFAULT_FREE_THRESHOLD = 300_000;
+const DEFAULT_FREE_THRESHOLD = 150_000;
 
 const WARD_CENTROIDS: Record<string, [number, number]> = {
   // --- Hải Châu ---

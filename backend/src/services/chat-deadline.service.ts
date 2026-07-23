@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
+import { CHAT_REQUEST_DEADLINE_MS } from '@/constants/env';
 
-const DEFAULT_CHAT_DEADLINE_MS = 8_000;
+const DEFAULT_CHAT_DEADLINE_MS = CHAT_REQUEST_DEADLINE_MS;
 
 export interface ChatRequestContext {
   traceId: string;

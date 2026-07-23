@@ -34,6 +34,10 @@ const incrementWithTtl = async (key: string, ttlSeconds: number) => {
 };
 
 export const acquireChatLimit = async (actor: ChatActor): Promise<ChatLimitLease> => {
+  if (NODE_ENV !== 'production' && process.env.CHAT_RATE_LIMIT_DISABLED === 'true') {
+    return {};
+  }
+
   const actorKey = actor.userId ? `user:${actor.userId}` : `guest:${sanitizeKeyPart(actor.ip)}`;
   const dailyLimit = actor.userId ? 20 : 5;
   const burstLimit = actor.userId ? 6 : 3;
