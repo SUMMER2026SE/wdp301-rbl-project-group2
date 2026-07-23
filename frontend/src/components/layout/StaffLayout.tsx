@@ -204,13 +204,12 @@ export default function StaffLayout() {
         { path: '/staff/delivery', label: 'Đơn đang giao', icon: Truck },
         { path: '/staff/menu', label: 'Thực đơn', icon: UtensilsCrossed },
         { path: '/staff/support', label: 'Chat Hỗ trợ', icon: MessageCircleMore },
-        { path: '/staff/customers', label: 'Khách hàng', icon: Users },
     ];
 
     // Close sidebar on mobile when navigating
     // Sync sidebar state when location changes
     if (sidebarOpen) {
-      setSidebarOpen(false);
+        setSidebarOpen(false);
     }
 
     const handleLogout = () => {
@@ -298,11 +297,11 @@ export default function StaffLayout() {
                     <div className={`flex items-center p-3 bg-slate-50 border border-slate-200/60 rounded-xl mb-3 transition-all duration-300 ${isHovered ? 'gap-3' : 'justify-center p-2'}`}>
                         <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
                             <Clock className="w-4 h-4 animate-pulse" />
-                            <span 
+                            <span
                                 className={cn(
                                     "absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white transition-colors duration-300",
                                     socketConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
-                                )} 
+                                )}
                                 title={socketConnected ? "Hệ thống kết nối thời gian thực ổn định" : "Mất kết nối thời gian thực"}
                             />
                         </div>

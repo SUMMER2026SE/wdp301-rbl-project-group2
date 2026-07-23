@@ -16,10 +16,11 @@ import { completeOrderInternal } from '@/services/order.service';
 import { OrderStatus } from '@/types/order.type';
 import { startEmailWorker } from '@/jobs/email-queue';
 import { startChatPreferenceWorker } from '@/jobs/chat-preference-queue';
+import { setNotificationSocketIO } from '@/services/notification.service';
 import { warnIfDeprecatedChatModel } from '@/services/ai-model-registry.service';
 
 
-// dns.setServers(['8.8.8.8', '1.1.1.1']);
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const app = express();
 //middleware
@@ -70,6 +71,7 @@ export const io = new Server(server, {
 });
 
 app.set('io', io);
+setNotificationSocketIO(io);
 
 io.on('connection', async (socket) => {
   // Auth from cookie or bearer token for mobile clients.
@@ -197,7 +199,7 @@ server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await connectToDatabase();
 
-  // Khởi chạy hàng đợi gửi mail chạy ngầm
+  // Khởi chạy hàng đợi chạy ngầm (BullMQ + Redis)
   startEmailWorker();
   startChatPreferenceWorker();
   warnIfDeprecatedChatModel();

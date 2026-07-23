@@ -108,6 +108,8 @@ export interface Order {
         name?: string;
         storeName?: string;
         address?: string;
+        district?: string;
+        phone?: string;
       }
     | null;
   cusId?:
@@ -119,6 +121,15 @@ export interface Order {
         email: string;
         phone: string;
       };
+  staffId?:
+    | string
+    | {
+        _id: string;
+        username?: string;
+        fullName?: string;
+        phone?: string;
+      }
+    | null;
   items: Array<{
     name?: string;
     productId:
@@ -157,7 +168,17 @@ export interface Order {
   deliveryInfo?: {
     shippedAt?: string;
     deliveredAt?: string;
-    driverId?: string | null;
+    driverName?: string | null;
+    driverPhone?: string | null;
+    driverId?:
+      | string
+      | {
+          _id: string;
+          username?: string;
+          fullName?: string;
+          phone?: string;
+        }
+      | null;
   };
   voucher?: string | null;
   createdAt: string;

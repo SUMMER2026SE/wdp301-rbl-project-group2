@@ -58,6 +58,9 @@ export const getStaffOrders = async (
 export const getStaffOrderById = async (storeId: mongoose.Types.ObjectId, orderId: string) => {
   const order = await OrderModel.findOne({ _id: orderId, storeId: storeId })
     .populate('cusId', 'username fullName email phone')
+    .populate('storeId', 'name address district location phone')
+    .populate('deliveryInfo.driverId', 'username fullName phone')
+    .populate('staffId', 'username fullName phone')
     .populate({ path: 'items.productId', select: 'name image price' });
 
   appAssert(order, NOT_FOUND, STAFF_NOT_FOUND_MESSAGE);
@@ -89,11 +92,20 @@ export const transitionStaffOrderStatus = async (
     order.deliveryInfo = order.deliveryInfo ?? {};
     order.deliveryInfo.driverId = actorId;
     order.deliveryInfo.shippedAt = new Date();
+    try {
+      const driver = await mongoose.model('User').findById(actorId).select('fullName username phone').lean();
+      if (driver) {
+        order.deliveryInfo.driverName = (driver as any).fullName || (driver as any).username || null;
+        order.deliveryInfo.driverPhone = (driver as any).phone || null;
+      }
+    } catch (_) {}
   }
 
-  if (nextStatus === OrderStatus.COMPLETED) {
+  if (nextStatus === OrderStatus.COMPLETED || nextStatus === OrderStatus.DELIVERED) {
     order.deliveryInfo = order.deliveryInfo ?? {};
-    order.deliveryInfo.deliveredAt = new Date();
+    if (!order.deliveryInfo.deliveredAt) {
+      order.deliveryInfo.deliveredAt = new Date();
+    }
   }
 
   order.statusHistory.push({

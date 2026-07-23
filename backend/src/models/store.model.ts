@@ -47,7 +47,4 @@ const StoreSettingsSchema = new mongoose.Schema<IStoreSettings>(
   }
 );
 
-// Indexes
-StoreSettingsSchema.index({ storeId: 1 }, { unique: true });
-
 export const StoreSettingsModel = mongoose.model<IStoreSettings>('StoreSettings', StoreSettingsSchema, 'store_settings');

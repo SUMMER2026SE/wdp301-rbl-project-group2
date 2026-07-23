@@ -131,7 +131,6 @@ const OrderSchema = new mongoose.Schema<IOrder>(
 );
 
 // Indexes
-OrderSchema.index({ code: 1 }, { unique: true });
 OrderSchema.index({ storeId: 1 });
 OrderSchema.index({ cusId: 1 });
 OrderSchema.index({ status: 1 });

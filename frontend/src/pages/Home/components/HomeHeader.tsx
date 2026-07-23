@@ -440,7 +440,7 @@ const HomeHeader = ({ searchQuery, onSearchChange }: HomeHeaderProps) => {
                               key={noti._id}
                               onClick={async () => {
                                 try {
-                                  if (!noti.isRead) {
+                                  if (!noti.isRead && !noti._id.startsWith("temp-")) {
                                     await notificationService.markAsRead(
                                       noti._id,
                                     );

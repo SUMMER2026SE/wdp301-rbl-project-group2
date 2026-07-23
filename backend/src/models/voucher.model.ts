@@ -114,7 +114,6 @@ const VoucherSchema = new mongoose.Schema<IVoucher>(
 
 VoucherSchema.index({ isActive: 1 });
 VoucherSchema.index({ startAt: 1, endAt: 1 });
-VoucherSchema.index({ code: 1 });
 
 VoucherSchema.virtual('is_valid').get(function (this: IVoucher) {
   const now = new Date();

@@ -12,8 +12,6 @@ const VariationSchema = new mongoose.Schema<IVariation>(
   }
 );
 
-VariationSchema.index({ name: 1 });
-
 export const VariationModel = mongoose.model<IVariation>('Variation', VariationSchema, 'variations');
 
 // --- VARIATION OPTIONS ---
