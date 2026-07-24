@@ -10,17 +10,10 @@ import {
   ArrowRight,
   TrendingUp,
   ListOrdered,
-  Users,
   UtensilsCrossed,
   MessageCircle,
 } from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import orderService from "@/services/order.service";
 import type { Order } from "@/services/order.service";
@@ -138,7 +131,8 @@ export default function StaffDashboard() {
       try {
         setLoading(true);
         const res = await orderService.getStaffOrders({ storeId, limit: 100 });
-        const scopedOrders = res.data?.filter((order) => getOrderStoreId(order) === storeId) ?? [];
+        const scopedOrders =
+          res.data?.filter((order) => getOrderStoreId(order) === storeId) ?? [];
         setOrders(scopedOrders);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -177,8 +171,7 @@ export default function StaffDashboard() {
   );
 
   const todayRevenue = useMemo(
-    () =>
-      todayCompleted.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0),
+    () => todayCompleted.reduce((sum, o) => sum + Number(o.totalPrice || 0), 0),
     [todayCompleted],
   );
 
@@ -313,14 +306,6 @@ export default function StaffDashboard() {
       iconText: "text-amber-600",
       to: "/staff/orders",
       primary: true,
-    },
-    {
-      label: "Khách hàng",
-      desc: "Quản lý thông tin khách",
-      icon: Users,
-      iconBg: "bg-blue-100",
-      iconText: "text-blue-600",
-      to: "/staff/customers",
     },
     {
       label: "Thực đơn",
@@ -477,7 +462,9 @@ export default function StaffDashboard() {
                 {recentOrders.map((order) => {
                   const customerName =
                     typeof order.cusId === "object"
-                      ? order.cusId.fullName || order.cusId.username || "Khách vãng lai"
+                      ? order.cusId.fullName ||
+                        order.cusId.username ||
+                        "Khách vãng lai"
                       : "Khách vãng lai";
                   const statusInfo =
                     STATUS_MAP[order.status] ?? STATUS_MAP.pending;
@@ -496,9 +483,7 @@ export default function StaffDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full bg-orange-100 border border-orange-200/60 flex items-center justify-center text-[#ea580c] font-black text-xs shadow-sm"
-                          >
+                          <div className="w-8 h-8 rounded-full bg-orange-100 border border-orange-200/60 flex items-center justify-center text-[#ea580c] font-black text-xs shadow-sm">
                             {customerName.charAt(0).toUpperCase()}
                           </div>
                           <span className="text-sm text-[#1b140d] font-medium truncate max-w-[130px]">
@@ -609,8 +594,7 @@ export default function StaffDashboard() {
                     <div
                       className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{
-                        backgroundColor:
-                          DONUT_COLORS[i % DONUT_COLORS.length],
+                        backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length],
                       }}
                     />
                     <span className="text-xs text-[#9a734c] truncate">
@@ -636,18 +620,17 @@ export default function StaffDashboard() {
                 return (
                   <button
                     key={action.to}
-                    className={`group flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 text-left hover:scale-[1.01] hover:shadow-md ${action.primary
-                      ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300"
-                      : "bg-[#fcfaf8] border-[#e7dbcf] hover:border-[#ea580c]/40 hover:bg-white"
-                      }`}
+                    className={`group flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 text-left hover:scale-[1.01] hover:shadow-md ${
+                      action.primary
+                        ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300"
+                        : "bg-[#fcfaf8] border-[#e7dbcf] hover:border-[#ea580c]/40 hover:bg-white"
+                    }`}
                     onClick={() => navigate(action.to)}
                   >
                     <div
                       className={`p-2.5 rounded-xl ${action.iconBg} shrink-0`}
                     >
-                      <ActionIcon
-                        className={`w-5 h-5 ${action.iconText}`}
-                      />
+                      <ActionIcon className={`w-5 h-5 ${action.iconText}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-bold text-[#1b140d] block">
